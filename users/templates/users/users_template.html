@@ -1,0 +1,36 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta charset="UTF-8">
+        <title>Login</title>
+
+        <!-- Scripts and stylesheets -->
+        <link href="{% static 'css/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
+        <script src="{% static 'js/bootstrap/bootstrap.min.js' %}" type="text/javascript"></script>
+        <script src="{% static 'js/jquery/jquery.min.js' %}" type="text/javascript"></script>
+        <script src="{% static 'js/uaparser/uaparser.js' %}" type="text/javascript"></script>
+
+    </head>
+
+    <body>
+        <!-- Main body -->
+        {% block styles %}
+
+        {% endblock %}
+
+        <div id="main-page-body">
+                {% block background %}
+
+                {% endblock %}
+
+            <div id="login-box">
+                {% block body %}
+
+                {% endblock %}
+            </div>
+        </div>
+    </body>
+</html>

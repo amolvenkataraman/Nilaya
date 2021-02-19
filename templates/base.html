@@ -1,0 +1,43 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <title>{% block page_title %} {% endblock %} | Comptech</title>
+
+        <!-- Scripts and stylesheets -->
+        <link href="{% static 'css/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
+        <link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">
+        <script src="{% static 'js/bootstrap/bootstrap.min.js' %}" type="text/javascript"></script>
+        <script src="{% static 'js/jquery/jquery.min.js' %}" type="text/javascript"></script>
+        <script src="{% static 'js/handlebars/handlebars.js' %}" type="text/javascript"></script>
+        <script src="{% static 'js/popper/popper.js' %}" type="text/javascript"></script>
+        <script src="{% static 'js/leaflet/leaflet.js' %}" type="text/javascript"></script>
+        <script src="{% static 'js/moment/moment.js' %}" type="text/javascript"></script>
+        <script src="{% static 'js/uaparser/uaparser.js' %}" type="text/javascript"></script>
+
+        {% block page_script %} {% endblock %}
+
+        <!-- Script for tooltips -->
+        <script>
+            $(function(){
+                $('[data-toggle="tooltip"]').tooltip();
+            });
+            $(function(){
+                $('[data-toggle="popover"]').popover();
+            });
+
+        </script>
+    </head>
+
+    <body>
+
+        <!-- Main body -->
+        <div id="main-page-body">
+            LMAO
+            {% block page_body %} {% endblock %}
+        </div>
+
+    </body>
+</html>
