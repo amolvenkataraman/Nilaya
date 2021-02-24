@@ -43,31 +43,58 @@ body, #main-page-body {
     top: 50%;
     -ms-transform: translateY(-50%);
     transform: translateY(-50%);
-    right: 20vw;
 
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
-@media only screen and (max-width: 750px) {
-    #login-box {
-
-    }
-}
-
 #box-body {
     width: 90%;
 }
 
-@media only screen and (max-width: 1200px) {
-
+@media only screen and (min-width: 751px) and (orientation:landscape) {
+    #login-box {
+        right: 20vw;
+    }
 }
 
-@media all and (max-width: 400px) {
+@media only screen and (max-width: 750px) and (min-width: 451px) and (orientation:landscape) {
     #login-box {
-        width: 100%!important;
+        left: 50%;
+        margin-left: -225px;
     }
+}
+
+@media only screen and (max-width: 450px) and (orientation:landscape) {
+    #login-box {
+        width: 100vw!important;
+        height: 100vh!important;
+        position: absolute!important;
+        top: 0!important;
+        left: 0!important;
+        -ms-transform: none!important;
+        transform: none!important;
+        border-radius: 0;
+    }
+
+    .background, .background_info {
+        display: none;
+    }
+}
+
+@media screen and (orientation:portrait)
+{
+   #login-box{
+        width: 100vw!important;
+        height: 100vh!important;
+        position: absolute!important;
+        top: 0!important;
+        left: 0!important;
+        -ms-transform: none!important;
+        transform: none!important;
+        border-radius: 0;
+   } 
 }
 
 .asteriskField {
@@ -125,4 +152,27 @@ label {
 
 .submit-btn:hover {
     color: #ffffff;
+}
+
+.user-profile {
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    width: 70%;
+}
+
+.profile-picture {
+    float: left;
+}
+
+.profile-picture-img {
+    width: 200px;
+    height: 200px;
+    object-fit: scale-down;
+    border-radius: 50%;
+    border: 1px solid black;
+}
+
+.user-info {
+    margin-left: 250px;
 }

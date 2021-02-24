@@ -25,7 +25,7 @@ def login_view(request):
             if 'next' in request.POST:
                 return redirect(request.POST.get('next'))
             else:
-                return redirect('index')
+                return redirect('profile')
         else:
             error = "Please enter a correct username and password. Note that both fields are case-sensitive."
     else:
@@ -34,14 +34,28 @@ def login_view(request):
     id_, description, location = get_random_image()
     return render(request, 'users/login.html', {'form': form, 'error': error, 'image': {'id': id_, 'description': description, 'location': location}})
 
+# Render the user profile view
+def profile_view(request):
+    username = request.GET.get('user')
+    if username == None:
+        user = request.user
+    else:
+        user = ComptechUser.objects.filter(username=username)[0]
+    return render(request, 'users/profile.html', {'user': user.getinfo()})
+
 # Log a user out and redirect to login
 def logout_view(request):
     if request.method == 'POST':
         logout(request)
         return redirect('login')
 
-#def profile_picture(request):
-#    user_id = request.GET.get("user_id")
-#    if user_id != None:
-#        user = DocketUser.objects.filter(id=user_id)[0]
-#        return FileResponse(user.profile_picture)
+def profile_picture(request):
+    username = request.GET.get('user')
+    if username == None:
+        user = request.user
+    else:
+        user = ComptechUser.objects.filter(username=username)[0]
+    try:
+        return FileResponse(user.profile_picture)
+    except ValueError:
+        return FileResponse(open('media/profile_picture.png', 'rb'))

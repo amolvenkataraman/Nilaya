@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block page_title %} Profile {% endblock page_title %}
+
+{% block page_styles %}
+<link href="{% static 'users/users.css' %}" rel="stylesheet">
+{% endblock page_styles %}
+
+{% block page_body %}
+    <div class="user-profile">
+        <div class="profile-picture">
+            <img class="profile-picture-img" src="{% url 'profile_picture' %}?user={{ user.username }}" alt="Profile picture for {{ user.username }}">
+        </div>
+        <div class="user-info">
+            <h2>{{ user.first_name }} {{ user.last_name }}</h2>
+            <h4>@{{ user.username }}</h4>
+            {{ user.description }}
+        </div>
+    </div>
+{% endblock page_body %}
