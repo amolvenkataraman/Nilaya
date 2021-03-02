@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %} Settings {% endblock %}
+
+{% block script %}
+    <script>
+        function changeFont() {
+            document.querySelector('body').style.fontFamily = document.querySelector('.font-select').value
+        }
+    </script>
+{% endblock %}
+
+{% block body %}
+    <link href="{% static 'scheduler/styles.css' %}" rel="stylesheet"/>
+    <h1 class="page-title">Settings</h1>
+    <hr>
+    <h4 class="page-subheading">General</h4>
+    TODO
+    <hr>
+    <h4 class="page-subheading">Font</h4>
+        <div class="settings-group">
+            Font Face:&nbsp
+            <select class="custom-select settings-select font-select" onchange="changeFont()">
+                <option value="Segoe UI" selected>Segoe UI</option>
+                <option value="Arial">Arial</option>
+                <option value="Times New Roman">Times New Roman</option>
+                <option value="Courier">Courier</option>
+                <option value="Verdana">Verdana</option>
+                <option value="Georgia">Georgia</option>
+                <option value="Palatino">Palatino</option>
+                <option value="Garamond">Garamond</option>
+                <option value="Bookman">Bookman</option>
+                <option value="Tahoma">Tahoma</option>
+                <option value="Trebuchet MS">Trebuchet MS</option>
+                <option value="Comic Sans MS">Comic Sans MS</option>
+            </select>
+            <p class="text-warning">NOTE: All fonts are not compatible with all Operating Systems.</p>
+        </div>
+    <hr>
+    <h4 class="page-subheading">Category</h4>
+    TODO
+    <hr>
+    <h4 class="page-subheading">Another Category</h4>
+    TODO
+    <hr>
+    <br>
+{% endblock %}

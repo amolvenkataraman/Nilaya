@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title %} Error 400 {% endblock %}
+
+{% block page_body %}
+    <center><h1 style="font-size: 200px;">400</h1></center>
+    <center>It seems your browser has sent a bad or malformed request!</center>
+    <br>
+    <center><a href="{% url 'index' %}">Go back home</a></center>
+{% endblock %}

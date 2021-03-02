@@ -1,0 +1,142 @@
+.main-container {
+  display: flex;
+  flex-flow: column;
+  align-items: left;
+  height: 100%;
+}
+
+.unstyled-button {
+  border: none;
+  padding: 0;
+  background: none;
+}
+
+.menu {
+  width: 94%;
+  margin-left: 3%;
+  margin-right: 3%;
+}
+
+.item-card {
+  min-width: 200px;
+  max-width: 200px;
+  margin: 15px;
+  float: left;
+}
+
+.card-body {
+  background: #f8f9fa;
+}
+
+.login-register-form {
+	width: 30%;
+	border-radius: 10px;
+	background: #f8f8f8;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 15px;
+}
+
+.question-form {
+	width: 30%;
+	border-radius: 10px;
+	background: #f8f8f8;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 15px;
+}
+
+.info-form {
+	width: 40%;
+	border-radius: 10px;
+	background: #f8f8f8;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 15px;
+}
+
+.warning-text {
+  color: red;
+}
+
+.info {
+    padding: 6px 8px;
+    font: 14px/16px Arial, Helvetica, sans-serif;
+    background: white;
+    background: rgba(255,255,255,0.8);
+    box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    border-radius: 5px;
+}
+.info h4 {
+    margin: 0 0 5px;
+    color: #777;
+}
+
+.date-picker {
+  position: relative;
+}
+
+.add-on-day-btn {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  cursor: pointer;
+  border-bottom: 0px!important;
+}
+
+.sidebar {
+  width: 15%;
+  height: calc(100vh - 56px);
+  margin: 0px;
+  padding: 10px;
+  background: #f8f9fa;
+}
+
+/*.timetable {
+  font-family: "Trebuchet MS", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 3px;
+}
+
+.timetable td, .timetable th {
+  border: 1px solid #ddd;
+  padding: 8px;
+  margin: 8px;
+}
+
+.timetable tr:nth-child(even){background-color: #f2f2f2;}
+
+.timetable th:nth-child(1){max-width: 30px;}
+.timetable td:nth-child(1){max-width: 30px;}
+
+.timetable th {
+  padding-top: 12px;
+  padding-bottom: 12px;
+  text-align: left;
+}*/
+
+.page-title {
+  margin: 50px 50px 50px 50px;
+}
+
+.page-subheading {
+  margin: 10px 10px 30px 50px;
+}
+
+.settings-group {
+  margin: 0px 0px 0px 50px;
+}
+
+.settings-select {
+  width: 250px;
+}
+
+.sticky-bottom {
+  bottom: 0;
+}
+
+.day-schedule-div {
+  width: 30%;
+}

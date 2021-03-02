@@ -10,9 +10,10 @@ class CTUAdmin(UserAdmin):
     
     fieldsets = UserAdmin.fieldsets + (
         ("Other", {
-            'fields': ('profile_picture', 'description', 'newuser',),
+            'fields': ('profile_picture', 'description', 'user_groups', 'newuser',),
         }),
     )
 
 
 admin.site.register(ComptechUser, CTUAdmin)
+admin.site.register(UserGroup)

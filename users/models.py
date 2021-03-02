@@ -3,10 +3,35 @@ from django.contrib.auth.models import User
 from django.contrib.auth.models import AbstractUser
 
 # Create your models here.
+class UserGroup(models.Model):
+    name = models.CharField(max_length=32)
+    description = models.CharField(max_length=512, default="No description")
+    picture = models.ImageField(upload_to="media/users/group_pictures", null=True, blank=True)
+    priority = models.IntegerField(default=1)
+    public = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"{self.name}"
+    
+    def getinfo(self):
+        ans = {
+            "id": self.id,
+            "name": self.name,
+            "description": self.description,
+        }
+
+        try:
+            ans["picture"] = self.picture.url
+        except ValueError:
+            pass
+
+        return ans
+
 class ComptechUser(AbstractUser):
     description = models.CharField(max_length=512, default="No description")
     #location = models.ForeignKey()
-    profile_picture = models.ImageField(upload_to="profile_pictures", null=True, blank=True)
+    profile_picture = models.ImageField(upload_to="media/users/profile_pictures", null=True, blank=True)
+    user_groups = models.ManyToManyField(UserGroup)
     newuser = models.BooleanField(default=True)
 
     REQUIRED_FIELDS = ['first_name', 'last_name', 'password']
@@ -21,11 +46,13 @@ class ComptechUser(AbstractUser):
             "first_name": self.first_name,
             "last_name": self.last_name,
             "description": self.description,
+            "is_admin": self.is_superuser,
+            "groups": [i.getinfo() for i in self.user_groups.all()]
         }
 
         try:
             ans["profile_picture"] = self.profile_picture.url
         except ValueError:
-            print("", end="")
+            pass
 
         return ans

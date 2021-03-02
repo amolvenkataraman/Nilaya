@@ -25,7 +25,7 @@ def login_view(request):
             if 'next' in request.POST:
                 return redirect(request.POST.get('next'))
             else:
-                return redirect('profile')
+                return redirect('index')
         else:
             error = "Please enter a correct username and password. Note that both fields are case-sensitive."
     else:

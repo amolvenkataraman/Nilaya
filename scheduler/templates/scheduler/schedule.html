@@ -1,0 +1,939 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title %} Schedule {% endblock %}
+
+{% block page_script %}
+  <script id="calendar-item" type="text/x-handlebars-template">
+    {% verbatim %}
+  <div class="assignment-button" data-class="{{ class }}" data-no="{{ i }}" data-type = "{{ type }}" data-toggle="modal" data-target="#modal" style="font-size: 12px; color: {{ color }};" onclick="display_info(this)">{{ text }}</div>
+    {% endverbatim %}
+  </script>
+
+  <script id="class-name" type="text/x-handlebars-template">
+    <div class="custom-control custom-checkbox" data-class="{% verbatim %}{{ class }}{% endverbatim %}" style="margin-left: 10px;">
+      <input type="checkbox" class="custom-control-input" id="{% verbatim %}{{ name }}{% endverbatim %}" {% verbatim %}{{ checked }}{% endverbatim %} onchange="toggle_class_visibility(this, false)">
+      <label class="custom-control-label" for="{% verbatim %}{{ name }}{% endverbatim %}">{% verbatim %}{{ name }}{% endverbatim %}</label>
+      <button class="btn btn-link"
+        type="button" id="dropdownMenu1" data-toggle="dropdown"
+        aria-haspopup="true" aria-expanded="false" style="float: right; color: #192634; padding: 0px; height: 20px;">
+        <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-three-dots-vertical" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+          <path fill-rule="evenodd" d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+        </svg>
+      </button>
+      <div class="dropdown-menu" aria-labelledby="dropdownMenu1">
+        <a class="dropdown-item" href="#!" onclick="toggle_class_visibility(this, true)">Display this only</a>
+        <a class="dropdown-item" href="#!" data-toggle="modal" data-target="#big-modal" onclick="display_class_info(this)">Settings</a>
+      </div>
+    </div>
+  </script>
+
+  <script id="enroll-code-prompt" type="text/x-handlebars-template">
+    <div class="input-group">
+      <input type="text" class="form-control enroll-code" placeholder="Enroll Code" aria-label="" aria-describedby="basic-addon1">
+      <div class="input-group-append">
+        <button class="btn btn-primary enroll-btn-1" type="button">Enroll</button>
+      </div>
+    </div>
+    <p class="text-danger enroll-warn"></p>
+
+    {% if request.user.teacher %}
+      <button class="btn btn-primary form-control create-class-btn" type="button" onclick="create_class()">Create a class</button>
+    {% endif %}
+  </script>
+
+  <script id="enroll-confirm" type="text/x-handlebars-template">
+    <center><h4>Enroll?</h4></center>
+    {% verbatim %}
+    <p>Class name: {{ name }}</p>
+    <p>Teacher: {{ teacher }}</p>
+    {% endverbatim %}
+    <button type="submit" class="btn btn-success enroll-confirm-btn" style="width: 100%;">Enroll</button>
+    <br><br>
+    <a href="{% url 'calendar' %}"><button type="submit" class="btn btn-danger" style="width: 100%;" data-dismiss="modal">Don't Enroll</button></a>
+    <strong><p class="text-warning">WARNING: Do NOT enroll in a class that you are not really in.</p></strong>
+  </script>
+
+  <script id="class-info-template" type="text/x-handlebars-template">
+    <div class="card-columns">
+      <div class="card">
+        <div class="card-body">
+          <h4 class="card-title">Students</h4>
+          <p class="card-text">
+            <ul class='student-list list-unstyled'></ul>
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <h4 class="card-title">Upcoming</h4>
+          <p class="card-text">
+            <ul class='upcoming-list list-unstyled'></ul>
+          </p>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-body">
+          <h4 class="card-title">Invites</h4>
+          <h6 class="card-subtitle mb-2 text-muted">Click on the checkbox to enable/disable the invite</h6>
+          <p class="card-text">
+            <ul class='invite-list list-unstyled'></ul>
+            <div class="invite-create-form">
+              <div class="input-group input-group-sm">
+                <div class="input-group-prepend" data-toggle="tooltip" data-placement="bottom" title="Random Invite">
+                  <button class="btn btn-primary random-invite" id="inputGroup-sizing-sm"><i class="fas fa-random"></i></button>
+                </div>
+                <input class="form-control invite-text" type="text" placeholder="Invite" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
+                <div class="input-group-append" data-toggle="tooltip" data-placement="bottom" title="Create Invite">
+                  <button class="btn btn-primary create-invite" id="inputGroup-sizing-sm"><i class="fas fa-check"></i></button>
+                </div>
+              </div>
+              <p class="text-danger invite-warn"></p>
+            </div>
+          </p>
+        </div>
+      </div>
+    </div>
+    <script>
+      $(function(){
+        $('[data-toggle="tooltip"]').tooltip();
+      });
+    </script>
+  </script>
+
+
+  {% if request.user.teacher %}
+    <script id="event-create-form" type="text/x-handlebars-template">
+      <div class="question-set">
+      <label for="class">Which class</label>
+      <select class="custom-select class-select" name="class-select">
+      <option selected value="">Select an class</option>
+      </select>
+      <p class="text-danger class-warn"></p>
+      <br>
+      <label for="name">Name of Event</label>
+      <input class="form-control name" id="name" type="text" placeholder="Name of Event">
+      <p class="text-danger name-warn"></p>
+      <br>
+      <label for="deadline">Start</label>
+      <input type="date" class="form-control deadline-start" name="deadline-end" style="width: 100%;">
+      <br>
+      <input type="time" class="form-control deadline1-start" name="deadline1-end" style="width: 100%;">
+      <p class="text-danger deadline-start-warn"></p>
+      <br>
+      <label for="deadline">End</label>
+      <input type="date" class="form-control deadline-end" name="deadline-end" style="width: 100%;">
+      <br>
+      <input type="time" class="form-control deadline1-end" name="deadline1-end" style="width: 100%;">
+      <p class="text-danger deadline-end-warn"></p>
+      <br>
+      <label for="description">Description</label>
+      <textarea class="form-control description" id="description" rows="3"></textarea>
+      <p class="text-danger description-warn"></p>
+      <br>
+      <button type="submit" class="btn btn-primary add" style="width: 100%;">Create</button>
+      </div>
+    </script>
+  {% endif %}
+
+  <script>
+    const calendar_item = Handlebars.compile(document.querySelector("#calendar-item").innerHTML)
+    const class_name = Handlebars.compile(document.querySelector("#class-name").innerHTML)
+    const enroll_code_prompt = Handlebars.compile(document.querySelector("#enroll-code-prompt").innerHTML)
+    const enroll_confirm = Handlebars.compile(document.querySelector("#enroll-confirm").innerHTML)
+    const class_info_template = Handlebars.compile(document.querySelector("#class-info-template").innerHTML)
+    {% if request.user.teacher %}
+      const event_create_form = Handlebars.compile(document.querySelector("#event-create-form").innerHTML)
+    {% endif %}
+
+    const d_ = new Date()
+    var m = d_.getMonth()
+    var y = d_.getFullYear()
+    var data
+
+    document.addEventListener('DOMContentLoaded', () => {
+      vars = JSON.parse("{{ vars }}".replace(/&#x27;/g,'"'))
+
+      change_height()
+
+      make_holidays_red()
+
+      {% if request.user.teacher %}
+        add_btn()
+      {% endif %}
+
+      populate_calendar(m, y)
+
+      enroll()
+
+      window.addEventListener('resize', change_height)
+    })
+
+    {% if request.user.teacher %}
+      function add_btn() {
+        document.querySelectorAll('.date-picker').forEach(dp => {
+          dp.innerHTML += `<span class="badge badge-light add-on-day-btn" data-toggle="modal" data-target="#modal" onclick="add_on_date(this)">+</span>`
+        })
+      }
+      
+      function add_on_date(e) {
+        $('.modal-title').html( "Add on " + e.parentElement.dataset.date + " " + months[e.parentElement.dataset.month - 1])
+        $('.modal-body').html(`
+          <center>
+            <div class="btn-group-vertical" role="group" aria-label="Basic example">
+            <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="assignment">Assignment</button>
+            <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="event">Event (Only for one class)</button>
+            <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="org-event">Schoolwide Event</button>
+            </div>
+          </center>
+        `)
+      }
+
+      function add_this_on_day(e, date_, month_, year_) {
+        if (e.dataset.type == "event") {
+          $('.modal-title').html("Add Event")
+          $('.modal-body').html(event_create_form())
+          for(i = 0; i < data["class"].length; i++) {
+            document.querySelector('.class-select').innerHTML += `<option value="${data["class"][i]["id"]}">${data["class"][i]["name"]}</option>`
+          }
+          document.querySelector('.deadline-start').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
+          document.querySelector('.deadline-end').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
+
+          document.querySelector('.add').onclick = () => {
+            error = false;
+            if (document.querySelector('.class-select').value === "")
+            {error = true; $('.class-warn').html("Please select a class")}
+            else
+            {$('.class-warn').html("")}
+
+            if (document.querySelector('.name').value === "")
+            {error = true; $('.name-warn').html("Please enter an event name")}
+            else
+            {$('.name-warn').html("")}
+
+            if (document.querySelector('.deadline-start').value == "" || document.querySelector('.deadline1-start').value == "")
+            {error = true; $('.deadline-start-warn').html("Please select a start date/time")}
+            else
+            {$('.deadline-start-warn').html("")}
+
+            if (document.querySelector('.deadline-end').value == "" || document.querySelector('.deadline1-end').value == "")
+            {error = true; $('.deadline-end-warn').html("Please select an end date/time")}
+            else
+            {$('.deadline-end-warn').html("")}
+
+            if (document.querySelector('.description').value === "")
+            {error = true; $('.description-warn').html("Please enter a description")}
+            else
+            {$('.description-warn').html("")}
+
+
+            if (error === false)
+            {
+              result = {
+                  "type": "event",
+                  "class": document.querySelector('.class-select').value,
+                  "name": document.querySelector('.name').value,
+                  "start": document.querySelector('.deadline-start').value + " " + document.querySelector('.deadline1-start').value,
+                  "end": document.querySelector('.deadline-end').value + " " + document.querySelector('.deadline1-end').value,
+                  "description": document.querySelector('.description').value,
+              }
+              
+              var request = new XMLHttpRequest()
+              request.open('POST', `{% url 'add' %}`)
+              request.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
+              request.onload = () => {
+                  if (request.responseText === "OK")
+                  {
+                      window.location.href = "/"
+                  }
+                  else
+                  {
+                      alert("Something went wrong on the server-side. Please try again.")
+                  }
+              }
+              request.send(JSON.stringify(result))
+            }
+          }
+        }
+      }
+    {% endif %}
+
+    function make_holidays_red() {
+      document.querySelectorAll('.date-span').forEach(ds => {
+        if (vars["holidays"].includes(parseInt(ds.parentElement.dataset.day))) {
+          ds.style.color = "red"
+        }
+      })
+    }
+
+    function change_height() {
+      rowcount = document.querySelector('#calendar-body').childElementCount.toString()
+      tableheight = document.querySelector('#calendar-body').offsetHeight
+      document.querySelectorAll('.date-picker').forEach(dp => {
+        dp.style.height = (tableheight / rowcount).toString() + "px"
+      })
+    }
+
+    function toggle_class_visibility(e, only) {
+      classid = e.parentElement.dataset.class
+      
+      if (!localStorage.getItem('hidden_classes')) {
+        localStorage.setItem('hidden_classes', JSON.stringify([]))
+      }
+
+      hc = JSON.parse(localStorage.getItem('hidden_classes'))
+
+      if (only == false) {
+        if (e.checked) {
+          if (hc.includes(classid)) {
+            hc1 = hc
+            hc = []
+            for (i = 0; i < hc1.length; i++) {
+              if (hc1[i] !== classid) {
+                hc.push(hc1[i])
+              }
+            }
+          }
+        }
+
+        else {
+          if (!hc.includes(classid)) {
+            hc.push(classid)
+          }
+        }
+
+        localStorage.setItem('hidden_classes', JSON.stringify(hc))
+      }
+
+      else {
+        classid = e.parentElement.parentElement.dataset.class
+        hc = []
+
+        for (i = 0; i < data["class"].length; i++) {
+          hc.push(data["class"][i]["id"])
+        }
+
+        localStorage.setItem('hidden_classes', JSON.stringify(hc))
+      }
+
+      reload()
+    }
+
+    function enroll() {
+      var enrollCode
+
+      document.querySelector('.enroll-btn').onclick = () => {
+        setTimeout(function() {
+          $('.modal-title').html("Enroll in a Class")
+          $('.modal-body').html(enroll_code_prompt())
+          document.querySelector('.enroll-btn-1').onclick = () => {
+            enrollCode = document.querySelector('.enroll-code').value
+            if (enrollCode == "") {
+              $('.enroll-warn').html("Please enter an enroll code.")
+            }
+            else {
+              $('.enroll-warn').html("")
+              r = new XMLHttpRequest()
+              r.open("GET", "{% url 'enroll' %}?code=" + enrollCode)
+              r.onload = () => {
+                res = JSON.parse(r.responseText)
+                if (res["status"] == "error") {
+                  $('.enroll-warn').html(res["data"])
+                }
+                else {
+                  $('.modal-body').html(enroll_confirm({"name": res["data"]["name"], "teacher": `${res["data"]["teacher"]["first_name"]} ${res["data"]["teacher"]["last_name"]}`}))
+                  document.querySelector('.enroll-confirm-btn').onclick = () => {
+                    r = new XMLHttpRequest()
+                    r.open("POST", "{% url 'enroll' %}?code=" + enrollCode)
+                    r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
+                    r.onload = () => {
+                      res = JSON.parse(r.responseText)
+                      if (res["status"] == "error") {
+                        $('.modal-body').html(`<p class="text-danger enroll-warn" style="font-size: 15px;">ERROR: ${res["data"]}</p>`)
+                      }
+                      else {
+                        $('.modal-body').html(`
+                          <p class="text-success enroll-warn" style="font-size: 15px;">You are successfully enrolled in the class.</p>
+                          <p>This page will automatically refresh. Please wait...</p>
+                        `)
+                        setTimeout(function() {
+                          location.reload()
+                        }, 1000)
+                      }
+                    }
+                    r.send()
+                  }
+                }
+              }
+              r.send()
+            }
+          }
+        }, 100)
+      }
+    }
+
+    {% if request.user.teacher %}
+      function toggle_period_for_class(btn) {
+        p = btn.parentElement
+        if (p.dataset.selected === '0')
+        {
+          p.style.backgroundColor = "#27a844"
+          p.dataset.selected = '1'
+        }
+        else {
+          if (p.dataset.used === '0')
+          {
+            p.style.backgroundColor = ""
+          }
+          else
+          {
+            p.style.backgroundColor = "#fec107"
+          }
+          p.dataset.selected = '0'
+        }
+      }
+
+      function create_class() {
+        $("#modal").modal("hide");
+        $("#big-modal").modal();
+
+        $('.big-modal-title').html("Create a class")
+        $('.big-modal-body').html(`
+          <label for="name">Name of class</label>
+          <input class="form-control name" id="name" type="text" placeholder="Name of class">
+          <p class="text-danger name-warn"></p>
+
+          <br>
+        `)
+
+        document.querySelector('.big-modal-body').innerHTML += timetable_template()
+
+        document.querySelector('.timetable-head-row').innerHTML += "<th>Period</th>"
+        for (i = 0; i < data["days"].length; i++) {
+          document.querySelector('.timetable-head-row').innerHTML += "<th>Day " + data["days"][i]["day"] + "</th>"
+        }
+
+        for (i = 0; i < data["slots"].length; i++) {
+          document.querySelector('.timetable-body').innerHTML += `<tr class="timetable-row timetable-row-${i}"></tr>`
+          currRow = document.querySelector(`.timetable-row-${i}`)
+          currRow.innerHTML += `<td>${data["slots"][i]["name"]}<br>${data["slots"][i]["start"]} - ${data["slots"][i]["end"]}</td>`
+
+          for (j = 0; j < data["days"].length; j++) {
+            currRow.innerHTML += `<td class='schedule-data schedule-data-${j}' data-slot='${data["slots"][i]["id"]}' data-day='${data["days"][j]["id"]}' data-selected='0' data-used='0'><button type="button" class="btn btn-light btn-sm period-select" onclick="toggle_period_for_class(this)"><i class="fas fa-check"></i></button></td>`
+            currData = currRow.querySelector(`.schedule-data-${j}`)
+
+            for (k = 0; k < data["class"].length; k++) {
+              for (l = 0; l < data["class"][k]["period"].length; l++) {
+                temp = data["class"][k]["period"][l]
+                
+                if (temp["day"]["id"] === data["days"][j]["id"] && temp["period"]["id"] === data["slots"][i]["id"]) {
+                  currData.style.backgroundColor = "#fec107"
+                  currData.dataset.used = '1'
+                }
+              }
+            }
+          }
+        }
+
+        document.querySelector('.big-modal-body').innerHTML +=
+        `
+          <br>
+          <button type="button" class="btn btn-primary form-control create">Create</button>
+          <br><br>
+          <strong><p class="text-warning">WARNING: Please create a unique class for EACH SECTION you teach.
+          Classes once created can only be deleted or disabled by an administrator.</p></strong>
+        `
+
+        document.querySelector('.create').onclick = () => {
+          if (document.querySelector('.name').value === "")
+          {
+            $('.name-warn').html("Please enter a class name")
+          }
+          else
+          {
+            $('.name-warn').html("")
+
+            var periods = []
+
+            document.querySelectorAll('.schedule-data').forEach(sd => {
+              if (sd.dataset.selected === '1')
+              {
+                periods.push([sd.dataset.day, sd.dataset.slot])
+              }
+            })
+
+            var request = new XMLHttpRequest()
+            request.open('POST', `{% url 'class_' %}`)
+            request.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
+            request.onload = () => {
+              res = JSON.parse(request.responseText)
+
+              if (res["status"] === "success")
+              {
+                $('.modal-body').html(`
+                  <p class="text-success enroll-warn" style="font-size: 15px;">You have successfully created in the class.</p>
+                  <p>This page will automatically refresh. Please wait...</p>
+                `)
+                location.reload()
+              }
+              else
+              {
+                $('.name-warn').html(res["data"])
+              }
+            }
+            request.send(JSON.stringify({"name": document.querySelector('.name').value, "periods": periods}))
+          }
+        }
+      }
+    {% endif %}
+
+    function display_day_info(ds) {
+      ds.onclick = () => {
+        setTimeout(function() {
+          dp = ds.parentElement
+
+          $('.big-modal-title').html(dp.dataset.date + " " + months[m])
+
+          $('.big-modal-body').html(timetable_template({"div_class": "day-schedule-div", "table-class": "day-schedule-timetable"}))
+
+          for (i = 0; i < data["slots"].length; i++) {
+            document.querySelector('.timetable-body').innerHTML += `<tr class="timetable-row timetable-row-${i}"></tr>`
+            currRow = document.querySelector(`.timetable-row-${i}`)
+            currRow.innerHTML += `<td>${data["slots"][i]["name"]}<br>${data["slots"][i]["start"]} - ${data["slots"][i]["end"]}</td>`
+
+            console.log(dp.dataset.day)
+            j = dp.dataset.day - 1
+            currRow.innerHTML += `<td class=schedule-data-${j}></td>`
+            currData = currRow.querySelector(`.schedule-data-${j}`)
+
+            for (k = 0; k < data["class"].length; k++) {
+              for (l = 0; l < data["class"][k]["period"].length; l++) {
+                temp = data["class"][k]["period"][l]
+                
+                if (temp["day"]["id"] === data["days"][j]["id"] && temp["period"]["id"] === data["slots"][i]["id"]) {
+                  currData.innerHTML = `${data["class"][k]["name"]}<br>${data["class"][k]["teacher"]["first_name"]}`
+                }
+              }
+            }
+          }
+
+
+          oe = data["org_events"]
+          for (i = 0; i < oe.length; i++)
+          {
+            sd = new Date(oe[i]['startdate'])
+            ed = new Date(oe[i]['enddate'])
+            td = new Date(dp.dataset.year, dp.dataset.month - 1, dp.dataset.date)
+            td1 = new Date(dp.dataset.year, dp.dataset.month - 1, (parseInt(dp.dataset.date) + 1).toString())
+            
+            if ((sd >= td && td1 >= ed) || (sd <= td && td1 <= ed))
+            {
+              document.querySelector('.big-modal-body').innerHTML += oe[i]["name"] + "<br>"
+            }
+          }
+
+          e = data["events"]
+          for (i = 0; i < e.length; i++)
+          {
+            sd = new Date(e[i]['startdate'])
+            ed = new Date(e[i]['enddate'])
+            td = new Date(dp.dataset.year, dp.dataset.month - 1, dp.dataset.date)
+            td1 = new Date(dp.dataset.year, dp.dataset.month - 1, (parseInt(dp.dataset.date) + 1).toString())
+
+            if ((sd >= td && td1 > ed) || (sd <= td && td1 < ed))
+            {
+              document.querySelector('.big-modal-body').innerHTML += e[i]["name"] + "<br>"
+            }
+          }
+
+          a = data["assignments"]
+          for (i = 0; i < a.length; i++)
+          {
+            d = new Date(a[i]['deadline'])
+            td = new Date(dp.dataset.year, dp.dataset.month - 1, dp.dataset.date)
+            if (d.toDateString() == td.toDateString())
+            {
+              document.querySelector('.big-modal-body').innerHTML += a[i]["name"] + "<br>"
+            }
+          }
+
+
+        }, 100)
+      }
+    }
+
+    function reload_calendar() {
+      $('.classlist').html("")
+
+      c = data["class"]
+      for (i = 0; i < c.length; i++) {
+        checked = "checked"
+        if (JSON.parse(localStorage.getItem('hidden_classes')).includes(String(c[i]["id"]))) {
+          checked = ""
+        }
+        document.querySelector('.classlist').innerHTML += class_name({"name": c[i]["name"], "class": c[i]["id"], "checked": checked})
+      }
+
+      e = data["events"]
+      for (i = 0; i < e.length; i++)
+      {
+        if (!JSON.parse(localStorage.getItem('hidden_classes')).includes(String(e[i]["class"]["id"]))) {
+          sd = new Date(e[i]['startdate'])
+          ed = new Date(e[i]['enddate'])
+          document.querySelectorAll('.date-picker').forEach(dp => {
+            td = new Date(dp.dataset.year, dp.dataset.month - 1, dp.dataset.date)
+            td1 = new Date(dp.dataset.year, dp.dataset.month - 1, (parseInt(dp.dataset.date) + 1).toString())
+
+            if ((sd >= td && td1 > ed) || (sd <= td && td1 < ed))
+            {
+              var ci = calendar_item({'class': e[i]['class'], 'i': i, 'type': "event", 'color': "cornflowerblue", 'text': e[i]['name'] + " [" + e[i]['class']['name'] + "]"})
+              dp.innerHTML += ci
+            }
+          })
+        }
+      }
+      change_height()
+
+      document.querySelectorAll('.date-span').forEach(ds => {
+        if (vars["holidays"].includes(parseInt(ds.dataset.day))) {
+          ds.style.color = "red"
+        }
+      })
+
+      {% if request.user.teacher %}
+        add_btn()
+      {% endif %}
+    }
+
+    function populate_calendar(m, y) {
+      // Add assignments to calendar
+
+      if (!localStorage.getItem('hidden_classes')) {
+        localStorage.setItem('hidden_classes', JSON.stringify([]))
+      }
+
+      r = new XMLHttpRequest()
+      r.open("GET", `{% url 'data' %}?month=${m}&year=${y}`)
+      r.onload = () => {
+        data = JSON.parse(r.responseText.replace(/&#x27;/g,'"'))["data"]
+        console.log(data)
+
+        reload_calendar()
+      }
+      r.send()
+    }
+
+    function display_info(button) {
+      setTimeout(function() {
+        if (button.dataset.type == "event") {
+          event = data["events"][button.dataset.no]
+          sd = new Date(event["startdate"])
+          ed = new Date(event["enddate"])
+          $('.modal-title').html(event["name"])
+          $('.modal-body').html(`
+            For: ${event["class"]['name']}<br>
+            Start Date: ${
+              sd.toLocaleString("en-US", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit"
+              })
+            }<br>
+            End Date: ${
+              ed.toLocaleString("en-US", {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+              hour: "numeric",
+              minute: "2-digit"
+              })
+            }<br>
+            Description: ${event["description"]}<br>`)
+        }
+      }, 100)
+    }
+
+    var no_invites = 0
+    var class_
+
+    function display_class_info(btn) {
+      classid = btn.parentElement.parentElement.dataset.class
+      console.log(classid)
+      for (i = 0; i < data["class"].length; i++) {
+        if (data["class"][i]["id"] == classid)
+        {
+          class_ = data["class"][i]
+        }
+      }
+
+      setTimeout(function () {
+        $('.big-modal-title').html(`${class_["name"]}`)
+        $('.big-modal-body').html(class_info_template())
+        for (i = 0; i < class_["students"].length; i++) {
+          studentinfo = `
+            ${class_["students"][i]["first_name"]} 
+            ${class_["students"][i]["last_name"]} 
+            (${class_["students"][i]["username"]})
+          `
+
+          if (class_["teacher"]["id"] == class_["students"][i]["id"]) {
+            document.querySelector('.student-list').innerHTML += `<li style="color: blue;">${studentinfo} [TEACHER]</li>`
+          }
+          else {
+            document.querySelector('.student-list').innerHTML += `<li>${studentinfo}</li>`
+          }
+        }
+        
+        for (i = 0; i < data["invites"].length; i++) {
+          invite = data["invites"][i]
+          if (invite["class"]["id"] == class_["id"]) {
+            temp = ""
+            if (invite["active"] == "True") {temp = "checked"}
+            no_invites += 1
+            document.querySelector('.invite-list').innerHTML += `
+              <li>
+                <div class="custom-control custom-checkbox">
+                  <input type="checkbox" class="custom-control-input" id="customCheck${no_invites}" data-invite="${invite["id"]}" data-class="${invite["class"]["id"]}" ${temp} onclick="this.disabled=true;toggleInvite(this);">
+                  <label class="custom-control-label invite-label" for="customCheck${no_invites}">${invite["code"]}</label>
+                </div>
+              </li>
+            `
+          }
+        }
+
+        for (i = 0; i < data["events"].length; i++) {
+          event = data["events"][i]
+          if (event["class"]["id"] == class_["id"]) {
+            
+          }
+        }
+
+        document.querySelectorAll('.invite-label').forEach(il => {
+          il.onclick = () => {
+            ta = document.querySelector('.copy-ta')
+            ta.value = il.innerHTML
+            setTimeout(function() {
+            ta.select()
+            document.execCommand("copy")
+            }, 100)
+            ta.value = ""
+          }
+        })
+
+        document.querySelector('.random-invite').onclick = function() {
+          document.querySelector('.invite-text').value = randomText(8)
+        }
+
+        document.querySelector('.create-invite').onclick = function() {
+          inv = document.querySelector('.invite-text').value
+          if (inv == "") {
+            $('.invite-warn').html("Please enter an invite code")
+          }
+          else {
+            $('.invite-warn').html("")
+
+            var request = new XMLHttpRequest()
+            request.open('POST', `{% url 'invite' %}?code=${document.querySelector('.invite-text').value}&class=${class_["id"]}&option=create`)
+            request.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
+            request.onload = () => {
+              res = JSON.parse(request.responseText)
+              if (res["status"] === "error")
+              { $('.invite-warn').html(res["data"])}
+              else
+              {
+                no_invites += 1
+                document.querySelector('.invite-list').innerHTML += `
+                <li>
+                  <div class="custom-control custom-checkbox">
+                    <input type="checkbox" class="custom-control-input" id="customCheck${no_invites}" data-invite="${res["data"]}" data-class="${class_["id"]}" checked onclick="this.disabled=true;toggleInvite(this);">
+                    <label class="custom-control-label invite-label" for="customCheck${no_invites}">${document.querySelector('.invite-text').value}</label>
+                  </div>
+                </li>
+                `
+                document.querySelector('.invite-text').value = ""
+                jump_(m, y)
+                populate_calendar(m, y)
+              }
+            }
+            request.send()
+          }
+        }
+      }, 100)
+    }
+
+    function toggleInvite(cb) {
+      var request = new XMLHttpRequest()
+      request.open('POST', `{% url 'invite' %}?code=${cb.dataset.invite}&option=active`)
+      request.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
+      request.onload = () => {
+        res = JSON.parse(request.responseText)
+        if (res["status"] === "error")
+        {alert("Something went wrong on the server-side. Please try again.")}
+        else
+        {
+          for(i=0; i<data["invites"].length; i++)
+          {
+            if(data["invites"][i]["id"] == cb.dataset.invite)
+            {
+              if(data["invites"][i]["active"] == "True")
+              {data["invites"][i]["active"] = "False"}
+              else
+              {data["invites"][i]["active"] = "True"}
+            }
+          }
+          cb.disabled = false
+        }
+      }
+      request.send()
+    }
+
+    function randomText(length) {
+      var result           = '';
+      var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      var charactersLength = characters.length;
+      for ( var i = 0; i < length; i++ ) {
+        result += characters.charAt(Math.floor(Math.random() * charactersLength));
+      }
+      return result;
+    }
+
+    function go_prev() {
+      m -= 1
+      if (m == -1) {
+        m = 11
+        y -= 1
+      }
+
+      previous()
+      make_holidays_red()
+      populate_calendar(m, y)
+    }
+
+    function go_next() {
+      m += 1
+      if (m == 12) {
+        m = 0
+        y += 1
+      }
+
+      next()
+      make_holidays_red()
+      populate_calendar(m, y)
+    }
+
+    function jump_() {
+      jump()
+      make_holidays_red()
+      m = document.querySelector("#month").value
+      y = document.querySelector("#year").value
+      populate_calendar(m, y)
+    }
+
+    function reload() {
+      jump()
+      make_holidays_red()
+      m = document.querySelector("#month").value
+      y = document.querySelector("#year").value
+      reload_calendar()
+    }
+  </script>
+{% endblock %}
+
+{% block page_body %}
+  <link href="{% static 'scheduler/styles.css' %}" rel="stylesheet" media="all"/>
+  <link href="{% static 'scheduler/calendar.css' %}" rel="stylesheet" media="all"/>
+
+  <div class="main-container">
+    <div class="sidebar jumbotron">
+      <div>
+        <font size=4 style="margin-left: 12px;">
+          My calendars:
+        </font>
+        <div class="classlist">
+
+        </div>
+        <br>
+        <button type="button" style="margin-left: 12px;" class="btn btn-info enroll-btn" data-toggle="modal" data-target="#modal"><i class="far fa-plus-square"></i></button>
+        <button type="button" class="btn btn-info timetable-btn" data-toggle="modal" data-target="#big-modal"><i class="far fa-calendar-alt"></i></button>
+      </div>
+    </div>
+
+    <div class="wrapper">
+      <div class="container-calendar">
+          <div class="button-container-calendar">
+              <button class="btn btn-info" id="previous" onclick="go_prev()">&#8249;</button>
+              <button class="btn btn-info" id="next" onclick="go_next()">&#8250;</button>
+              <h3 id="monthAndYear"></h3>
+          </div>
+          
+          <table class="table-calendar" id="calendar" data-lang="en">
+              <thead id="thead-month"></thead>
+              <tbody id="calendar-body"></tbody>
+          </table>
+          
+          <div class="footer-container-calendar">
+              <label for="month">Jump To: </label>
+              <select id="month" onchange="jump_()">
+                  <option value=0>Jan</option>
+                  <option value=1>Feb</option>
+                  <option value=2>Mar</option>
+                  <option value=3>Apr</option>
+                  <option value=4>May</option>
+                  <option value=5>Jun</option>
+                  <option value=6>Jul</option>
+                  <option value=7>Aug</option>
+                  <option value=8>Sep</option>
+                  <option value=9>Oct</option>
+                  <option value=10>Nov</option>
+                  <option value=11>Dec</option>
+              </select>
+              <select id="year" onchange="jump_()"></select>       
+          </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="modal" tabindex="-1" role="dialog" aria-labelledby="modalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title" id="modalLabel">Loading...</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal fade" id="big-modal" tabindex="-1" role="dialog"aria-labelledby="myHugeModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl modal-dialog-centered">
+      <div class="modal-content big-modal-content">
+        <div class="modal-header big-modal-header">
+          <h5 class="modal-title big-modal-title" id="modalLabel">Loading...</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body big-modal-body">
+        </div>
+        <div class="modal-footer big-modal-footer">
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <iframe id="printing-frame" name="print_frame" src="about:blank" style="display:none;"></iframe>
+
+  <textarea class="copy-ta" style="display: none;"></textarea>
+
+  <script src="{% static 'scheduler/calendar.js' %}" type="text/javascript"></script>
+{% endblock %}

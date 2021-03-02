@@ -15,6 +15,11 @@
         <div class="user-info">
             <h2>{{ user.first_name }} {{ user.last_name }}</h2>
             <h4>@{{ user.username }}</h4>
+            <div class="user-tags">
+                {% for i in user.groups %}
+                <span class="badge bg-dark">{{ i.name }}</span>
+                {% endfor %}
+            </div>
             {{ user.description }}
         </div>
     </div>

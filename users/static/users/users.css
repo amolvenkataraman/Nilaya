@@ -159,6 +159,8 @@ label {
     margin-left: auto;
     margin-right: auto;
     width: 70%;
+    height: 50%;
+    background-color: #9d9d9d;
 }
 
 .profile-picture {
@@ -168,11 +170,13 @@ label {
 .profile-picture-img {
     width: 200px;
     height: 200px;
+    margin: 20px;
     object-fit: scale-down;
     border-radius: 50%;
     border: 1px solid black;
 }
 
 .user-info {
-    margin-left: 250px;
+    margin: 20px;
+    float: left;
 }

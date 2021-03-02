@@ -1,0 +1,109 @@
+.wrapper {
+  position: absolute;
+  right: 0;
+  width: 85%;
+  height: calc(100vh - 56px);
+  overflow: auto;
+  display: flex;
+  flex-flow: column;
+}
+
+.container-calendar {
+  background: #f8f9fa;
+  padding: 15px;
+  width: 100%;
+  height: 100%;
+  margin: 0 auto;
+  overflow: auto;
+}
+
+.button-container-calendar button {
+  cursor: pointer;
+  display: inline-block;
+  zoom: 1;
+  border-radius: 4px;
+  padding: 5px 10px;
+}
+
+.table-calendar {
+  display: inline-table;
+  table-layout: fixed;
+  border-collapse: collapse;
+  overflow: scroll;
+  width: 100%;
+  height: calc(100% - 160px);
+  grid-auto-rows: 1fr;
+}
+
+.table-calendar td, .table-calendar th {
+  padding: 5px;
+  border: 1px solid #e2e2e2;
+  text-align: center;
+  vertical-align: top;
+}
+
+.date-picker, .table-calendar tr, .table-calendar td{
+  table-layout: fixed;
+  overflow: hidden;
+}
+
+.date-picker {
+  width: 100%;
+}
+
+.date-picker div, .date-picker button, .date-picker font {
+  overflow: hidden;
+}
+
+.date-picker.selected {
+  font-weight: bold;
+  outline: 1px solid #00BCD4;
+}
+
+.date-picker.selected span {
+  border-bottom: 2px solid currentColor;
+}
+
+.date-span {
+  cursor: pointer;
+  
+}
+
+.assignment-button {
+  cursor: pointer;
+}
+
+#monthAndYear {
+  text-align: center;
+  margin-top: 0;
+}
+
+.button-container-calendar {
+  position: relative;
+  margin-bottom: 1em;
+  overflow: hidden;
+  clear: both;
+}
+
+#previous {
+  float: left;
+}
+
+#next {
+  float: right;
+}
+
+.footer-container-calendar {
+  padding: 10px 0;
+}
+
+.footer-container-calendar select {
+  cursor: pointer;
+  display: inline-block;
+  zoom: 1;
+  background: #ffffff;
+  color: #585858;
+  border: 1px solid #bfc5c5;
+  border-radius: 3px;
+  padding: 5px 1em;
+}

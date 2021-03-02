@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title %} Error 404 {% endblock %}
+
+{% block page_body %}
+    <center><h1 style="font-size: 200px;">404</h1></center>
+    <center>The page that you requested can't be found!
+    Please check the URL for spelling mistakes.</center>
+    <br>
+    <center><a href="{% url 'index' %}">Go back home</a></center>
+{% endblock %}

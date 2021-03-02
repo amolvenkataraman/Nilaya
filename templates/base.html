@@ -37,6 +37,97 @@
 
     <body>
 
+        <nav class="navbar navbar-expand-lg navbar-light bg-light">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#">Unnamed</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarSupportedContent" aria-controls="navbarSupportedContent" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarSupportedContent">
+                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
+                        <li class="nav-item">
+                            <a class="nav-link active" aria-current="page" href="{% url 'index' %}">Home</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="#">Link</a>
+                        </li>
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Dropdown
+                            </a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                <li><a class="dropdown-item" href="#">Action</a></li>
+                                <li><a class="dropdown-item" href="#">Another action</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#">Something else here</a></li>
+                            </ul>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Disabled</a>
+                        </li>
+                    </ul>
+                    <!--<form class="d-flex">
+                        <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
+                        <button class="btn btn-outline-success" type="submit">Search</button>
+                    </form>-->
+
+                    <ul class="navbar-nav mr-0 mb-2 mb-lg-0">
+                        <li class="nav-item dropdown apps-dropdown me-2">
+                            <button type="button" class="btn btn-secondary dropdown-toggle" id="navbarDropdown1" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                Apps
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown1">
+                                <li><a class="dropdown-item" href="#">Action</a></li>
+                                <li><a class="dropdown-item" href="{% url 'profile' %}">Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'logout' %}">Log Out</a></li>
+                            </ul>
+                        </li>
+
+                        <li class="nav-item dropdown user-dropdown me-2">
+                            <button type="button" class="btn btn-secondary dropdown-toggle" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                {{ request.user }}
+                            </button>
+                            <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="navbarDropdown">
+                                <div class="profile-picture-in-dropdown">
+                                    <img class="profile-picture-img" src="{% url 'profile_picture' %}?user={{ user.username }}" alt="Profile picture for {{ user.username }}">
+                                </div>
+                                <br>
+                                <h4 class="user-info">{{ request.user.first_name }} {{ request.user.last_name }}</h4>
+                                <p class="user-info">{{ request.user.username }}</p>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="#">Action</a></li>
+                                <li><a class="dropdown-item" href="{% url 'profile' %}">Profile</a></li>
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{% url 'logout' %}">Log Out</a></li>
+                            </ul>
+                        </li>
+
+                        <style>
+
+                            .user-dropdown ul {
+                                width: 300px;
+                            }
+
+                            .profile-picture-in-dropdown img {
+                                width: 150px;
+                                border: 1px solid black;
+                                border-radius: 100%;
+                                margin-left: auto;
+                                margin-right: auto;
+                                display: block;
+                            }
+
+                            .user-dropdown ul {
+                                text-align: center;
+                            }
+
+                        </style>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+
         <!-- Main body -->
         <div id="main-page-body">
             {% block page_body %} {% endblock page_body %}

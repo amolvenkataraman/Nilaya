@@ -1,0 +1,12 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title  %} Error 500 {% endblock %}
+
+{% block page_body %}
+    <center><h1 style="font-size: 200px;">500</h1></center>
+    <center>Something went wrong on the server side!
+    Sorry for the inconvenience</center>
+    <br>
+    <center><a href="{% url 'index' %}">Go back home</a></center>
+{% endblock %}

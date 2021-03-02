@@ -32,8 +32,11 @@ ALLOWED_HOSTS = ['*']
 
 INSTALLED_APPS = [
     'users.apps.UsersConfig',
+    'mainsite.apps.MainsiteConfig',
     'static_files.apps.StaticFilesConfig',
     'bg_images.apps.BgImagesConfig',
+
+    'scheduler.apps.SchedulerConfig',
 
     'crispy_forms',
     'reset_migrations',
@@ -131,3 +134,13 @@ STATIC_URL = '/static/'
 
 # Tell Crispyforms (the form styling app) to use Bootstrap 4
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
+
+LOGIN_URL = '/accounts/login'
+
+CALENDAR_VARS = {
+    "use_day_schedule": "True",
+    "day_prefix": "DAY",
+    "days": 4,
+
+    "holidays": [0, 6],
+}
