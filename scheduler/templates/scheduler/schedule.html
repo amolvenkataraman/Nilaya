@@ -6,24 +6,24 @@
 {% block page_script %}
   <script id="calendar-item" type="text/x-handlebars-template">
     {% verbatim %}
-  <div class="assignment-button" data-class="{{ class }}" data-no="{{ i }}" data-type = "{{ type }}" data-toggle="modal" data-target="#modal" style="font-size: 12px; color: {{ color }};" onclick="display_info(this)">{{ text }}</div>
+  <div class="assignment-button" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type = "{{ type }}" data-bs-toggle="modal" data-bs-target="#modal" style="font-size: 12px; color: {{ color }};" onclick="display_info(this)">{{ text }}</div>
     {% endverbatim %}
   </script>
 
-  <script id="class-name" type="text/x-handlebars-template">
-    <div class="custom-control custom-checkbox" data-class="{% verbatim %}{{ class }}{% endverbatim %}" style="margin-left: 10px;">
-      <input type="checkbox" class="custom-control-input" id="{% verbatim %}{{ name }}{% endverbatim %}" {% verbatim %}{{ checked }}{% endverbatim %} onchange="toggle_class_visibility(this, false)">
+  <script id="calendar-name" type="text/x-handlebars-template">
+    <div class="custom-control custom-checkbox" data-calendar="{% verbatim %}{{ calendar }}{% endverbatim %}" style="margin-left: 10px;">
+      <input type="checkbox" class="custom-control-input" id="{% verbatim %}{{ name }}{% endverbatim %}" {% verbatim %}{{ checked }}{% endverbatim %} onchange="toggle_calendar_visibility(this, false)">
       <label class="custom-control-label" for="{% verbatim %}{{ name }}{% endverbatim %}">{% verbatim %}{{ name }}{% endverbatim %}</label>
       <button class="btn btn-link"
-        type="button" id="dropdownMenu1" data-toggle="dropdown"
+        type="button" id="dropdownMenu1" data-bs-toggle="dropdown"
         aria-haspopup="true" aria-expanded="false" style="float: right; color: #192634; padding: 0px; height: 20px;">
         <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-three-dots-vertical" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
           <path fill-rule="evenodd" d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
         </svg>
       </button>
       <div class="dropdown-menu" aria-labelledby="dropdownMenu1">
-        <a class="dropdown-item" href="#!" onclick="toggle_class_visibility(this, true)">Display this only</a>
-        <a class="dropdown-item" href="#!" data-toggle="modal" data-target="#big-modal" onclick="display_class_info(this)">Settings</a>
+        <a class="dropdown-item" href="#!" onclick="toggle_calendar_visibility(this, true)">Display this only</a>
+        <a class="dropdown-item" href="#!" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="display_calendar_info(this)">Settings</a>
       </div>
     </div>
   </script>
@@ -38,19 +38,19 @@
     <p class="text-danger enroll-warn"></p>
 
     {% if request.user.teacher %}
-      <button class="btn btn-primary form-control create-class-btn" type="button" onclick="create_class()">Create a class</button>
+      <button class="btn btn-primary form-control create-calendar-btn" type="button" onclick="create_calendar()">Create a class</button>
     {% endif %}
   </script>
 
   <script id="enroll-confirm" type="text/x-handlebars-template">
     <center><h4>Enroll?</h4></center>
     {% verbatim %}
-    <p>Class name: {{ name }}</p>
+    <p>Calendar name: {{ name }}</p>
     <p>Teacher: {{ teacher }}</p>
     {% endverbatim %}
     <button type="submit" class="btn btn-success enroll-confirm-btn" style="width: 100%;">Enroll</button>
     <br><br>
-    <a href="{% url 'calendar' %}"><button type="submit" class="btn btn-danger" style="width: 100%;" data-dismiss="modal">Don't Enroll</button></a>
+    <a href="{% url 'calendar' %}"><button type="submit" class="btn btn-danger" style="width: 100%;" data-bs-dismiss="modal">Don't Enroll</button></a>
     <strong><p class="text-warning">WARNING: Do NOT enroll in a class that you are not really in.</p></strong>
   </script>
 
@@ -80,11 +80,11 @@
             <ul class='invite-list list-unstyled'></ul>
             <div class="invite-create-form">
               <div class="input-group input-group-sm">
-                <div class="input-group-prepend" data-toggle="tooltip" data-placement="bottom" title="Random Invite">
+                <div class="input-group-prepend" data-bs-toggle="tooltip" data-placement="bottom" title="Random Invite">
                   <button class="btn btn-primary random-invite" id="inputGroup-sizing-sm"><i class="fas fa-random"></i></button>
                 </div>
                 <input class="form-control invite-text" type="text" placeholder="Invite" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
-                <div class="input-group-append" data-toggle="tooltip" data-placement="bottom" title="Create Invite">
+                <div class="input-group-append" data-bs-toggle="tooltip" data-placement="bottom" title="Create Invite">
                   <button class="btn btn-primary create-invite" id="inputGroup-sizing-sm"><i class="fas fa-check"></i></button>
                 </div>
               </div>
@@ -96,13 +96,11 @@
     </div>
     <script>
       $(function(){
-        $('[data-toggle="tooltip"]').tooltip();
+        $('[data-bs-toggle="tooltip"]').tooltip();
       });
     </script>
   </script>
 
-
-  {% if request.user.teacher %}
     <script id="event-create-form" type="text/x-handlebars-template">
       <div class="question-set">
       <label for="class">Which class</label>
@@ -134,17 +132,14 @@
       <button type="submit" class="btn btn-primary add" style="width: 100%;">Create</button>
       </div>
     </script>
-  {% endif %}
 
   <script>
     const calendar_item = Handlebars.compile(document.querySelector("#calendar-item").innerHTML)
-    const class_name = Handlebars.compile(document.querySelector("#class-name").innerHTML)
+    const class_name = Handlebars.compile(document.querySelector("#calendar-name").innerHTML)
     const enroll_code_prompt = Handlebars.compile(document.querySelector("#enroll-code-prompt").innerHTML)
     const enroll_confirm = Handlebars.compile(document.querySelector("#enroll-confirm").innerHTML)
     const class_info_template = Handlebars.compile(document.querySelector("#class-info-template").innerHTML)
-    {% if request.user.teacher %}
       const event_create_form = Handlebars.compile(document.querySelector("#event-create-form").innerHTML)
-    {% endif %}
 
     const d_ = new Date()
     var m = d_.getMonth()
@@ -169,12 +164,11 @@
       window.addEventListener('resize', change_height)
     })
 
-    {% if request.user.teacher %}
-      function add_btn() {
-        document.querySelectorAll('.date-picker').forEach(dp => {
-          dp.innerHTML += `<span class="badge badge-light add-on-day-btn" data-toggle="modal" data-target="#modal" onclick="add_on_date(this)">+</span>`
-        })
-      }
+    function add_btn() {
+      document.querySelectorAll('.date-picker').forEach(dp => {
+        dp.innerHTML += `<span class="badge badge-light add-on-day-btn" data-bs-toggle="modal" data-bs-target="#modal" onclick="add_on_date(this)">+</span>`
+      })
+    }
       
       function add_on_date(e) {
         $('.modal-title').html( "Add on " + e.parentElement.dataset.date + " " + months[e.parentElement.dataset.month - 1])
@@ -256,7 +250,6 @@
           }
         }
       }
-    {% endif %}
 
     function make_holidays_red() {
       document.querySelectorAll('.date-span').forEach(ds => {
@@ -372,7 +365,6 @@
       }
     }
 
-    {% if request.user.teacher %}
       function toggle_period_for_class(btn) {
         p = btn.parentElement
         if (p.dataset.selected === '0')
@@ -485,7 +477,6 @@
           }
         }
       }
-    {% endif %}
 
     function display_day_info(ds) {
       ds.onclick = () => {
@@ -493,44 +484,6 @@
           dp = ds.parentElement
 
           $('.big-modal-title').html(dp.dataset.date + " " + months[m])
-
-          $('.big-modal-body').html(timetable_template({"div_class": "day-schedule-div", "table-class": "day-schedule-timetable"}))
-
-          for (i = 0; i < data["slots"].length; i++) {
-            document.querySelector('.timetable-body').innerHTML += `<tr class="timetable-row timetable-row-${i}"></tr>`
-            currRow = document.querySelector(`.timetable-row-${i}`)
-            currRow.innerHTML += `<td>${data["slots"][i]["name"]}<br>${data["slots"][i]["start"]} - ${data["slots"][i]["end"]}</td>`
-
-            console.log(dp.dataset.day)
-            j = dp.dataset.day - 1
-            currRow.innerHTML += `<td class=schedule-data-${j}></td>`
-            currData = currRow.querySelector(`.schedule-data-${j}`)
-
-            for (k = 0; k < data["class"].length; k++) {
-              for (l = 0; l < data["class"][k]["period"].length; l++) {
-                temp = data["class"][k]["period"][l]
-                
-                if (temp["day"]["id"] === data["days"][j]["id"] && temp["period"]["id"] === data["slots"][i]["id"]) {
-                  currData.innerHTML = `${data["class"][k]["name"]}<br>${data["class"][k]["teacher"]["first_name"]}`
-                }
-              }
-            }
-          }
-
-
-          oe = data["org_events"]
-          for (i = 0; i < oe.length; i++)
-          {
-            sd = new Date(oe[i]['startdate'])
-            ed = new Date(oe[i]['enddate'])
-            td = new Date(dp.dataset.year, dp.dataset.month - 1, dp.dataset.date)
-            td1 = new Date(dp.dataset.year, dp.dataset.month - 1, (parseInt(dp.dataset.date) + 1).toString())
-            
-            if ((sd >= td && td1 >= ed) || (sd <= td && td1 <= ed))
-            {
-              document.querySelector('.big-modal-body').innerHTML += oe[i]["name"] + "<br>"
-            }
-          }
 
           e = data["events"]
           for (i = 0; i < e.length; i++)
@@ -545,19 +498,6 @@
               document.querySelector('.big-modal-body').innerHTML += e[i]["name"] + "<br>"
             }
           }
-
-          a = data["assignments"]
-          for (i = 0; i < a.length; i++)
-          {
-            d = new Date(a[i]['deadline'])
-            td = new Date(dp.dataset.year, dp.dataset.month - 1, dp.dataset.date)
-            if (d.toDateString() == td.toDateString())
-            {
-              document.querySelector('.big-modal-body').innerHTML += a[i]["name"] + "<br>"
-            }
-          }
-
-
         }, 100)
       }
     }
@@ -565,7 +505,7 @@
     function reload_calendar() {
       $('.classlist').html("")
 
-      c = data["class"]
+      c = data["calendars"]
       for (i = 0; i < c.length; i++) {
         checked = "checked"
         if (JSON.parse(localStorage.getItem('hidden_classes')).includes(String(c[i]["id"]))) {
@@ -600,9 +540,7 @@
         }
       })
 
-      {% if request.user.teacher %}
-        add_btn()
-      {% endif %}
+      add_btn()
     }
 
     function populate_calendar(m, y) {
@@ -613,7 +551,7 @@
       }
 
       r = new XMLHttpRequest()
-      r.open("GET", `{% url 'data' %}?month=${m}&year=${y}`)
+      r.open("GET", `{% url 'get_events' %}?month=${m}&year=${y}`)
       r.onload = () => {
         data = JSON.parse(r.responseText.replace(/&#x27;/g,'"'))["data"]
         console.log(data)
@@ -851,12 +789,12 @@
         <font size=4 style="margin-left: 12px;">
           My calendars:
         </font>
-        <div class="classlist">
+        <div class="calendarlist">
 
         </div>
         <br>
-        <button type="button" style="margin-left: 12px;" class="btn btn-info enroll-btn" data-toggle="modal" data-target="#modal"><i class="far fa-plus-square"></i></button>
-        <button type="button" class="btn btn-info timetable-btn" data-toggle="modal" data-target="#big-modal"><i class="far fa-calendar-alt"></i></button>
+        <button type="button" style="margin-left: 12px;" class="btn btn-info enroll-btn" data-bs-toggle="modal" data-bs-target="#modal"><i class="far fa-plus-square"></i></button>
+        <button type="button" class="btn btn-info timetable-btn" data-bs-toggle="modal" data-bs-target="#big-modal"><i class="far fa-calendar-alt"></i></button>
       </div>
     </div>
 
@@ -900,14 +838,12 @@
       <div class="modal-content">
         <div class="modal-header">
           <h5 class="modal-title" id="modalLabel">Loading...</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body">
         </div>
         <div class="modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>
       </div>
     </div>
@@ -918,14 +854,12 @@
       <div class="modal-content big-modal-content">
         <div class="modal-header big-modal-header">
           <h5 class="modal-title big-modal-title" id="modalLabel">Loading...</h5>
-          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-            <span aria-hidden="true">&times;</span>
-          </button>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
         <div class="modal-body big-modal-body">
         </div>
         <div class="modal-footer big-modal-footer">
-          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
         </div>
       </div>
     </div>

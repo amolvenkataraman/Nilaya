@@ -25,12 +25,17 @@ def get_events(request):
     if year == None:
         return HttpResponseBadRequest("Year not provided")
 
-    ans = {}
+    ans = {"data": {}}
 
     user_ = request.user
     calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
-    #print(calendars)
-    return HttpResponse("LOL")
+    ans["data"]["calendars"] = [i.getinfo() for i in calendars]
+    ans["data"]["events"] = []
+
+    for calendar in calendars:
+        events = Event.objects.filter(Q(calendar=calendar) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year))))))
+    
+    return JsonResponse(ans)
     
 
 @login_required
@@ -135,22 +140,6 @@ def add(request):
         return HttpResponse('Only teachers are allowed to access this.<br>Please contact me if you are a teacher and want administrative access.')
 
 @login_required
-def edit(request):
-    if request.user.teacher == True:
-        if request.method == 'POST':
-            print("lol")
-    else:
-        return HttpResponse('Only teachers are allowed to access this.<br>Please contact me if you are a teacher and want administrative access.')
-
-@login_required(login_url="users/login")
-def delete(request):
-    if request.user.teacher == True:
-        if request.method == 'POST':
-            print("lol")
-    else:
-        return HttpResponse('Only teachers are allowed to access this.<br>Please contact me if you are a teacher and want administrative access.')
-
-@login_required
 def enroll(request):
     invitecode = request.GET.get("code")
     if invitecode == None:
@@ -239,11 +228,7 @@ def invite(request):
                 except IndexError:
                     return JsonResponse({"status": "error", "data": "Class does not exist"})
 
-@login_required
-def settings(request):
-    #return HttpResponse("ERROR: Not yet implemented!")
-    return render(request, "scheduler/settings.html")
-
+"""
 def add_from_gc(request):
     if request.user.is_superuser:
         calendar_id = "example@group.calendar.google.com"
@@ -275,11 +260,4 @@ def add_from_gc(request):
             _.save()
 
             #print(f"{i['summary']}, from {i['start']} to {i['end']}")
-
-def stats(request):
-    context = {
-        "users": DocketUser.objects.count(),
-        "classes": Class.objects.count(),
-        "assignments": Assignment.objects.count(),
-    }
-    return render(request, 'scheduler/admin.html', context)
+"""
