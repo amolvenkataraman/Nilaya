@@ -36,11 +36,13 @@ INSTALLED_APPS = [
     'static_files.apps.StaticFilesConfig',
     'bg_images.apps.BgImagesConfig',
 
+    'chat.apps.ChatConfig',
     'scheduler.apps.SchedulerConfig',
 
     'crispy_forms',
     'reset_migrations',
     'sslserver',
+    #'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -78,6 +80,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'Comptech.wsgi.application'
+ASGI_APPLICATION = 'Comptech.asgi.application'
 
 
 # Database

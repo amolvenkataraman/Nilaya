@@ -503,7 +503,7 @@
     }
 
     function reload_calendar() {
-      $('.classlist').html("")
+      $('.calendarlist').html("")
 
       c = data["calendars"]
       for (i = 0; i < c.length; i++) {
@@ -511,7 +511,7 @@
         if (JSON.parse(localStorage.getItem('hidden_classes')).includes(String(c[i]["id"]))) {
           checked = ""
         }
-        document.querySelector('.classlist').innerHTML += class_name({"name": c[i]["name"], "class": c[i]["id"], "checked": checked})
+        document.querySelector('.calendarlist').innerHTML += class_name({"name": c[i]["name"], "class": c[i]["id"], "checked": checked})
       }
 
       e = data["events"]
@@ -793,8 +793,8 @@
 
         </div>
         <br>
-        <button type="button" style="margin-left: 12px;" class="btn btn-info enroll-btn" data-bs-toggle="modal" data-bs-target="#modal"><i class="far fa-plus-square"></i></button>
-        <button type="button" class="btn btn-info timetable-btn" data-bs-toggle="modal" data-bs-target="#big-modal"><i class="far fa-calendar-alt"></i></button>
+        <button type="button" style="margin-left: 12px;" class="btn btn-info enroll-btn" data-bs-toggle="modal" data-bs-target="#modal"><i class="far fa-plus-square"></i>+</button>
+        <button type="button" class="btn btn-info timetable-btn" data-bs-toggle="modal" data-bs-target="#big-modal"><i class="far fa-calendar-alt"></i>:)</button>
       </div>
     </div>
 
@@ -864,8 +864,6 @@
       </div>
     </div>
   </div>
-
-  <iframe id="printing-frame" name="print_frame" src="about:blank" style="display:none;"></iframe>
 
   <textarea class="copy-ta" style="display: none;"></textarea>
 

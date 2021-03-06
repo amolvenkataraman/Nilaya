@@ -5,7 +5,7 @@ from users.models import *
 class Calendar(models.Model):
     name = models.CharField(max_length=64, unique=True)
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='calendar_owner')
-    subscribers = models.ManyToManyField(ComptechUser, related_name='calendar_subscribers')
+    subscribers = models.ManyToManyField(ComptechUser, related_name='calendar_subscribers', null=True, blank=True)
     active = models.BooleanField(default=True)
 
     def  __str__(self):
@@ -87,7 +87,7 @@ class Event(models.Model):
     description = models.TextField()
 
     def __str__(self):
-        return f"{self.name} for {self.Class.name}. From {str(self.startdate)} to {str(self.enddate)}"
+        return f"{self.name} for {self.calendar.name}. From {str(self.startdate)} to {str(self.enddate)}"
 
     def getinfo(self):
         ans = {
