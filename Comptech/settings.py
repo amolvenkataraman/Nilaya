@@ -42,7 +42,7 @@ INSTALLED_APPS = [
     'crispy_forms',
     'reset_migrations',
     'sslserver',
-    #'channels',
+    'channels',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -90,8 +90,14 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
+    },
+    'chat_db': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'chat.sqlite3',
     }
 }
+
+DATABASE_ROUTERS = ['chat.routers.ChatRouter']
 
 
 # Password validation
@@ -121,9 +127,9 @@ LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'Canada/Eastern'
 
-USE_I18N = True
+USE_I18N = False
 
-USE_L10N = True
+USE_L10N = False
 
 USE_TZ = True
 
@@ -147,3 +153,9 @@ CALENDAR_VARS = {
 
     "holidays": [0, 6],
 }
+
+IGNORABLE_404_URLS = ['favicon.ico']
+
+SESSION_COOKIE_AGE = 1209600
+
+# P@ssw0rd

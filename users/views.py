@@ -59,3 +59,13 @@ def profile_picture(request):
         return FileResponse(user.profile_picture)
     except ValueError:
         return FileResponse(open('media/profile_picture.png', 'rb'))
+
+def toggle_dark_mode(request):
+    user_ = request.user
+    if user_.dark_mode == True:
+        user_.dark_mode = False
+    else:
+        user_.dark_mode = True
+    user_.save()
+
+    return HttpResponse("DONE")

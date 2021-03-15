@@ -31,7 +31,9 @@ class ComptechUser(AbstractUser):
     description = models.CharField(max_length=512, default="No description")
     #location = models.ForeignKey()
     profile_picture = models.ImageField(upload_to="media/users/profile_pictures", null=True, blank=True)
-    user_groups = models.ManyToManyField(UserGroup)
+    dark_mode = models.BooleanField(default=False)
+    friends = models.ManyToManyField("self", related_name='user_friends', null=True, blank=True)
+    user_groups = models.ManyToManyField(UserGroup, null=True, blank=True)
     newuser = models.BooleanField(default=True)
 
     REQUIRED_FIELDS = ['first_name', 'last_name', 'password']
@@ -56,3 +58,6 @@ class ComptechUser(AbstractUser):
             pass
 
         return ans
+
+    def getfriends(self):
+        return [i.getinfo() for i in self.friends.all()]

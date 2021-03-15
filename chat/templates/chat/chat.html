@@ -1,0 +1,104 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title %} Chat {% endblock %}
+
+{% block page_styles %}
+
+{% endblock %}
+
+{% block page_script %}
+    <script id="chat-home" type="text/x-handlebars-template">
+        <div class="chat-home-display {% if request.user.dark_mode %} bg-dark {% else %} bg-light {% endif %}">
+            <div class="status-display">
+                {% for i in friends %}
+                <div class="status">
+                    <img class="status-img" src="{% url 'profile_picture' %}?user={{ i.username }}" alt="">
+                </div>
+                {{ i.username }}
+                {% endfor %}
+            </div>
+        </div>
+    </script>
+
+    <script id="direct-message" type="text/x-handlebars-template">
+        <div class="message-display {% if request.user.dark_mode %} bg-dark {% else %} bg-light {% endif %}">
+
+        </div>
+
+        <div class="send-message">
+            <div class="input-group {% if request.user.dark_mode %} bg-dark {% else %} bg-light {% endif %}">
+                <input type="text" class="form-control" placeholder="Message" aria-label="Message" aria-describedby="Send Message">
+                <button class="btn btn-primary" type="button" id="send-button">Send</button>
+              </div>
+        </div>
+    </script>
+
+    <script>
+        const chat_home = Handlebars.compile($("#chat-home").html())
+        const direct_message = Handlebars.compile($("#direct-message").html());
+
+        var chatSocket = new WebSocket(
+            'ws://'
+            + window.location.host
+            + '/ws/chat/'
+            + '0'
+            + '/'
+        );
+
+        var dm_id = {{ dm_id }}
+
+        function show_home() {
+            chatSocket.close();
+            $('.chat-middle').html(chat_home());
+        }
+
+        
+        function show_dm(dm_id) {
+            $('.chat-middle').html(direct_message());
+
+            chatSocket.close();
+            chatSocket = new WebSocket(
+                'ws://'
+                + window.location.host
+                + '/ws/chat/'
+                + dm_id
+                + '/'
+            );
+        }
+
+        window.addEventListener('DOMContentLoaded', (event) => {
+            console.log('DOM fully loaded and parsed');
+            
+
+            if (dm_id == 0) {
+                show_home();
+            }
+            else {
+                show_dm(dm_id);
+            }
+        })
+    </script>
+{% endblock %}
+
+{% block page_body %}
+    <link href="{% static 'chat/styles.css' %}" rel="stylesheet" media="all"/>
+
+    <div id="chat-container">
+        <div class="chat chat-left {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
+            <button class="btn btn-block btn-outline-primary" onclick="show_home()">Home</button>
+            <br>
+            {% for i in dms %}
+                <button class="btn btn-block btn-outline-primary" onclick="show_dm({{ i.id }})">{{ i.name }}</button>
+            {% endfor %}
+        </div>
+
+        <div class="chat chat-middle {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
+
+        </div>
+
+        <div class="chat chat-right {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
+            {{ friends }}
+        </div>
+    </div>
+{% endblock %}
