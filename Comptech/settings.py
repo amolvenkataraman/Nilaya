@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     'reset_migrations',
     'sslserver',
     'channels',
+    'rest_framework',
+
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -99,6 +101,12 @@ DATABASES = {
 
 DATABASE_ROUTERS = ['chat.routers.ChatRouter']
 
+CHANNEL_LAYERS={
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+     }
+}
+
 
 # Password validation
 # https://docs.djangoproject.com/en/3.1/ref/settings/#auth-password-validators
@@ -144,7 +152,7 @@ STATIC_URL = '/static/'
 # Tell Crispyforms (the form styling app) to use Bootstrap 4
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
-LOGIN_URL = '/accounts/login'
+LOGIN_URL = '/accounts/login/'
 
 CALENDAR_VARS = {
     "use_day_schedule": "True",

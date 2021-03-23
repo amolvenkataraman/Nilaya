@@ -5,7 +5,7 @@
 
 /* Track */
 ::-webkit-scrollbar-track {
-    background: #f1f1f1;
+    background: var(--bs-light);
 }
 
 /* Handle */
@@ -48,13 +48,43 @@
 
 .message-display, .chat-home-display {
     width: 100%;
+    padding: 20px;
     flex-grow: 100;
+    overflow-y: scroll;
+}
 
+.dm-btn {
+    width: 100%;
+    font-weight: 500;
+    text-align: left;
+    margin-left: 20px;
 }
 
 .send-message {
     margin: 10px;
 }
+
+.message-area {
+    width: 100%;
+    margin-bottom: 10px;
+}
+
+.message {
+    border-radius: 30px;
+    padding: 7px;
+    padding-left: 15px;
+    padding-right: 15px;
+    max-width: 50vw;
+}
+
+.self-sent {
+    float: right;
+}
+
+.other-sent {
+    float: left;
+}
+
 
 .status-display {
     padding: 20px;

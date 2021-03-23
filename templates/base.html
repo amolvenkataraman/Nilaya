@@ -77,8 +77,9 @@
                             </button>
                             <ul class="dropdown-menu {% if request.user.dark_mode %} dropdown-menu-dark {% endif %} dropdown-menu-end" aria-labelledby="navbarDropdown1">
                                 {% if request.user.is_staff %}
-                                <li><a class="dropdown-item" href="{% url 'chat' %}">Chat</a></li>
+                                
                                 {% endif %}
+                                <li><a class="dropdown-item" href="{% url 'chat' %}">Chat</a></li>
                                 <li><a class="dropdown-item" href="{% url 'calendar' %}">Calendar</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'apps' %}">All Apps</a></li>

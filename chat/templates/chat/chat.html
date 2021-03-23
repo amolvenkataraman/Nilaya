@@ -28,15 +28,36 @@
 
         <div class="send-message">
             <div class="input-group {% if request.user.dark_mode %} bg-dark {% else %} bg-light {% endif %}">
-                <input type="text" class="form-control" placeholder="Message" aria-label="Message" aria-describedby="Send Message">
-                <button class="btn btn-primary" type="button" id="send-button">Send</button>
+                <input type="text" class="form-control message-input" placeholder="Message" aria-label="Message" aria-describedby="Send Message">
+                <button class="btn btn-primary" type="button" id="send-button" disabled>Send</button>
               </div>
         </div>
+    </script>
+
+    <script id="self-sent-message" type="text/x-handlebars-template">
+        <div class="message-area self-sent">
+            <div class="message self-sent bg-primary text-light">
+                {% verbatim %} {{ message }} {% endverbatim %}
+            </div>
+        </div>
+        <br>
+    </script>
+
+    <script id="other-sent-message" type="text/x-handlebars-template">
+        <div class="message-area other-sent"></div>
+            <div class="message other-sent bg-warning text-light">
+                {% verbatim %} {{ message }} {% endverbatim %}
+            </div>
+        </div>
+        <br>
     </script>
 
     <script>
         const chat_home = Handlebars.compile($("#chat-home").html())
         const direct_message = Handlebars.compile($("#direct-message").html());
+
+        const self_sent_message = Handlebars.compile($("#self-sent-message").html());
+        const other_sent_message = Handlebars.compile($("#other-sent-message").html());
 
         var chatSocket = new WebSocket(
             'ws://'
@@ -49,8 +70,18 @@
         var dm_id = {{ dm_id }}
 
         function show_home() {
-            chatSocket.close();
             $('.chat-middle').html(chat_home());
+
+            chatSocket.close();
+            chatSocket = new WebSocket(
+                'ws://'
+                + window.location.host
+                + '/ws/chat/'
+                + dm_id
+                + '/'
+            );
+
+            window.history.pushState('data', 'Chat', "{% url 'chat' %}");
         }
 
         
@@ -65,6 +96,69 @@
                 + dm_id
                 + '/'
             );
+
+            var input = document.querySelector('.message-input');
+            input.select();
+            input.addEventListener('keyup', function(event) {
+                if (input.value == "") {
+                    document.querySelector('#send-button').disabled = true;
+                }
+                else {
+                    document.querySelector('#send-button').disabled = false;
+
+                    if (event.keyCode === 13) {
+                        event.preventDefault();
+                        document.querySelector('#send-button').click();
+                    }
+                }
+            });
+
+            r = new XMLHttpRequest;
+            r.open("GET", "{% url 'get_messages' %}?dm=" + dm_id);
+            r.onload = () => {
+                messages = JSON.parse(r.responseText)["messages"];
+                for (i = 0; i < messages.length; i++) {
+                    if (messages[i].sent_by == {{ request.user.id }}) {
+                        document.querySelector('.message-display').innerHTML += self_sent_message({"message": messages[i].message});
+                    }
+                    else {
+                        document.querySelector('.message-display').innerHTML += other_sent_message({"message": messages[i].message});
+                    }
+                }
+
+                message_display = document.querySelector('.message-display');
+                message_display.scrollTop = message_display.scrollHeight - message_display.clientHeight;
+            };
+            r.send();
+
+            chatSocket.onmessage = function(e) {
+                const data = JSON.parse(e.data);
+                if (data.user == {{ request.user.id }}) {
+                    document.querySelector('.message-display').innerHTML += self_sent_message({"message": data.message});
+                }
+                else {
+                    document.querySelector('.message-display').innerHTML += other_sent_message({"message": data.message});
+                }
+                
+                message_display = document.querySelector('.message-display');
+                message_display.scrollTop = message_display.scrollHeight - message_display.clientHeight;
+            };
+    
+            chatSocket.onclose = function(e) {
+                console.error('Chat socket closed unexpectedly');
+            };
+
+            document.querySelector('#send-button').onclick = function(e) {
+                const messageInput = document.querySelector('.message-input');
+                const message = messageInput.value;
+                chatSocket.send(JSON.stringify({
+                    'message': message
+                }));
+                messageInput.value = '';
+                document.querySelector('#send-button').disabled = true;
+            };
+
+            window.history.pushState('data', 'Chat', "{% url 'chat' %}" + dm_id + "/");
         }
 
         window.addEventListener('DOMContentLoaded', (event) => {
@@ -77,6 +171,19 @@
             else {
                 show_dm(dm_id);
             }
+
+            window.onpopstate = function() {
+                oldpath = window.location.pathname.replace('chat', '').replaceAll('/', '');
+                
+                if (oldpath == '') {
+                    dm_id = 0;
+                    show_home();
+                }
+                else {
+                    dm_id = oldpath;
+                    show_dm(dm_id);
+                }
+            };
         })
     </script>
 {% endblock %}
@@ -86,10 +193,10 @@
 
     <div id="chat-container">
         <div class="chat chat-left {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
-            <button class="btn btn-block btn-outline-primary" onclick="show_home()">Home</button>
-            <br>
+            <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_home()">Home</button>
+            <br><br>
             {% for i in dms %}
-                <button class="btn btn-block btn-outline-primary" onclick="show_dm({{ i.id }})">{{ i.name }}</button>
+                <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_dm({{ i.id }})">{{ i.name }}</button>
             {% endfor %}
         </div>
 

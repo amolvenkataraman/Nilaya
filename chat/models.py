@@ -27,6 +27,15 @@ class DMUser(models.Model):
 class Message(models.Model):
     dm = models.ForeignKey(DirectMessage, on_delete=models.CASCADE)
     message = models.CharField(max_length=2048, null=True, blank=True)
-    attachment = models.FileField(upload_to='media/chat/attachments')
+    attachment = models.FileField(upload_to='media/chat/attachments', null=True, blank=True)
     sent_by = models.IntegerField()
     sent_time = models.DateTimeField(auto_now=True)
+
+    def getinfo(self):
+        ans = {
+            "dm": self.dm.id,
+            "message": self.message,
+            "sent_by": self.sent_by,
+        }
+
+        return ans
