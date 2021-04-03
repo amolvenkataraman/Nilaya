@@ -10,15 +10,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
         self.room_name = self.scope['url_route']['kwargs']['dm_id']
         self.room_group_name = 'chat_%s' % self.room_name
 
-        # Join room group
-        await self.channel_layer.group_add(
-            self.room_group_name,
-            self.channel_name
-        )
+        if await sync_to_async(check_user_dm)(self.scope['user'].id, self.room_name) == True:
 
-        #print(self.channel_layer.groups)
+            # Join room group
+            await self.channel_layer.group_add(
+                self.room_group_name,
+                self.channel_name
+            )
 
-        await self.accept()
+            #print(self.channel_layer.groups)
+
+            await self.accept()
 
     async def disconnect(self, close_code):
         # Leave room group
@@ -54,6 +56,17 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'message': message,
             'user': user
         }))
+
+@sync_to_async
+def check_user_dm(user_id, dm_id):
+    if dm_id == 0:
+        return True
+    
+    try:
+        _ =  DMUser.objects.filter(user_id=user_id, dm=DirectMessage.objects.filter(id=dm_id)[0])[0]
+        return True
+    except IndexError:
+        return False
 
 @sync_to_async
 def create_message(user_id, msg, sent_by):

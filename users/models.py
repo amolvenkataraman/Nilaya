@@ -30,6 +30,7 @@ class UserGroup(models.Model):
 class ComptechUser(AbstractUser):
     description = models.CharField(max_length=512, default="No description")
     #location = models.ForeignKey()
+    birthday = models.DateField(null=True, blank=True)
     profile_picture = models.ImageField(upload_to="media/users/profile_pictures", null=True, blank=True)
     dark_mode = models.BooleanField(default=False)
     friends = models.ManyToManyField("self", related_name='user_friends', null=True, blank=True)

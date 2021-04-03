@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 """
 
 from pathlib import Path
+from django.urls import reverse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -38,6 +39,10 @@ INSTALLED_APPS = [
 
     'chat.apps.ChatConfig',
     'scheduler.apps.SchedulerConfig',
+    'gamevault.apps.GamevaultConfig',
+    'photos.apps.PhotosConfig',
+
+    'microapps.birthday',
 
     'crispy_forms',
     'reset_migrations',
@@ -165,5 +170,117 @@ CALENDAR_VARS = {
 IGNORABLE_404_URLS = ['favicon.ico']
 
 SESSION_COOKIE_AGE = 1209600
+
+GREETINGS = ["Hello There", "Hey There", "Good Day", "Nice to see you", "May the Force be with you",]
+
+LINKS = {
+    "groups": [
+        {
+            "name": "Apps",
+            "description": "Apps that are a part of this website",
+            "external": False,
+            "links":
+            [
+                {
+                    "name": "Chat",
+                    "description": "Chat App",
+                    "link": "/chat/",
+                },
+                {
+                    "name": "Calendar",
+                    "description": "Calendar (formerly Docket)",
+                    "link": "/calendar/",
+                },
+            ],
+        },
+        {
+            "name": "Self-Hosted",
+            "description": "Websites and apps that are hosted by me (very safe)",
+            "external": False,
+            "links":
+            [
+                {
+                    "name": "NextCloud",
+                    "description": "Self-hosted productivity platform",
+                    "link": "https://192.168.50.13",
+                },
+                {
+                    "name": "Some App",
+                    "description": "Insert Description Here",
+                    "link": "http://127.0.0.1:8000",
+                },
+                {
+                    "name": "Some Other App",
+                    "description": "Insert Description Here",
+                    "link": "http://127.0.0.1:8000",
+                },
+            ],
+        },
+        {
+            "name": "Google",
+            "description": "Google apps",
+            "external": True,
+            "links":
+            [
+                {
+                    "name": "Google Search",
+                    "description": "Search the Internet",
+                    "link": "https://www.google.com",
+                },
+                {
+                    "name": "Gmail",
+                    "description": "Email",
+                    "link": "https://www.mail.google.com",
+                },
+                {
+                    "name": "Google Docs",
+                    "description": "Online document editing",
+                    "link": "https://docs.google.com",
+                },
+                {
+                    "name": "Google Maps",
+                    "description": "Maps",
+                    "link": "https://www.maps.google.com",
+                },
+                {
+                    "name": "Google Meet",
+                    "description": "Video Meetings",
+                    "link": "https://www.meet.google.com",
+                },
+                
+            ],
+        },
+        {
+            "name": "External",
+            "description": "These websites may or may not sell your information",
+            "external": True,
+            "links":
+            [
+                {
+                    "name": "Google Search",
+                    "description": "Search the Internet",
+                    "link": "https://www.google.com",
+                },
+                {
+                    "name": "YouTube",
+                    "description": "Watch Videos",
+                    "link": "https://www.youtube.com",
+                },
+                {
+                    "name": "Spotify",
+                    "description": "Listen to Music",
+                    "link": "https://open.spotify.com/browse?_ga=2.115927942.1003104512.1616764485-1284907103.1584541070",
+                },
+                {
+                    "name": "GitHub",
+                    "description": "View and share code",
+                    "link": "https://www.github.com",
+                },
+            ],
+        },
+        
+        
+    ],
+}
 
 # P@ssw0rd

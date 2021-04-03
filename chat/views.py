@@ -21,7 +21,7 @@ def messages(request):
         else:
             try:
                 dm = DirectMessage.objects.filter(id=dm_id)[0]
-                ans = [i.getinfo() for i in Message.objects.filter(sent_by=request.user.id, dm=dm)]
+                ans = [i.getinfo() for i in Message.objects.filter(dm=dm)]
             except IndexError:
                 ans = []
     

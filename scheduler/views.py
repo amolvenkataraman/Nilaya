@@ -3,7 +3,9 @@ from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
+from django.db.utils import IntegrityError
 from .models import *
+from .forms import *
 from Comptech.settings import CALENDAR_VARS
 
 import requests
@@ -26,6 +28,7 @@ def get_events(request):
         return HttpResponseBadRequest("Year not provided")
 
     ans = {"data": {}}
+    #print(month, year)
 
     user_ = request.user
     calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
@@ -33,89 +36,33 @@ def get_events(request):
     ans["data"]["events"] = []
 
     for calendar in calendars:
-        events = Event.objects.filter(Q(calendar=calendar) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year))))))
+        ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(Q(calendar=calendar) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year))))))])
     
     return JsonResponse(ans)
-    
 
-@login_required
-def get_data(request):
-    month = request.GET.get("month")
-    if month == None:
-        return HttpResponse("Month not provided")
-    year = request.GET.get("year")
-    if year == None:
-        return HttpResponse("Year not provided")
-
-    time = request.GET.get("time")
-    context = {"data": {}}
-    classes = request.user.class_student.all()
-    context["data"]["class"] = [i.getinfo() for i in classes]
-    assignments = []
-    events = []
-    groups = []
-    invites = []
-    
-    if len(classes) > 0:
-        for class_ in classes:
-            assignments += Assignment.objects.filter(Q(Class=class_) & Q(deadline__month=int(month) + 1) & Q(deadline__year=int(year)))
-            events += Event.objects.filter(Q(Class=class_) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year))))))
-            groups += Group.objects.filter(classes=class_)
-            invites += Invite.objects.filter(Class=class_)
-    org_events = Org_Event.objects.filter((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year)))))
-
-    context["data"]["assignments"] = [i.getinfo() for i in assignments]
-    context["data"]["events"] = [i.getinfo() for i in events]
-    context["data"]["org_events"] = [i.getinfo() for i in org_events]
-    context["data"]["days"] = [i.getinfo() for i in Day.objects.all()]
-    context["data"]["slots"] = [i.getinfo() for i in Slot.objects.all()]
-    context["data"]["periods"] = [i.getinfo() for i in Period.objects.all()]
-    context["data"]["groups"] = [i.getinfo() for i in groups]
-    context["data"]["invites"] = [i.getinfo() for i in invites]
-    return JsonResponse(context)
-
-@login_required
-def class_(request):
-    if request.user.teacher == True:
-        if request.method == 'POST':
+def create_calendar(request):
+    if request.method == 'POST':
+        if request.user.is_authenticated:
             b = json.loads(request.body.decode('utf8'))
-            c = Class(name=b['name'])
-            c.teacher = request.user
-            c.save()
-            c.students.add(request.user)
+            try:
+                c = Calendar(name=b['name'])
+                c.owner = request.user
+                c.save()
+            except IntegrityError:
+                return JsonResponse({"status": "error", "data": "Calendar name must be unique"})
+        else:
+            return JsonResponse({"status": "error", "data": "Not logged in"})
 
-            for i in b['periods']:
-                try:
-                    c.period.add(Period.objects.filter(
-                        day_id=int(i[0]),
-                        period_id=int(i[1])
-                    )[0])
-                except IndexError:
-                    print("", end="")
-            return JsonResponse({"status": "success", "data": "OK"})
-    else:
-        return JsonResponse({"status": "error", "data": "Only teachers are allowed to access this.<br>Please contact me if you are a teacher and want administrative access."})
+        return JsonResponse({"status": "success", "data": "OK"})
 
-@login_required
 def add(request):
-    if request.user.teacher == True:
-        if request.method == 'POST':
+    if request.method == 'POST':
+        if request.user.is_authenticated:
             req = json.loads(request.body)
-            if req["type"] == "assignment":
-                assignment = Assignment(
-                    Class=Class.objects.filter(id=req["class"])[0],
-                    name=req["name"],
-                    deadline=datetime.datetime.strptime(req["deadline"], '%Y-%m-%d %H:%M'),
-                    url=req["url"],
-                    description=req["description"],
-                    graded=req["graded"],
-                    priority=req["priority"],
-                )
 
-                assignment.save()
-            elif req["type"] == "event":
+            if req["type"] == "event":
                 event = Event(
-                    Class=Class.objects.filter(id=req["class"])[0],
+                    calendar=Calendar.objects.filter(id=req["class"])[0],
                     name=req["name"],
                     startdate=datetime.datetime.strptime(req["start"], '%Y-%m-%d %H:%M'),
                     enddate=datetime.datetime.strptime(req["end"], '%Y-%m-%d %H:%M'),
@@ -123,21 +70,10 @@ def add(request):
                 )
 
                 event.save()
-            elif req["type"] == "org_event":
-                org_event = Org_Event(
-                    name=req["name"],
-                    startdate=datetime.datetime.strptime(req["start"], '%Y-%m-%d %H:%M'),
-                    enddate=datetime.datetime.strptime(req["end"], '%Y-%m-%d %H:%M'),
-                    description=req["description"],
-                    holiday=req["holiday"],
-                    specialschedule=req["special_schedule"]
-                )
+        else:
+            return JsonResponse({"status": "error", "data": "Not logged in"})
 
-                org_event.save()
-
-            return HttpResponse("OK")
-    else:
-        return HttpResponse('Only teachers are allowed to access this.<br>Please contact me if you are a teacher and want administrative access.')
+        return JsonResponse({"status": "success", "data": "OK"})
 
 @login_required
 def enroll(request):
@@ -227,37 +163,3 @@ def invite(request):
                         return JsonResponse({"status": "success", "data": invite.id})
                 except IndexError:
                     return JsonResponse({"status": "error", "data": "Class does not exist"})
-
-"""
-def add_from_gc(request):
-    if request.user.is_superuser:
-        calendar_id = "example@group.calendar.google.com"
-        api_key = "REDACTED_GOOGLE_API_KEY"
-
-        start_time = request.GET["start"]
-        end_time = request.GET["end"]
-
-        r = requests.get(f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events?key={api_key}&timeMin={start_time}&timeMax={end_time}")
-        res = r.json()
-        print(res["summary"])
-        for i in res["items"]:
-            _ = Org_Event(
-                name=i["summary"],
-                description=i["summary"],
-            )
-
-            try:
-                _.startdate=i["start"]["date"]
-            except KeyError:
-                _.startdate=i["start"]["dateTime"]
-
-            try:
-                _.enddate=i["end"]["date"]
-            except KeyError:
-                _.enddate=i["end"]["dateTime"]
-
-            print(_)
-            _.save()
-
-            #print(f"{i['summary']}, from {i['start']} to {i['end']}")
-"""

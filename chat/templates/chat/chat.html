@@ -4,7 +4,49 @@
 {% block page_title %} Chat {% endblock %}
 
 {% block page_styles %}
+    <style>
+        {% if request.user.dark_mode %}
+        /* width */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
 
+        /* Track */
+        ::-webkit-scrollbar-track {
+            background: var(--bs-dark);
+        }
+
+        /* Handle */
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+        }
+
+        /* Handle on hover */
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        {% else %}
+        /* width */
+        ::-webkit-scrollbar {
+            width: 5px;
+        }
+
+        /* Track */
+        ::-webkit-scrollbar-track {
+            background: var(--bs-light);
+        }
+
+        /* Handle */
+        ::-webkit-scrollbar-thumb {
+            background: #888;
+        }
+
+        /* Handle on hover */
+        ::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+        {% endif %}
+    </style>
 {% endblock %}
 
 {% block page_script %}
@@ -30,7 +72,7 @@
             <div class="input-group {% if request.user.dark_mode %} bg-dark {% else %} bg-light {% endif %}">
                 <input type="text" class="form-control message-input" placeholder="Message" aria-label="Message" aria-describedby="Send Message">
                 <button class="btn btn-primary" type="button" id="send-button" disabled>Send</button>
-              </div>
+            </div>
         </div>
     </script>
 
@@ -44,8 +86,9 @@
     </script>
 
     <script id="other-sent-message" type="text/x-handlebars-template">
-        <div class="message-area other-sent"></div>
+        <div class="message-area other-sent">
             <div class="message other-sent bg-warning text-light">
+                <!--<span class="sent-by">User</span><br>-->
                 {% verbatim %} {{ message }} {% endverbatim %}
             </div>
         </div>
@@ -195,8 +238,8 @@
         <div class="chat chat-left {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
             <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_home()">Home</button>
             <br><br>
-            {% for i in dms %}
-                <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_dm({{ i.id }})">{{ i.name }}</button>
+            {% for dm in dms %}
+                <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_dm({{ dm.id }})">{{ dm.name }}</button>
             {% endfor %}
         </div>
 
@@ -205,7 +248,9 @@
         </div>
 
         <div class="chat chat-right {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
-            {{ friends }}
+            {% for friend in friends %}
+                {{ friend.username }}<br>
+            {% endfor %}
         </div>
     </div>
 {% endblock %}
