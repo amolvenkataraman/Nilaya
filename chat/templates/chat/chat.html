@@ -46,6 +46,11 @@
             background: #555;
         }
         {% endif %}
+
+        .message a, .message a:hover {
+            color: var(--bs-light);
+            text-decoration: none;
+          }
     </style>
 {% endblock %}
 
@@ -53,12 +58,12 @@
     <script id="chat-home" type="text/x-handlebars-template">
         <div class="chat-home-display {% if request.user.dark_mode %} bg-dark {% else %} bg-light {% endif %}">
             <div class="status-display">
-                {% for i in friends %}
+                <!--{% for i in friends %}
                 <div class="status">
                     <img class="status-img" src="{% url 'profile_picture' %}?user={{ i.username }}" alt="">
                 </div>
                 {{ i.username }}
-                {% endfor %}
+                {% endfor %}-->
             </div>
         </div>
     </script>
@@ -79,7 +84,7 @@
     <script id="self-sent-message" type="text/x-handlebars-template">
         <div class="message-area self-sent">
             <div class="message self-sent bg-primary text-light">
-                {% verbatim %} {{ message }} {% endverbatim %}
+                {% verbatim %} {{{ message }}} {% endverbatim %}
             </div>
         </div>
         <br>
@@ -87,9 +92,9 @@
 
     <script id="other-sent-message" type="text/x-handlebars-template">
         <div class="message-area other-sent">
-            <div class="message other-sent bg-warning text-light">
-                <!--<span class="sent-by">User</span><br>-->
-                {% verbatim %} {{ message }} {% endverbatim %}
+            <div class="message other-sent bg-secondary text-light">
+                <span class="sent-by">{% verbatim %} {{ user }} {% endverbatim %}</span><br>
+                {% verbatim %} {{{ message }}} {% endverbatim %}
             </div>
         </div>
         <br>
@@ -102,13 +107,15 @@
         const self_sent_message = Handlebars.compile($("#self-sent-message").html());
         const other_sent_message = Handlebars.compile($("#other-sent-message").html());
 
-        var chatSocket = new WebSocket(
-            'ws://'
+        function wspath(code) {
+            return 'ws://'
             + window.location.host
             + '/ws/chat/'
-            + '0'
+            + code
             + '/'
-        );
+        }
+
+        var chatSocket = new WebSocket(wspath('0'));
 
         var dm_id = {{ dm_id }}
 
@@ -116,13 +123,7 @@
             $('.chat-middle').html(chat_home());
 
             chatSocket.close();
-            chatSocket = new WebSocket(
-                'ws://'
-                + window.location.host
-                + '/ws/chat/'
-                + dm_id
-                + '/'
-            );
+            chatSocket = new WebSocket(wspath(dm_id));
 
             window.history.pushState('data', 'Chat', "{% url 'chat' %}");
         }
@@ -132,13 +133,7 @@
             $('.chat-middle').html(direct_message());
 
             chatSocket.close();
-            chatSocket = new WebSocket(
-                'ws://'
-                + window.location.host
-                + '/ws/chat/'
-                + dm_id
-                + '/'
-            );
+            chatSocket = new WebSocket(wspath(dm_id));
 
             var input = document.querySelector('.message-input');
             input.select();
@@ -161,11 +156,11 @@
             r.onload = () => {
                 messages = JSON.parse(r.responseText)["messages"];
                 for (i = 0; i < messages.length; i++) {
-                    if (messages[i].sent_by == {{ request.user.id }}) {
-                        document.querySelector('.message-display').innerHTML += self_sent_message({"message": messages[i].message});
+                    if (messages[i].sent_by_id == {{ request.user.id }}) {
+                        document.querySelector('.message-display').innerHTML += self_sent_message({"message": urlify(messages[i].message)});
                     }
                     else {
-                        document.querySelector('.message-display').innerHTML += other_sent_message({"message": messages[i].message});
+                        document.querySelector('.message-display').innerHTML += other_sent_message({"message": urlify(messages[i].message), "user": messages[i].sent_by_user.username});
                     }
                 }
 
@@ -177,11 +172,13 @@
             chatSocket.onmessage = function(e) {
                 const data = JSON.parse(e.data);
                 if (data.user == {{ request.user.id }}) {
-                    document.querySelector('.message-display').innerHTML += self_sent_message({"message": data.message});
+                    document.querySelector('.message-display').innerHTML += self_sent_message({"message": urlify(data.message)});
                 }
                 else {
-                    document.querySelector('.message-display').innerHTML += other_sent_message({"message": data.message});
+                    document.querySelector('.message-display').innerHTML += other_sent_message({"message": urlify(data.message), "user": data.username});
                 }
+
+                console.log(data)
                 
                 message_display = document.querySelector('.message-display');
                 message_display.scrollTop = message_display.scrollHeight - message_display.clientHeight;
@@ -204,10 +201,14 @@
             window.history.pushState('data', 'Chat', "{% url 'chat' %}" + dm_id + "/");
         }
 
-        window.addEventListener('DOMContentLoaded', (event) => {
-            console.log('DOM fully loaded and parsed');
-            
+        function urlify(text) {
+            var urlRegex = /(https?:\/\/[^\s]+)/g;
+            return text.replace(urlRegex, function(url) {
+              return '<a href="' + url + '" target="blank">' + url + '</a>';
+            })
+          }
 
+        window.addEventListener('DOMContentLoaded', (event) => {
             if (dm_id == 0) {
                 show_home();
             }

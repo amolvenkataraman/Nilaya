@@ -33,8 +33,27 @@
         return i;
     }
 
+    function populateEvents() {
+        r = new XMLHttpRequest()
+        r.open("GET", `{% url 'get_recent_events' %}`)
+        r.onload = () => {
+            data = JSON.parse(r.responseText.replace(/&#x27;/g,'"'))["data"]
+            
+            for (i = 0; i<data["events"].length; i++) {
+                document.querySelector('.recent-events').innerHTML += `
+                    <li href="#" class="list-group-item text-dark">
+                        <span class="event-name">${data["events"][i]["name"]}</span>&nbsp-&nbsp${moment(new Date(data["events"][i]["startdate"])).calendar()}
+                    </li>
+                `
+            }
+        }
+        r.send()
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
-        startTime();  
+        startTime();
+
+        populateEvents();
     });
 </script>
 {% endblock %}
@@ -70,20 +89,44 @@
     </div>
     <br>
 
-    <div class="container">
+    <div class="container" data-aos="fade-up">
         <div class="row">
             <div class="col-sm">
-                INSERT DATA HERE
+                <a class="card recent-card" href="{% url 'calendar' %}">
+                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Recent Events</h5>
+                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Calendar events in the next week</p>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush recent-events">
+                            
+                        </ul>
+                    </div>
+                </a>
             </div>
             <div class="col-sm">
-                INSERT DATA HERE
+                <div class="card recent-card">
+                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Name</h5>
+                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Description</p>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush recent-events">
+                            
+                        </ul>
+                    </div>
+                </div>
             </div>
             <div class="col-sm">
-                INSERT DATA HERE
+                <div class="card recent-card">
+                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Name</h5>
+                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Description</p>
+                    <div class="card-body">
+                        <ul class="list-group list-group-flush recent-events">
+                            
+                        </ul>
+                    </div>
+                </div>
             </div>
         </div>
         <br>
-        <div class="row" data-aos="fade-up">
+        <div class="row">
             {% for group in links.groups %}
             <div class="col-sm">
                 <div class="card">

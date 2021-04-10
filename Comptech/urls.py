@@ -25,7 +25,5 @@ urlpatterns = [
     path("calendar/", include("scheduler.urls")),
     path("games/", include("gamevault.urls")),
 
-    path("microapps/", include("microapps.urls")),
-
     path('admin/', admin.site.urls),
 ]

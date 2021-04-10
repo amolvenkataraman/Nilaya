@@ -3,6 +3,7 @@ from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
 from Comptech.settings import GREETINGS, LINKS
+from scheduler.views import get_recent
 import datetime
 import random
 
@@ -23,8 +24,12 @@ def home(request):
             greeting = "Good Night"
         else:
             greeting = "Good Midnight"
-        
+
     return render(request, 'mainsite/home.html', {"greeting": greeting, "links": LINKS})
+
+@login_required
+def get_recent_events(request):
+    return JsonResponse(get_recent(request.user))
 
 @login_required
 def apps(request):

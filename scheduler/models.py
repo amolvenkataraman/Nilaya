@@ -100,6 +100,16 @@ class Event(models.Model):
         }
         return ans
 
+    def getinfo_zip(self):
+        ans = {
+            "id": self.id,
+            "name": self.name,
+            "startdate": str(self.startdate),
+            "enddate": str(self.enddate),
+            "description": self.description,
+        }
+        return ans
+
 """
 class Org_Event(models.Model):
     name = models.CharField(max_length=256)

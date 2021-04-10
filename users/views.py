@@ -2,9 +2,10 @@ from django.http import HttpResponse, FileResponse
 from django.shortcuts import render, redirect
 from django.contrib import messages
 from django.contrib.auth import login, logout
-from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
+from django.contrib.auth.decorators import login_required
 from .forms import UserRegisterForm
-from bg_images.views import *
+from bg_images.views import get_random_image
 from .models import *
 
 # Views for login and logout
@@ -34,6 +35,22 @@ def login_view(request):
     id_, description, location = get_random_image()
     return render(request, 'users/login.html', {'form': form, 'error': error, 'image': {'id': id_, 'description': description, 'location': location}})
 
+@login_required
+def password_change_view(request):
+    error = ""
+    if request.method == 'POST':
+        form = PasswordChangeForm(user=request.user, data=request.POST)
+        if form.is_valid():
+            form.save()
+            return redirect('index')
+        else:
+            error = "Please correct the errors in the form."
+    else:
+        form = PasswordChangeForm(user=request.user)
+
+    id_, description, location = get_random_image()
+    return render(request, 'users/reset_password.html', {'form': form, 'error': error, 'image': {'id': id_, 'description': description, 'location': location}})
+
 # Render the user profile view
 def profile_view(request):
     username = request.GET.get('user')
@@ -45,9 +62,8 @@ def profile_view(request):
 
 # Log a user out and redirect to login
 def logout_view(request):
-    if request.method == 'POST':
-        logout(request)
-        return redirect('login')
+    logout(request)
+    return redirect('login')
 
 def profile_picture(request):
     username = request.GET.get('user')

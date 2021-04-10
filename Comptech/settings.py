@@ -42,8 +42,6 @@ INSTALLED_APPS = [
     'gamevault.apps.GamevaultConfig',
     'photos.apps.PhotosConfig',
 
-    'microapps.birthday',
-
     'crispy_forms',
     'reset_migrations',
     'sslserver',
@@ -155,7 +153,7 @@ STATIC_URL = '/static/'
 
 
 # Tell Crispyforms (the form styling app) to use Bootstrap 4
-CRISPY_TEMPLATE_PACK = 'bootstrap4'
+CRISPY_TEMPLATE_PACK = 'bootstrap5'
 
 LOGIN_URL = '/accounts/login/'
 

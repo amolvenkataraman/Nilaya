@@ -1,9 +1,31 @@
+*::-webkit-scrollbar {
+  display: none;
+}
+
+* {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+a, a:hover {
+  color: black;
+  text-decoration: none;
+}
+
 .greeting {
-    text-align: center;
-    width: 100%;
-    font-size: 40px;
-    font-weight: 500;
-    margin-top: 10px;
+  text-align: center;
+  width: 100%;
+  font-size: 40px;
+  font-weight: 500;
+  margin-top: 10px;
+}
+
+.recent-card {
+  height: 330px;
+}
+
+.event-name {
+  font-weight: 600;
 }
 
 .col-sm {

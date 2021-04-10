@@ -167,10 +167,8 @@
         $('.modal-title').html( "Add on " + e.parentElement.dataset.date + " " + months[e.parentElement.dataset.month - 1])
         $('.modal-body').html(`
             <center>
-                <div class="btn-group-vertical" role="group" aria-label="Basic example">
-                <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="assignment">Assignment</button>
+                <div class="btn-group-vertical" role="group" aria-label="What to add?">
                 <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="event">Event (Only for one class)</button>
-                <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="org-event">Schoolwide Event</button>
                 </div>
             </center>
         `)
@@ -261,14 +259,14 @@
         })
     }
 
-    function toggle_class_visibility(e, only) {
-        classid = e.parentElement.dataset.class
+    function toggle_calendar_visibility(e, only) {
+        classid = e.parentElement.dataset.calendar
     
-        if (!localStorage.getItem('hidden_classes')) {
-            localStorage.setItem('hidden_classes', JSON.stringify([]))
+        if (!localStorage.getItem('hidden_calendars')) {
+            localStorage.setItem('hidden_calendars', JSON.stringify([]))
         }
 
-        hc = JSON.parse(localStorage.getItem('hidden_classes'))
+        hc = JSON.parse(localStorage.getItem('hidden_calendars'))
 
         if (only == false) {
             if (e.checked) {
@@ -289,7 +287,7 @@
                 }
             }
 
-            localStorage.setItem('hidden_classes', JSON.stringify(hc))
+            localStorage.setItem('hidden_calendars', JSON.stringify(hc))
         }
 
         else {
@@ -300,7 +298,7 @@
                 hc.push(data["class"][i]["id"])
             }
 
-            localStorage.setItem('hidden_classes', JSON.stringify(hc))
+            localStorage.setItem('hidden_calendars', JSON.stringify(hc))
         }
 
         reload()
@@ -358,26 +356,6 @@
             }, 100)
         }
     }*/
-
-    function toggle_period_for_class(btn) {
-        p = btn.parentElement
-        if (p.dataset.selected === '0')
-        {
-            p.style.backgroundColor = "#27a844"
-            p.dataset.selected = '1'
-        }
-        else {
-            if (p.dataset.used === '0')
-            {
-                p.style.backgroundColor = ""
-            }
-            else
-            {
-                p.style.backgroundColor = "#fec107"
-            }
-            p.dataset.selected = '0'
-        }
-    }
 
     function create_calendar() {
         $("#modal").modal("hide");
@@ -439,7 +417,7 @@
         c = data["calendars"]
         for (i = 0; i < c.length; i++) {
             checked = "checked"
-            if (JSON.parse(localStorage.getItem('hidden_classes')).includes(String(c[i]["id"]))) {
+            if (JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(c[i]["id"]))) {
                 checked = ""
             }
             document.querySelector('.calendarlist').innerHTML += calendar_name({"name": c[i]["name"], "calendar": c[i]["id"], "checked": checked})
@@ -448,7 +426,7 @@
         e = data["events"]
         for (i = 0; i < e.length; i++)
         {
-            if (!JSON.parse(localStorage.getItem('hidden_classes')).includes(String(e[i]["calendar"]["id"]))) {
+            if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(e[i]["calendar"]["id"]))) {
                 sd = new Date(e[i]['startdate'])
                 ed = new Date(e[i]['enddate'])
                 document.querySelectorAll('.date-picker').forEach(dp => {
@@ -477,8 +455,8 @@
     function populate_calendar(m, y) {
         // Add assignments to calendar
 
-        if (!localStorage.getItem('hidden_classes')) {
-            localStorage.setItem('hidden_classes', JSON.stringify([]))
+        if (!localStorage.getItem('hidden_calendars')) {
+            localStorage.setItem('hidden_calendars', JSON.stringify([]))
         }
 
         r = new XMLHttpRequest()
@@ -527,7 +505,7 @@
     var no_invites = 0
     var class_
 
-    function display_class_info(btn) {
+    function display_calendar_info(btn) {
         classid = btn.parentElement.parentElement.dataset.class
         console.log(classid)
         for (i = 0; i < data["class"].length; i++) {

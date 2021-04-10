@@ -35,7 +35,8 @@ class Message(models.Model):
         ans = {
             "dm": self.dm.id,
             "message": self.message,
-            "sent_by": self.sent_by,
+            "sent_by_id": self.sent_by,
+            "sent_by_user": ComptechUser.objects.filter(id=self.sent_by)[0].getinfo(),
         }
 
         return ans

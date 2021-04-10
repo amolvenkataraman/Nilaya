@@ -40,6 +40,17 @@ def get_events(request):
     
     return JsonResponse(ans)
 
+def get_recent(user_):
+    ans = {"data": {}}
+
+    calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
+    ans["data"]["events"] = []
+
+    for calendar in calendars:
+        ans["data"]["events"].extend([i.getinfo_zip() for i in Event.objects.filter(Q(calendar=calendar) & Q(startdate__gte=datetime.datetime.now()) & Q(startdate__lte=datetime.datetime.now() + datetime.timedelta(days=7))).order_by('startdate')[:5]])
+
+    return ans
+
 def create_calendar(request):
     if request.method == 'POST':
         if request.user.is_authenticated:
@@ -60,16 +71,19 @@ def add(request):
         if request.user.is_authenticated:
             req = json.loads(request.body)
 
-            if req["type"] == "event":
-                event = Event(
-                    calendar=Calendar.objects.filter(id=req["class"])[0],
-                    name=req["name"],
-                    startdate=datetime.datetime.strptime(req["start"], '%Y-%m-%d %H:%M'),
-                    enddate=datetime.datetime.strptime(req["end"], '%Y-%m-%d %H:%M'),
-                    description=req["description"],
-                )
+            if (Calendar.objects.filter(id=req["class"])[0].owner == request.user):
+                if req["type"] == "event":
+                    event = Event(
+                        calendar=Calendar.objects.filter(id=req["class"])[0],
+                        name=req["name"],
+                        startdate=datetime.datetime.strptime(req["start"], '%Y-%m-%d %H:%M'),
+                        enddate=datetime.datetime.strptime(req["end"], '%Y-%m-%d %H:%M'),
+                        description=req["description"],
+                    )
 
-                event.save()
+                    event.save()
+            else:
+                return JsonResponse({"status": "error", "data": "You dot not own this calendar"})
         else:
             return JsonResponse({"status": "error", "data": "Not logged in"})
 
