@@ -1,6 +1,6 @@
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.contrib import messages
-from django.shortcuts import redirect, render
+from django.shortcuts import redirect, render, Http404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.db.utils import IntegrityError
@@ -34,20 +34,44 @@ def get_events(request):
     calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
     ans["data"]["calendars"] = [i.getinfo() for i in calendars]
     ans["data"]["events"] = []
+    ans["data"]["reminders"] = []
 
     for calendar in calendars:
         ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(Q(calendar=calendar) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year))))))])
+        ans["data"]["reminders"].extend([i.getinfo() for i in Reminder.objects.filter(calendar=calendar, date__month=(int(month) + 1))])
+
     
     return JsonResponse(ans)
+
+def countdown(request, event_id, time="start"):
+    try:
+        event_ = Event.objects.filter(id=event_id)[0]
+        if request.user == event_.calendar.owner or request.user in event_.calendar.subscribers.all() or event_.public == True:
+            name = event_.name
+            if time == "start":
+                event_time = event_.startdate
+            elif time == "end":
+                event_time = event_.enddate
+            else:
+                raise Http404()
+        
+            return render(request, 'scheduler/countdown.html', {"event": event_.getinfo(), "time": event_time.strftime("%b %d %Y %H:%M:%S"), "se": time})
+
+        else:
+            return HttpResponse('401 Unauthorized', status=401)
+    except IndexError:
+        raise Http404()
 
 def get_recent(user_):
     ans = {"data": {}}
 
     calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
     ans["data"]["events"] = []
+    ans["data"]["reminders"] = []
 
     for calendar in calendars:
         ans["data"]["events"].extend([i.getinfo_zip() for i in Event.objects.filter(Q(calendar=calendar) & Q(startdate__gte=datetime.datetime.now()) & Q(startdate__lte=datetime.datetime.now() + datetime.timedelta(days=7))).order_by('startdate')[:5]])
+        ans["data"]["reminders"].extend([i.getinfo_zip() for i in Reminder.objects.filter(calendar=calendar, date=datetime.datetime.today())])
 
     return ans
 
@@ -71,17 +95,26 @@ def add(request):
         if request.user.is_authenticated:
             req = json.loads(request.body)
 
-            if (Calendar.objects.filter(id=req["class"])[0].owner == request.user):
+            if (Calendar.objects.filter(id=req["calendar"])[0].owner == request.user):
                 if req["type"] == "event":
                     event = Event(
-                        calendar=Calendar.objects.filter(id=req["class"])[0],
+                        calendar=Calendar.objects.filter(id=req["calendar"])[0],
                         name=req["name"],
                         startdate=datetime.datetime.strptime(req["start"], '%Y-%m-%d %H:%M'),
                         enddate=datetime.datetime.strptime(req["end"], '%Y-%m-%d %H:%M'),
                         description=req["description"],
                     )
-
                     event.save()
+            
+                elif req["type"] == "reminder":
+                    reminder = Reminder(
+                        calendar=Calendar.objects.filter(id=req["calendar"])[0],
+                        name=req["name"],
+                        date=datetime.datetime.strptime(req["date"], '%Y-%m-%d'),
+                        description=req["description"],
+                    )
+                    reminder.save()
+
             else:
                 return JsonResponse({"status": "error", "data": "You dot not own this calendar"})
         else:

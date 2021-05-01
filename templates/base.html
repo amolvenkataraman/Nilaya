@@ -14,7 +14,7 @@
         <link href="{% static 'css/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
         <link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">
         <script src="{% static 'js/aos/aos.js' %}" type="text/javascript"></script>
-        <script src="{% static 'js/bootstrap/bootstrap.min.js' %}" type="text/javascript"></script>
+        <script src="{% static 'js/bootstrap/bootstrap.bundle.min.js' %}" type="text/javascript"></script>
         <script src="{% static 'js/jquery/jquery.min.js' %}" type="text/javascript"></script>
         <script src="{% static 'js/handlebars/handlebars.js' %}" type="text/javascript"></script>
         <script src="{% static 'js/popper/popper.js' %}" type="text/javascript"></script>
@@ -92,6 +92,7 @@
                             </ul>
                         </li>
 
+                        {% if request.user.is_authenticated %}
                         <li class="nav-item dropdown user-dropdown me-2">
                             <button type="button" class="btn btn-secondary dropdown-toggle" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
                                 {{ request.user }}
@@ -136,6 +137,7 @@
                                 <li><a class="dropdown-item" href="{% url 'logout' %}">Log Out</a></li>
                             </ul>
                         </li>
+                        {% endif %}
 
                         <style>
 

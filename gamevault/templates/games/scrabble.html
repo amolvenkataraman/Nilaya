@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title %} Gamevault {% endblock %}
+
+{% block page_styles %}
+<link href="{% static 'gamevault/scrabble.css' %}" rel="stylesheet" media="all"/>
+
+<style>
+    .navbar {
+        display: none;
+    }
+</style>
+{% endblock %}
+
+{% block page_script %}
+<script src="{% static 'js/phaser/phaser.min.js' %}"></script>
+
+<script>
+    var gameWidth = 1600;
+    var gameHeight = 800;
+
+    var config = {
+        type: Phaser.AUTO,
+        width: gameWidth,
+        height: gameHeight,
+        backgroundColor: '#f5f5f5',
+        parent: 'scrabble-game',
+        scene: {
+            preload: preload,
+            create: create,
+            //update: update,
+        },
+    };
+
+    var game;
+
+    function preload() {
+
+    }
+    function create() {
+        this.graphics = this.add.graphics();
+    }
+    function update() {
+        this.graphics.fillStyle(0xf5f5f5, 1);
+        this.graphics.fillRect(0, 0, window.gameWidth, window.gameHeight);
+
+        this.graphics.fillStyle(0xff0000, 1);
+        for (i = 0; i < 20; i++)
+        {
+            for (j = 0; j < 20; j++) {
+                this.graphics.fillRect(i * 20 + (i * 2), j * 20 + (i * 2), 20 - (i * 2), 20 - (i * 2))
+            }
+        }
+    }
+
+    /*window.onresize = () => {
+        try {
+            if (window.game.isBooted) {
+                setTimeout(() => {
+                    window.game.scale.resize(window.innerWidth, window.innerHeight);
+                    window.game.canvas.setAttribute(
+                        'style',
+                        `display: block; width: ${window.innerWidth}px; height: ${window.innerHeight}px;`,
+                    );
+                }, 100);
+            }
+        }
+        catch (e) {}
+    };*/
+
+    function startgame(gamecode) {
+        game = new Phaser.Game(config);
+        update();
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        $('.game-code-input').keyup(function() {
+            if ($('.game-code-input').val() == '') {
+                $('#join-game-button').prop( "disabled", true );
+            }
+            else {
+                $('#join-game-button').prop( "disabled", false );
+            }
+        });
+
+        $('#join-game-button').click(function() {
+            if ($('.game-code-input').val() != '') {
+                scrabbleSocket = new WebSocket('ws://' + window.location.host + `/ws/games/scrabble/${$('.game-code-input').val()}/join/`);
+                scrabbleSocket.onerror = function (event) {
+                    $('.join-game-error').html(`A game with this code does not exist. Please check the code you entered or start a new game.`);
+                }
+                $('.game-join-prompt').hide();
+                startgame();
+            }
+        });
+
+        $('#create-game-button').click(function() {
+            scrabbleSocket = new WebSocket('ws://' + window.location.host + `/ws/games/scrabble/${randomText(4)}/create/`);
+            $('.game-join-prompt').hide();
+            startgame();
+        });
+    });
+
+    function randomText(length) {
+        var result           = '';
+        var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+        var charactersLength = characters.length;
+        for ( var i = 0; i < length; i++ ) {
+            result += characters.charAt(Math.floor(Math.random() * charactersLength));
+        }
+        return result;
+    }
+</script>
+{% endblock %}
+
+{% block page_body %}
+    <div class="portrait-orientation text-warning">
+        Your device is in Portrait orientation. Please turn over your device to landscape orientation.
+    </div>
+    <div class="game">
+        <div class="game-join-prompt bg-light">
+            <div class="mb-3">
+                <div class="input-group">
+                    <input type="text" class="form-control game-code-input" placeholder="Enter Game Code" aria-label="Enter Game Code" aria-describedby="Enter Game Code">
+                    <button class="btn btn-primary" type="button" id="join-game-button" disabled>Join</button>
+                </div>
+                <p class="join-game-error text-danger"></p>
+            </div>
+            <span class="">OR</span>
+            <br><br>
+            <div class="mb-3">
+                <button type="submit" id="create-game-button" class="btn btn-primary w-100">Create a Game</button>
+            </div>
+        </div>
+        <div class="scrabble-game">
+
+        </div>
+    </div>
+
+    <button type="button" class="btn btn-primary" style="display: none;" data-bs-toggle="modal" data-bs-target="#errorModal">
+        Launch demo modal
+    </button>
+
+    <div class="modal fade" id="errorModal" tabindex="-1" aria-labelledby="errorModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="errorModalLabel">Modal title</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                ...
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+{% endblock %}

@@ -33,8 +33,8 @@ class ComptechUser(AbstractUser):
     birthday = models.DateField(null=True, blank=True)
     profile_picture = models.ImageField(upload_to="media/users/profile_pictures", null=True, blank=True)
     dark_mode = models.BooleanField(default=False)
-    friends = models.ManyToManyField("self", related_name='user_friends', null=True, blank=True)
-    user_groups = models.ManyToManyField(UserGroup, null=True, blank=True)
+    friends = models.ManyToManyField("self", related_name='user_friends', blank=True)
+    user_groups = models.ManyToManyField(UserGroup, blank=True)
     newuser = models.BooleanField(default=True)
 
     REQUIRED_FIELDS = ['first_name', 'last_name', 'password']
@@ -62,3 +62,14 @@ class ComptechUser(AbstractUser):
 
     def getfriends(self):
         return [i.getinfo() for i in self.friends.all()]
+
+class FriendRequest(models.Model):
+    fromuser = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='friend_request_from')
+    touser = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='friend_request_to')
+
+    def getinfo(self):
+        return {
+            "id": self.id,
+            "from": self.fromuser.getinfo(),
+            "to": self.touser.getinfo(),
+        }

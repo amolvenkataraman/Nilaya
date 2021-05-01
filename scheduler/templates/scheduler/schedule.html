@@ -16,13 +16,13 @@
         <input type="checkbox" class="custom-control-input" id="{% verbatim %}{{ name }}{% endverbatim %}" {% verbatim %}{{ checked }}{% endverbatim %} onchange="toggle_calendar_visibility(this, false)">
         <label class="custom-control-label" for="{% verbatim %}{{ name }}{% endverbatim %}">{% verbatim %}{{ name }}{% endverbatim %}</label>
         <button class="btn btn-link"
-            type="button" id="dropdownMenu1" data-bs-toggle="dropdown"
+            type="button" id="dropdownMenu{% verbatim %}{{ id }}{% endverbatim %}" data-bs-toggle="dropdown"
             aria-haspopup="true" aria-expanded="false" style="float: right; color: #192634; padding: 0px; height: 20px;">
             <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-three-dots-vertical" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                 <path fill-rule="evenodd" d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
             </svg>
         </button>
-        <div class="dropdown-menu" aria-labelledby="dropdownMenu1">
+        <div class="dropdown-menu" aria-labelledby="dropdownMenu{% verbatim %}{{ id }}{% endverbatim %}">
             <a class="dropdown-item" href="#!" onclick="toggle_calendar_visibility(this, true)">Display this only</a>
             <a class="dropdown-item" href="#!" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="display_calendar_info(this)">Settings</a>
         </div>
@@ -98,9 +98,9 @@
 
 <script id="event-create-form" type="text/x-handlebars-template">
     <div class="question-set">
-    <label for="class">Which class</label>
-    <select class="custom-select class-select" name="class-select">
-    <option selected value="">Select an class</option>
+    <label for="class">Which calendar</label>
+    <select class="form-control custom-select class-select" name="class-select">
+    <option selected value="">Select an calendar</option>
     </select>
     <p class="text-danger class-warn"></p>
     <br>
@@ -128,6 +128,30 @@
     </div>
 </script>
 
+<script id="reminder-create-form" type="text/x-handlebars-template">
+    <div class="question-set">
+    <label for="class">Which calendar</label>
+    <select class="form-control custom-select class-select" name="class-select">
+    <option selected value="">Select an calendar</option>
+    </select>
+    <p class="text-danger class-warn"></p>
+    <br>
+    <label for="name">Name of Reminder</label>
+    <input class="form-control name" id="name" type="text" placeholder="Name of Reminder">
+    <p class="text-danger name-warn"></p>
+    <br>
+    <label for="deadline">Date</label>
+    <input type="date" class="form-control deadline-start" name="deadline-end" style="width: 100%;">
+    <p class="text-danger deadline-start-warn"></p>
+    <br>
+    <label for="description1">Description</label>
+    <textarea class="form-control description" id="description1" rows="3"></textarea>
+    <p class="text-danger description-warn"></p>
+    <br>
+    <button type="submit" class="btn btn-primary add" style="width: 100%;">Create</button>
+    </div>
+</script>
+
 <script>
     const calendar_item = Handlebars.compile(document.querySelector("#calendar-item").innerHTML)
     const calendar_name = Handlebars.compile(document.querySelector("#calendar-name").innerHTML)
@@ -135,6 +159,7 @@
     const enroll_code_prompt = Handlebars.compile(document.querySelector("#enroll-code-prompt").innerHTML)
     const class_info_template = Handlebars.compile(document.querySelector("#class-info-template").innerHTML)
     const event_create_form = Handlebars.compile(document.querySelector("#event-create-form").innerHTML)
+    const reminder_create_form = Handlebars.compile(document.querySelector("#reminder-create-form").innerHTML)
 
     const d_ = new Date()
     var m = d_.getMonth()
@@ -168,7 +193,8 @@
         $('.modal-body').html(`
             <center>
                 <div class="btn-group-vertical" role="group" aria-label="What to add?">
-                <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="event">Event (Only for one class)</button>
+                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="event">Event</button>
+                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="reminder">Reminder</button>
                 </div>
             </center>
         `)
@@ -178,8 +204,10 @@
         if (e.dataset.type == "event") {
             $('.modal-title').html("Add Event")
             $('.modal-body').html(event_create_form())
-            for(i = 0; i < data["calendars"].length; i++) {
-                document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
+            for (i = 0; i < data["calendars"].length; i++) {
+                if (data["calendars"][i]["owner"]["id"] == "{{ request.user.id }}") {
+                    document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
+                }
             }
             document.querySelector('.deadline-start').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
             document.querySelector('.deadline-end').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
@@ -187,7 +215,7 @@
             document.querySelector('.add').onclick = () => {
                 error = false;
                 if (document.querySelector('.class-select').value === "")
-                {error = true; $('.class-warn').html("Please select a class")}
+                {error = true; $('.class-warn').html("Please select a calendar")}
                 else
                 {$('.class-warn').html("")}
 
@@ -206,20 +234,69 @@
                 else
                 {$('.deadline-end-warn').html("")}
 
-                if (document.querySelector('.description').value === "")
-                {error = true; $('.description-warn').html("Please enter a description")}
-                else
-                {$('.description-warn').html("")}
-
-
                 if (error === false)
                 {
                     result = {
                             "type": "event",
-                            "class": document.querySelector('.class-select').value,
+                            "calendar": document.querySelector('.class-select').value,
                             "name": document.querySelector('.name').value,
                             "start": document.querySelector('.deadline-start').value + " " + document.querySelector('.deadline1-start').value,
                             "end": document.querySelector('.deadline-end').value + " " + document.querySelector('.deadline1-end').value,
+                            "description": document.querySelector('.description').value,
+                    }
+        
+                    var request = new XMLHttpRequest()
+                    request.open('POST', `{% url 'add' %}`)
+                    request.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
+                    request.onload = () => {
+                        res = JSON.parse(request.responseText);
+                        if (res["status"] == "success")
+                        {
+                            window.location.reload();
+                        }
+                        else
+                        {
+                            alert("Something went wrong on the server-side. Please try again.")
+                        }
+                    }
+                    request.send(JSON.stringify(result))
+                }
+            }
+        }
+        else if (e.dataset.type == "reminder") {
+            $('.modal-title').html("Add Reminder")
+            $('.modal-body').html(reminder_create_form())
+            for(i = 0; i < data["calendars"].length; i++) {
+                if (data["calendars"][i]["owner"]["id"] == "{{ request.user.id }}") {
+                    document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
+                }
+            }
+            document.querySelector('.deadline-start').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
+
+            document.querySelector('.add').onclick = () => {
+                error = false;
+                if (document.querySelector('.class-select').value === "")
+                {error = true; $('.class-warn').html("Please select a calendar")}
+                else
+                {$('.class-warn').html("")}
+
+                if (document.querySelector('.name').value === "")
+                {error = true; $('.name-warn').html("Please enter an reminder name")}
+                else
+                {$('.name-warn').html("")}
+
+                if (document.querySelector('.deadline-start').value == "")
+                {error = true; $('.deadline-start-warn').html("Please select a date")}
+                else
+                {$('.deadline-start-warn').html("")}
+
+                if (error === false)
+                {
+                    result = {
+                            "type": "reminder",
+                            "calendar": document.querySelector('.class-select').value,
+                            "name": document.querySelector('.name').value,
+                            "date": document.querySelector('.deadline-start').value,
                             "description": document.querySelector('.description').value,
                     }
         
@@ -270,20 +347,20 @@
 
         if (only == false) {
             if (e.checked) {
-                if (hc.includes(classid)) {
+                if (hc.includes(String(classid))) {
                     hc1 = hc
                     hc = []
                     for (i = 0; i < hc1.length; i++) {
                         if (hc1[i] !== classid) {
-                            hc.push(hc1[i])
+                            hc.push(String(hc1[i]))
                         }
                     }
                 }
             }
 
             else {
-                if (!hc.includes(classid)) {
-                    hc.push(classid)
+                if (!hc.includes(String(classid))) {
+                    hc.push(String(classid))
                 }
             }
 
@@ -291,11 +368,13 @@
         }
 
         else {
-            classid = e.parentElement.parentElement.dataset.class
+            classid = e.parentElement.parentElement.dataset.calendar
             hc = []
 
-            for (i = 0; i < data["class"].length; i++) {
-                hc.push(data["class"][i]["id"])
+            for (i = 0; i < data["calendars"].length; i++) {
+                if (data["calendars"][i]["id"] != classid) {
+                    hc.push(String(data["calendars"][i]["id"]))
+                }
             }
 
             localStorage.setItem('hidden_calendars', JSON.stringify(hc))
@@ -420,7 +499,29 @@
             if (JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(c[i]["id"]))) {
                 checked = ""
             }
-            document.querySelector('.calendarlist').innerHTML += calendar_name({"name": c[i]["name"], "calendar": c[i]["id"], "checked": checked})
+            document.querySelector('.calendarlist').innerHTML += calendar_name({"id": c[i]["id"], "name": c[i]["name"], "calendar": c[i]["id"], "checked": checked})
+        }
+
+        r = data["reminders"]
+        for (i = 0; i < r.length; i++)
+        {
+            if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(r[i]["calendar"]["id"]))) {
+                d = new Date(r[i]['date'])
+                document.querySelectorAll('.date-picker').forEach(dp => {
+                    td = new Date(dp.dataset.year, dp.dataset.month - 1, (parseInt(dp.dataset.date) - 1).toString())
+
+                    if (d.getDate() == td.getDate())
+                    {
+                        if (r[i]['completed'] === "True") {
+                            var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "reminder", 'color': "green", 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "] ✅"})
+                        }
+                        else {
+                            var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "reminder", 'color': "green", 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "]"})
+                        }
+                        dp.innerHTML += ci
+                    }
+                })
+            }
         }
 
         e = data["events"]
@@ -497,7 +598,27 @@
                         minute: "2-digit"
                         })
                     }<br>
-                    Description: ${event["description"]}<br>`)
+                    Description: ${event["description"]}<br>
+                    <a href="/calendar/countdown/${event["id"]}/start/">Countdown to Start</a>
+                    <a href="/calendar/countdown/${event["id"]}/end/">Countdown to End</a>`)
+            }
+
+            else if (button.dataset.type == "reminder") {
+                reminder = data["reminders"][button.dataset.no]
+                d = new Date(reminder["date"])
+                $('.modal-title').html(reminder["name"])
+                $('.modal-body').html(`
+                    For: ${reminder["calendar"]['name']}<br>
+                    Date: ${
+                        d.toLocaleString("en-US", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit"
+                        })
+                    }<br>
+                    Description: ${reminder["description"]}<br>`)
             }
         }, 100)
     }
@@ -506,19 +627,19 @@
     var class_
 
     function display_calendar_info(btn) {
-        classid = btn.parentElement.parentElement.dataset.class
+        classid = btn.parentElement.parentElement.dataset.calendar
         console.log(classid)
-        for (i = 0; i < data["class"].length; i++) {
-            if (data["class"][i]["id"] == classid)
+        for (i = 0; i < data["calendars"].length; i++) {
+            if (data["calendars"][i]["id"] == classid)
             {
-                class_ = data["class"][i]
+                class_ = data["calendars"][i]
             }
         }
 
         setTimeout(function () {
             $('.big-modal-title').html(`${class_["name"]}`)
             $('.big-modal-body').html(class_info_template())
-            for (i = 0; i < class_["students"].length; i++) {
+            /*for (i = 0; i < class_["students"].length; i++) {
                 studentinfo = `
                     ${class_["students"][i]["first_name"]} 
                     ${class_["students"][i]["last_name"]} 
@@ -531,9 +652,9 @@
                 else {
                     document.querySelector('.student-list').innerHTML += `<li>${studentinfo}</li>`
                 }
-            }
+            }*/
     
-            for (i = 0; i < data["invites"].length; i++) {
+            /*for (i = 0; i < data["invites"].length; i++) {
                 invite = data["invites"][i]
                 if (invite["class"]["id"] == class_["id"]) {
                     temp = ""
@@ -548,7 +669,7 @@
                         </li>
                     `
                 }
-            }
+            }*/
 
             for (i = 0; i < data["events"].length; i++) {
                 event = data["events"][i]
@@ -695,7 +816,7 @@
 <link href="{% static 'scheduler/calendar.css' %}" rel="stylesheet" media="all"/>
 
 <div class="main-container">
-    <div class="sidebar jumbotron">
+    <div class="sidebar jumbotron {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
         <div>
             <div style="font-size: 20px; margin-left: 12px;">
                 My calendars:
@@ -704,13 +825,18 @@
 
             </div>
             <br>
-            <button type="button" style="margin-left: 12px;" class="btn btn-info create-btn" data-bs-toggle="modal" data-bs-target="#modal" onclick="create_calendar()">+</button>
-            <button type="button" class="btn btn-info subscribe-btn" data-bs-toggle="modal" data-bs-target="#modal">+</button>
-            <button type="button" class="btn btn-info timetable-btn" data-bs-toggle="modal" data-bs-target="#big-modal">:)</button>
+            <button type="button" style="margin-left: 12px; padding-top: 4px;" class="btn btn-info create-btn" data-bs-toggle="modal" data-bs-target="#modal" onclick="create_calendar()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-calendar-plus" viewBox="0 0 16 16">
+                    <path d="M8 7a.5.5 0 0 1 .5.5V9H10a.5.5 0 0 1 0 1H8.5v1.5a.5.5 0 0 1-1 0V10H6a.5.5 0 0 1 0-1h1.5V7.5A.5.5 0 0 1 8 7z"/>
+                    <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+                </svg>
+            </button>
+            <button type="button" class="btn btn-info subscribe-btn" data-bs-toggle="modal" data-bs-target="#modal">N</button>
+            <button type="button" class="btn btn-info timetable-btn" data-bs-toggle="modal" data-bs-target="#big-modal">O</button>
         </div>
     </div>
 
-    <div class="wrapper">
+    <div class="wrapper {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
         <div class="container-calendar">
                 <div class="button-container-calendar">
                         <button class="btn btn-info" id="previous" onclick="go_prev()">&#8249;</button>
@@ -724,22 +850,22 @@
                 </table>
         
                 <div class="footer-container-calendar">
-                        <label for="month">Jump To: </label>
-                        <select id="month" onchange="jump_()">
-                                <option value=0>Jan</option>
-                                <option value=1>Feb</option>
-                                <option value=2>Mar</option>
-                                <option value=3>Apr</option>
-                                <option value=4>May</option>
-                                <option value=5>Jun</option>
-                                <option value=6>Jul</option>
-                                <option value=7>Aug</option>
-                                <option value=8>Sep</option>
-                                <option value=9>Oct</option>
-                                <option value=10>Nov</option>
-                                <option value=11>Dec</option>
-                        </select>
-                        <select id="year" onchange="jump_()"></select>       
+                    <label for="month">Jump To: </label>
+                    <select id="month" onchange="jump_()">
+                            <option value=0>Jan</option>
+                            <option value=1>Feb</option>
+                            <option value=2>Mar</option>
+                            <option value=3>Apr</option>
+                            <option value=4>May</option>
+                            <option value=5>Jun</option>
+                            <option value=6>Jul</option>
+                            <option value=7>Aug</option>
+                            <option value=8>Sep</option>
+                            <option value=9>Oct</option>
+                            <option value=10>Nov</option>
+                            <option value=11>Dec</option>
+                    </select>
+                    <select id="year" onchange="jump_()"></select>
                 </div>
         </div>
     </div>

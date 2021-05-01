@@ -85,3 +85,22 @@
     width: 75px;
     height: 75px;
 }
+
+.profile-img {
+
+}
+
+.user-display {
+    font-weight: 500;
+}
+
+.user-display img {
+    border-radius: 100%;
+    width: 40px;
+    height: 40px;
+    margin-right: 10px;
+}
+
+.user-divider {
+    margin: 4px;
+}

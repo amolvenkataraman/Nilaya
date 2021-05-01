@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/3.1/ref/settings/
 """
 
+import os
 from pathlib import Path
 from django.urls import reverse
 
@@ -32,15 +33,15 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
-    'users.apps.UsersConfig',
-    'mainsite.apps.MainsiteConfig',
-    'static_files.apps.StaticFilesConfig',
-    'bg_images.apps.BgImagesConfig',
+    'users',
+    'mainsite',
+    'static_files',
+    'bg_images',
 
-    'chat.apps.ChatConfig',
-    'scheduler.apps.SchedulerConfig',
-    'gamevault.apps.GamevaultConfig',
-    'photos.apps.PhotosConfig',
+    'chat',
+    'scheduler',
+    'gamevault',
+    'photos',
 
     'crispy_forms',
     'reset_migrations',
@@ -64,6 +65,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'Comptech.urls'
@@ -153,7 +155,7 @@ STATIC_URL = '/static/'
 
 
 # Tell Crispyforms (the form styling app) to use Bootstrap 4
-CRISPY_TEMPLATE_PACK = 'bootstrap5'
+CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
 LOGIN_URL = '/accounts/login/'
 
@@ -168,6 +170,8 @@ CALENDAR_VARS = {
 IGNORABLE_404_URLS = ['favicon.ico']
 
 SESSION_COOKIE_AGE = 1209600
+
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 GREETINGS = ["Hello There", "Hey There", "Good Day", "Nice to see you", "May the Force be with you",]
 
@@ -188,6 +192,11 @@ LINKS = {
                     "name": "Calendar",
                     "description": "Calendar (formerly Docket)",
                     "link": "/calendar/",
+                },
+                {
+                    "name": "Games",
+                    "description": "Gamevault (CRAPPIPLY BUILT DO NOT USE)",
+                    "link": "/games/",
                 },
             ],
         },

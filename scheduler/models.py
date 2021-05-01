@@ -51,32 +51,6 @@ class Invite(models.Model):
             "active": str(self.active),
         }
         return ans
-
-
-class Assignment(models.Model):
-    Class = models.ForeignKey(Class, on_delete=models.CASCADE)
-    name = models.CharField(max_length=256)
-    deadline = models.DateTimeField(auto_now=False)
-    url = models.URLField(null=True)
-    description = models.TextField()
-    graded = models.BooleanField(default=False)
-    priority = models.SmallIntegerField(default=3)
-
-    def __str__(self):
-        return f"{self.name} for {self.Class.name}. Due: {str(self.deadline)}"
-
-    def getinfo(self):
-        ans = {
-            "id": self.id,
-            "class": self.Class.getinfo(),
-            "name": self.name,
-            "deadline": str(self.deadline),
-            "url": self.url,
-            "description": self.description,
-            "graded": str(self.graded),
-            "priority": self.priority,
-        }
-        return ans
 """
 
 class Event(models.Model):
@@ -85,6 +59,7 @@ class Event(models.Model):
     startdate = models.DateTimeField(auto_now=False)
     enddate = models.DateTimeField(auto_now=False)
     description = models.TextField(null=True, blank=True)
+    public = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.name} for {self.calendar.name}. From {str(self.startdate)} to {str(self.enddate)}"
@@ -97,6 +72,7 @@ class Event(models.Model):
             "startdate": str(self.startdate),
             "enddate": str(self.enddate),
             "description": self.description,
+            "public": str(self.public),
         }
         return ans
 
@@ -107,32 +83,39 @@ class Event(models.Model):
             "startdate": str(self.startdate),
             "enddate": str(self.enddate),
             "description": self.description,
+            "public": str(self.public),
         }
         return ans
 
-"""
-class Org_Event(models.Model):
+class Reminder(models.Model):
+    calendar = models.ForeignKey(Calendar, on_delete=models.CASCADE)
     name = models.CharField(max_length=256)
-    startdate = models.DateTimeField(auto_now=False)
-    enddate = models.DateTimeField(auto_now=False)
-    description = models.TextField()
-    specialschedule = models.BooleanField(default=False)
-    holiday = models.BooleanField(default=False)
-    sync_from = models.CharField(max_length=32, null=True, default="")
-    sync_id = models.CharField(max_length=128, null=True, default="")
-    
+    date = models.DateField(auto_now=False)
+    description = models.TextField(null=True, blank=True)
+    completed = models.BooleanField(default=False)
+
     def __str__(self):
-        return f"{self.name}. From {str(self.startdate)} to {str(self.enddate)}"
+        return f"{self.name} for {self.calendar.name}. On {str(self.date)}"
 
     def getinfo(self):
         ans = {
             "id": self.id,
+            "calendar": self.calendar.getinfo(),
             "name": self.name,
-            "startdate": str(self.startdate),
-            "enddate": str(self.enddate),
+            "date": str(self.date),
             "description": self.description,
-            "specialschedule": str(self.specialschedule),
-            "holiday": str(self.holiday),
+            "completed": str(self.completed),
         }
         return ans
-"""
+
+    def getinfo_zip(self):
+        ans = {
+            "id": self.id,
+            "name": self.name,
+            "date": str(self.date),
+            "description": self.description,
+            "completed": str(self.completed),
+        }
+        return ans
+
+
