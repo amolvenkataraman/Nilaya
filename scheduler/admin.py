@@ -5,4 +5,4 @@ from .models import *
 admin.site.register(Calendar)
 
 admin.site.register(Event)
-admin.site.register(Reminder)
+admin.site.register(Task)

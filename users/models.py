@@ -31,6 +31,7 @@ class ComptechUser(AbstractUser):
     description = models.CharField(max_length=512, default="No description")
     #location = models.ForeignKey()
     birthday = models.DateField(null=True, blank=True)
+    timezone = models.CharField(max_length=32, default='Canada/Eastern')
     profile_picture = models.ImageField(upload_to="media/users/profile_pictures", null=True, blank=True)
     dark_mode = models.BooleanField(default=False)
     friends = models.ManyToManyField("self", related_name='user_friends', blank=True)

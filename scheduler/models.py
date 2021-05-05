@@ -5,7 +5,7 @@ from users.models import *
 class Calendar(models.Model):
     name = models.CharField(max_length=64, unique=True)
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='calendar_owner')
-    subscribers = models.ManyToManyField(ComptechUser, related_name='calendar_subscribers', null=True, blank=True)
+    subscribers = models.ManyToManyField(ComptechUser, related_name='calendar_subscribers', blank=True)
     active = models.BooleanField(default=True)
 
     def  __str__(self):
@@ -87,7 +87,7 @@ class Event(models.Model):
         }
         return ans
 
-class Reminder(models.Model):
+class Task(models.Model):
     calendar = models.ForeignKey(Calendar, on_delete=models.CASCADE)
     name = models.CharField(max_length=256)
     date = models.DateField(auto_now=False)
@@ -117,5 +117,4 @@ class Reminder(models.Model):
             "completed": str(self.completed),
         }
         return ans
-
 

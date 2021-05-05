@@ -45,7 +45,6 @@ INSTALLED_APPS = [
 
     'crispy_forms',
     'reset_migrations',
-    'sslserver',
     'channels',
     'rest_framework',
 

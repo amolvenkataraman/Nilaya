@@ -2,6 +2,7 @@ from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbid
 from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 from Comptech.settings import GREETINGS, LINKS
 from scheduler.views import get_recent
 import datetime
@@ -10,6 +11,8 @@ import random
 # Create your views here.
 @login_required
 def home(request):
+    #print(request.user.timezone)
+
     if random.randrange(2) == 0:
         greeting = random.choice(GREETINGS)
     else:
@@ -25,7 +28,7 @@ def home(request):
         else:
             greeting = "Good Midnight"
 
-    return render(request, 'mainsite/home.html', {"greeting": greeting, "links": LINKS})
+    return render(request, 'mainsite/home.html', {"greeting": greeting, "links": LINKS, "desktop_app": request.COOKIES.get('desktop_app')})
 
 @login_required
 def get_recent_events(request):

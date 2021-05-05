@@ -34,11 +34,11 @@ def get_events(request):
     calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
     ans["data"]["calendars"] = [i.getinfo() for i in calendars]
     ans["data"]["events"] = []
-    ans["data"]["reminders"] = []
+    ans["data"]["tasks"] = []
 
     for calendar in calendars:
         ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(Q(calendar=calendar) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year))))))])
-        ans["data"]["reminders"].extend([i.getinfo() for i in Reminder.objects.filter(calendar=calendar, date__month=(int(month) + 1))])
+        ans["data"]["tasks"].extend([i.getinfo() for i in Task.objects.filter(calendar=calendar, date__month=(int(month) + 1))])
 
     
     return JsonResponse(ans)
@@ -67,11 +67,11 @@ def get_recent(user_):
 
     calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
     ans["data"]["events"] = []
-    ans["data"]["reminders"] = []
+    ans["data"]["tasks"] = []
 
     for calendar in calendars:
         ans["data"]["events"].extend([i.getinfo_zip() for i in Event.objects.filter(Q(calendar=calendar) & Q(startdate__gte=datetime.datetime.now()) & Q(startdate__lte=datetime.datetime.now() + datetime.timedelta(days=7))).order_by('startdate')[:5]])
-        ans["data"]["reminders"].extend([i.getinfo_zip() for i in Reminder.objects.filter(calendar=calendar, date=datetime.datetime.today())])
+        ans["data"]["tasks"].extend([i.getinfo_zip() for i in Task.objects.filter(calendar=calendar, date=datetime.datetime.today())])
 
     return ans
 
@@ -106,14 +106,14 @@ def add(request):
                     )
                     event.save()
             
-                elif req["type"] == "reminder":
-                    reminder = Reminder(
+                elif req["type"] == "task":
+                    task = Task(
                         calendar=Calendar.objects.filter(id=req["calendar"])[0],
                         name=req["name"],
                         date=datetime.datetime.strptime(req["date"], '%Y-%m-%d'),
                         description=req["description"],
                     )
-                    reminder.save()
+                    task.save()
 
             else:
                 return JsonResponse({"status": "error", "data": "You dot not own this calendar"})

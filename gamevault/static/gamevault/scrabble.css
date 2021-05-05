@@ -19,11 +19,10 @@
 
 .game-join-prompt {
     width: 400px;
-    max-width: 100vw;
-    height: 200px;
+    height: 300px;
     max-height: 100vh;
+    min-height: 300px;
 
-    padding: 30px;
     border-radius: 20px;
 
     position: absolute;
@@ -32,4 +31,49 @@
     left: 0;
     right: 0;
     margin: auto;
+
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.game-join-options {
+    width: 90%;
+}
+
+.scrabble-game {
+    height: 100vh;
+    width: 100vw;
+    padding: 0;
+}
+
+.scrabble-game-left {
+    width: 50vw;
+    height: 100vh;
+    float: left;
+}
+
+.scrabble-game-right {
+    width: 50vw;
+    height: 100vh;
+    float: left;
+    padding: 10px;
+}
+
+.scrabble-tiles {
+    width: calc(80vh / 15);
+    height: calc(80vh / 15 * 7);
+    float: left;
+}
+
+.scrabble-board {
+    width: 80vh;
+    height: 80vh;
+    table-layout: fixed;
+    float: left;
+    margin-left: 5px;
+}
+
+table, th, td {
+    border: 2px solid black;
 }

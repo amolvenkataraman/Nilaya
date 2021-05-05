@@ -71,10 +71,14 @@
                             <a class="nav-link disabled" href="#" tabindex="-1" aria-disabled="true">Disabled</a>
                         </li>
                     </ul>
-                    <!--<form class="d-flex">
-                        <input class="form-control me-2" type="search" placeholder="Search" aria-label="Search">
-                        <button class="btn btn-outline-success" type="submit">Search</button>
-                    </form>-->
+                    <div class="d-flex search-area">
+                        <input class="form-control me-4" type="search" placeholder="Search" aria-label="Search"  list="searchDatalist">
+                        <datalist id="searchDatalist">
+                            <!--<option value="San Francisco">
+                                <div>EEE</div>
+                            </option>-->
+                        </datalist>
+                    </div>
 
                     <ul class="navbar-nav mr-0 mb-2 mb-lg-0">
                         <li class="nav-item dropdown apps-dropdown me-2">

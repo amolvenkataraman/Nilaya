@@ -47,10 +47,10 @@
                 `
             }
 
-            for (i = 0; i<data["reminders"].length; i++) {
-                document.querySelector('.reminders-today').innerHTML += `
+            for (i = 0; i<data["tasks"].length; i++) {
+                document.querySelector('.tasks-today').innerHTML += `
                     <li href="#" class="list-group-item text-dark">
-                        <span class="event-name">${data["reminders"][i]["name"]} ${data["reminders"][i]["completed"].replace("True", "✅").replace("False", "")}</span>
+                        <span class="event-name">${data["tasks"][i]["name"]} ${data["tasks"][i]["completed"].replace("True", "✅").replace("False", "")}</span>
                     </li>
                 `
             }
@@ -112,10 +112,10 @@
             </div>
             <div class="col-sm">
                 <a class="card recent-card" href="{% url 'calendar' %}">
-                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Reminders</h5>
-                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Reminders for Today</p>
+                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Tasks</h5>
+                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Tasks for Today</p>
                     <div class="card-body">
-                        <ul class="list-group list-group-flush reminders-today">
+                        <ul class="list-group list-group-flush tasks-today">
                             
                         </ul>
                     </div>
@@ -133,6 +133,7 @@
                 </div>
             </div>
         </div>
+        {% if desktop_app != 'true' %}
         <br>
         <div class="row">
             {% for group in links.groups %}
@@ -157,5 +158,6 @@
             </div>
             {% endfor %}
         </div>
+        {% endif %}
     </div>
 {% endblock %}
