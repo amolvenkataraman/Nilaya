@@ -29,6 +29,7 @@ class UserGroup(models.Model):
 
 class ComptechUser(AbstractUser):
     description = models.CharField(max_length=512, default="No description")
+    #gender = models.BooleanField(default=True)
     #location = models.ForeignKey()
     birthday = models.DateField(null=True, blank=True)
     timezone = models.CharField(max_length=32, default='Canada/Eastern')
@@ -58,6 +59,18 @@ class ComptechUser(AbstractUser):
             ans["profile_picture"] = self.profile_picture.url
         except ValueError:
             pass
+
+        return ans
+
+    def getinfo_zip(self):
+        ans = {
+            "id": self.id,
+            "username": self.username,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "description": self.description,
+            "is_admin": self.is_superuser,
+        }
 
         return ans
 

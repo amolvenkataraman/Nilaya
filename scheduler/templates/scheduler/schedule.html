@@ -30,7 +30,7 @@
 <script id="calendar-name" type="text/x-handlebars-template">
     <div class="custom-control custom-checkbox" data-calendar="{% verbatim %}{{ calendar }}{% endverbatim %}" style="margin-left: 10px;">
         <input type="checkbox" class="form-check-input" id="{% verbatim %}{{ name }}{% endverbatim %}" {% verbatim %}{{ checked }}{% endverbatim %} onchange="toggle_calendar_visibility(this, false)">
-        <label class="custom-control-label" for="{% verbatim %}{{ name }}{% endverbatim %}" style="margin-left: 5px;">{% verbatim %}{{ name }}{% endverbatim %}</label>
+        <label class="custom-control-label" for="{% verbatim %}{{ name }}{% endverbatim %}" style="margin-left: 5px; color: {% verbatim %}{{ colour }}{% endverbatim %};">{% verbatim %}{{ name }}{% endverbatim %}</label>
         <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %}"
             type="button" id="dropdownMenu{% verbatim %}{{ id }}{% endverbatim %}" data-bs-toggle="dropdown"
             aria-haspopup="true" aria-expanded="false" style="float: right; padding: 0px; height: 20px; margin-right: 5px;">
@@ -40,68 +40,101 @@
         </button>
         <div class="dropdown-menu" aria-labelledby="dropdownMenu{% verbatim %}{{ id }}{% endverbatim %}">
             <a class="dropdown-item" href="#!" onclick="toggle_calendar_visibility(this, true)">Display this only</a>
+            {% verbatim %}
+            {{#if owner}}
             <a class="dropdown-item" href="#!" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="display_calendar_info(this)">Settings</a>
+            {{/if}}
+            {% endverbatim %}
         </div>
     </div>
 </script>
 
 <script id="calendar-create-form" type="text/x-handlebars-template">
-    <input class="form-control calendar-name" id="calendar-name" type="text" placeholder="Name of calendar">
-    <p class="text-danger calendar-warn"></p>
-    <button class="btn btn-primary calendar-submit" type="submit">Create</button>
-</script>
-
-<script id="enroll-code-prompt" type="text/x-handlebars-template">
+    Subscribe to a calendar:
     <div class="input-group">
-        <input type="text" class="form-control enroll-code" placeholder="Enroll Code" aria-label="" aria-describedby="basic-addon1">
+        <input type="text" class="form-control enroll-code" placeholder="Code" aria-label="" aria-describedby="Code">
         <div class="input-group-append">
-            <button class="btn btn-primary enroll-btn-1" type="button">Enroll</button>
+            <button class="btn btn-primary enroll-btn" type="button">Subscribe</button>
         </div>
     </div>
     <p class="text-danger enroll-warn"></p>
-
-    {% if request.user.teacher %}
-        <button class="btn btn-primary form-control create-calendar-btn" type="button" onclick="create_calendar()">Create a class</button>
-    {% endif %}
+    <hr>
+    Create a Calendar
+    <div class="input-group">
+        <input type="text" class="form-control calendar-name" id="calendar-name" type="text" placeholder="Name of calendar">
+        <div class="input-group-append">
+            <input type="color" class="form-control form-control-color calendar-color" id="exampleColorInput" value="#000000" title="Choose the calendar color" style="width: 50px;">
+        </div>
+        <div class="input-group-append">
+            <button class="btn btn-primary calendar-submit" type="submit">Create</button>
+        </div>
+    </div>
+    <p class="text-danger calendar-warn"></p>
 </script>
 
+<script id="enroll-confirm" type="text/x-handlebars-template">
+    <center><h4>Subscribe?</h4></center>
+    {% verbatim %}
+    <p>Calendar name: {{ name }}</p>
+    <p>Teacher: {{ owner }}</p>
+    {% endverbatim %}
+    <button type="submit" class="btn btn-success enroll-confirm-btn" style="width: 100%;">Subscribe</button>
+    <br><br>
+    <a href="{% url 'index' %}"><button type="submit" class="btn btn-danger" style="width: 100%;" data-dismiss="modal">Don't Subscribe</button></a>
+  </script>
+
 <script id="class-info-template" type="text/x-handlebars-template">
-    <div class="card-columns">
-        <div class="card">
-            <div class="card-body">
-                <h4 class="card-title">Students</h4>
-                <p class="card-text">
-                    <ul class='student-list list-unstyled'></ul>
-                </p>
+    <div class="row" style="width: 100%;">
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <h4 class="card-title">Subscribers</h4>
+                    <p class="card-text">
+                        <ul class='student-list list-unstyled'></ul>
+                    </p>
+                </div>
             </div>
         </div>
-        <div class="card">
-            <div class="card-body">
-                <h4 class="card-title">Upcoming</h4>
-                <p class="card-text">
-                    <ul class='upcoming-list list-unstyled'></ul>
-                </p>
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <h4 class="card-title">Upcoming</h4>
+                    <p class="card-text">
+                        <ul class='upcoming-list list-unstyled'></ul>
+                    </p>
+                </div>
             </div>
         </div>
-        <div class="card">
-            <div class="card-body">
-                <h4 class="card-title">Invites</h4>
-                <h6 class="card-subtitle mb-2 text-muted">Click on the checkbox to enable/disable the invite</h6>
-                <p class="card-text">
-                    <ul class='invite-list list-unstyled'></ul>
-                    <div class="invite-create-form">
-                        <div class="input-group input-group-sm">
-                            <div class="input-group-prepend" data-bs-toggle="tooltip" data-placement="bottom" title="Random Invite">
-                                <button class="btn btn-primary random-invite" id="inputGroup-sizing-sm"><i class="fas fa-random"></i></button>
+        <div class="col">
+            <div class="card">
+                <div class="card-body">
+                    <h4 class="card-title">Invites</h4>
+                    <h6 class="card-subtitle mb-2 text-muted">Click on the checkbox to enable/disable the invite</h6>
+                    <p class="card-text">
+                        <ul class='invite-list list-unstyled'></ul>
+                        <div class="invite-create-form">
+                            <div class="input-group input-group-sm">
+                                <div class="input-group-prepend" data-bs-toggle="tooltip" data-placement="bottom" title="Random Invite">
+                                    <button class="btn btn-primary random-invite" id="inputGroup-sizing-sm" style="padding: 4px 12px 4px 12px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-shuffle" viewBox="0 0 16 16">
+                                            <path fill-rule="evenodd" d="M0 3.5A.5.5 0 0 1 .5 3H1c2.202 0 3.827 1.24 4.874 2.418.49.552.865 1.102 1.126 1.532.26-.43.636-.98 1.126-1.532C9.173 4.24 10.798 3 13 3v1c-1.798 0-3.173 1.01-4.126 2.082A9.624 9.624 0 0 0 7.556 8a9.624 9.624 0 0 0 1.317 1.918C9.828 10.99 11.204 12 13 12v1c-2.202 0-3.827-1.24-4.874-2.418A10.595 10.595 0 0 1 7 9.05c-.26.43-.636.98-1.126 1.532C4.827 11.76 3.202 13 1 13H.5a.5.5 0 0 1 0-1H1c1.798 0 3.173-1.01 4.126-2.082A9.624 9.624 0 0 0 6.444 8a9.624 9.624 0 0 0-1.317-1.918C4.172 5.01 2.796 4 1 4H.5a.5.5 0 0 1-.5-.5z"></path>
+                                            <path d="M13 5.466V1.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384l-2.36 1.966a.25.25 0 0 1-.41-.192zm0 9v-3.932a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384l-2.36 1.966a.25.25 0 0 1-.41-.192z"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <input class="form-control invite-text" type="text" placeholder="Invite" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
+                                <div class="input-group-append" data-bs-toggle="tooltip" data-placement="bottom" title="Create Invite">
+                                    <button class="btn btn-primary create-invite" id="inputGroup-sizing-sm" style="padding: 4px 12px 4px 12px;">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check2" viewBox="0 0 16 16">
+                                            <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
-                            <input class="form-control invite-text" type="text" placeholder="Invite" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
-                            <div class="input-group-append" data-bs-toggle="tooltip" data-placement="bottom" title="Create Invite">
-                                <button class="btn btn-primary create-invite" id="inputGroup-sizing-sm"><i class="fas fa-check"></i></button>
-                            </div>
+                            <p class="text-danger invite-warn"></p>
                         </div>
-                        <p class="text-danger invite-warn"></p>
-                    </div>
-                </p>
+                    </p>
+                </div>
             </div>
         </div>
     </div>
@@ -110,6 +143,40 @@
             $('[data-bs-toggle="tooltip"]').tooltip();
         });
     </script>
+</script>
+
+<script id="assignment-create-form" type="text/x-handlebars-template">
+    <div class="question-set">
+    <label for="class">Which calendar</label>
+    <select class="form-control custom-select class-select" name="class-select">
+    <option selected value="">Select an calendar</option>
+    </select>
+    <p class="text-danger class-warn"></p>
+    <br>
+    <label for="name">Name of Assignment</label>
+    <input class="form-control name" id="name" type="text" placeholder="Name of Assignment">
+    <p class="text-danger name-warn"></p>
+    <br>
+    <label for="deadline">Due</label>
+    <input type="date" class="form-control deadline-start" name="deadline-end" style="width: 100%;">
+    <br>
+    <input type="time" class="form-control deadline1-start" name="deadline1-end" style="width: 100%;">
+    <p class="text-danger deadline-start-warn"></p>
+    <br>
+    <label for="description">Description</label>
+    <textarea class="form-control description" id="description" rows="3"></textarea>
+    <p class="text-danger description-warn"></p>
+    <br>
+    <input class="form-check-input public" type="checkbox" value="" id="flexCheckDefault1">
+    <label class="form-check-label" for="flexCheckDefault1">
+    Public
+    </label>
+    <br><br>
+    <label for="customRange3" class="form-label">Priority</label>
+    <input type="range" class="form-range priority" min="0" max="20" step="1" id="customRange3">
+    <br><br>
+    <button type="submit" class="btn btn-primary add" style="width: 100%;">Create</button>
+    </div>
 </script>
 
 <script id="event-create-form" type="text/x-handlebars-template">
@@ -140,6 +207,14 @@
     <textarea class="form-control description" id="description" rows="3"></textarea>
     <p class="text-danger description-warn"></p>
     <br>
+    <input class="form-check-input public" type="checkbox" value="" id="flexCheckDefault">
+    <label class="form-check-label" for="flexCheckDefault">
+    Public
+    </label>
+    <br><br>
+    <label for="customRange1" class="form-label">Priority</label>
+    <input type="range" class="form-range priority" min="0" max="20" step="1" id="customRange1">
+    <br><br>
     <button type="submit" class="btn btn-primary add" style="width: 100%;">Create</button>
     </div>
 </script>
@@ -164,6 +239,9 @@
     <textarea class="form-control description" id="description1" rows="3"></textarea>
     <p class="text-danger description-warn"></p>
     <br>
+    <label for="customRange2" class="form-label">Priority</label>
+    <input type="range" class="form-range priority" min="0" max="20" step="1" id="customRange2">
+    <br><br>
     <button type="submit" class="btn btn-primary add" style="width: 100%;">Create</button>
     </div>
 </script>
@@ -172,8 +250,9 @@
     const calendar_item = Handlebars.compile(document.querySelector("#calendar-item").innerHTML)
     const calendar_name = Handlebars.compile(document.querySelector("#calendar-name").innerHTML)
     const calendar_create_form = Handlebars.compile(document.querySelector("#calendar-create-form").innerHTML)
-    const enroll_code_prompt = Handlebars.compile(document.querySelector("#enroll-code-prompt").innerHTML)
+    const enroll_confirm = Handlebars.compile(document.querySelector("#enroll-confirm").innerHTML)
     const class_info_template = Handlebars.compile(document.querySelector("#class-info-template").innerHTML)
+    const assignment_create_form = Handlebars.compile(document.querySelector("#assignment-create-form").innerHTML)
     const event_create_form = Handlebars.compile(document.querySelector("#event-create-form").innerHTML)
     const task_create_form = Handlebars.compile(document.querySelector("#task-create-form").innerHTML)
 
@@ -193,8 +272,6 @@
 
         populate_calendar(m, y)
 
-        //enroll()
-
         window.addEventListener('resize', change_height)
     })
 
@@ -209,6 +286,7 @@
         $('.modal-body').html(`
             <center>
                 <div class="btn-group-vertical" role="group" aria-label="What to add?">
+                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="assignment">Assignment</button>
                     <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="event">Event</button>
                     <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="task">Task</button>
                 </div>
@@ -217,7 +295,64 @@
     }
 
     function add_this_on_day(e, date_, month_, year_) {
-        if (e.dataset.type == "event") {
+        if (e.dataset.type == "assignment") {
+            $('.modal-title').html("Add Assignment")
+            $('.modal-body').html(assignment_create_form())
+            for (i = 0; i < data["calendars"].length; i++) {
+                if (data["calendars"][i]["owner"]["id"] == "{{ request.user.id }}") {
+                    document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
+                }
+            }
+            document.querySelector('.deadline-start').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
+
+            document.querySelector('.add').onclick = () => {
+                error = false;
+                if (document.querySelector('.class-select').value === "")
+                {error = true; $('.class-warn').html("Please select a calendar")}
+                else
+                {$('.class-warn').html("")}
+
+                if (document.querySelector('.name').value === "")
+                {error = true; $('.name-warn').html("Please enter an assignment name")}
+                else
+                {$('.name-warn').html("")}
+
+                if (document.querySelector('.deadline-start').value == "" || document.querySelector('.deadline1-start').value == "")
+                {error = true; $('.deadline-start-warn').html("Please select a start date/time")}
+                else
+                {$('.deadline-start-warn').html("")}
+
+                if (error === false)
+                {
+                    result = {
+                            "type": "assignment",
+                            "calendar": document.querySelector('.class-select').value,
+                            "name": document.querySelector('.name').value,
+                            "date": document.querySelector('.deadline-start').value + " " + document.querySelector('.deadline1-start').value,
+                            "description": document.querySelector('.description').value,
+                            "public": document.querySelector('.public').value,
+                            "priority": document.querySelector('.priority').value,
+                    }
+        
+                    var request = new XMLHttpRequest()
+                    request.open('POST', `{% url 'add' %}`)
+                    request.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
+                    request.onload = () => {
+                        res = JSON.parse(request.responseText);
+                        if (res["status"] == "success")
+                        {
+                            window.location.reload();
+                        }
+                        else
+                        {
+                            alert("Something went wrong on the server-side. Please try again.")
+                        }
+                    }
+                    request.send(JSON.stringify(result))
+                }
+            }
+        }
+        else if (e.dataset.type == "event") {
             $('.modal-title').html("Add Event")
             $('.modal-body').html(event_create_form())
             for (i = 0; i < data["calendars"].length; i++) {
@@ -259,6 +394,8 @@
                             "start": document.querySelector('.deadline-start').value + " " + document.querySelector('.deadline1-start').value,
                             "end": document.querySelector('.deadline-end').value + " " + document.querySelector('.deadline1-end').value,
                             "description": document.querySelector('.description').value,
+                            "public": document.querySelector('.public').value,
+                            "priority": document.querySelector('.priority').value,
                     }
         
                     var request = new XMLHttpRequest()
@@ -314,6 +451,7 @@
                             "name": document.querySelector('.name').value,
                             "date": document.querySelector('.deadline-start').value,
                             "description": document.querySelector('.description').value,
+                            "priority": document.querySelector('.priority').value,
                     }
         
                     var request = new XMLHttpRequest()
@@ -399,70 +537,17 @@
         reload()
     }
 
-    /*function enroll() {
-        var enrollCode
-
-        document.querySelector('.enroll-btn').onclick = () => {
-            setTimeout(function() {
-                $('.modal-title').html("Enroll in a Class")
-                $('.modal-body').html(enroll_code_prompt())
-                document.querySelector('.enroll-btn-1').onclick = () => {
-                    enrollCode = document.querySelector('.enroll-code').value
-                    if (enrollCode == "") {
-                        $('.enroll-warn').html("Please enter an enroll code.")
-                    }
-                    else {
-                        $('.enroll-warn').html("")
-                        r = new XMLHttpRequest()
-                        r.open("GET", "{% url 'enroll' %}?code=" + enrollCode)
-                        r.onload = () => {
-                            res = JSON.parse(r.responseText)
-                            if (res["status"] == "error") {
-                                $('.enroll-warn').html(res["data"])
-                            }
-                            else {
-                                $('.modal-body').html(enroll_confirm({"name": res["data"]["name"], "teacher": `${res["data"]["teacher"]["first_name"]} ${res["data"]["teacher"]["last_name"]}`}))
-                                document.querySelector('.enroll-confirm-btn').onclick = () => {
-                                    r = new XMLHttpRequest()
-                                    r.open("POST", "{% url 'enroll' %}?code=" + enrollCode)
-                                    r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
-                                    r.onload = () => {
-                                        res = JSON.parse(r.responseText)
-                                        if (res["status"] == "error") {
-                                            $('.modal-body').html(`<p class="text-danger enroll-warn" style="font-size: 15px;">ERROR: ${res["data"]}</p>`)
-                                        }
-                                        else {
-                                            $('.modal-body').html(`
-                                                <p class="text-success enroll-warn" style="font-size: 15px;">You are successfully enrolled in the class.</p>
-                                                <p>This page will automatically refresh. Please wait...</p>
-                                            `)
-                                            setTimeout(function() {
-                                                location.reload()
-                                            }, 1000)
-                                        }
-                                    }
-                                    r.send()
-                                }
-                            }
-                        }
-                        r.send()
-                    }
-                }
-            }, 100)
-        }
-    }*/
-
     function create_calendar() {
         $("#modal").modal("hide");
         $("#modal").modal();
 
-        $('.modal-title').html("Create a calendar");
+        $('.modal-title').html("Create or join");
         $('.modal-body').html(calendar_create_form({}));
 
 
         $('.calendar-submit').click(() => {
             if ($('.calendar-name').val() === '') {
-                $('.calendar-warn').text("Please enter a class name");
+                $('.calendar-warn').text("Please enter a calendar name");
             }
             else {
                 r = new XMLHttpRequest();
@@ -477,9 +562,54 @@
                         $('.calendar-warn').text(res["data"]);
                     }
                 }
-                r.send(JSON.stringify({"name": $('.calendar-name').val()}));
+                r.send(JSON.stringify({"name": $('.calendar-name').val(), "color": $('.calendar-color').val()}));
             }
         });
+
+        var enrollCode
+
+        document.querySelector('.enroll-btn').onclick = () => {
+            enrollCode = document.querySelector('.enroll-code').value
+            if (enrollCode == "") {
+                $('.enroll-warn').html("Please enter an enroll code.")
+            }
+            else {
+                $('.enroll-warn').html("")
+                r = new XMLHttpRequest()
+                r.open("GET", "{% url 'enroll' %}?code=" + enrollCode)
+                r.onload = () => {
+                    res = JSON.parse(r.responseText)
+                    if (res["status"] == "error") {
+                        $('.enroll-warn').html(res["data"])
+                    }
+                    else {
+                        $('.modal-body').html(enroll_confirm({"name": res["data"]["name"], "owner": `${res["data"]["owner"]["first_name"]} ${res["data"]["owner"]["last_name"]}`}))
+                        document.querySelector('.enroll-confirm-btn').onclick = () => {
+                            r = new XMLHttpRequest()
+                            r.open("POST", "{% url 'enroll' %}?code=" + enrollCode)
+                            r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
+                            r.onload = () => {
+                                res = JSON.parse(r.responseText)
+                                if (res["status"] == "error") {
+                                    $('.modal-body').html(`<p class="text-danger enroll-warn" style="font-size: 15px;">ERROR: ${res["data"]}</p>`)
+                                }
+                                else {
+                                    $('.modal-body').html(`
+                                        <p class="text-success enroll-warn" style="font-size: 15px;">You are subscribed to this calendar.</p>
+                                        <p>This page will automatically refresh. Please wait...</p>
+                                    `)
+                                    setTimeout(function() {
+                                        location.reload()
+                                    }, 1000)
+                                }
+                            }
+                            r.send()
+                        }
+                    }
+                }
+                r.send()
+            }
+        }
     }
 
     function display_day_info(ds) {
@@ -515,7 +645,30 @@
             if (JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(c[i]["id"]))) {
                 checked = ""
             }
-            document.querySelector('.calendarlist').innerHTML += calendar_name({"id": c[i]["id"], "name": c[i]["name"], "calendar": c[i]["id"], "checked": checked})
+            if (c[i]["owner"]["id"] == '{{ request.user.id }}') {
+                owner = true;
+            }
+            else {
+                owner = false;
+            }
+            document.querySelector('.calendarlist').innerHTML += calendar_name({"id": c[i]["id"], "name": c[i]["name"], "calendar": c[i]["id"], "checked": checked, "colour": c[i]['colour'], "owner": owner})
+        }
+
+        a = data["assignments"]
+        for (i = 0; i < a.length; i++)
+        {
+            if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(a[i]["calendar"]["id"]))) {
+                d = new Date(a[i]['date'])
+                document.querySelectorAll('.date-picker').forEach(dp => {
+                    td = new Date(dp.dataset.year, dp.dataset.month - 1, (parseInt(dp.dataset.date) - 1).toString())
+
+                    if (d.getDate() == td.getDate())
+                    {
+                        var ci = calendar_item({'calendar': a[i]['calendar'], 'i': i, 'type': "assignment", 'color': a[i]['calendar']['colour'], 'text': a[i]['name'] + " [" + a[i]['calendar']['name'] + "]"})
+                        dp.innerHTML += ci
+                    }
+                })
+            }
         }
 
         r = data["tasks"]
@@ -529,10 +682,10 @@
                     if (d.getDate() == td.getDate())
                     {
                         if (r[i]['completed'] === "True") {
-                            var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'color': "green", 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "] ✅"})
+                            var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'color': r[i]['calendar']['colour'], 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "] ✅"})
                         }
                         else {
-                            var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'color': "green", 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "]"})
+                            var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'color': r[i]['calendar']['colour'], 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "]"})
                         }
                         dp.innerHTML += ci
                     }
@@ -552,7 +705,7 @@
 
                     if ((sd >= td && td1 > ed) || (sd <= td && td1 < ed))
                     {
-                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': "cornflowerblue", 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
                         dp.innerHTML += ci
                     }
                 })
@@ -589,7 +742,25 @@
 
     function display_info(button) {
         setTimeout(function() {
-            if (button.dataset.type == "event") {
+            if (button.dataset.type == "assignment") {
+                assignment = data["assignments"][button.dataset.no]
+                d = new Date(assignment["date"])
+                $('.modal-title').html(assignment["name"])
+                $('.modal-body').html(`
+                    For: ${assignment["calendar"]['name']}<br>
+                    Due: ${
+                        d.toLocaleString("en-US", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                        hour: "numeric",
+                        minute: "2-digit"
+                        })
+                    }<br>
+                    Description: ${assignment["description"]}<br>`)
+            }
+
+            else if (button.dataset.type == "event") {
                 event = data["events"][button.dataset.no]
                 sd = new Date(event["startdate"])
                 ed = new Date(event["enddate"])
@@ -644,7 +815,6 @@
 
     function display_calendar_info(btn) {
         classid = btn.parentElement.parentElement.dataset.calendar
-        console.log(classid)
         for (i = 0; i < data["calendars"].length; i++) {
             if (data["calendars"][i]["id"] == classid)
             {
@@ -652,99 +822,106 @@
             }
         }
 
-        setTimeout(function () {
-            $('.big-modal-title').html(`${class_["name"]}`)
-            $('.big-modal-body').html(class_info_template())
-            /*for (i = 0; i < class_["students"].length; i++) {
-                studentinfo = `
-                    ${class_["students"][i]["first_name"]} 
-                    ${class_["students"][i]["last_name"]} 
-                    (${class_["students"][i]["username"]})
-                `
+        if (class_["owner"]["id"] == '{{ request.user.id }}') {
+            setTimeout(function () {
+                $('.big-modal-title').html(`${class_["name"]}`)
+                $('.big-modal-body').html(class_info_template())
+                document.querySelector('.student-list').innerHTML += `<li style="color: blue;">${class_["owner"]["first_name"]} ${class_["owner"]["last_name"]} (${class_["owner"]["username"]}) [OWNER]</li>`
+                for (i = 0; i < class_["subscribers"].length; i++) {
+                    studentinfo = `
+                        ${class_["subscribers"][i]["first_name"]} 
+                        ${class_["subscribers"][i]["last_name"]} 
+                        (${class_["subscribers"][i]["username"]})
+                    `
 
-                if (class_["teacher"]["id"] == class_["students"][i]["id"]) {
-                    document.querySelector('.student-list').innerHTML += `<li style="color: blue;">${studentinfo} [TEACHER]</li>`
+                    if (class_["owner"]["id"] == class_["subscribers"][i]["id"]) {
+                        document.querySelector('.student-list').innerHTML += `<li style="color: blue;">${studentinfo} [OWNER]</li>`
+                    }
+                    else {
+                        document.querySelector('.student-list').innerHTML += `<li>${studentinfo}</li>`
+                    }
                 }
-                else {
-                    document.querySelector('.student-list').innerHTML += `<li>${studentinfo}</li>`
-                }
-            }*/
-    
-            for (i = 0; i < data["invites"].length; i++) {
-                invite = data["invites"][i]
-                if (invite["class"]["id"] == class_["id"]) {
+        
+                for (i = 0; i < class_["invites"].length; i++) {
+                    invite = class_["invites"][i]
                     temp = ""
                     if (invite["active"] == "True") {temp = "checked"}
                     no_invites += 1
                     document.querySelector('.invite-list').innerHTML += `
                         <li>
                             <div class="custom-control custom-checkbox">
-                                <input type="checkbox" class="custom-control-input" id="customCheck${no_invites}" data-invite="${invite["id"]}" data-class="${invite["class"]["id"]}" ${temp} onclick="this.disabled=true;toggleInvite(this);">
+                                <input type="checkbox" class="custom-control-input" id="customCheck${no_invites}" data-invite="${invite["id"]}" data-class="${class_["id"]}" ${temp} onclick="this.disabled=true;toggleInvite(this);">
                                 <label class="custom-control-label invite-label" for="customCheck${no_invites}">${invite["code"]}</label>
                             </div>
                         </li>
                     `
                 }
-            }
 
-            for (i = 0; i < data["events"].length; i++) {
-                event = data["events"][i]
-                if (event["class"]["id"] == class_["id"]) {
-        
-                }
-            }
-
-            document.querySelectorAll('.invite-label').forEach(il => {
-                il.onclick = () => {
-                    ta = document.querySelector('.copy-ta')
-                    ta.value = il.innerHTML
-                    setTimeout(function() {
-                    ta.select()
-                    document.execCommand("copy")
-                    }, 100)
-                    ta.value = ""
-                }
-            })
-
-            document.querySelector('.random-invite').onclick = function() {
-                document.querySelector('.invite-text').value = randomText(8)
-            }
-
-            document.querySelector('.create-invite').onclick = function() {
-                inv = document.querySelector('.invite-text').value
-                if (inv == "") {
-                    $('.invite-warn').html("Please enter an invite code")
-                }
-                else {
-                    $('.invite-warn').html("")
-
-                    var request = new XMLHttpRequest()
-                    request.open('POST', `{% url 'invite' %}?code=${document.querySelector('.invite-text').value}&class=${class_["id"]}&option=create`)
-                    request.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
-                    request.onload = () => {
-                        res = JSON.parse(request.responseText)
-                        if (res["status"] === "error")
-                        { $('.invite-warn').html(res["data"])}
-                        else
-                        {
-                            no_invites += 1
-                            document.querySelector('.invite-list').innerHTML += `
-                            <li>
-                                <div class="custom-control custom-checkbox">
-                                    <input type="checkbox" class="custom-control-input" id="customCheck${no_invites}" data-invite="${res["data"]}" data-class="${class_["id"]}" checked onclick="this.disabled=true;toggleInvite(this);">
-                                    <label class="custom-control-label invite-label" for="customCheck${no_invites}">${document.querySelector('.invite-text').value}</label>
-                                </div>
-                            </li>
-                            `
-                            document.querySelector('.invite-text').value = ""
-                            jump_(m, y)
-                            populate_calendar(m, y)
-                        }
+                /*for (i = 0; i < data["events"].length; i++) {
+                    event = data["events"][i]
+                    if (event["calendar"]["id"] == class_["id"]) {
+            
                     }
-                    request.send()
+                }*/
+
+                document.querySelectorAll('.invite-label').forEach(il => {
+                    il.onclick = () => {
+                        ta = document.querySelector('.copy-ta')
+                        ta.value = il.innerHTML
+                        setTimeout(function() {
+                        ta.select()
+                        document.execCommand("copy")
+                        }, 100)
+                        ta.value = ""
+                    }
+                })
+
+                document.querySelector('.random-invite').onclick = function() {
+                    document.querySelector('.invite-text').value = randomText(8)
                 }
-            }
-        }, 100)
+
+                document.querySelector('.create-invite').onclick = function() {
+                    inv = document.querySelector('.invite-text').value
+                    if (inv == "") {
+                        $('.invite-warn').html("Please enter an invite code")
+                    }
+                    else {
+                        $('.invite-warn').html("")
+
+                        var request = new XMLHttpRequest()
+                        request.open('POST', `{% url 'invite' %}?code=${document.querySelector('.invite-text').value}&class=${class_["id"]}&option=create`)
+                        request.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
+                        request.onload = () => {
+                            res = JSON.parse(request.responseText)
+                            if (res["status"] === "error")
+                            { $('.invite-warn').html(res["data"])}
+                            else
+                            {
+                                no_invites += 1
+                                document.querySelector('.invite-list').innerHTML += `
+                                <li>
+                                    <div class="custom-control custom-checkbox">
+                                        <input type="checkbox" class="custom-control-input" id="customCheck${no_invites}" data-invite="${res["data"]}" data-class="${class_["id"]}" checked onclick="this.disabled=true;toggleInvite(this);">
+                                        <label class="custom-control-label invite-label" for="customCheck${no_invites}">${document.querySelector('.invite-text').value}</label>
+                                    </div>
+                                </li>
+                                `
+                                document.querySelector('.invite-text').value = ""
+                                jump_(m, y)
+                                populate_calendar(m, y)
+                            }
+                        }
+                        request.send()
+                    }
+                }
+            }, 100)
+        }
+        else {
+            setTimeout(function () {
+                $('.big-modal-title').html(`${class_["name"]}`)
+                $('.big-modal-body').html("You must be the owner of the calendar to view and change it's settings")
+            }, 100)
+        }
     }
 
     function toggleInvite(cb) {
@@ -757,14 +934,14 @@
             {alert("Something went wrong on the server-side. Please try again.")}
             else
             {
-                for(i=0; i<data["invites"].length; i++)
+                for(i=0; i<data["calendars"][cb.dataset.class]["invites"].length; i++)
                 {
-                    if(data["invites"][i]["id"] == cb.dataset.invite)
+                    if(data["calendars"][cb.dataset.class]["invites"][i]["id"] == cb.dataset.invite)
                     {
-                        if(data["invites"][i]["active"] == "True")
-                        {data["invites"][i]["active"] = "False"}
+                        if(data["calendars"][cb.dataset.class]["invites"][i]["active"] == "True")
+                        {data["calendars"][cb.dataset.class]["invites"][i]["active"] = "False"}
                         else
-                        {data["invites"][i]["active"] = "True"}
+                        {data["calendars"][cb.dataset.class]["invites"][i]["active"] = "True"}
                     }
                 }
                 cb.disabled = false

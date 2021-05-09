@@ -2,10 +2,30 @@ from django.db import models
 from users.models import *
 
 # Create your models here.
+class Invite(models.Model):
+    calendar = models.ForeignKey('Calendar', on_delete=models.CASCADE)
+    code = models.CharField(max_length=8, unique=True)
+    uses = models.IntegerField(default=0)
+    active = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.code}, for {self.calendar.name}"
+
+    def getinfo(self):
+        ans = {
+            "id": self.id,
+            "calendar": self.calendar.getinfo(),
+            "code": self.code,
+            "uses": self.uses,
+            "active": str(self.active),
+        }
+        return ans
+
 class Calendar(models.Model):
     name = models.CharField(max_length=64, unique=True)
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='calendar_owner')
     subscribers = models.ManyToManyField(ComptechUser, related_name='calendar_subscribers', blank=True)
+    colour = models.CharField(max_length=16, default='#000000')
     active = models.BooleanField(default=True)
 
     def  __str__(self):
@@ -15,43 +35,59 @@ class Calendar(models.Model):
         ans = {
             "id": self.id,
             "name": self.name,
-            "owner": self.owner.getinfo(),
+            "owner": {"id": self.owner.id, "username": self.owner.username, "first_name": self.owner.first_name, "last_name": self.owner.last_name},
             "active": str(self.active),
+            "colour": self.colour,
         }
 
         return ans
 
-    def getsubscribers(self):
-        return {"subscribers": [i.getinfo() for i in self.subscribers.all()]}
+    def getinfo_full(self):
+        ans = {
+            "id": self.id,
+            "name": self.name,
+            "owner": {"id": self.owner.id, "username": self.owner.username, "first_name": self.owner.first_name, "last_name": self.owner.last_name},
+            "active": str(self.active),
+            "colour": self.colour,
+            "subscribers": [i.getinfo_zip() for i in self.subscribers.all()],
+            "invites": [i.getinfo() for i in Invite.objects.filter(calendar=self)]
+        }
 
-"""
-class Group(models.Model):
-    name = models.CharField(max_length=64, unique=True)
-    classes = models.ManyToManyField(Class, related_name='group_class')
+        return ans
+
+class Assignment(models.Model):
+    calendar = models.ForeignKey(Calendar, on_delete=models.CASCADE)
+    name = models.CharField(max_length=256)
+    date = models.DateTimeField(auto_now=False)
+    description = models.TextField(null=True, blank=True)
+    public = models.BooleanField(default=False)
+    priority = models.SmallIntegerField(default=10)
 
     def __str__(self):
-        return f"{self.name}"
-
-
-class Invite(models.Model):
-    Class = models.ForeignKey(Class, on_delete=models.CASCADE)
-    code = models.CharField(max_length=8, unique=True)
-    uses = models.IntegerField(default=0)
-    active = models.BooleanField(default=True)
-
-    def __str__(self):
-        return f"{self.code}, for {self.Class.name}"
+        return f"{self.name} for {self.calendar.name}. Due: {str(self.date)}"
 
     def getinfo(self):
         ans = {
             "id": self.id,
-            "class": self.Class.getinfo(),
-            "code": self.code,
-            "uses": self.uses,
-            "active": str(self.active),
+            "calendar": self.calendar.getinfo(),
+            "name": self.name,
+            "date": str(self.date),
+            "description": self.description,
+            "public": str(self.public),
+            "priority": self.priority,
         }
         return ans
-"""
+
+    def getinfo_zip(self):
+        ans = {
+            "id": self.id,
+            "name": self.name,
+            "date": str(self.date),
+            "description": self.description,
+            "public": str(self.public),
+            "priority": self.priority,
+        }
+        return ans
 
 class Event(models.Model):
     calendar = models.ForeignKey(Calendar, on_delete=models.CASCADE)
@@ -60,6 +96,7 @@ class Event(models.Model):
     enddate = models.DateTimeField(auto_now=False)
     description = models.TextField(null=True, blank=True)
     public = models.BooleanField(default=False)
+    priority = models.SmallIntegerField(default=10)
 
     def __str__(self):
         return f"{self.name} for {self.calendar.name}. From {str(self.startdate)} to {str(self.enddate)}"
@@ -73,6 +110,7 @@ class Event(models.Model):
             "enddate": str(self.enddate),
             "description": self.description,
             "public": str(self.public),
+            "priority": self.priority,
         }
         return ans
 
@@ -84,6 +122,7 @@ class Event(models.Model):
             "enddate": str(self.enddate),
             "description": self.description,
             "public": str(self.public),
+            "priority": self.priority,
         }
         return ans
 
@@ -93,6 +132,7 @@ class Task(models.Model):
     date = models.DateField(auto_now=False)
     description = models.TextField(null=True, blank=True)
     completed = models.BooleanField(default=False)
+    priority = models.SmallIntegerField(default=10)
 
     def __str__(self):
         return f"{self.name} for {self.calendar.name}. On {str(self.date)}"
@@ -105,6 +145,7 @@ class Task(models.Model):
             "date": str(self.date),
             "description": self.description,
             "completed": str(self.completed),
+            "priority": self.priority,
         }
         return ans
 
@@ -115,6 +156,7 @@ class Task(models.Model):
             "date": str(self.date),
             "description": self.description,
             "completed": str(self.completed),
+            "priority": self.priority,
         }
         return ans
 

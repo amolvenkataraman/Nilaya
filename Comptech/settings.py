@@ -47,6 +47,8 @@ INSTALLED_APPS = [
     'reset_migrations',
     'channels',
     'rest_framework',
+    #'rest_framework.authtoken',
+    'oidc_provider',
 
     'django.contrib.admin',
     'django.contrib.auth',
@@ -132,6 +134,8 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTH_USER_MODEL = 'users.ComptechUser'
 
+OIDC_USERINFO = 'Comptech.oidc_provider_settings.userinfo'
+
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/
 
@@ -208,7 +212,7 @@ LINKS = {
                 {
                     "name": "NextCloud",
                     "description": "Self-hosted productivity platform",
-                    "link": "https://192.168.50.13",
+                    "link": "https://192.168.50.12",
                 },
                 {
                     "name": "Some App",

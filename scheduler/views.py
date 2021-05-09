@@ -32,13 +32,16 @@ def get_events(request):
 
     user_ = request.user
     calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
-    ans["data"]["calendars"] = [i.getinfo() for i in calendars]
+    ans["data"]["calendars"] = [i.getinfo_full() for i in calendars]
+    ans["data"]["assignments"] = []
     ans["data"]["events"] = []
     ans["data"]["tasks"] = []
 
     for calendar in calendars:
-        ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(Q(calendar=calendar) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year))))))])
-        ans["data"]["tasks"].extend([i.getinfo() for i in Task.objects.filter(calendar=calendar, date__month=(int(month) + 1))])
+        if calendar.active:
+            ans["data"]["assignments"].extend([i.getinfo() for i in Assignment.objects.filter(calendar=calendar, date__month=(int(month) + 1))])
+            ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(Q(calendar=calendar) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year))))))])
+            ans["data"]["tasks"].extend([i.getinfo() for i in Task.objects.filter(calendar=calendar, date__month=(int(month) + 1))])
 
     
     return JsonResponse(ans)
@@ -80,7 +83,7 @@ def create_calendar(request):
         if request.user.is_authenticated:
             b = json.loads(request.body.decode('utf8'))
             try:
-                c = Calendar(name=b['name'])
+                c = Calendar(name=b['name'], colour=b['color'])
                 c.owner = request.user
                 c.save()
             except IntegrityError:
@@ -96,6 +99,17 @@ def add(request):
             req = json.loads(request.body)
 
             if (Calendar.objects.filter(id=req["calendar"])[0].owner == request.user):
+                if req["type"] == "assignment":
+                    assignment = Assignment(
+                        calendar=Calendar.objects.filter(id=req["calendar"])[0],
+                        name=req["name"],
+                        date=datetime.datetime.strptime(req["date"], '%Y-%m-%d %H:%M'),
+                        description=req["description"],
+                        public=req["public"],
+                        priority=req["priority"],
+                    )
+                    assignment.save()
+
                 if req["type"] == "event":
                     event = Event(
                         calendar=Calendar.objects.filter(id=req["calendar"])[0],
@@ -103,6 +117,8 @@ def add(request):
                         startdate=datetime.datetime.strptime(req["start"], '%Y-%m-%d %H:%M'),
                         enddate=datetime.datetime.strptime(req["end"], '%Y-%m-%d %H:%M'),
                         description=req["description"],
+                        public=req["public"],
+                        priority=req["priority"],
                     )
                     event.save()
             
@@ -112,6 +128,7 @@ def add(request):
                         name=req["name"],
                         date=datetime.datetime.strptime(req["date"], '%Y-%m-%d'),
                         description=req["description"],
+                        priority=req["priority"],
                     )
                     task.save()
 
@@ -130,9 +147,9 @@ def enroll(request):
     invite = Invite.objects.filter(code=invitecode)
     if request.method == 'GET':
         try:
-            class_ = invite[0].Class
-            if class_ in request.user.class_student.all():
-                return JsonResponse({"status": "error", "data": "You are already enrolled in this class"})
+            class_ = invite[0].calendar
+            if class_ in request.user.calendar_subscribers.all():
+                return JsonResponse({"status": "error", "data": "You are already subscribed to this calendar"})
             else:
                 if invite[0].active == True:
                     return JsonResponse({"status": "success", "data": class_.getinfo()})
@@ -142,13 +159,13 @@ def enroll(request):
             return JsonResponse({"status": "error", "data": "Invalid Invite Code"})
     else:
         try:
-            class_ = invite[0].Class
-            if class_ in request.user.class_student.all():
-                return JsonResponse({"status": "error", "data": "You are already enrolled in this class"})
+            class_ = invite[0].calendar
+            if class_ in request.user.calendar_subscribers.all():
+                return JsonResponse({"status": "error", "data": "You are already subscribed to this calendar"})
             else:
                 invite_ = invite[0]
                 if invite_.active == True:
-                    class_.students.add(request.user)
+                    class_.subscribers.add(request.user)
                     invite_.uses += 1
                     invite_.save()
                     return JsonResponse({"status": "success"})
@@ -179,6 +196,8 @@ def invite(request):
         if option == "active":
             try:
                 invite = Invite.objects.filter(id=invitecode)[0]
+                if invite.calendar.owner.id != request.user.id:
+                    return JsonResponse({"status": "error", "data": "Unauthorzed"})
                 if invite.active == True:
                     invite.active = False
                 else:
@@ -196,17 +215,19 @@ def invite(request):
             except IndexError:
                 class_ = request.GET.get("class")
                 if class_ == None:
-                    return JsonResponse({"status": "error", "data": "No Class provided"})
+                    return JsonResponse({"status": "error", "data": "No Calendar provided"})
                 
                 try:
                     if len(invitecode) > 8:
                         return JsonResponse({"status": "error", "data": "Invite code too long"})
                     else:
-                        class1 = Class.objects.filter(id=class_)[0]
+                        class1 = Calendar.objects.filter(id=class_)[0]
+                        if class1.owner.id != request.user.id:
+                            return JsonResponse({"status": "error", "data": "Unauthorized"})
 
-                        invite = Invite(Class=class1, code=invitecode, uses=0, active=True)
+                        invite = Invite(calendar=class1, code=invitecode, uses=0, active=True)
                         invite.save()
 
                         return JsonResponse({"status": "success", "data": invite.id})
                 except IndexError:
-                    return JsonResponse({"status": "error", "data": "Class does not exist"})
+                    return JsonResponse({"status": "error", "data": "Calendar does not exist"})
