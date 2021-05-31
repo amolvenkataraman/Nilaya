@@ -17,3 +17,4 @@ class CTUAdmin(UserAdmin):
 
 admin.site.register(ComptechUser, CTUAdmin)
 admin.site.register(UserGroup)
+admin.site.register(FriendRequest)

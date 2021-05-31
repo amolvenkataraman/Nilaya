@@ -1,5 +1,5 @@
 from django.http import HttpResponse, FileResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, Http404
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
@@ -53,12 +53,16 @@ def password_change_view(request):
 
 # Render the user profile view
 def profile_view(request):
-    username = request.GET.get('user')
-    if username == None:
-        user = request.user
-    else:
-        user = ComptechUser.objects.filter(username=username)[0]
-    return render(request, 'users/profile.html', {'user': user.getinfo()})
+    if request.method == 'GET':
+        try:
+            username = request.GET.get('user')
+            if username == None:
+                user = request.user
+            else:
+                user = ComptechUser.objects.filter(username=username)[0]
+            return render(request, 'users/profile.html', {'user': user.getinfo()})
+        except IndexError:
+            raise Http404()
 
 # Log a user out and redirect to login
 def logout_view(request):
@@ -66,15 +70,19 @@ def logout_view(request):
     return redirect('login')
 
 def profile_picture(request):
-    username = request.GET.get('user')
-    if username == None:
-        user = request.user
-    else:
-        user = ComptechUser.objects.filter(username=username)[0]
-    try:
-        return FileResponse(user.profile_picture)
-    except ValueError:
-        return FileResponse(open('media/profile_picture.png', 'rb'))
+    if request.method == 'GET':
+        username = request.GET.get('user')
+        if username == None:
+            user = request.user
+        else:
+            user = ComptechUser.objects.filter(username=username)[0]
+        try:
+            return FileResponse(user.profile_picture)
+        except ValueError:
+            return FileResponse(open('media/profile_picture.png', 'rb'))
+    elif request.method == 'POST':
+        request.user.profile_picture = request.body
+        request.user.save()
 
 def toggle_dark_mode(request):
     user_ = request.user

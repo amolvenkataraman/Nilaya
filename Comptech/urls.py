@@ -23,6 +23,7 @@ urlpatterns = [
 
     path("chat/", include("chat.urls")),
     path("calendar/", include("scheduler.urls")),
+    path("photos/", include("photos.urls")),
     path("games/", include("gamevault.urls")),
 
     re_path(r'^openid/', include('oidc_provider.urls', namespace='oidc_provider')),

@@ -4,6 +4,7 @@ from django.shortcuts import redirect, render, Http404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from django.db.utils import IntegrityError
+from django.utils import timezone
 from .models import *
 from .forms import *
 from Comptech.settings import CALENDAR_VARS
@@ -11,6 +12,7 @@ from Comptech.settings import CALENDAR_VARS
 import requests
 import datetime
 import json
+import pytz
 
 # Create your views here.
 @login_required
@@ -32,16 +34,16 @@ def get_events(request):
 
     user_ = request.user
     calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
-    ans["data"]["calendars"] = [i.getinfo_full() for i in calendars]
+    ans["data"]["calendars"] = [i.getinfo_full() for i in calendars.iterator()]
     ans["data"]["assignments"] = []
     ans["data"]["events"] = []
     ans["data"]["tasks"] = []
 
     for calendar in calendars:
         if calendar.active:
-            ans["data"]["assignments"].extend([i.getinfo() for i in Assignment.objects.filter(calendar=calendar, date__month=(int(month) + 1))])
-            ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(Q(calendar=calendar) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year))))))])
-            ans["data"]["tasks"].extend([i.getinfo() for i in Task.objects.filter(calendar=calendar, date__month=(int(month) + 1))])
+            ans["data"]["assignments"].extend([i.getinfo() for i in Assignment.objects.filter(calendar=calendar, date__month=(int(month) + 1), date__year=int(year)).iterator()])
+            ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(Q(calendar=calendar) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year)))))).iterator()])
+            ans["data"]["tasks"].extend([i.getinfo() for i in Task.objects.filter(calendar=calendar, date__month=(int(month) + 1), date__year=int(year)).iterator()])
 
     
     return JsonResponse(ans)
@@ -68,13 +70,10 @@ def countdown(request, event_id, time="start"):
 def get_recent(user_):
     ans = {"data": {}}
 
-    calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
-    ans["data"]["events"] = []
-    ans["data"]["tasks"] = []
-
-    for calendar in calendars:
-        ans["data"]["events"].extend([i.getinfo_zip() for i in Event.objects.filter(Q(calendar=calendar) & Q(startdate__gte=datetime.datetime.now()) & Q(startdate__lte=datetime.datetime.now() + datetime.timedelta(days=7))).order_by('startdate')[:5]])
-        ans["data"]["tasks"].extend([i.getinfo_zip() for i in Task.objects.filter(calendar=calendar, date=datetime.datetime.today())])
+    calendars = list(user_.calendar_subscribers.all().union(user_.calendar_owner.all()))
+    #ans["data"]["events"] = [i.getinfo_zip() for i in Event.objects.filter(Q(calendar__in=calendars) & Q(startdate__gte=datetime.datetime.now()) & Q(startdate__lte=datetime.datetime.now() + datetime.timedelta(days=7))).order_by('startdate')[:5]]
+    ans["data"]["events"] = [i.getinfo_zip() for i in Event.objects.filter(calendar__in=calendars, startdate__gte=datetime.datetime.now(), startdate__lte=datetime.datetime.now() + datetime.timedelta(days=7)).order_by('startdate')[:5]]
+    ans["data"]["tasks"] = [i.getinfo_zip() for i in Task.objects.filter(calendar__in=calendars, date=datetime.datetime.now().date())]
 
     return ans
 
@@ -105,7 +104,7 @@ def add(request):
                         name=req["name"],
                         date=datetime.datetime.strptime(req["date"], '%Y-%m-%d %H:%M'),
                         description=req["description"],
-                        public=req["public"],
+                        public=req["public"] == 'true',
                         priority=req["priority"],
                     )
                     assignment.save()
@@ -117,11 +116,11 @@ def add(request):
                         startdate=datetime.datetime.strptime(req["start"], '%Y-%m-%d %H:%M'),
                         enddate=datetime.datetime.strptime(req["end"], '%Y-%m-%d %H:%M'),
                         description=req["description"],
-                        public=req["public"],
+                        public=req["public"] == 'true',
                         priority=req["priority"],
                     )
                     event.save()
-            
+
                 elif req["type"] == "task":
                     task = Task(
                         calendar=Calendar.objects.filter(id=req["calendar"])[0],

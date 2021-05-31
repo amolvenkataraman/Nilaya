@@ -330,7 +330,7 @@
                             "name": document.querySelector('.name').value,
                             "date": document.querySelector('.deadline-start').value + " " + document.querySelector('.deadline1-start').value,
                             "description": document.querySelector('.description').value,
-                            "public": document.querySelector('.public').value,
+                            "public": document.querySelector('.public:checked'),
                             "priority": document.querySelector('.priority').value,
                     }
         
@@ -394,7 +394,7 @@
                             "start": document.querySelector('.deadline-start').value + " " + document.querySelector('.deadline1-start').value,
                             "end": document.querySelector('.deadline-end').value + " " + document.querySelector('.deadline1-end').value,
                             "description": document.querySelector('.description').value,
-                            "public": document.querySelector('.public').value,
+                            "public": document.querySelector('.public:checked'),
                             "priority": document.querySelector('.priority').value,
                     }
         
@@ -654,20 +654,58 @@
             document.querySelector('.calendarlist').innerHTML += calendar_name({"id": c[i]["id"], "name": c[i]["name"], "calendar": c[i]["id"], "checked": checked, "colour": c[i]['colour'], "owner": owner})
         }
 
+        e = data["events"]
+        for (i = 0; i < e.length; i++)
+        {
+            if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(e[i]["calendar"]["id"]))) {
+                sd = new Date(e[i]['startdate'])
+                ed = new Date(e[i]['enddate'])
+
+                if (sd.getMonth() == m && ed.getMonth() == m)
+                {
+                    for (j = sd.getDate(); j <= ed.getDate(); j++)
+                    {
+                        dp = document.querySelector(`.date-picker-${j}`)
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
+                        dp.innerHTML += ci
+                    }
+                }
+                else if (sd.getMonth() == m) {
+                    for (j = sd.getDate(); j <= daysInMonth(m, y); j++)
+                    {
+                        dp = document.querySelector(`.date-picker-${j}`)
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
+                        dp.innerHTML += ci
+                    }
+                }
+                else if (ed.getMonth() == m) {
+                    for (j = 1; j <= ed.getDate(); j++)
+                    {
+                        dp = document.querySelector(`.date-picker-${j}`)
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
+                        dp.innerHTML += ci
+                    }
+                }
+                else {
+                    for (j = 1; j <= daysInMonth(m, y); j++)
+                    {
+                        dp = document.querySelector(`.date-picker-${j}`)
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
+                        dp.innerHTML += ci
+                    }
+                }
+            }
+        }
+
         a = data["assignments"]
         for (i = 0; i < a.length; i++)
         {
             if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(a[i]["calendar"]["id"]))) {
                 d = new Date(a[i]['date'])
-                document.querySelectorAll('.date-picker').forEach(dp => {
-                    td = new Date(dp.dataset.year, dp.dataset.month - 1, (parseInt(dp.dataset.date) - 1).toString())
+                dp = document.querySelector(`.date-picker-${d.getDate()}`)
 
-                    if (d.getDate() == td.getDate())
-                    {
-                        var ci = calendar_item({'calendar': a[i]['calendar'], 'i': i, 'type': "assignment", 'color': a[i]['calendar']['colour'], 'text': a[i]['name'] + " [" + a[i]['calendar']['name'] + "]"})
-                        dp.innerHTML += ci
-                    }
-                })
+                var ci = calendar_item({'calendar': a[i]['calendar'], 'i': i, 'type': "assignment", 'color': a[i]['calendar']['colour'], 'text': a[i]['name'] + " [" + a[i]['calendar']['name'] + "]"})
+                dp.innerHTML += ci
             }
         }
 
@@ -676,41 +714,19 @@
         {
             if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(r[i]["calendar"]["id"]))) {
                 d = new Date(r[i]['date'])
-                document.querySelectorAll('.date-picker').forEach(dp => {
-                    td = new Date(dp.dataset.year, dp.dataset.month - 1, (parseInt(dp.dataset.date) - 1).toString())
 
-                    if (d.getDate() == td.getDate())
-                    {
-                        if (r[i]['completed'] === "True") {
-                            var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'color': r[i]['calendar']['colour'], 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "] ✅"})
-                        }
-                        else {
-                            var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'color': r[i]['calendar']['colour'], 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "]"})
-                        }
-                        dp.innerHTML += ci
-                    }
-                })
+                dp = document.querySelector(`.date-picker-${d.getUTCDate()}`)
+
+                if (r[i]['completed'] === "True") {
+                    var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'color': r[i]['calendar']['colour'], 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "] ✅"})
+                }
+                else {
+                    var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'color': r[i]['calendar']['colour'], 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "]"})
+                }
+                dp.innerHTML += ci
             }
         }
 
-        e = data["events"]
-        for (i = 0; i < e.length; i++)
-        {
-            if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(e[i]["calendar"]["id"]))) {
-                sd = new Date(e[i]['startdate'])
-                ed = new Date(e[i]['enddate'])
-                document.querySelectorAll('.date-picker').forEach(dp => {
-                    td = new Date(dp.dataset.year, dp.dataset.month - 1, dp.dataset.date)
-                    td1 = new Date(dp.dataset.year, dp.dataset.month - 1, (parseInt(dp.dataset.date) + 1).toString())
-
-                    if ((sd >= td && td1 > ed) || (sd <= td && td1 < ed))
-                    {
-                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
-                        dp.innerHTML += ci
-                    }
-                })
-            }
-        }
         change_height()
 
         document.querySelectorAll('.date-span').forEach(ds => {

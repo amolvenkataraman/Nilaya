@@ -25,7 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'REDACTED-OLD-DJANGO-SECRET-KEY'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = True # True in development, False in production
 
 ALLOWED_HOSTS = ['*']
 
@@ -33,6 +33,20 @@ ALLOWED_HOSTS = ['*']
 # Application definition
 
 INSTALLED_APPS = [
+    'django.contrib.admin',
+    'django.contrib.auth',
+    'django.contrib.contenttypes',
+    'django.contrib.sessions',
+    'django.contrib.messages',
+    'django.contrib.staticfiles',
+
+    'crispy_forms',
+    'reset_migrations',
+    'channels',
+    'rest_framework',
+    #'rest_framework.authtoken',
+    'oidc_provider',
+
     'users',
     'mainsite',
     'static_files',
@@ -42,31 +56,17 @@ INSTALLED_APPS = [
     'scheduler',
     'gamevault',
     'photos',
-
-    'crispy_forms',
-    'reset_migrations',
-    'channels',
-    'rest_framework',
-    #'rest_framework.authtoken',
-    'oidc_provider',
-
-    'django.contrib.admin',
-    'django.contrib.auth',
-    'django.contrib.contenttypes',
-    'django.contrib.sessions',
-    'django.contrib.messages',
-    'django.contrib.staticfiles',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    #'whitenoise.middleware.WhiteNoiseMiddleware', # Comment in development, uncomment in production
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
 ]
 
 ROOT_URLCONF = 'Comptech.urls'
@@ -82,6 +82,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'users.context_processors.debug',
             ],
         },
     },
@@ -170,11 +171,12 @@ CALENDAR_VARS = {
     "holidays": [0, 6],
 }
 
-IGNORABLE_404_URLS = ['favicon.ico']
-
 SESSION_COOKIE_AGE = 1209600
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
+
+MEDIA_ROOT = BASE_DIR / 'media'
+
 
 GREETINGS = ["Hello There", "Hey There", "Good Day", "Nice to see you", "May the Force be with you",]
 
@@ -197,9 +199,9 @@ LINKS = {
                     "link": "/calendar/",
                 },
                 {
-                    "name": "Games",
-                    "description": "Gamevault (CRAPPIPLY BUILT DO NOT USE)",
-                    "link": "/games/",
+                    "name": "Photos",
+                    "description": "Photos",
+                    "link": "/photos/",
                 },
             ],
         },
@@ -293,4 +295,4 @@ LINKS = {
     ],
 }
 
-# P@ssw0rd
+# P@ssw0rrd

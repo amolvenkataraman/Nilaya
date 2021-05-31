@@ -7,6 +7,19 @@
 <link href="{% static 'users/users.css' %}" rel="stylesheet">
 {% endblock %}
 
+{% block script %}
+    {% if DEBUG == 'False' %}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            if (document.location.protocol == 'http' || document.location.protocol == 'http:') {
+                $('.submit-btn').remove();
+                $('.launch-modal').click();
+            }
+        });
+    </script>
+    {% endif %}
+{% endblock %}
+
 {% block background %}
     <div class="background" style="background-image: url('{% url 'bg_image' %}?id={{ image.id }}');"></div>
     <div class="background_info">
@@ -50,4 +63,25 @@
         <center><small class="text-muted">Don't have an account? <a href="{% url 'register' %}">Register</a></small></center>
     </div>
 </div>
+
+{% endblock %}
+
+{% block modal %}
+
+<button type="button" class="launch-modal" data-bs-toggle="modal" data-bs-target="#staticBackdrop" style="display: none;">
+    Launch security warning
+</button>
+
+<div class="modal fade" id="staticBackdrop" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-labelledby="securityWarningModal" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-warning text-weight-bold" id="securityWarningModal">Security Warning</h5>
+            </div>
+            <div class="modal-body">
+                You are accessing the Login page via HTTP when the server is in production. This means that the password that you enter is not encrypted and can be read by third parties. In order to login, please access the website via it's secure HTTPS url.
+            </div>
+        </div>
+    </div>
+  </div>
 {% endblock %}

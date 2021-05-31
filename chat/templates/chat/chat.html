@@ -1,4 +1,4 @@
-{% extends "base.html" %}
+    {% extends "base.html" %}
 {% load static %}
 
 {% block page_title %} Chat {% endblock %}
@@ -64,7 +64,7 @@
                         <img class="profile-img" src="{% url 'profile_picture' %}?user={{ i.username }}" alt="">
                         {{ i.username }}
                     </div>
-                    {% if not forloop.last %}<hr class="user-divider">{%endif%}
+                    {% if not forloop.last %}<hr class="user-divider">{% endif %}
                     {% endfor %}
                 </div>
             </div>
@@ -121,7 +121,9 @@
 
         var chatSocket = new WebSocket(wspath('0'));
 
-        var dm_id = {{ dm_id }}
+        var dm_id = {{ dm_id }};
+
+        var newMessageNotification = new Audio(`{% static 'chat/ding.wav' %}`);
 
         function show_home() {
             $('.chat-middle').html(chat_home());
@@ -183,6 +185,11 @@
                 else {
                     document.querySelector('.message-display').innerHTML += other_sent_message({"message": parse_message(data.message), "user": data.username});
                 }
+
+                if (!document.hasFocus())
+                {
+                    newMessageNotification.play();
+                }
                 
                 message_display = document.querySelector('.message-display');
                 message_display.scrollTop = message_display.scrollHeight - message_display.clientHeight;
@@ -199,7 +206,6 @@
                     'message': message
                 }));
                 messageInput.value = '';
-                console.log(message)
                 document.querySelector('#send-button').disabled = true;
             };
 

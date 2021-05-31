@@ -23,8 +23,9 @@
         document.querySelector('.second').innerHTML = s
 
         var months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+        var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
-        document.querySelector('.date').innerHTML = today.getDate() + " " + months[today.getMonth()] + " " + today.getFullYear();
+        document.querySelector('.date').innerHTML = days[today.getDay()] + ", " + today.getDate() + " " + months[today.getMonth()] + " " + today.getFullYear();
 
         var t = setTimeout(startTime, 500);
     }
@@ -126,9 +127,6 @@
                     <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Name</h5>
                     <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Description</p>
                     <div class="card-body">
-                        <ul class="list-group list-group-flush recent-events">
-                            
-                        </ul>
                     </div>
                 </div>
             </div>

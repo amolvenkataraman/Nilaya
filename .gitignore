@@ -1,0 +1,4 @@
+staticfiles
+.vscode
+*.sqlite3
+media

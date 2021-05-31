@@ -27,7 +27,7 @@ class DMUser(models.Model):
 class Message(models.Model):
     dm = models.ForeignKey(DirectMessage, on_delete=models.CASCADE)
     message = models.CharField(max_length=2048, null=True, blank=True)
-    attachment = models.FileField(upload_to='media/chat/attachments', null=True, blank=True)
+    attachment = models.FileField(upload_to='chat/attachments', null=True, blank=True)
     sent_by = models.IntegerField()
     sent_time = models.DateTimeField(auto_now=True)
 
