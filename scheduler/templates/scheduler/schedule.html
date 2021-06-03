@@ -752,8 +752,34 @@
             console.log(data)
 
             reload_calendar()
+            google_calendar(m, y)
         }
         r.send()
+    }
+
+    function google_calendar(m, y) {
+        r1 = new XMLHttpRequest()
+        r1.open("GET", `{% url 'get_events_gc' %}?month=${m}&year=${y}`)
+        r1.onload = () => {
+            data1 = JSON.parse(r1.responseText.replace(/&#x27;/g,'"'))["data"]
+
+            for (i = 0; i < data1.length; i++) {
+                if (data1[i]["kind"] == "calendar#event") {
+                    e = data1[i]
+
+                    sd = new Date(e['start']['date'])
+                    ed = new Date(e['end']['date'])
+                    for (j = sd.getUTCDate(); j < ed.getUTCDate(); j++)
+                    {
+                        dp = document.querySelector(`.date-picker-${j}`)
+                        var ci = calendar_item({'calendar': "Google", 'i': i, 'type': "event", 'color': "black", 'text': e['summary'] + " [" + "Google Calendar" + "]"})
+                        dp.innerHTML += ci
+                    }
+                }
+            }
+            //reload_calendar()
+        }
+        r1.send()
     }
 
     function display_info(button) {

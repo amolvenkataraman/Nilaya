@@ -30,23 +30,51 @@ def get_events(request):
         return HttpResponseBadRequest("Year not provided")
 
     ans = {"data": {}}
-    #print(month, year)
 
     user_ = request.user
-    calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
+    calendars = user_.calendar_subscribers.filter(active=True).union(user_.calendar_owner.filter(active=True))
     ans["data"]["calendars"] = [i.getinfo_full() for i in calendars.iterator()]
     ans["data"]["assignments"] = []
     ans["data"]["events"] = []
     ans["data"]["tasks"] = []
 
     for calendar in calendars:
-        if calendar.active:
-            ans["data"]["assignments"].extend([i.getinfo() for i in Assignment.objects.filter(calendar=calendar, date__month=(int(month) + 1), date__year=int(year)).iterator()])
-            ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(Q(calendar=calendar) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year)))))).iterator()])
-            ans["data"]["tasks"].extend([i.getinfo() for i in Task.objects.filter(calendar=calendar, date__month=(int(month) + 1), date__year=int(year)).iterator()])
+        ans["data"]["assignments"].extend([i.getinfo() for i in Assignment.objects.filter(calendar=calendar, date__month=(int(month) + 1), date__year=int(year)).iterator()])
+        ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(Q(calendar=calendar) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year)))))).iterator()])
+        ans["data"]["tasks"].extend([i.getinfo() for i in Task.objects.filter(calendar=calendar, date__month=(int(month) + 1), date__year=int(year)).iterator()])
 
-    
     return JsonResponse(ans)
+
+def get_events_from_google_calendar(request):
+    if not request.user.is_authenticated:
+        return HttpResponseForbidden("Not logged in")
+    month = request.GET.get("month")
+    if month == None:
+        return HttpResponseBadRequest("Month not provided")
+    year = request.GET.get("year")
+    if year == None:
+        return HttpResponseBadRequest("Year not provided")
+
+    calendar_id = "example@group.calendar.google.com"
+    api_key = "REDACTED_GOOGLE_API_KEY"
+
+    tzoffset = datetime.datetime.now(pytz.timezone(timezone.get_current_timezone_name())).strftime('%z')
+
+    start_time = f"{year}-{str(int(month) + 1)}-01T00:00:00{tzoffset}"
+    y_ = int(year)
+    m_ = int(month) + 2
+    if m_ == 13:
+        m_ = 1
+        y_ += 1
+    end_time = f"{str(y_)}-{str(m_)}-01T00:00:00{tzoffset}"
+    fields = str("items(kind,summary,start,end)")
+
+    r = requests.get(f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events?key={api_key}&timeMin={start_time}&timeMax={end_time}&fields={fields}")
+    
+    res = r.json()
+
+    return JsonResponse({"data": res["items"]})
+    
 
 def countdown(request, event_id, time="start"):
     try:
