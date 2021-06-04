@@ -27,6 +27,8 @@ SECRET_KEY = 'REDACTED-OLD-DJANGO-SECRET-KEY'
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True # True in development, False in production
 
+ONLINE_MODE = True # Change to False to disable all external requests
+
 ALLOWED_HOSTS = ['*']
 
 
