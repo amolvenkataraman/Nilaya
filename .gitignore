@@ -1,4 +1,6 @@
 staticfiles
 .vscode
 *.sqlite3
+*.pyc
+__pycache__
 media
