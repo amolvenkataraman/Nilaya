@@ -104,7 +104,7 @@ def countdown(request, event_id, time="start"):
             else:
                 raise Http404()
         
-            return render(request, 'scheduler/countdown.html', {"event": event_.getinfo(), "time": event_time.strftime("%b %d %Y %H:%M:%S"), "se": time})
+            return render(request, 'scheduler/countdown.html', {"event": event_.getinfo(), "time": event_time.strftime("%b %d %Y %H:%M:%S %z"), "se": time})
 
         else:
             return HttpResponse('401 Unauthorized', status=401)
