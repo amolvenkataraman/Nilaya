@@ -48,6 +48,7 @@ INSTALLED_APPS = [
     'rest_framework',
     #'rest_framework.authtoken',
     'oidc_provider',
+    'import_export',
 
     'users',
     'mainsite',
