@@ -8,7 +8,7 @@ My very own tech giant.
 3. If you are working on a feature that involves connecting to some other company's APIs or servers, please make sure you have my consent before implementing such code. Connecting to some servers is not allowed for secutity reasons.
 
 ## Installation Instructions
-1. Create an empty folder and run the command `git clone http://git.example.net:3001/amolven/Comptech.git` to clone the repository to your computer. You will need to provide authentication.
+1. Create an empty folder and run the command `git clone http://git.example.net:3000/amolven/Comptech.git` to clone the repository to your computer. You will need to provide authentication.
 2. Make sure you are in the root directory of the program (the directory with `manage.py`).
 3. Install all the package dependencies by running the command `pip install -r requirements.txt`.
 4. Run the commands `python manage.py makemigrations` and `python manage.py migrate` to set up the database.
