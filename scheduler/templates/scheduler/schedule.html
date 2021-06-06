@@ -28,7 +28,7 @@
 </script>
 
 <script id="calendar-name" type="text/x-handlebars-template">
-    <div class="custom-control custom-checkbox" data-calendar="{% verbatim %}{{ calendar }}{% endverbatim %}" style="margin-left: 10px;">
+    <div class="custom-control custom-checkbox" data-calendar="{% verbatim %}{{ calendar }}{% endverbatim %}" data-calendar-type="{% verbatim %}{{ calendar_type }}{% endverbatim %}" style="margin-left: 10px;">
         <input type="checkbox" class="form-check-input" id="{% verbatim %}{{ name }}{% endverbatim %}" {% verbatim %}{{ checked }}{% endverbatim %} onchange="toggle_calendar_visibility(this, false)">
         <label class="custom-control-label" for="{% verbatim %}{{ name }}{% endverbatim %}" style="margin-left: 5px; color: {% verbatim %}{{ colour }}{% endverbatim %};">{% verbatim %}{{ name }}{% endverbatim %}</label>
         <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %}"
@@ -300,7 +300,9 @@
             $('.modal-body').html(assignment_create_form())
             for (i = 0; i < data["calendars"].length; i++) {
                 if (data["calendars"][i]["owner"]["id"] == "{{ request.user.id }}") {
-                    document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
+                    if (data["calendars"][i]["calendar_type"] == "0") {
+                        document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
+                    }
                 }
             }
             document.querySelector('.deadline-start').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
@@ -357,7 +359,9 @@
             $('.modal-body').html(event_create_form())
             for (i = 0; i < data["calendars"].length; i++) {
                 if (data["calendars"][i]["owner"]["id"] == "{{ request.user.id }}") {
-                    document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
+                    if (data["calendars"][i]["calendar_type"] == "0") {
+                        document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
+                    }
                 }
             }
             document.querySelector('.deadline-start').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
@@ -421,7 +425,9 @@
             $('.modal-body').html(task_create_form())
             for(i = 0; i < data["calendars"].length; i++) {
                 if (data["calendars"][i]["owner"]["id"] == "{{ request.user.id }}") {
-                    document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
+                    if (data["calendars"][i]["calendar_type"] == "0") {
+                        document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
+                    }
                 }
             }
             document.querySelector('.deadline-start').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
@@ -638,6 +644,7 @@
 
     function reload_calendar() {
         $('.calendarlist').html("")
+        $('.calendarlist-synced').html("")
 
         c = data["calendars"]
         for (i = 0; i < c.length; i++) {
@@ -651,7 +658,20 @@
             else {
                 owner = false;
             }
-            document.querySelector('.calendarlist').innerHTML += calendar_name({"id": c[i]["id"], "name": c[i]["name"], "calendar": c[i]["id"], "checked": checked, "colour": c[i]['colour'], "owner": owner})
+
+            cal_name = calendar_name({"id": c[i]["id"], "name": c[i]["name"], "calendar": c[i]["id"], "calendar-type": c[i]["calendar_type"], "checked": checked, "colour": c[i]['colour'], "owner": owner});
+
+            if (c[i]["calendar_type"] == 0)
+            {
+                document.querySelector('.calendarlist').innerHTML += cal_name;
+            }
+            else if (c[i]["calendar_type"] == 1) {
+                document.querySelector('.calendarlist-synced').innerHTML += cal_name;
+                google_calendar(m, y, c[i]);
+            }
+        }
+        if (data["online_mode"] == false) {
+            document.querySelector('.calendarlist-synced').innerHTML += `<div class="text-warning h6" style="padding: 10px;">Server is running in OFFLINE MODE. External syncing is disabled.</div>`;
         }
 
         e = data["events"]
@@ -754,6 +774,30 @@
             reload_calendar()
         }
         r.send()
+    }
+
+    function google_calendar(m, y, c_) {
+        r1 = new XMLHttpRequest()
+        r1.open("GET", `{% url 'get_events_gc' %}?month=${m}&year=${y}&calendar=${c_["id"]}`)
+        r1.onload = () => {
+            data1 = JSON.parse(r1.responseText.replace(/&#x27;/g,'"'))["data"]
+
+            for (i = 0; i < data1.length; i++) {
+                if (data1[i]["kind"] == "calendar#event") {
+                    e = data1[i]
+
+                    sd = new Date(e['start']['date'])
+                    ed = new Date(e['end']['date'])
+                    for (j = sd.getUTCDate(); j < ed.getUTCDate(); j++)
+                    {
+                        dp = document.querySelector(`.date-picker-${j}`)
+                        var ci = calendar_item({'calendar': c_, 'i': i, 'type': "sync_event", 'color': c_['colour'], 'text': e['summary'] + " [" + c_['name'] + "]"})
+                        dp.innerHTML += ci
+                    }
+                }
+            }
+        }
+        r1.send()
     }
 
     function display_info(button) {
@@ -930,6 +974,10 @@
                         request.send()
                     }
                 }
+
+                if (class_["calendar_type"] == "1") {
+                    document.querySelector('.big-modal-body').innerHTML += "This is a synced calendar."
+                }
             }, 100)
         }
         else {
@@ -1034,6 +1082,12 @@
                 </button>
             </div>
             <div class="calendarlist" style="display: flex; flex-flow: column; height: 100%;">
+
+            </div>
+            <div style="font-size: 18px; margin-left: 10px; margin-bottom: 10px;">
+                Synced calendars:
+            </div>
+            <div class="calendarlist-synced" style="display: flex; flex-flow: column; height: 100%;">
 
             </div>
             <!--<br>

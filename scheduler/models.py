@@ -25,6 +25,11 @@ class Calendar(models.Model):
     name = models.CharField(max_length=64, unique=True)
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='calendar_owner')
     subscribers = models.ManyToManyField(ComptechUser, related_name='calendar_subscribers', blank=True)
+    calendar_type = models.PositiveSmallIntegerField(choices=(
+        (0, 'Local Calendar'),
+        (1, 'Google Calendar'),
+    ), default=0)
+    calendar_url = models.CharField(max_length=64, null=True, blank=True)
     colour = models.CharField(max_length=16, default='#000000')
     active = models.BooleanField(default=True)
 
@@ -36,9 +41,13 @@ class Calendar(models.Model):
             "id": self.id,
             "name": self.name,
             "owner": {"id": self.owner.id, "username": self.owner.username, "first_name": self.owner.first_name, "last_name": self.owner.last_name},
+            "calendar_type": self.calendar_type,
             "active": str(self.active),
             "colour": self.colour,
         }
+
+        if self.calendar_type != 0:
+            ans["calendar_url"] = self.calendar_url
 
         return ans
 
@@ -48,10 +57,14 @@ class Calendar(models.Model):
             "name": self.name,
             "owner": {"id": self.owner.id, "username": self.owner.username, "first_name": self.owner.first_name, "last_name": self.owner.last_name},
             "active": str(self.active),
+            "calendar_type": self.calendar_type,
             "colour": self.colour,
             "subscribers": [i.getinfo_zip() for i in self.subscribers.all()],
             "invites": [i.getinfo() for i in Invite.objects.filter(calendar=self)]
         }
+
+        if self.calendar_type != 0:
+            ans["calendar_url"] = self.calendar_url
 
         return ans
 
