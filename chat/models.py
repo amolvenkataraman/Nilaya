@@ -32,11 +32,13 @@ class Message(models.Model):
     sent_time = models.DateTimeField(auto_now=True)
 
     def getinfo(self):
+        user_ = ComptechUser.objects.filter(id=self.sent_by)[0]
         ans = {
             "dm": self.dm.id,
             "message": self.message,
             "sent_by_id": self.sent_by,
-            "sent_by_user": ComptechUser.objects.filter(id=self.sent_by)[0].getinfo(),
+            "sent_by_user": {"id": user_.id, "username": user_.username},
+            "sent_time": self.sent_time,
         }
 
         return ans

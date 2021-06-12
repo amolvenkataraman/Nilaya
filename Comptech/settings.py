@@ -220,9 +220,9 @@ LINKS = {
                     "link": "https://192.168.50.12",
                 },
                 {
-                    "name": "Some App",
-                    "description": "Insert Description Here",
-                    "link": "http://127.0.0.1:8000",
+                    "name": "GiTea",
+                    "description": "Secure storage for code",
+                    "link": "http://192.168.50.11:3000",
                 },
                 {
                     "name": "Some Other App",

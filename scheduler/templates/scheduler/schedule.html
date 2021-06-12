@@ -788,9 +788,24 @@
 
                     sd = new Date(e['start']['date'])
                     ed = new Date(e['end']['date'])
+                    if (Number.isNaN(sd.getUTCDate()))
+                    {
+                        sd = new Date(e['start']['dateTime']);
+                    }
+                    if (Number.isNaN(ed.getUTCDate()))
+                    {
+                        ed = new Date(e['start']['dateTime']);
+                    }
+                    
                     for (j = sd.getUTCDate(); j < ed.getUTCDate(); j++)
                     {
                         dp = document.querySelector(`.date-picker-${j}`)
+                        var ci = calendar_item({'calendar': c_, 'i': i, 'type': "sync_event", 'color': c_['colour'], 'text': e['summary'] + " [" + c_['name'] + "]"})
+                        dp.innerHTML += ci
+                    }
+                    if (sd.getUTCDate() == ed.getUTCDate())
+                    {
+                        dp = document.querySelector(`.date-picker-${sd.getUTCDate()}`)
                         var ci = calendar_item({'calendar': c_, 'i': i, 'type': "sync_event", 'color': c_['colour'], 'text': e['summary'] + " [" + c_['name'] + "]"})
                         dp.innerHTML += ci
                     }

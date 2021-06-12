@@ -112,7 +112,13 @@
         const other_sent_message = Handlebars.compile($("#other-sent-message").html());
 
         function wspath(code) {
-            return 'ws://'
+            if (window.location.protocol == 'https:') {
+                protocol = 'wss://';
+            }
+            else {
+                protocol = 'ws://';
+            }
+            return protocol
             + window.location.host
             + '/ws/chat/'
             + code
@@ -125,6 +131,8 @@
 
         var newMessageNotification = new Audio(`{% static 'chat/ding.wav' %}`);
 
+        var oldestTime = new Date();
+
         function show_home() {
             $('.chat-middle').html(chat_home());
 
@@ -134,7 +142,28 @@
             window.history.pushState('data', 'Chat', "{% url 'chat' %}");
         }
 
-        
+        function get_messages(dm_id_, oldest) {
+            r = new XMLHttpRequest;
+            r.open("GET", "{% url 'get_messages' %}?dm=" + dm_id_ + "&timestamp=" + oldest.toJSON());
+            r.onload = () => {
+                messages = JSON.parse(r.responseText)["messages"];
+                for (i = 0; i < messages.length; i++) {
+                    if (messages[i].sent_by_id == {{ request.user.id }}) {
+                        $('.message-display').prepend(self_sent_message({"message": parse_message(messages[i].message)}));
+                    }
+                    else {
+                        $('.message-display').prepend(other_sent_message({"message": parse_message(messages[i].message), "user": messages[i].sent_by_user.username}));
+                    }
+                    oldestTime = new Date(messages[i].sent_time)
+                }
+                $('.message-display').prepend(`<button onclick="get_messages(dm_id, oldestTime)">E</button>`)
+
+                message_display = document.querySelector('.message-display');
+                message_display.scrollTop = message_display.scrollHeight - message_display.clientHeight;
+            };
+            r.send();
+        }
+
         function show_dm(dm_id) {
             $('.chat-middle').html(direct_message());
 
@@ -153,29 +182,16 @@
                     if (event.keyCode === 13) {
                         if (!event.shiftKey) {
                             event.preventDefault();
-                            document.querySelector('#send-button').click();
+                            if (input.value != "") {
+                                document.querySelector('#send-button').click();
+                            }
                         }
                     }
                 }
             });
 
-            r = new XMLHttpRequest;
-            r.open("GET", "{% url 'get_messages' %}?dm=" + dm_id);
-            r.onload = () => {
-                messages = JSON.parse(r.responseText)["messages"];
-                for (i = 0; i < messages.length; i++) {
-                    if (messages[i].sent_by_id == {{ request.user.id }}) {
-                        document.querySelector('.message-display').innerHTML += self_sent_message({"message": parse_message(messages[i].message)});
-                    }
-                    else {
-                        document.querySelector('.message-display').innerHTML += other_sent_message({"message": parse_message(messages[i].message), "user": messages[i].sent_by_user.username});
-                    }
-                }
-
-                message_display = document.querySelector('.message-display');
-                message_display.scrollTop = message_display.scrollHeight - message_display.clientHeight;
-            };
-            r.send();
+            oldestTime = new Date();
+            get_messages(dm_id, oldestTime);
 
             chatSocket.onmessage = function(e) {
                 const data = JSON.parse(e.data);
@@ -241,7 +257,7 @@
                 }
             };
 
-            console.log("{{ fr_out }}, {{ fr_in }}")
+            //console.log("{{ fr_out }}, {{ fr_in }}")
         })
     </script>
 {% endblock %}
@@ -254,7 +270,7 @@
             <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_home()">Home</button>
             <br><br>
             {% for dm in dms %}
-                <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_dm({{ dm.id }})">{{ dm.name }}</button>
+                <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="dm_id = {{ dm.id }}; show_dm({{ dm.id }})">{{ dm.name }}</button>
             {% endfor %}
         </div>
 
@@ -265,6 +281,14 @@
         <div class="chat chat-right {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
             {% for friend in friends %}
                 {{ friend.username }}<br>
+            {% endfor %}
+            <hr>
+            {% for i in fr_out %}
+                {{ i.from.username }} -> {{ i.to.username }}<br>
+            {% endfor %}
+            <hr>
+            {% for i in fr_in %}
+                {{ i.from.username }} -> {{ i.to.username }}<br>
             {% endfor %}
         </div>
     </div>

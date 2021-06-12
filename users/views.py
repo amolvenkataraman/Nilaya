@@ -93,3 +93,7 @@ def toggle_dark_mode(request):
     user_.save()
 
     return HttpResponse("DONE")
+
+def friend_request(request):
+    if request.method == "POST":
+        print(request.body)
