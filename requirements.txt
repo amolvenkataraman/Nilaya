@@ -9,3 +9,5 @@ gpsphoto
 exifread
 piexif
 dateparser
+whitenoise
+Pillow
