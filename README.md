@@ -16,4 +16,4 @@ My very own tech giant.
 6. Start the server by running the command `python manage.py runserver`.
 7. Visit `127.0.0.1:8000` in your browser to view the website. Congratulations! 🎉 You have successfully set up Comptech on your computer.
 8. Not so quick. When you try to visit the website, you might get an error. This is because there are no background images to display on the login page.
-9. To fix this, login to the admin page by visiting `127.0.0.1:8000/admin` and log in with the credentials you entered in step 5. After logging in, click on *Bg_images* and click on the *ADD BG_IMAGE* button on the top right. Upload a largs landscape image, fill in the textboxes and click *Save*. You will now have a background image when you visit the login page.
+9. To fix this, login to the admin page by visiting `127.0.0.1:8000/admin` and log in with the credentials you entered in step 5. After logging in, click on *Bg_images* and click on the *ADD BG_IMAGE* button on the top right. Upload a large landscape image, fill in the textboxes and click *Save*. You will now have a background image when you visit the login page.
