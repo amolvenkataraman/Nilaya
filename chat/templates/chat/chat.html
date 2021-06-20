@@ -142,7 +142,7 @@
             window.history.pushState('data', 'Chat', "{% url 'chat' %}");
         }
 
-        function get_messages(dm_id_, oldest) {
+        function get_messages(dm_id_, oldest, scroll_) {
             r = new XMLHttpRequest;
             r.open("GET", "{% url 'get_messages' %}?dm=" + dm_id_ + "&timestamp=" + oldest.toJSON());
             r.onload = () => {
@@ -156,10 +156,12 @@
                     }
                     oldestTime = new Date(messages[i].sent_time)
                 }
-                $('.message-display').prepend(`<button onclick="get_messages(dm_id, oldestTime)">E</button>`)
+                $('.message-display').prepend(`<button onclick="get_messages(dm_id, oldestTime, false)">E</button>`)
 
-                message_display = document.querySelector('.message-display');
-                message_display.scrollTop = message_display.scrollHeight - message_display.clientHeight;
+                if (scroll_) {
+                    message_display = document.querySelector('.message-display');
+                    message_display.scrollTop = message_display.scrollHeight - message_display.clientHeight;
+                }
             };
             r.send();
         }
@@ -191,7 +193,7 @@
             });
 
             oldestTime = new Date();
-            get_messages(dm_id, oldestTime);
+            get_messages(dm_id, oldestTime, true);
 
             chatSocket.onmessage = function(e) {
                 const data = JSON.parse(e.data);

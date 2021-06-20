@@ -4,3 +4,4 @@ staticfiles
 *.pyc
 __pycache__
 media
+SSL
