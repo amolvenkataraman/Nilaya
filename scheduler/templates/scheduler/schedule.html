@@ -23,7 +23,7 @@
 {% block page_script %}
 <script id="calendar-item" type="text/x-handlebars-template">
     {% verbatim %}
-        <div class="event-button" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type = "{{ type }}" data-bs-toggle="modal" data-bs-target="#modal" style="font-size: 12px; color: {{ color }};" onclick="display_info(this)">{{ text }}</div>
+        <div class="event-button" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type = "{{ type }}" data-bs-toggle="modal" data-bs-target="#modal" style="font-size: 12px; color: {{ color }}; background-color: {{ bg_color }}; border-radius: {{ bo_radius }}; margin-bottom: 2px;" onclick="display_info(this)">{{#if del}}<del>{{/if}}{{ text }}{{#if del}}</div>{{/if}}</div>
     {% endverbatim %}
 </script>
 
@@ -264,15 +264,11 @@
     document.addEventListener('DOMContentLoaded', () => {
         vars = JSON.parse("{{ vars }}".replace(/&#x27;/g,'"'))
 
-        change_height()
-
         make_holidays_red()
 
         add_btn()
 
         populate_calendar(m, y)
-
-        window.addEventListener('resize', change_height)
     })
 
     function add_btn() {
@@ -288,7 +284,7 @@
                 <div class="btn-group-vertical" role="group" aria-label="What to add?">
                     <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="assignment">Assignment</button>
                     <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="event">Event</button>
-                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="task">Task</button>
+                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="task">Task (All-Day Event)</button>
                 </div>
             </center>
         `)
@@ -557,7 +553,7 @@
             }
             else {
                 r = new XMLHttpRequest();
-                r.open("POST", "{% url 'create_calendar' %}");
+                r.open("POST", "{% url 'calendar' %}");
                 r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
                 r.onload = () => {
                     res = JSON.parse(r.responseText);
@@ -667,11 +663,31 @@
             }
             else if (c[i]["calendar_type"] == 1) {
                 document.querySelector('.calendarlist-synced').innerHTML += cal_name;
-                google_calendar(m, y, c[i]);
+                if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(c[i]["id"]))) {
+                    google_calendar(m, y, c[i]);
+                }
             }
         }
         if (data["online_mode"] == false) {
             document.querySelector('.calendarlist-synced').innerHTML += `<div class="text-warning h6" style="padding: 10px;">Server is running in OFFLINE MODE. External syncing is disabled.</div>`;
+        }
+
+        r = data["tasks"]
+        for (i = 0; i < r.length; i++)
+        {
+            if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(r[i]["calendar"]["id"]))) {
+                d = new Date(r[i]['date'])
+
+                dp = document.querySelector(`.day-events-${d.getUTCDate()}`)
+
+                if (r[i]['completed'] === "True") {
+                    var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'bg_color': r[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': r[i]['name'], 'del': true})
+                }
+                else {
+                    var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'bg_color': r[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': r[i]['name']})
+                }
+                dp.innerHTML += ci
+            }
         }
 
         e = data["events"]
@@ -685,32 +701,32 @@
                 {
                     for (j = sd.getDate(); j <= ed.getDate(); j++)
                     {
-                        dp = document.querySelector(`.date-picker-${j}`)
-                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
+                        dp = document.querySelector(`.reg-events-${j}`)
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name']})
                         dp.innerHTML += ci
                     }
                 }
                 else if (sd.getMonth() == m) {
                     for (j = sd.getDate(); j <= daysInMonth(m, y); j++)
                     {
-                        dp = document.querySelector(`.date-picker-${j}`)
-                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
+                        dp = document.querySelector(`.reg-events-${j}`)
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name']})
                         dp.innerHTML += ci
                     }
                 }
                 else if (ed.getMonth() == m) {
                     for (j = 1; j <= ed.getDate(); j++)
                     {
-                        dp = document.querySelector(`.date-picker-${j}`)
-                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
+                        dp = document.querySelector(`.reg-events-${j}`)
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name']})
                         dp.innerHTML += ci
                     }
                 }
                 else {
                     for (j = 1; j <= daysInMonth(m, y); j++)
                     {
-                        dp = document.querySelector(`.date-picker-${j}`)
-                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
+                        dp = document.querySelector(`.reg-events-${j}`)
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name']})
                         dp.innerHTML += ci
                     }
                 }
@@ -722,27 +738,9 @@
         {
             if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(a[i]["calendar"]["id"]))) {
                 d = new Date(a[i]['date'])
-                dp = document.querySelector(`.date-picker-${d.getDate()}`)
+                dp = document.querySelector(`.reg-events-${d.getDate()}`)
 
-                var ci = calendar_item({'calendar': a[i]['calendar'], 'i': i, 'type': "assignment", 'color': a[i]['calendar']['colour'], 'text': a[i]['name'] + " [" + a[i]['calendar']['name'] + "]"})
-                dp.innerHTML += ci
-            }
-        }
-
-        r = data["tasks"]
-        for (i = 0; i < r.length; i++)
-        {
-            if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(r[i]["calendar"]["id"]))) {
-                d = new Date(r[i]['date'])
-
-                dp = document.querySelector(`.date-picker-${d.getUTCDate()}`)
-
-                if (r[i]['completed'] === "True") {
-                    var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'color': r[i]['calendar']['colour'], 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "] ✅"})
-                }
-                else {
-                    var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'color': r[i]['calendar']['colour'], 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "]"})
-                }
+                var ci = calendar_item({'calendar': a[i]['calendar'], 'i': i, 'type': "assignment", 'color': a[i]['calendar']['colour'], 'text': a[i]['name'] + " [" + moment(d).format('LT') + "]"})
                 dp.innerHTML += ci
             }
         }
@@ -794,19 +792,19 @@
                     }
                     if (Number.isNaN(ed.getUTCDate()))
                     {
-                        ed = new Date(e['start']['dateTime']);
+                        ed = new Date(e['end']['dateTime']);
                     }
                     
                     for (j = sd.getUTCDate(); j < ed.getUTCDate(); j++)
                     {
-                        dp = document.querySelector(`.date-picker-${j}`)
-                        var ci = calendar_item({'calendar': c_, 'i': i, 'type': "sync_event", 'color': c_['colour'], 'text': e['summary'] + " [" + c_['name'] + "]"})
+                        dp = document.querySelector(`.day-events-${j}`)
+                        var ci = calendar_item({'calendar': c_, 'i': i, 'type': "sync_event", 'bg_color': c_['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': e['summary']})
                         dp.innerHTML += ci
                     }
                     if (sd.getUTCDate() == ed.getUTCDate())
                     {
-                        dp = document.querySelector(`.date-picker-${sd.getUTCDate()}`)
-                        var ci = calendar_item({'calendar': c_, 'i': i, 'type': "sync_event", 'color': c_['colour'], 'text': e['summary'] + " [" + c_['name'] + "]"})
+                        dp = document.querySelector(`.reg-events-${sd.getUTCDate()}`)
+                        var ci = calendar_item({'calendar': c_, 'i': i, 'type': "sync_event", 'color': c_['colour'], 'text': e['summary'] + " [" + moment(sd).format('LT') + " - " + moment(ed).format('LT') + "]"})
                         dp.innerHTML += ci
                     }
                 }
@@ -889,16 +887,13 @@
     var class_
 
     function display_calendar_info(btn) {
-        classid = btn.parentElement.parentElement.dataset.calendar
-        for (i = 0; i < data["calendars"].length; i++) {
-            if (data["calendars"][i]["id"] == classid)
-            {
-                class_ = data["calendars"][i]
-            }
-        }
+        r = new XMLHttpRequest()
+        r.open('GET', `{% url 'calendar' %}?id=${btn.parentElement.parentElement.dataset.calendar}`)
+        r.onload = function() {
+            classid = btn.parentElement.parentElement.dataset.calendar
+            class_ = JSON.parse(r.responseText)
 
-        if (class_["owner"]["id"] == '{{ request.user.id }}') {
-            setTimeout(function () {
+            if (class_["owner"]["id"] == '{{ request.user.id }}') {
                 $('.big-modal-title').html(`${class_["name"]}`)
                 $('.big-modal-body').html(class_info_template())
                 document.querySelector('.student-list').innerHTML += `<li style="color: blue;">${class_["owner"]["first_name"]} ${class_["owner"]["last_name"]} (${class_["owner"]["username"]}) [OWNER]</li>`
@@ -993,14 +988,13 @@
                 if (class_["calendar_type"] == "1") {
                     document.querySelector('.big-modal-body').innerHTML += "This is a synced calendar."
                 }
-            }, 100)
-        }
-        else {
-            setTimeout(function () {
+            }
+            else {
                 $('.big-modal-title').html(`${class_["name"]}`)
                 $('.big-modal-body').html("You must be the owner of the calendar to view and change it's settings")
-            }, 100)
+            }
         }
+        r.send()
     }
 
     function toggleInvite(cb) {

@@ -1,5 +1,6 @@
 from django.db import models
 from users.models import *
+from rest_framework import serializers
 
 # Create your models here.
 class Invite(models.Model):
@@ -40,7 +41,7 @@ class Calendar(models.Model):
         ans = {
             "id": self.id,
             "name": self.name,
-            "owner": {"id": self.owner.id, "username": self.owner.username, "first_name": self.owner.first_name, "last_name": self.owner.last_name},
+            "owner": {"id": self.owner.id},
             "calendar_type": self.calendar_type,
             "active": str(self.active),
             "colour": self.colour,

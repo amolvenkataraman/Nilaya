@@ -75,41 +75,42 @@ function showCalendar(month, year) {
   // creating all cells
   var date = 1;
   for ( var i = 0; i < 6; i++ ) {
-      var row = document.createElement("tr");
+    var row = document.createElement("tr");
 
-      for ( var j = 0; j < 7; j++ ) {
-          if ( i === 0 && j < firstDay ) {
-              cell = document.createElement( "td" );
-              cellText = document.createTextNode("");
-              cell.appendChild(cellText);
-              row.appendChild(cell);
-          } else if (date > daysInMonth(month, year)) {
-              break;
-          } else {
-              cell = document.createElement("td");
-              cell.setAttribute("data-date", date);
-              cell.setAttribute("data-month", month + 1);
-              cell.setAttribute("data-year", year);
-              cell.setAttribute("data-month_name", months[month]);
-              cell.setAttribute("data-day", j);
-              cell.className = `date-picker date-picker-${date}`;
-              cell.innerHTML = `<div class='date-span' data-bs-toggle='modal' data-bs-target='#big-modal' onclick="display_day_info(this)"><span data-bs-toggle='modal' data-bs-target='#big-modal' onclick="display_day_info(this.parentElement)">${date}</span></div>`
+    for ( var j = 0; j < 7; j++ ) {
+      if ( i === 0 && j < firstDay ) {
+        cell = document.createElement( "td" );
+        cellText = document.createTextNode("");
+        cell.appendChild(cellText);
+        row.appendChild(cell);
+      } else if (date > daysInMonth(month, year)) {
+        break;
+      } else {
+        cell = document.createElement("td");
+        cell.setAttribute("data-date", date);
+        cell.setAttribute("data-month", month + 1);
+        cell.setAttribute("data-year", year);
+        cell.setAttribute("data-month_name", months[month]);
+        cell.setAttribute("data-day", j);
+        cell.className = `date-picker date-picker-${date}`;
+        cell.innerHTML = `
+          <div class='date-span' data-bs-toggle='modal' data-bs-target='#big-modal' onclick="display_day_info(this)"><span data-bs-toggle='modal' data-bs-target='#big-modal' onclick="display_day_info(this.parentElement)">${date}</span></div>
+          <div class='day-events day-events-${date}'></div>
+          <div class='reg-events reg-events-${date}'></div>
+        `
 
-              if ( date === today.getDate() && year === today.getFullYear() && month === today.getMonth() ) {
-                  cell.className = `date-picker selected date-picker-${date}`;
-              }
-              row.appendChild(cell);
-              date++;
-          }
-
-
+        if ( date === today.getDate() && year === today.getFullYear() && month === today.getMonth() ) {
+            cell.className = `date-picker selected date-picker-${date}`;
+        }
+        row.appendChild(cell);
+        date++;
       }
+    }
 
-      if (row.innerHTML != "") {
-        tbl.appendChild(row);
-      }
+    if (row.innerHTML != "") {
+      tbl.appendChild(row);
+    }
   }
-
 }
 
 function daysInMonth(iMonth, iYear) {

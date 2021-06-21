@@ -30,7 +30,7 @@
   border-collapse: collapse;
   overflow: scroll;
   width: 100%;
-  height: calc(100% - 160px);
+  height: calc(100% - 120px);
   grid-auto-rows: 1fr;
 }
 
