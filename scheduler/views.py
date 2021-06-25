@@ -41,9 +41,9 @@ def get_events(request):
     ans["data"]["tasks"] = []
     ans["data"]["online_mode"] = ONLINE_MODE
 
-    ans["data"]["assignments"].extend([i.getinfo() for i in Assignment.objects.filter(calendar__in=list(calendars), date__month=(int(month) + 1), date__year=int(year)).iterator()])
-    ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(Q(calendar__in=list(calendars)) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year)))))).iterator()])
-    ans["data"]["tasks"].extend([i.getinfo() for i in Task.objects.filter(calendar__in=list(calendars), date__month=(int(month) + 1), date__year=int(year)).iterator()])
+    ans["data"]["assignments"].extend([i.getinfo() for i in Assignment.objects.filter(calendar__in=list(calendars), date__month=(int(month) + 1), date__year=int(year)).order_by('date').iterator()])
+    ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(Q(calendar__in=list(calendars)) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year)))))).order_by('startdate').iterator()])
+    ans["data"]["tasks"].extend([i.getinfo() for i in Task.objects.filter(calendar__in=list(calendars), date__month=(int(month) + 1), date__year=int(year)).order_by('date').iterator()])
 
     return JsonResponse(ans)
 

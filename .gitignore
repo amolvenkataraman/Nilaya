@@ -6,3 +6,4 @@ __pycache__
 media
 SSL
 secret.txt
+db_password.txt
