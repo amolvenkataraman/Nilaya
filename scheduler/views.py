@@ -1,5 +1,6 @@
 from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
 from django.contrib import messages
+from django.core import serializers
 from django.shortcuts import redirect, render, Http404
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
@@ -10,10 +11,14 @@ from .forms import *
 from Comptech.settings import CALENDAR_VARS, ONLINE_MODE
 from Comptech.api import GOOGLE_API_KEY
 
+from ics import Calendar as Cal
+
+import date_converter
 import requests
 import datetime
 import json
 import pytz
+import time
 
 # Create your views here.
 @login_required
@@ -31,66 +36,80 @@ def get_events(request):
         return HttpResponseBadRequest("Year not provided")
 
     ans = {"data": {}}
-
     user_ = request.user
-    calendars = user_.calendar_subscribers.filter(active=True).union(user_.calendar_owner.filter(active=True))
-    ans["data"]["calendars"] = [i.getinfo_full() for i in calendars.iterator()]
+    if request.GET.get("show_all") == "1":
+        calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
+    else:
+        calendars = user_.calendar_subscribers.filter(active=True).union(user_.calendar_owner.filter(active=True))
+    ans["data"]["calendars"] = [i.getinfo() for i in calendars.iterator()]
     ans["data"]["assignments"] = []
     ans["data"]["events"] = []
     ans["data"]["tasks"] = []
     ans["data"]["online_mode"] = ONLINE_MODE
 
-    for calendar in calendars:
-        if calendar.calendar_type == 0:
-            ans["data"]["assignments"].extend([i.getinfo() for i in Assignment.objects.filter(calendar=calendar, date__month=(int(month) + 1), date__year=int(year)).iterator()])
-            ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(Q(calendar=calendar) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year)))))).iterator()])
-            ans["data"]["tasks"].extend([i.getinfo() for i in Task.objects.filter(calendar=calendar, date__month=(int(month) + 1), date__year=int(year)).iterator()])
+    ans["data"]["assignments"].extend([i.getinfo() for i in Assignment.objects.filter(calendar__in=list(calendars), date__month=(int(month) + 1), date__year=int(year)).order_by('date').iterator()])
+    ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(
+        Q(calendar__in=list(calendars)) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year)))) | Q(Q(startdate__month__lt=(int(month) + 1), enddate__month__gt=(int(month) + 1)) & Q(startdate__year=int(year), enddate__year=int(year))))
+    ).order_by('startdate').iterator()])
+    ans["data"]["tasks"].extend([i.getinfo() for i in Task.objects.filter(calendar__in=list(calendars), date__month=(int(month) + 1), date__year=int(year)).order_by('date').iterator()])
 
     return JsonResponse(ans)
 
-def get_events_from_google_calendar(request):
+def sync_events(calendar_id, sy, sm, ey, em):
     if ONLINE_MODE:
-        if not request.user.is_authenticated:
-            return HttpResponseForbidden("Not logged in")
-        month = request.GET.get("month")
-        if month == None:
-            return HttpResponseBadRequest("Month not provided")
-        year = request.GET.get("year")
-        if year == None:
-            return HttpResponseBadRequest("Year not provided")
-        calendar_ = request.GET.get("calendar")
-        if calendar_ == None:
-            return HttpResponseBadRequest("Calendar ID not provided")
+        calendar = Calendar.objects.filter(id=calendar_id)[0]
+        if calendar.calendar_type == 1:
+            tzoffset = datetime.datetime.now(pytz.timezone(timezone.get_current_timezone_name())).strftime('%z')
 
-        try:
-            calendar = Calendar.objects.filter(id=calendar_)[0]
-            if calendar.calendar_type != 1:
-                return HttpResponseBadRequest("Calendar must be Google Calendar synced")
-            calendar_id = calendar.calendar_url
-            if calendar_id == None:
-                return HttpResponseBadRequest("Calendar does not have a Calendar Sync URL")
-        except IndexError:
-            return HttpResponseBadRequest("Invalid Calendar")
+            start_time = f"{sy}-{sm}-01T00:00:00{tzoffset}"
+            end_time = f"{ey}-{em}-01T00:00:00{tzoffset}"
+            fields = str("items(kind,summary,start,end)")
 
-        tzoffset = datetime.datetime.now(pytz.timezone(timezone.get_current_timezone_name())).strftime('%z')
+            r = requests.get(f"https://www.googleapis.com/calendar/v3/calendars/{calendar.calendar_url}/events?key={GOOGLE_API_KEY}&timeMin={start_time}&timeMax={end_time}&singleEvents=true&orderBy=startTime")
+            #print(r.text)
+            res = r.json()
+            #if res["code"] == 200:
+            print(len(res["items"]))
+            for i in res["items"]:
+                try:
+                    try:
+                        sd = i["start"]["date"]
+                        ed = i["end"]["date"]
+                        etype = Task
+                        if (datetime.datetime.strptime(ed, "%Y-%m-%d") - datetime.datetime.strptime(sd, "%Y-%m-%d")).days != 1:
+                            etype = Event
+                            sd = datetime.datetime.strptime(sd, "%Y-%m-%d")
+                            ed = datetime.datetime.strptime(ed, "%Y-%m-%d")
+                            
+                    except KeyError:
+                        #print(i)
+                        sd = i["start"]["dateTime"]
+                        ed = i["end"]["dateTime"]
+                        etype = Event
+                    
+                    e1 = etype.objects.filter(sync_id=i["id"])
+                    if e1:
+                        e_ = e1[0]
+                    else:
+                        e_ = etype()
 
-        start_time = f"{year}-{str(int(month) + 1)}-01T00:00:00{tzoffset}"
-        y_ = int(year)
-        m_ = int(month) + 2
-        if m_ == 13:
-            m_ = 1
-            y_ += 1
-        end_time = f"{str(y_)}-{str(m_)}-01T00:00:00{tzoffset}"
-        fields = str("items(kind,summary,start,end)")
-
-        r = requests.get(f"https://www.googleapis.com/calendar/v3/calendars/{calendar_id}/events?key={GOOGLE_API_KEY}&timeMin={start_time}&timeMax={end_time}&fields={fields}")
+                    e_.calendar = calendar
+                    e_.name = i["summary"]
+                    e_.sync_id = i["id"]
+                    if etype == Task:
+                        e_.date = sd
+                    else:
+                        e_.startdate = sd
+                        e_.enddate = ed
+                    
+                    e_.save()
+                except Exception as ex:
+                    print(f"A(n) {type(ex).__name__} occurred. {ex.args}")
         
-        res = r.json()
-
-        return JsonResponse({"data": res["items"]})
+        elif calendar.calendar_type == 2:
+            pass
     else:
-        return JsonResponse({"data": []})
-    
+        print("Server is on Offline Mode")
 
 def countdown(request, event_id, time="start"):
     try:
@@ -115,14 +134,26 @@ def get_recent(user_):
     ans = {"data": {}}
 
     calendars = list(user_.calendar_subscribers.all().union(user_.calendar_owner.all()))
-    #ans["data"]["events"] = [i.getinfo_zip() for i in Event.objects.filter(Q(calendar__in=calendars) & Q(startdate__gte=datetime.datetime.now()) & Q(startdate__lte=datetime.datetime.now() + datetime.timedelta(days=7))).order_by('startdate')[:5]]
     ans["data"]["events"] = [i.getinfo_zip() for i in Event.objects.filter(calendar__in=calendars, startdate__gte=datetime.datetime.now(), startdate__lte=datetime.datetime.now() + datetime.timedelta(days=7)).order_by('startdate')[:5]]
     ans["data"]["tasks"] = [i.getinfo_zip() for i in Task.objects.filter(calendar__in=calendars, date=datetime.datetime.now().date())]
 
     return ans
 
-def create_calendar(request):
-    if request.method == 'POST':
+def calendar(request):
+    if request.method == 'GET':
+        if request.user.is_authenticated:
+            calendar = request.GET.get("id")
+            if calendar == None:
+                return HttpResponseBadRequest("Calendar ID not provided")
+            try:
+                c_ = Calendar.objects.filter(id=calendar)[0]
+                return JsonResponse(c_.getinfo_full())
+            except IndexError:
+                return HttpResponseBadRequest("Invalid Calendar")
+        else:
+            return JsonResponse({"status": "error", "data": "Not logged in"})
+
+    elif request.method == 'POST':
         if request.user.is_authenticated:
             b = json.loads(request.body.decode('utf8'))
             try:
@@ -142,38 +173,42 @@ def add(request):
             req = json.loads(request.body)
 
             if (Calendar.objects.filter(id=req["calendar"])[0].owner == request.user):
-                if req["type"] == "assignment":
-                    assignment = Assignment(
-                        calendar=Calendar.objects.filter(id=req["calendar"])[0],
-                        name=req["name"],
-                        date=datetime.datetime.strptime(req["date"], '%Y-%m-%d %H:%M'),
-                        description=req["description"],
-                        public=req["public"] == 'true',
-                        priority=req["priority"],
-                    )
-                    assignment.save()
+                try:
+                    if req["type"] == "assignment":
+                        assignment = Assignment(
+                            calendar=Calendar.objects.filter(id=req["calendar"])[0],
+                            name=req["name"],
+                            date=datetime.datetime.strptime(req["date"], '%Y-%m-%d %H:%M'),
+                            description=req["description"],
+                            public=req["public"] == 'true',
+                            priority=req["priority"],
+                        )
+                        assignment.save()
 
-                if req["type"] == "event":
-                    event = Event(
-                        calendar=Calendar.objects.filter(id=req["calendar"])[0],
-                        name=req["name"],
-                        startdate=datetime.datetime.strptime(req["start"], '%Y-%m-%d %H:%M'),
-                        enddate=datetime.datetime.strptime(req["end"], '%Y-%m-%d %H:%M'),
-                        description=req["description"],
-                        public=req["public"] == 'true',
-                        priority=req["priority"],
-                    )
-                    event.save()
+                    if req["type"] == "event":
+                        event = Event(
+                            calendar=Calendar.objects.filter(id=req["calendar"])[0],
+                            name=req["name"],
+                            startdate=datetime.datetime.strptime(req["start"], '%Y-%m-%d %H:%M'),
+                            enddate=datetime.datetime.strptime(req["end"], '%Y-%m-%d %H:%M'),
+                            description=req["description"],
+                            public=req["public"] == 'true',
+                            priority=req["priority"],
+                        )
+                        event.save()
 
-                elif req["type"] == "task":
-                    task = Task(
-                        calendar=Calendar.objects.filter(id=req["calendar"])[0],
-                        name=req["name"],
-                        date=datetime.datetime.strptime(req["date"], '%Y-%m-%d'),
-                        description=req["description"],
-                        priority=req["priority"],
-                    )
-                    task.save()
+                    elif req["type"] == "task":
+                        task = Task(
+                            calendar=Calendar.objects.filter(id=req["calendar"])[0],
+                            name=req["name"],
+                            date=datetime.datetime.strptime(req["date"], '%Y-%m-%d'),
+                            description=req["description"],
+                            priority=req["priority"],
+                        )
+                        task.save()
+                
+                except Exception as ex:
+                    return JsonResponse({"status": "error", "data": f"A(n) {type(ex).__name__} occurred. {ex.args}"})    
 
             else:
                 return JsonResponse({"status": "error", "data": "You dot not own this calendar"})

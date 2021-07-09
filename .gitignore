@@ -5,4 +5,7 @@ staticfiles
 __pycache__
 media
 SSL
+nginx
+Tor
 secret.txt
+db_password.txt

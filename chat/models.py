@@ -9,14 +9,17 @@ class DirectMessage(models.Model):
     def getinfo(self):
         ans = {
             "id": self.id,
-            "created_on": self.created_on,
-            "users": [ComptechUser.objects.filter(id=i.user_id)[0].getinfo() for i in DMUser.objects.filter(dm=self)]
+            "created_on": str(self.created_on),
         }
 
-        if self.name != None:
-            ans["name"] = self.name
+        dm_users = DMUser.objects.filter(dm=self).values_list('user_id', flat=True)
+        users = [i.getinfo_zip() for i in ComptechUser.objects.filter(id__in=list(dm_users))]
+        ans["users"] = users
+
+        if self.name == None:
+            ans["name"] = ", ".join([i["username"] for i in users])
         else:
-            ans["name"] = str([ComptechUser.objects.filter(id=i.user_id)[0].username for i in DMUser.objects.filter(dm=self)])
+            ans["name"] = self.name
 
         return ans
 
@@ -38,7 +41,7 @@ class Message(models.Model):
             "message": self.message,
             "sent_by_id": self.sent_by,
             "sent_by_user": {"id": user_.id, "username": user_.username},
-            "sent_time": self.sent_time,
+            "sent_time": str(self.sent_time),
         }
 
         return ans

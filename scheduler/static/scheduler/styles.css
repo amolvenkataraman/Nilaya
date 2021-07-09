@@ -86,11 +86,20 @@
 
 .sidebar {
   width: 15%;
-  /*min-width: 400px;  E */
+  overflow-y: scroll;
   height: calc(100vh - 56px);
   margin: 0px;
   padding: 10px;
   background: #f8f9fa;
+}
+
+.sidebar::-webkit-scrollbar {
+  display: none;
+}
+
+.sidebar {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
 }
 
 /*.timetable {
@@ -116,6 +125,13 @@
   padding-top: 12px;
   padding-bottom: 12px;
   text-align: left;
+}*/
+
+/*.custom-control-label {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  padding-left: 4px;
 }*/
 
 .page-title {

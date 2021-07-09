@@ -2,7 +2,7 @@
 {% load crispy_forms_tags %}
 {% load static %}
 
-{% block page_title %} Schedule {% endblock %}
+{% block page_title %} Calendar {% endblock %}
 
 {% block page_styles %}
 {% if request.user.dark_mode %}
@@ -23,14 +23,14 @@
 {% block page_script %}
 <script id="calendar-item" type="text/x-handlebars-template">
     {% verbatim %}
-        <div class="event-button" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type = "{{ type }}" data-bs-toggle="modal" data-bs-target="#modal" style="font-size: 12px; color: {{ color }};" onclick="display_info(this)">{{ text }}</div>
+        <div class="event-button" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type = "{{ type }}" data-bs-toggle="modal" data-bs-target="#modal" style="font-size: 12px; color: {{ color }}; background-color: {{ bg_color }}; border-radius: {{ bo_radius }}; margin-bottom: 2px;" onclick="display_info(this)">{{#if del}}<del>{{/if}}{{ text }}{{#if del}}</div>{{/if}}</div>
     {% endverbatim %}
 </script>
 
 <script id="calendar-name" type="text/x-handlebars-template">
-    <div class="custom-control custom-checkbox" data-calendar="{% verbatim %}{{ calendar }}{% endverbatim %}" data-calendar-type="{% verbatim %}{{ calendar_type }}{% endverbatim %}" style="margin-left: 10px;">
+    <div class="custom-control custom-checkbox" data-calendar="{% verbatim %}{{ calendar }}{% endverbatim %}" data-calendar-type="{% verbatim %}{{ calendar_type }}{% endverbatim %}">
         <input type="checkbox" class="form-check-input" id="{% verbatim %}{{ name }}{% endverbatim %}" {% verbatim %}{{ checked }}{% endverbatim %} onchange="toggle_calendar_visibility(this, false)">
-        <label class="custom-control-label" for="{% verbatim %}{{ name }}{% endverbatim %}" style="margin-left: 5px; color: {% verbatim %}{{ colour }}{% endverbatim %};">{% verbatim %}{{ name }}{% endverbatim %}</label>
+        <label class="custom-control-label" for="{% verbatim %}{{ name }}{% endverbatim %}" style="color: {% verbatim %}{{ colour }}{% endverbatim %};">{% verbatim %}{{ name }}{% endverbatim %}</label>
         <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %}"
             type="button" id="dropdownMenu{% verbatim %}{{ id }}{% endverbatim %}" data-bs-toggle="dropdown"
             aria-haspopup="true" aria-expanded="false" style="float: right; padding: 0px; height: 20px; margin-right: 5px;">
@@ -260,19 +260,17 @@
     var m = d_.getMonth()
     var y = d_.getFullYear()
     var data
+    var events = {}
 
     document.addEventListener('DOMContentLoaded', () => {
         vars = JSON.parse("{{ vars }}".replace(/&#x27;/g,'"'))
 
-        change_height()
-
         make_holidays_red()
 
-        add_btn()
 
         populate_calendar(m, y)
 
-        window.addEventListener('resize', change_height)
+        //
     })
 
     function add_btn() {
@@ -288,7 +286,7 @@
                 <div class="btn-group-vertical" role="group" aria-label="What to add?">
                     <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="assignment">Assignment</button>
                     <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="event">Event</button>
-                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="task">Task</button>
+                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="task">Task (All-Day Event)</button>
                 </div>
             </center>
         `)
@@ -557,7 +555,7 @@
             }
             else {
                 r = new XMLHttpRequest();
-                r.open("POST", "{% url 'create_calendar' %}");
+                r.open("POST", "{% url 'calendar' %}");
                 r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
                 r.onload = () => {
                     res = JSON.parse(r.responseText);
@@ -621,11 +619,35 @@
     function display_day_info(ds) {
         ds.onclick = () => {
             setTimeout(function() {
-                dp = ds.parentElement
+                dp = ds.parentElement;
 
-                $('.big-modal-title').html(dp.dataset.date + " " + months[m])
+                $('.big-modal-title').html(dp.dataset.date + " " + months[m]);
 
-                e = data["events"]
+                $('.big-modal-body').html(`
+                    <div class="day-list-e">
+
+                    </div>
+
+                    <style>
+                        .day-list-f {
+                            border: 1px 1px 1px 1px solid black;
+                        }
+                    </style>
+                `);
+
+                for(i=0;i<48;i++) {
+                    d__ = moment(new Date(`${dp.dataset.year} ${dp.dataset.month} ${dp.dataset.date}`)).add(30 * i, "m").toDate()
+                    $('.day-list-e').append(`
+                        <div class="day-list-f day-list-${d__.getHours()}-${d__.getMinutes()}">
+                            ${(d__.getHours() + '').padStart(2, "0")}:${(d__.getMinutes() + '').padStart(2, "0")}
+                        </div>
+                        <br>
+                    `)
+                }
+
+                //for (i=0; i<)
+
+                /* e = data["events"]
                 for (i = 0; i < e.length; i++)
                 {
                     sd = new Date(e[i]['startdate'])
@@ -637,14 +659,24 @@
                     {
                         document.querySelector('.big-modal-body').innerHTML += e[i]["name"] + "<br>"
                     }
-                }
+                } */
             }, 100)
         }
     }
 
     function reload_calendar() {
         $('.calendarlist').html("")
-        $('.calendarlist-synced').html("")
+        events = {
+            "assignments": {},
+            "events": {},
+            "tasks": {},
+        }
+        
+        for (i=0; i<daysInMonth(m, y); i++) {
+            events["assignments"][i+1] = [];
+            events["events"][i+1] = [];
+            events["tasks"][i+1] = [];
+        }
 
         c = data["calendars"]
         for (i = 0; i < c.length; i++) {
@@ -661,17 +693,26 @@
 
             cal_name = calendar_name({"id": c[i]["id"], "name": c[i]["name"], "calendar": c[i]["id"], "calendar-type": c[i]["calendar_type"], "checked": checked, "colour": c[i]['colour'], "owner": owner});
 
-            if (c[i]["calendar_type"] == 0)
-            {
-                document.querySelector('.calendarlist').innerHTML += cal_name;
-            }
-            else if (c[i]["calendar_type"] == 1) {
-                document.querySelector('.calendarlist-synced').innerHTML += cal_name;
-                google_calendar(m, y, c[i]);
-            }
+            document.querySelector('.calendarlist').innerHTML += cal_name;
         }
-        if (data["online_mode"] == false) {
-            document.querySelector('.calendarlist-synced').innerHTML += `<div class="text-warning h6" style="padding: 10px;">Server is running in OFFLINE MODE. External syncing is disabled.</div>`;
+
+        r = data["tasks"]
+        for (i = 0; i < r.length; i++)
+        {
+            if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(r[i]["calendar"]["id"]))) {
+                d = new Date(r[i]['date'])
+
+                dp = document.querySelector(`.day-events-${d.getUTCDate()}`)
+
+                ci_ = {'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'bg_color': r[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': r[i]['name']}
+                if (r[i]['completed'] === "True") {
+                    ci_["del"] = true;
+                }
+                var ci = calendar_item(ci_)
+                dp.innerHTML += ci
+
+                events["tasks"][d.getUTCDate()].push(r[i]);
+            }
         }
 
         e = data["events"]
@@ -685,33 +726,50 @@
                 {
                     for (j = sd.getDate(); j <= ed.getDate(); j++)
                     {
-                        dp = document.querySelector(`.date-picker-${j}`)
-                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
-                        dp.innerHTML += ci
+                        if (sd.getDate() == ed.getDate()) {
+                            dp = document.querySelector(`.reg-events-${j}`)
+                            var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name']})
+                            dp.innerHTML += ci
+
+                            events["events"][j].push(e[i]);
+                        }
+                        else {
+                            dp = document.querySelector(`.day-events-${j}`)
+                            var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'bg_color': e[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': e[i]['name']})
+                            dp.innerHTML += ci
+
+                            events["tasks"][j].push(e[i]);
+                        }
                     }
                 }
                 else if (sd.getMonth() == m) {
                     for (j = sd.getDate(); j <= daysInMonth(m, y); j++)
                     {
-                        dp = document.querySelector(`.date-picker-${j}`)
-                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
+                        dp = document.querySelector(`.day-events-${j}`)
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'bg_color': e[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': e[i]['name']})
                         dp.innerHTML += ci
+
+                        events["tasks"][j].push(e[i]);
                     }
                 }
                 else if (ed.getMonth() == m) {
                     for (j = 1; j <= ed.getDate(); j++)
                     {
-                        dp = document.querySelector(`.date-picker-${j}`)
-                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
+                        dp = document.querySelector(`.day-events-${j}`)
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'bg_color': e[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': e[i]['name']})
                         dp.innerHTML += ci
+
+                        events["tasks"][j].push(e[i]);
                     }
                 }
                 else {
                     for (j = 1; j <= daysInMonth(m, y); j++)
                     {
-                        dp = document.querySelector(`.date-picker-${j}`)
-                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': e[i]['name'] + " [" + e[i]['calendar']['name'] + "]"})
+                        dp = document.querySelector(`.day-events-${j}`)
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'bg_color': e[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': e[i]['name']})
                         dp.innerHTML += ci
+
+                        events["tasks"][j].push(e[i]);
                     }
                 }
             }
@@ -722,28 +780,12 @@
         {
             if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(a[i]["calendar"]["id"]))) {
                 d = new Date(a[i]['date'])
-                dp = document.querySelector(`.date-picker-${d.getDate()}`)
+                dp = document.querySelector(`.reg-events-${d.getDate()}`)
 
-                var ci = calendar_item({'calendar': a[i]['calendar'], 'i': i, 'type': "assignment", 'color': a[i]['calendar']['colour'], 'text': a[i]['name'] + " [" + a[i]['calendar']['name'] + "]"})
+                var ci = calendar_item({'calendar': a[i]['calendar'], 'i': i, 'type': "assignment", 'color': a[i]['calendar']['colour'], 'text': moment(d).format('LT').replace(":00", "") + " - " + a[i]['name']})
                 dp.innerHTML += ci
-            }
-        }
 
-        r = data["tasks"]
-        for (i = 0; i < r.length; i++)
-        {
-            if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(r[i]["calendar"]["id"]))) {
-                d = new Date(r[i]['date'])
-
-                dp = document.querySelector(`.date-picker-${d.getUTCDate()}`)
-
-                if (r[i]['completed'] === "True") {
-                    var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'color': r[i]['calendar']['colour'], 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "] ✅"})
-                }
-                else {
-                    var ci = calendar_item({'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'color': r[i]['calendar']['colour'], 'text': r[i]['name'] + " [" + r[i]['calendar']['name'] + "]"})
-                }
-                dp.innerHTML += ci
+                events["assignments"][d.getDate()].push(a[i]);
             }
         }
 
@@ -774,45 +816,6 @@
             reload_calendar()
         }
         r.send()
-    }
-
-    function google_calendar(m, y, c_) {
-        r1 = new XMLHttpRequest()
-        r1.open("GET", `{% url 'get_events_gc' %}?month=${m}&year=${y}&calendar=${c_["id"]}`)
-        r1.onload = () => {
-            data1 = JSON.parse(r1.responseText.replace(/&#x27;/g,'"'))["data"]
-
-            for (i = 0; i < data1.length; i++) {
-                if (data1[i]["kind"] == "calendar#event") {
-                    e = data1[i]
-
-                    sd = new Date(e['start']['date'])
-                    ed = new Date(e['end']['date'])
-                    if (Number.isNaN(sd.getUTCDate()))
-                    {
-                        sd = new Date(e['start']['dateTime']);
-                    }
-                    if (Number.isNaN(ed.getUTCDate()))
-                    {
-                        ed = new Date(e['start']['dateTime']);
-                    }
-                    
-                    for (j = sd.getUTCDate(); j < ed.getUTCDate(); j++)
-                    {
-                        dp = document.querySelector(`.date-picker-${j}`)
-                        var ci = calendar_item({'calendar': c_, 'i': i, 'type': "sync_event", 'color': c_['colour'], 'text': e['summary'] + " [" + c_['name'] + "]"})
-                        dp.innerHTML += ci
-                    }
-                    if (sd.getUTCDate() == ed.getUTCDate())
-                    {
-                        dp = document.querySelector(`.date-picker-${sd.getUTCDate()}`)
-                        var ci = calendar_item({'calendar': c_, 'i': i, 'type': "sync_event", 'color': c_['colour'], 'text': e['summary'] + " [" + c_['name'] + "]"})
-                        dp.innerHTML += ci
-                    }
-                }
-            }
-        }
-        r1.send()
     }
 
     function display_info(button) {
@@ -876,8 +879,6 @@
                         day: "numeric",
                         month: "short",
                         year: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit"
                         })
                     }<br>
                     Description: ${task["description"]}<br>`)
@@ -889,16 +890,13 @@
     var class_
 
     function display_calendar_info(btn) {
-        classid = btn.parentElement.parentElement.dataset.calendar
-        for (i = 0; i < data["calendars"].length; i++) {
-            if (data["calendars"][i]["id"] == classid)
-            {
-                class_ = data["calendars"][i]
-            }
-        }
+        r = new XMLHttpRequest()
+        r.open('GET', `{% url 'calendar' %}?id=${btn.parentElement.parentElement.dataset.calendar}`)
+        r.onload = function() {
+            classid = btn.parentElement.parentElement.dataset.calendar
+            class_ = JSON.parse(r.responseText)
 
-        if (class_["owner"]["id"] == '{{ request.user.id }}') {
-            setTimeout(function () {
+            if (class_["owner"]["id"] == '{{ request.user.id }}') {
                 $('.big-modal-title').html(`${class_["name"]}`)
                 $('.big-modal-body').html(class_info_template())
                 document.querySelector('.student-list').innerHTML += `<li style="color: blue;">${class_["owner"]["first_name"]} ${class_["owner"]["last_name"]} (${class_["owner"]["username"]}) [OWNER]</li>`
@@ -993,14 +991,13 @@
                 if (class_["calendar_type"] == "1") {
                     document.querySelector('.big-modal-body').innerHTML += "This is a synced calendar."
                 }
-            }, 100)
-        }
-        else {
-            setTimeout(function () {
+            }
+            else {
                 $('.big-modal-title').html(`${class_["name"]}`)
                 $('.big-modal-body').html("You must be the owner of the calendar to view and change it's settings")
-            }, 100)
+            }
         }
+        r.send()
     }
 
     function toggleInvite(cb) {
@@ -1083,26 +1080,65 @@
 </script>
 {% endblock %}
 
+{% block navbar %}
+<li class="nav-item">
+    <a class="nav-link" href="#">Link</a>
+</li>
+<li class="nav-item dropdown">
+    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+        Dropdown
+    </a>
+    <ul class="dropdown-menu {% if request.user.dark_mode %} dropdown-menu-dark {% endif %}" aria-labelledby="navbarDropdown">
+        <li><a class="dropdown-item" href="#">Action</a></li>
+        <li><a class="dropdown-item" href="#">Another action</a></li>
+        <li><hr class="dropdown-divider"></li>
+        <li><a class="dropdown-item" href="#">Something else here</a></li>
+    </ul>
+</li>
+{% endblock %}
+
 {% block page_body %}
 <link href="{% static 'scheduler/styles.css' %}" rel="stylesheet" media="all"/>
 <link href="{% static 'scheduler/calendar.css' %}" rel="stylesheet" media="all"/>
 
 <div class="main-container">
     <div class="sidebar jumbotron {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
-        <div>
-            <div style="font-size: 18px; margin-left: 10px; margin-bottom: 10px;">
+        <div style="margin-left: 10px;">
+            <select id="month" onchange="jump_()">
+                    <option value=0>Jan</option>
+                    <option value=1>Feb</option>
+                    <option value=2>Mar</option>
+                    <option value=3>Apr</option>
+                    <option value=4>May</option>
+                    <option value=5>Jun</option>
+                    <option value=6>Jul</option>
+                    <option value=7>Aug</option>
+                    <option value=8>Sep</option>
+                    <option value=9>Oct</option>
+                    <option value=10>Nov</option>
+                    <option value=11>Dec</option>
+            </select>
+            <select id="year" onchange="jump_()"></select>
+            <!--<div class="micro-container-calendar">
+                <div class="button-container-calendar">
+                    <button class="btn btn-info" id="micro-previous" onclick="go_prev()">&#8249;</button>
+                    <button class="btn btn-info" id="micro-next" onclick="go_next()">&#8250;</button>
+                    <h3 id="micro-monthAndYear"></h3>
+                </div>
+        
+                <table class="micro-table-calendar" id="calendar" data-lang="en">
+                    <thead id="micro-thead-month"></thead>
+                    <tbody id="micro-calendar-body"></tbody>
+                </table>
+            </div>-->
+            <br><br>
+            <div style="font-size: 18px; margin-bottom: 10px;">
                 My calendars:
                 <button type="button" style="float: right;" class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} btn-sm create-btn" data-bs-toggle="modal" data-bs-target="#modal" onclick="create_calendar()">
                     +
                 </button>
             </div>
             <div class="calendarlist" style="display: flex; flex-flow: column; height: 100%;">
-
-            </div>
-            <div style="font-size: 18px; margin-left: 10px; margin-bottom: 10px;">
-                Synced calendars:
-            </div>
-            <div class="calendarlist-synced" style="display: flex; flex-flow: column; height: 100%;">
 
             </div>
             <!--<br>
@@ -1119,35 +1155,16 @@
 
     <div class="wrapper {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
         <div class="container-calendar">
-                <div class="button-container-calendar">
-                        <button class="btn btn-info" id="previous" onclick="go_prev()">&#8249;</button>
-                        <button class="btn btn-info" id="next" onclick="go_next()">&#8250;</button>
-                        <h3 id="monthAndYear"></h3>
-                </div>
-        
-                <table class="table-calendar" id="calendar" data-lang="en">
-                        <thead id="thead-month"></thead>
-                        <tbody id="calendar-body"></tbody>
-                </table>
-        
-                <div class="footer-container-calendar">
-                    <label for="month">Jump To: </label>
-                    <select id="month" onchange="jump_()">
-                            <option value=0>Jan</option>
-                            <option value=1>Feb</option>
-                            <option value=2>Mar</option>
-                            <option value=3>Apr</option>
-                            <option value=4>May</option>
-                            <option value=5>Jun</option>
-                            <option value=6>Jul</option>
-                            <option value=7>Aug</option>
-                            <option value=8>Sep</option>
-                            <option value=9>Oct</option>
-                            <option value=10>Nov</option>
-                            <option value=11>Dec</option>
-                    </select>
-                    <select id="year" onchange="jump_()"></select>
-                </div>
+            <div class="button-container-calendar">
+                <button class="btn btn-info" id="previous" onclick="go_prev()">&#8249;</button>
+                <button class="btn btn-info" id="next" onclick="go_next()">&#8250;</button>
+                <h3 id="monthAndYear"></h3>
+            </div>
+    
+            <table class="table-calendar" id="calendar" data-lang="en">
+                <thead id="thead-month"></thead>
+                <tbody id="calendar-body"></tbody>
+            </table>
         </div>
     </div>
 </div>
