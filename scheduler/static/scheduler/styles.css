@@ -127,6 +127,13 @@
   text-align: left;
 }*/
 
+/*.custom-control-label {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-align: left;
+  padding-left: 4px;
+}*/
+
 .page-title {
   margin: 50px 50px 50px 50px;
 }

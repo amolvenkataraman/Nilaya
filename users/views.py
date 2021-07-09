@@ -1,4 +1,4 @@
-from django.http import HttpResponse, FileResponse
+from django.http import HttpResponse, FileResponse, JsonResponse
 from django.shortcuts import render, redirect, Http404
 from django.contrib import messages
 from django.contrib.auth import login, logout
@@ -18,6 +18,7 @@ def register_view(request):
 # Log a user in or return the login page
 def login_view(request):
     error = ""
+    status=200
     if request.method == 'POST':
         form = AuthenticationForm(data=request.POST)
         if form.is_valid():
@@ -29,11 +30,12 @@ def login_view(request):
                 return redirect('index')
         else:
             error = "Please enter a correct username and password. Note that both fields are case-sensitive."
+            status=401
     else:
         form = AuthenticationForm
 
     id_, description, location = get_random_image()
-    return render(request, 'users/login.html', {'form': form, 'error': error, 'image': {'id': id_, 'description': description, 'location': location}})
+    return render(request, 'users/login.html', {'form': form, 'error': error, 'image': {'id': id_, 'description': description, 'location': location}}, status=status)
 
 @login_required
 def password_change_view(request):
@@ -83,6 +85,12 @@ def profile_picture(request):
     elif request.method == 'POST':
         request.user.profile_picture = request.body
         request.user.save()
+
+def get_user_info(request):
+    if request.user.is_authenticated:
+        return JsonResponse(request.user.getinfo())
+    else:
+        return JsonResponse({"error": "Not logged in"})
 
 def toggle_dark_mode(request):
     user_ = request.user

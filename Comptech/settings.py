@@ -63,7 +63,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    #'whitenoise.middleware.WhiteNoiseMiddleware', # Comment in development, uncomment in production
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -118,9 +117,15 @@ DATABASES = {
 DATABASE_ROUTERS = ['chat.routers.ChatRouter']
 
 CHANNEL_LAYERS={
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-     }
+    #"default": {
+    #    "BACKEND": "channels.layers.InMemoryChannelLayer"
+    #}
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],
+        },
+    },
 }
 
 
@@ -181,8 +186,6 @@ CALENDAR_VARS = {
 }
 
 SESSION_COOKIE_AGE = 1209600
-
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedStaticFilesStorage'
 
 MEDIA_ROOT = BASE_DIR / 'media'
 

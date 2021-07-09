@@ -30,7 +30,7 @@ class Calendar(models.Model):
         (0, 'Local Calendar'),
         (1, 'Google Calendar'),
     ), default=0)
-    calendar_url = models.CharField(max_length=64, null=True, blank=True)
+    calendar_url = models.CharField(max_length=128, null=True, blank=True)
     colour = models.CharField(max_length=16, default='#000000')
     active = models.BooleanField(default=True)
 
@@ -76,6 +76,7 @@ class Assignment(models.Model):
     description = models.TextField(null=True, blank=True)
     public = models.BooleanField(default=False)
     priority = models.SmallIntegerField(default=10)
+    sync_id = models.CharField(max_length=64, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} for {self.calendar.name}. Due: {str(self.date)}"
@@ -111,6 +112,7 @@ class Event(models.Model):
     description = models.TextField(null=True, blank=True)
     public = models.BooleanField(default=False)
     priority = models.SmallIntegerField(default=10)
+    sync_id = models.CharField(max_length=64, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} for {self.calendar.name}. From {str(self.startdate)} to {str(self.enddate)}"
@@ -147,6 +149,7 @@ class Task(models.Model):
     description = models.TextField(null=True, blank=True)
     completed = models.BooleanField(default=False)
     priority = models.SmallIntegerField(default=10)
+    sync_id = models.CharField(max_length=64, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} for {self.calendar.name}. On {str(self.date)}"

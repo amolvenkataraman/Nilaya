@@ -111,6 +111,11 @@
         const self_sent_message = Handlebars.compile($("#self-sent-message").html());
         const other_sent_message = Handlebars.compile($("#other-sent-message").html());
 
+        var friends =   JSON.parse("{{ friends }}".replace(/&#x27;/g,'"').replaceAll("False", "\"False\"").replaceAll("True", "\"True\""));
+        var dms =       JSON.parse("{{ dms }}".replace(/&#x27;/g,'"').replaceAll("False", "\"False\"").replaceAll("True", "\"True\""));
+        var fr_out =    JSON.parse("{{ fr_out }}".replace(/&#x27;/g,'"').replaceAll("False", "\"False\"").replaceAll("True", "\"True\""));
+        var fr_in =     JSON.parse("{{ fr_in }}".replace(/&#x27;/g,'"').replaceAll("False", "\"False\"").replaceAll("True", "\"True\""));
+
         function wspath(code) {
             if (window.location.protocol == 'https:') {
                 protocol = 'wss://';
@@ -259,7 +264,12 @@
                 }
             };
 
-            //console.log("{{ fr_out }}, {{ fr_in }}")
+            dm_list = document.querySelector('.dm-list')
+            for (i=0; i<dms.length; i++) {
+                dm_list.innerHTML += `
+                    <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="dm_id = ${ dms[i].id }; show_dm(${ dms[i].id })">${ dms[i].name }</button>
+                `
+            }
         })
     </script>
 {% endblock %}
@@ -271,9 +281,11 @@
         <div class="chat chat-left {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
             <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_home()">Home</button>
             <br><br>
-            {% for dm in dms %}
-                <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="dm_id = {{ dm.id }}; show_dm({{ dm.id }})">{{ dm.name }}</button>
-            {% endfor %}
+            <div class="dm-list">
+
+            </div>
+            <br><br>
+            <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_home()">Create DM</button>
         </div>
 
         <div class="chat chat-middle {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
