@@ -2,6 +2,7 @@ django
 django-crispy-forms
 django-reset-migrations
 channels
+channels_redis
 djangorestframework
 django-oidc-provider
 django-import-export

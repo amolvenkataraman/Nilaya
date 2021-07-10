@@ -29,7 +29,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
     # Receive message from WebSocket
     async def receive(self, text_data):
         text_data_json = json.loads(text_data)
-        message = text_data_json['message'].lstrip().rstrip()
+        message = text_data_json['message'].lstrip().rstrip().replace("<script>", "").replace("</script>", "")
 
         # Send message to room group
         await self.channel_layer.group_send(
