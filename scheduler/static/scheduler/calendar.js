@@ -82,9 +82,16 @@ function showCalendar(month, year) {
                 cell = document.createElement( "td" );
                 cellText = document.createTextNode("");
                 cell.appendChild(cellText);
+                cell.className = `date-picker-dead`;
                 row.appendChild(cell);
             } else if (date > daysInMonth(month, year)) {
-                break;
+                if (row.innerHTML != "") {
+                    cell = document.createElement( "td" );
+                    cellText = document.createTextNode("");
+                    cell.appendChild(cellText);
+                    cell.className = `date-picker-dead`;
+                    row.appendChild(cell);
+                }
             } else {
                 cell = document.createElement("td");
                 cell.setAttribute("data-date", date);
@@ -117,7 +124,7 @@ function daysInMonth(iMonth, iYear) {
     return 32 - new Date(iYear, iMonth, 32).getDate();
 }
 
-function showMicroCalendar(month, year) {
+/*function showMicroCalendar(month, year) {
 
     var firstDay = ( new Date( year, month ) ).getDay();
 
@@ -170,4 +177,4 @@ function showMicroCalendar(month, year) {
             tbl.appendChild(row);
         }
     }
-}
+}*/

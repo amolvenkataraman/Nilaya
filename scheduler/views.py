@@ -111,6 +111,13 @@ def sync_events(calendar_id, sy, sm, ey, em):
     else:
         print("Server is on Offline Mode")
 
+def clone_event(event_id, n):
+    e = Event.objects.filter(id=event_id)[0]
+    e.pk = None
+    e.startdate = e.startdate + datetime.timedelta(days=n)
+    e.enddate = e.enddate + datetime.timedelta(days=n)
+    e.save()
+
 def countdown(request, event_id, time="start"):
     try:
         event_ = Event.objects.filter(id=event_id)[0]

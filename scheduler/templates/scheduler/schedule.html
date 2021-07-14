@@ -33,7 +33,7 @@
         <label class="custom-control-label" for="{% verbatim %}{{ name }}{% endverbatim %}" style="color: {% verbatim %}{{ colour }}{% endverbatim %};">{% verbatim %}{{ name }}{% endverbatim %}</label>
         <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %}"
             type="button" id="dropdownMenu{% verbatim %}{{ id }}{% endverbatim %}" data-bs-toggle="dropdown"
-            aria-haspopup="true" aria-expanded="false" style="float: right; padding: 0px; height: 20px; margin-right: 5px;">
+            aria-haspopup="true" aria-expanded="false" aria-label="Calendar options" style="float: right; padding: 0px; height: 20px; margin-right: 5px;">
             <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-three-dots-vertical" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
                 <path fill-rule="evenodd" d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
             </svg>
@@ -76,11 +76,11 @@
     <center><h4>Subscribe?</h4></center>
     {% verbatim %}
     <p>Calendar name: {{ name }}</p>
-    <p>Teacher: {{ owner }}</p>
+    <p>Owner: {{ owner }}</p>
     {% endverbatim %}
     <button type="submit" class="btn btn-success enroll-confirm-btn" style="width: 100%;">Subscribe</button>
     <br><br>
-    <a href="{% url 'index' %}"><button type="submit" class="btn btn-danger" style="width: 100%;" data-dismiss="modal">Don't Subscribe</button></a>
+    <button type="submit" class="btn btn-danger" style="width: 100%;" data-bs-dismiss="modal">Don't Subscribe</button>
   </script>
 
 <script id="class-info-template" type="text/x-handlebars-template">
@@ -267,11 +267,21 @@
 
         make_holidays_red()
 
+        set_localstorage()
 
         populate_calendar(m, y)
 
         //
     })
+
+    function set_localstorage() {
+        if (!localStorage.getItem('calendar_show_all')) {
+            localStorage.setItem('calendar_show_all', 0)
+        }
+        if (!localStorage.getItem('calendar_notifications')) {
+            localStorage.setItem('calendar_notifications', JSON.stringify([]))
+        }
+    }
 
     function add_btn() {
         document.querySelectorAll('.date-picker').forEach(dp => {
@@ -285,8 +295,8 @@
             <center>
                 <div class="btn-group-vertical" role="group" aria-label="What to add?">
                     <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this.dataset.type, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="assignment">Assignment</button>
-                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="event">Event</button>
-                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="task">Task (All-Day Event)</button>
+                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this.dataset.type, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="event">Event</button>
+                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this.dataset.type, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="task">Task (All-Day Event)</button>
                 </div>
             </center>
         `)
@@ -497,7 +507,8 @@
     function change_height() {
         rowcount = document.querySelector('#calendar-body').childElementCount.toString()
         tableheight = document.querySelector('#calendar-body').offsetHeight
-        document.querySelectorAll('.date-picker').forEach(dp => {
+        console.log(tableheight)
+        document.querySelector('#calendar-body').querySelectorAll('tr').forEach(dp => {
             dp.style.height = (tableheight / rowcount).toString() + "px"
         })
     }
@@ -816,7 +827,7 @@
         }
 
         r = new XMLHttpRequest()
-        r.open("GET", `{% url 'get_events' %}?month=${m}&year=${y}`)
+        r.open("GET", `{% url 'get_events' %}?month=${m}&year=${y}&show_all=${localStorage.getItem('calendar_show_all')}`)
         r.onload = () => {
             data = JSON.parse(r.responseText.replace(/&#x27;/g,'"'))["data"]
             console.log(data)
@@ -844,6 +855,9 @@
                         })
                     }<br>
                     Description: ${assignment["description"]}<br>`)
+                if (localStorage.getItem('debug') == 1) {
+                    $('.modal-body').append(`<i>Id: ${assignment["id"]}</i><br>`)
+                }
             }
 
             else if (button.dataset.type == "event") {
@@ -874,6 +888,9 @@
                     Description: ${event["description"]}<br>
                     <a href="/calendar/countdown/${event["id"]}/start/">Countdown to Start</a>
                     <a href="/calendar/countdown/${event["id"]}/end/">Countdown to End</a>`)
+                if (localStorage.getItem('debug') == 1) {
+                    $('.modal-body').append(`<br><i>Id: ${event["id"]}</i>`)
+                }
             }
 
             else if (button.dataset.type == "task") {
@@ -883,13 +900,14 @@
                 $('.modal-body').html(`
                     For: ${task["calendar"]['name']}<br>
                     Date: ${
-                        d.toLocaleString("en-US", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                        })
+                        d.getUTCDate() + " " +
+                        months[d.getMonth()] + " " +
+                        d.getFullYear()
                     }<br>
                     Description: ${task["description"]}<br>`)
+                if (localStorage.getItem('debug') == 1) {
+                    $('.modal-body').append(`<i>Id: ${task["id"]}</i><br>`)
+                }
             }
         }, 100)
     }
@@ -1128,8 +1146,8 @@
 <link href="{% static 'scheduler/styles.css' %}" rel="stylesheet" media="all"/>
 <link href="{% static 'scheduler/calendar.css' %}" rel="stylesheet" media="all"/>
 
-<div class="main-container">
-    <div class="sidebar jumbotron {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
+<div class="main-container {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-white text-dark {% endif %}">
+    <div class="sidebar jumbotron">
         <div style="margin-left: 10px;">
             <select id="month" onchange="jump_()">
                     <option value=0>Jan</option>
@@ -1161,7 +1179,7 @@
             <br><br>
             <div style="font-size: 18px; margin-bottom: 10px;">
                 My calendars:
-                <button type="button" style="float: right;" class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} btn-sm create-btn" data-bs-toggle="modal" data-bs-target="#modal" onclick="create_calendar()">
+                <button type="button" style="float: right;" class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-white {% endif %} btn-sm create-btn" data-bs-toggle="modal" data-bs-target="#modal" onclick="create_calendar()">
                     +
                 </button>
             </div>
@@ -1180,7 +1198,7 @@
         </div>
     </div>
 
-    <div class="wrapper {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
+    <div class="wrapper">
         <div class="container-calendar">
             <table class="table-calendar" id="calendar" data-lang="en">
                 <thead id="thead-month"></thead>

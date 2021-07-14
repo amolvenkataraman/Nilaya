@@ -85,12 +85,12 @@
 }
 
 .sidebar {
-  width: 15%;
+  width: 30vw;
+  max-width: 256px;
   overflow-y: scroll;
   height: calc(100vh - 56px);
   margin: 0px;
   padding: 10px;
-  background: #f8f9fa;
 }
 
 .sidebar::-webkit-scrollbar {
