@@ -161,3 +161,24 @@
 .btn:focus {
   outline: none !important;
 }
+
+.ei-date-info {
+
+}
+
+.ei-calendar-info {
+
+}
+
+.ei-description {
+  width: 100%;
+  border: 1px solid black;
+}
+
+.ei-countdown {
+
+}
+
+.ei-dev-info {
+
+}

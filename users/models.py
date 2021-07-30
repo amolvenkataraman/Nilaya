@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from django.contrib.auth.models import User
 from django.contrib.auth.models import AbstractUser
@@ -28,6 +29,7 @@ class UserGroup(models.Model):
         return ans
 
 class ComptechUser(AbstractUser):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
     description = models.CharField(max_length=512, default="No description")
     #gender = models.BooleanField(default=True)
     #location = models.ForeignKey()
@@ -46,7 +48,7 @@ class ComptechUser(AbstractUser):
 
     def getinfo(self):
         ans = {
-            "id": self.id,
+            "id": str(self.id),
             "username": self.username,
             "first_name": self.first_name,
             "last_name": self.last_name,
@@ -65,7 +67,7 @@ class ComptechUser(AbstractUser):
 
     def getinfo_zip(self):
         ans = {
-            "id": self.id,
+            "id": str(self.id),
             "username": self.username,
             "first_name": self.first_name,
             "last_name": self.last_name,

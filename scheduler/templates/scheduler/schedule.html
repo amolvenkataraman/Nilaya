@@ -10,17 +10,36 @@
     .table-calendar td, .table-calendar th {
         border: 1px solid #4d4d4d;
     }
+
+    .add-on-day-btn {
+        color: var(--bs-white);
+    }
 </style>
 {% else %}
 <style>
     .table-calendar td, .table-calendar th {
         border: 1px solid #e2e2e2;
     }
+    
+    .add-on-day-btn {
+        color: var(--bs-dark);
+    }
+
+    .event-button:hover {
+        background-color: #f1f3f4;
+    }
+
+    .date-picker-dead {
+        background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23f9f9fa' fill-opacity='1' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E")!important;
+    }
 </style>
 {% endif %}
 {% endblock %}
 
 {% block page_script %}
+<script src="{% static 'js/moment/moment.min.js' %}" type="text/javascript"></script>
+<script src="{% static 'js/dompurify/purify.min.js' %}" type="text/javascript"></script>
+
 <script id="calendar-item" type="text/x-handlebars-template">
     {% verbatim %}
         <div class="event-button" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type = "{{ type }}" data-bs-toggle="modal" data-bs-target="#modal" style="font-size: 12px; color: {{ color }}; background-color: {{ bg_color }}; border-radius: {{ bo_radius }}; margin-bottom: 2px;" onclick="display_info(this)">{{#if del}}<del>{{/if}}{{ text }}{{#if del}}</div>{{/if}}</div>
@@ -31,7 +50,7 @@
     <div class="custom-control custom-checkbox" data-calendar="{% verbatim %}{{ calendar }}{% endverbatim %}" data-calendar-type="{% verbatim %}{{ calendar_type }}{% endverbatim %}">
         <input type="checkbox" class="form-check-input" id="{% verbatim %}{{ name }}{% endverbatim %}" {% verbatim %}{{ checked }}{% endverbatim %} onchange="toggle_calendar_visibility(this, false)">
         <label class="custom-control-label" for="{% verbatim %}{{ name }}{% endverbatim %}" style="color: {% verbatim %}{{ colour }}{% endverbatim %};">{% verbatim %}{{ name }}{% endverbatim %}</label>
-        <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %}"
+        <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-white {% endif %}"
             type="button" id="dropdownMenu{% verbatim %}{{ id }}{% endverbatim %}" data-bs-toggle="dropdown"
             aria-haspopup="true" aria-expanded="false" aria-label="Calendar options" style="float: right; padding: 0px; height: 20px; margin-right: 5px;">
             <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-three-dots-vertical" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
@@ -72,7 +91,7 @@
     <p class="text-danger calendar-warn"></p>
 </script>
 
-<script id="enroll-confirm" type="text/x-handlebars-template">
+<script id="subscribe-confirm" type="text/x-handlebars-template">
     <center><h4>Subscribe?</h4></center>
     {% verbatim %}
     <p>Calendar name: {{ name }}</p>
@@ -83,7 +102,7 @@
     <button type="submit" class="btn btn-danger" style="width: 100%;" data-bs-dismiss="modal">Don't Subscribe</button>
   </script>
 
-<script id="class-info-template" type="text/x-handlebars-template">
+<script id="calendar-info-template" type="text/x-handlebars-template">
     <div class="row" style="width: 100%;">
         <div class="col">
             <div class="card">
@@ -145,116 +164,70 @@
     </script>
 </script>
 
-<script id="assignment-create-form" type="text/x-handlebars-template">
-    <div class="question-set">
-    <label for="class">Which calendar</label>
-    <select class="form-control custom-select class-select" name="class-select">
-    <option selected value="">Select an calendar</option>
-    </select>
-    <p class="text-danger class-warn"></p>
-    <br>
-    <label for="name">Name of Assignment</label>
-    <input class="form-control name" id="name" type="text" placeholder="Name of Assignment">
-    <p class="text-danger name-warn"></p>
-    <br>
-    <label for="deadline">Due</label>
-    <input type="date" class="form-control deadline-start" name="deadline-end" style="width: 100%;">
-    <br>
-    <input type="time" class="form-control deadline1-start" name="deadline1-end" style="width: 100%;">
-    <p class="text-danger deadline-start-warn"></p>
-    <br>
-    <label for="description">Description</label>
-    <textarea class="form-control description" id="description" rows="3"></textarea>
-    <p class="text-danger description-warn"></p>
-    <br>
-    <input class="form-check-input public" type="checkbox" value="" id="flexCheckDefault1">
-    <label class="form-check-label" for="flexCheckDefault1">
-    Public
-    </label>
-    <br><br>
-    <label for="customRange3" class="form-label">Priority</label>
-    <input type="range" class="form-range priority" min="0" max="20" step="1" id="customRange3">
-    <br><br>
-    <button type="submit" class="btn btn-primary add" style="width: 100%;">Create</button>
+<script id="event-info-template" type="text/x-handlebars-template">
+    {% verbatim %}
+    <div class="ei-date-info">
+        {{ date }}
     </div>
+    <div class="ei-calendar-info">
+        {{ calendar }}
+    </div>
+    {{#if show_desc}}
+    <div class="ei-description">
+        {{{ description }}}
+    </div>
+    {{/if}}
+    <div class="ei-countdown">
+        {{{ countdown }}}
+    </div>
+    <div class="ei-dev-info">
+        {{{ dev_info }}}
+    </div>
+    {{#if owner}}
+    <div class="ei-controls">
+        <div class="btn-group" role="group" aria-label="Event controls">
+            <button type="button" class="btn btn-warning" onclick="edit_event('{{ event_id }}')">Edit</button>
+            <button type="button" class="btn btn-danger" onclick="delete_event('{{ event_id }}')">Delete</button>
+        </div>
+    </div>
+    {{/if}}
+    {% endverbatim %}
 </script>
 
-<script id="event-create-form" type="text/x-handlebars-template">
-    <div class="question-set">
-    <label for="class">Which calendar</label>
-    <select class="form-control custom-select class-select" name="class-select">
-    <option selected value="">Select an calendar</option>
-    </select>
-    <p class="text-danger class-warn"></p>
-    <br>
-    <label for="name">Name of Event</label>
-    <input class="form-control name" id="name" type="text" placeholder="Name of Event">
-    <p class="text-danger name-warn"></p>
-    <br>
-    <label for="deadline">Start</label>
-    <input type="date" class="form-control deadline-start" name="deadline-end" style="width: 100%;">
-    <br>
-    <input type="time" class="form-control deadline1-start" name="deadline1-end" style="width: 100%;">
-    <p class="text-danger deadline-start-warn"></p>
-    <br>
-    <label for="deadline">End</label>
-    <input type="date" class="form-control deadline-end" name="deadline-end" style="width: 100%;">
-    <br>
-    <input type="time" class="form-control deadline1-end" name="deadline1-end" style="width: 100%;">
-    <p class="text-danger deadline-end-warn"></p>
-    <br>
-    <label for="description">Description</label>
-    <textarea class="form-control description" id="description" rows="3"></textarea>
-    <p class="text-danger description-warn"></p>
-    <br>
-    <input class="form-check-input public" type="checkbox" value="" id="flexCheckDefault">
-    <label class="form-check-label" for="flexCheckDefault">
-    Public
-    </label>
-    <br><br>
-    <label for="customRange1" class="form-label">Priority</label>
-    <input type="range" class="form-range priority" min="0" max="20" step="1" id="customRange1">
-    <br><br>
-    <button type="submit" class="btn btn-primary add" style="width: 100%;">Create</button>
+<script id="event-create-template", type="text/x-handlebars-template">
+    <nav>
+        <div class="nav nav-tabs" id="nav-tab" role="tablist">
+            <button class="nav-link active" id="nav-home-tab" data-bs-toggle="tab" data-bs-target="#nav-home" type="button" role="tab" aria-controls="nav-home" aria-selected="true">Home</button>
+            <button class="nav-link" id="nav-profile-tab" data-bs-toggle="tab" data-bs-target="#nav-profile" type="button" role="tab" aria-controls="nav-profile" aria-selected="false">Profile</button>
+            <button class="nav-link" id="nav-contact-tab" data-bs-toggle="tab" data-bs-target="#nav-contact" type="button" role="tab" aria-controls="nav-contact" aria-selected="false">Contact</button>
+        </div>
+    </nav>
+    <div class="tab-content" id="nav-tabContent">
+        <div class="tab-pane fade show active" id="nav-home" role="tabpanel" aria-labelledby="nav-home-tab">...</div>
+        <div class="tab-pane fade" id="nav-profile" role="tabpanel" aria-labelledby="nav-profile-tab">...</div>
+        <div class="tab-pane fade" id="nav-contact" role="tabpanel" aria-labelledby="nav-contact-tab">...</div>
     </div>
-</script>
 
-<script id="task-create-form" type="text/x-handlebars-template">
-    <div class="question-set">
-    <label for="class">Which calendar</label>
-    <select class="form-control custom-select class-select" name="class-select">
-    <option selected value="">Select an calendar</option>
-    </select>
-    <p class="text-danger class-warn"></p>
-    <br>
-    <label for="name">Name of Task</label>
-    <input class="form-control name" id="name" type="text" placeholder="Name of Task">
-    <p class="text-danger name-warn"></p>
-    <br>
-    <label for="deadline">Date</label>
-    <input type="date" class="form-control deadline-start" name="deadline-end" style="width: 100%;">
-    <p class="text-danger deadline-start-warn"></p>
-    <br>
-    <label for="description1">Description</label>
-    <textarea class="form-control description" id="description1" rows="3"></textarea>
-    <p class="text-danger description-warn"></p>
-    <br>
-    <label for="customRange2" class="form-label">Priority</label>
-    <input type="range" class="form-range priority" min="0" max="20" step="1" id="customRange2">
-    <br><br>
-    <button type="submit" class="btn btn-primary add" style="width: 100%;">Create</button>
-    </div>
+    <style>
+        .nav-link, .nav-link:focus, .nav-link:hover {
+            outline: none;
+        }
+        
+        .nav-link {
+            border: 0px none;
+            border-radius: 0.001px; /* this value must be greater than 0, otherwise it won't work */
+        }
+    </style>
 </script>
 
 <script>
     const calendar_item = Handlebars.compile(document.querySelector("#calendar-item").innerHTML)
     const calendar_name = Handlebars.compile(document.querySelector("#calendar-name").innerHTML)
     const calendar_create_form = Handlebars.compile(document.querySelector("#calendar-create-form").innerHTML)
-    const enroll_confirm = Handlebars.compile(document.querySelector("#enroll-confirm").innerHTML)
-    const class_info_template = Handlebars.compile(document.querySelector("#class-info-template").innerHTML)
-    const assignment_create_form = Handlebars.compile(document.querySelector("#assignment-create-form").innerHTML)
-    const event_create_form = Handlebars.compile(document.querySelector("#event-create-form").innerHTML)
-    const task_create_form = Handlebars.compile(document.querySelector("#task-create-form").innerHTML)
+    const subscribe_confirm = Handlebars.compile(document.querySelector("#subscribe-confirm").innerHTML)
+    const calendar_info_template = Handlebars.compile(document.querySelector("#calendar-info-template").innerHTML)
+    const event_info_template = Handlebars.compile(document.querySelector("#event-info-template").innerHTML)
+    const event_create_template = Handlebars.compile(document.querySelector("#event-create-template").innerHTML)
 
     const d_ = new Date()
     var m = d_.getMonth()
@@ -282,218 +255,12 @@
             localStorage.setItem('calendar_notifications', JSON.stringify([]))
         }
     }
-
-    function add_btn() {
-        document.querySelectorAll('.date-picker').forEach(dp => {
-            dp.innerHTML += `<span class="badge add-on-day-btn {% if request.user.dark_mode %}text-light{% else %}text-dark{% endif %}" data-bs-toggle="modal" data-bs-target="#modal" onclick="add_on_date(this)">+</span>`
-        })
-    }
     
-    function add_on_date(e) {
-        $('.modal-title').html( "Add on " + e.parentElement.dataset.date + " " + months[e.parentElement.dataset.month - 1])
-        $('.modal-body').html(`
-            <center>
-                <div class="btn-group-vertical" role="group" aria-label="What to add?">
-                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this.dataset.type, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="assignment">Assignment</button>
-                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this.dataset.type, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="event">Event</button>
-                    <button type="button" class="btn btn-secondary add-this-on-day-btn" onclick="add_this_on_day(this.dataset.type, ${e.parentElement.dataset.date}, ${e.parentElement.dataset.month}, ${e.parentElement.dataset.year})" data-type="task">Task (All-Day Event)</button>
-                </div>
-            </center>
-        `)
-    }
+    function add_on_date(date, month=m, year=y) {
+        $('.modal-title').html("Create New Event")
+        $('.modal-body').html(event_create_template())
+        //$('.modal-body').html(`{{ form }}`)
 
-    function add_this_on_day(e, date_, month_, year_, setdt=true) {
-        if (e == "assignment") {
-            $('.modal-title').html("Add Assignment")
-            $('.modal-body').html(assignment_create_form())
-            for (i = 0; i < data["calendars"].length; i++) {
-                if (data["calendars"][i]["owner"]["id"] == "{{ request.user.id }}") {
-                    if (data["calendars"][i]["calendar_type"] == "0") {
-                        document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
-                    }
-                }
-            }
-            if (setdt) {
-                document.querySelector('.deadline-start').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
-            }
-
-            document.querySelector('.add').onclick = () => {
-                error = false;
-                if (document.querySelector('.class-select').value === "")
-                {error = true; $('.class-warn').html("Please select a calendar")}
-                else
-                {$('.class-warn').html("")}
-
-                if (document.querySelector('.name').value === "")
-                {error = true; $('.name-warn').html("Please enter an assignment name")}
-                else
-                {$('.name-warn').html("")}
-
-                if (document.querySelector('.deadline-start').value == "" || document.querySelector('.deadline1-start').value == "")
-                {error = true; $('.deadline-start-warn').html("Please select a start date/time")}
-                else
-                {$('.deadline-start-warn').html("")}
-
-                if (error === false)
-                {
-                    result = {
-                            "type": "assignment",
-                            "calendar": document.querySelector('.class-select').value,
-                            "name": document.querySelector('.name').value,
-                            "date": document.querySelector('.deadline-start').value + " " + document.querySelector('.deadline1-start').value,
-                            "description": document.querySelector('.description').value,
-                            "public": document.querySelector('.public:checked'),
-                            "priority": document.querySelector('.priority').value,
-                    }
-        
-                    var request = new XMLHttpRequest()
-                    request.open('POST', `{% url 'add' %}`)
-                    request.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
-                    request.onload = () => {
-                        res = JSON.parse(request.responseText);
-                        if (res["status"] == "success")
-                        {
-                            window.location.reload();
-                        }
-                        else
-                        {
-                            alert("Something went wrong on the server-side. Please try again.")
-                        }
-                    }
-                    request.send(JSON.stringify(result))
-                }
-            }
-        }
-        else if (e == "event") {
-            $('.modal-title').html("Add Event")
-            $('.modal-body').html(event_create_form())
-            for (i = 0; i < data["calendars"].length; i++) {
-                if (data["calendars"][i]["owner"]["id"] == "{{ request.user.id }}") {
-                    if (data["calendars"][i]["calendar_type"] == "0") {
-                        document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
-                    }
-                }
-            }
-
-            if (setdt) {
-                document.querySelector('.deadline-start').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
-                document.querySelector('.deadline-end').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
-            }
-
-            document.querySelector('.add').onclick = () => {
-                error = false;
-                if (document.querySelector('.class-select').value === "")
-                {error = true; $('.class-warn').html("Please select a calendar")}
-                else
-                {$('.class-warn').html("")}
-
-                if (document.querySelector('.name').value === "")
-                {error = true; $('.name-warn').html("Please enter an event name")}
-                else
-                {$('.name-warn').html("")}
-
-                if (document.querySelector('.deadline-start').value == "" || document.querySelector('.deadline1-start').value == "")
-                {error = true; $('.deadline-start-warn').html("Please select a start date/time")}
-                else
-                {$('.deadline-start-warn').html("")}
-
-                if (document.querySelector('.deadline-end').value == "" || document.querySelector('.deadline1-end').value == "")
-                {error = true; $('.deadline-end-warn').html("Please select an end date/time")}
-                else
-                {$('.deadline-end-warn').html("")}
-
-                if (error === false)
-                {
-                    result = {
-                            "type": "event",
-                            "calendar": document.querySelector('.class-select').value,
-                            "name": document.querySelector('.name').value,
-                            "start": document.querySelector('.deadline-start').value + " " + document.querySelector('.deadline1-start').value,
-                            "end": document.querySelector('.deadline-end').value + " " + document.querySelector('.deadline1-end').value,
-                            "description": document.querySelector('.description').value,
-                            "public": document.querySelector('.public:checked'),
-                            "priority": document.querySelector('.priority').value,
-                    }
-        
-                    var request = new XMLHttpRequest()
-                    request.open('POST', `{% url 'add' %}`)
-                    request.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
-                    request.onload = () => {
-                        res = JSON.parse(request.responseText);
-                        if (res["status"] == "success")
-                        {
-                            window.location.reload();
-                        }
-                        else
-                        {
-                            alert("Something went wrong on the server-side. Please try again.")
-                        }
-                    }
-                    request.send(JSON.stringify(result))
-                }
-            }
-        }
-        else if (e == "task") {
-            $('.modal-title').html("Add Task")
-            $('.modal-body').html(task_create_form())
-            for(i = 0; i < data["calendars"].length; i++) {
-                if (data["calendars"][i]["owner"]["id"] == "{{ request.user.id }}") {
-                    if (data["calendars"][i]["calendar_type"] == "0") {
-                        document.querySelector('.class-select').innerHTML += `<option value="${data["calendars"][i]["id"]}">${data["calendars"][i]["name"]}</option>`
-                    }
-                }
-            }
-
-            if (setdt) {
-                document.querySelector('.deadline-start').value = year_.toString() + "-" + month_.toString().padStart(2, "0") + "-" + date_.toString().padStart(2, "0")
-            }
-
-            document.querySelector('.add').onclick = () => {
-                error = false;
-                if (document.querySelector('.class-select').value === "")
-                {error = true; $('.class-warn').html("Please select a calendar")}
-                else
-                {$('.class-warn').html("")}
-
-                if (document.querySelector('.name').value === "")
-                {error = true; $('.name-warn').html("Please enter an task name")}
-                else
-                {$('.name-warn').html("")}
-
-                if (document.querySelector('.deadline-start').value == "")
-                {error = true; $('.deadline-start-warn').html("Please select a date")}
-                else
-                {$('.deadline-start-warn').html("")}
-
-                if (error === false)
-                {
-                    result = {
-                            "type": "task",
-                            "calendar": document.querySelector('.class-select').value,
-                            "name": document.querySelector('.name').value,
-                            "date": document.querySelector('.deadline-start').value,
-                            "description": document.querySelector('.description').value,
-                            "priority": document.querySelector('.priority').value,
-                    }
-        
-                    var request = new XMLHttpRequest()
-                    request.open('POST', `{% url 'add' %}`)
-                    request.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
-                    request.onload = () => {
-                        res = JSON.parse(request.responseText);
-                        if (res["status"] == "success")
-                        {
-                            window.location.reload();
-                        }
-                        else
-                        {
-                            alert("Something went wrong on the server-side. Please try again.")
-                        }
-                    }
-                    request.send(JSON.stringify(result))
-                }
-            }
-        }
     }
 
     function make_holidays_red() {
@@ -507,7 +274,6 @@
     function change_height() {
         rowcount = document.querySelector('#calendar-body').childElementCount.toString()
         tableheight = document.querySelector('#calendar-body').offsetHeight
-        console.log(tableheight)
         document.querySelector('#calendar-body').querySelectorAll('tr').forEach(dp => {
             dp.style.height = (tableheight / rowcount).toString() + "px"
         })
@@ -561,7 +327,6 @@
     }
 
     function create_calendar() {
-        $("#modal").modal("hide");
         $("#modal").modal();
 
         $('.modal-title').html("Create or join");
@@ -606,7 +371,7 @@
                         $('.enroll-warn').html(res["data"])
                     }
                     else {
-                        $('.modal-body').html(enroll_confirm({"name": res["data"]["name"], "owner": `${res["data"]["owner"]["first_name"]} ${res["data"]["owner"]["last_name"]}`}))
+                        $('.modal-body').html(subscribe_confirm({"name": res["datasubscribename"], "owner": `${res["data"]["owner"]["first_name"]} ${res["data"]["owner"]["last_name"]}`}))
                         document.querySelector('.enroll-confirm-btn').onclick = () => {
                             r = new XMLHttpRequest()
                             r.open("POST", "{% url 'enroll' %}?code=" + enrollCode)
@@ -643,9 +408,11 @@
                 $('.big-modal-title').html(dp.dataset.date + " " + months[m]);
 
                 $('.big-modal-body').html(`
-                    <div class="day-list-e">
+                    <table class="day-list">
+                        <tbody class="day-list-tb">
 
-                    </div>
+                        </tbody>
+                    </table>
 
                     <style>
                         .day-list-f {
@@ -656,15 +423,19 @@
 
                 for(i=0;i<48;i++) {
                     d__ = moment(new Date(`${dp.dataset.year} ${dp.dataset.month} ${dp.dataset.date}`)).add(30 * i, "m").toDate()
-                    $('.day-list-e').append(`
-                        <div class="day-list-f day-list-${d__.getHours()}-${d__.getMinutes()}">
-                            ${(d__.getHours() + '').padStart(2, "0")}:${(d__.getMinutes() + '').padStart(2, "0")}
-                        </div>
+                    $('.day-list-tb').append(`
+                        <tr class="day-list-f day-list-${d__.getHours()}-${d__.getMinutes()}">
+                            <td>
+                                ${(d__.getHours() + '').padStart(2, "0")}:${(d__.getMinutes() + '').padStart(2, "0")}
+                            </td>
+                            <td>
+
+                            </td>
+                        </tr>
                         <br>
                     `)
                 }
 
-                //for (i=0; i<)
 
                 /* e = data["events"]
                 for (i = 0; i < e.length; i++)
@@ -686,15 +457,11 @@
     function reload_calendar() {
         $('.calendarlist').html("")
         events = {
-            "assignments": {},
             "events": {},
-            "tasks": {},
         }
         
         for (i=0; i<daysInMonth(m, y); i++) {
-            events["assignments"][i+1] = [];
             events["events"][i+1] = [];
-            events["tasks"][i+1] = [];
         }
 
         c = data["calendars"]
@@ -715,25 +482,6 @@
             document.querySelector('.calendarlist').innerHTML += cal_name;
         }
 
-        r = data["tasks"]
-        for (i = 0; i < r.length; i++)
-        {
-            if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(r[i]["calendar"]["id"]))) {
-                d = new Date(r[i]['date'])
-
-                dp = document.querySelector(`.day-events-${d.getUTCDate()}`)
-
-                ci_ = {'calendar': r[i]['calendar'], 'i': i, 'type': "task", 'bg_color': r[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': r[i]['name']}
-                if (r[i]['completed'] === "True") {
-                    ci_["del"] = true;
-                }
-                var ci = calendar_item(ci_)
-                dp.innerHTML += ci
-
-                events["tasks"][d.getUTCDate()].push(r[i]);
-            }
-        }
-
         e = data["events"]
         for (i = 0; i < e.length; i++)
         {
@@ -741,7 +489,14 @@
                 sd = new Date(e[i]['startdate'])
                 ed = new Date(e[i]['enddate'])
 
-                if (sd.getMonth() == m && ed.getMonth() == m)
+                if (e[i]['enddate'] == 'None') {
+                    dp = document.querySelector(`.reg-events-${sd.getDate()}`)
+                    var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name']})
+                    dp.innerHTML += ci
+
+                    events["events"][sd.getDate()].push(e[i]);
+                }
+                else if (sd.getMonth() == m && ed.getMonth() == m)
                 {
                     for (j = sd.getDate(); j <= ed.getDate(); j++)
                     {
@@ -750,35 +505,43 @@
                             var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name']})
                             dp.innerHTML += ci
 
-                            events["events"][j].push(e[i]);
+                        }
+                        else if (e[i]['allday'] == true) {
+                            if (j != ed.getDate()) {
+                                dp = document.querySelector(`.day-events-${j}`)
+                                var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'bg_color': e[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': e[i]['name']})
+                                dp.innerHTML += ci
+                            }
                         }
                         else {
+                            if (j == sd.getDate()) {prepend = moment(sd).format('LT').replace(":00", "") + " - "}
+                            else {prepend = ""}
                             dp = document.querySelector(`.day-events-${j}`)
-                            var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'bg_color': e[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': e[i]['name']})
+                            var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'bg_color': e[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': prepend + e[i]['name']})
                             dp.innerHTML += ci
 
-                            events["tasks"][j].push(e[i]);
                         }
                     }
                 }
                 else if (sd.getMonth() == m) {
                     for (j = sd.getDate(); j <= daysInMonth(m, y); j++)
                     {
+                        if (j == sd.getDate()) {prepend = moment(sd).format('LT').replace(":00", "") + " - "}
+                        else {prepend = ""}
                         dp = document.querySelector(`.day-events-${j}`)
-                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'bg_color': e[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': e[i]['name']})
+                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'bg_color': e[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': prepend + e[i]['name']})
                         dp.innerHTML += ci
-
-                        events["tasks"][j].push(e[i]);
                     }
                 }
                 else if (ed.getMonth() == m) {
                     for (j = 1; j <= ed.getDate(); j++)
                     {
-                        dp = document.querySelector(`.day-events-${j}`)
-                        var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'bg_color': e[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': e[i]['name']})
-                        dp.innerHTML += ci
-
-                        events["tasks"][j].push(e[i]);
+                        if (e["allday"] == true && j == ed.getDate()) {}
+                        else {
+                            dp = document.querySelector(`.day-events-${j}`)
+                            var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'bg_color': e[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': e[i]['name']})
+                            dp.innerHTML += ci
+                        }
                     }
                 }
                 else {
@@ -787,24 +550,8 @@
                         dp = document.querySelector(`.day-events-${j}`)
                         var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'bg_color': e[i]['calendar']['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'text': e[i]['name']})
                         dp.innerHTML += ci
-
-                        events["tasks"][j].push(e[i]);
                     }
                 }
-            }
-        }
-
-        a = data["assignments"]
-        for (i = 0; i < a.length; i++)
-        {
-            if (!JSON.parse(localStorage.getItem('hidden_calendars')).includes(String(a[i]["calendar"]["id"]))) {
-                d = new Date(a[i]['date'])
-                dp = document.querySelector(`.reg-events-${d.getDate()}`)
-
-                var ci = calendar_item({'calendar': a[i]['calendar'], 'i': i, 'type': "assignment", 'color': a[i]['calendar']['colour'], 'text': moment(d).format('LT').replace(":00", "") + " - " + a[i]['name']})
-                dp.innerHTML += ci
-
-                events["assignments"][d.getDate()].push(a[i]);
             }
         }
 
@@ -815,8 +562,6 @@
                 ds.style.color = "red"
             }
         })
-
-        add_btn()
     }
 
     function populate_calendar(m, y) {
@@ -839,76 +584,33 @@
 
     function display_info(button) {
         setTimeout(function() {
-            if (button.dataset.type == "assignment") {
-                assignment = data["assignments"][button.dataset.no]
-                d = new Date(assignment["date"])
-                $('.modal-title').html(assignment["name"])
-                $('.modal-body').html(`
-                    For: ${assignment["calendar"]['name']}<br>
-                    Due: ${
-                        d.toLocaleString("en-US", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit"
-                        })
-                    }<br>
-                    Description: ${assignment["description"]}<br>`)
-                if (localStorage.getItem('debug') == 1) {
-                    $('.modal-body').append(`<i>Id: ${assignment["id"]}</i><br>`)
-                }
-            }
+            event = data["events"][button.dataset.no]
+            sd = new Date(event["startdate"])
+            ed = new Date(event["enddate"])
+            $('.modal-title').html(event["name"])
 
-            else if (button.dataset.type == "event") {
-                event = data["events"][button.dataset.no]
-                sd = new Date(event["startdate"])
-                ed = new Date(event["enddate"])
-                $('.modal-title').html(event["name"])
-                $('.modal-body').html(`
-                    For: ${event["calendar"]['name']}<br>
-                    Start Date: ${
-                        sd.toLocaleString("en-US", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit"
-                        })
-                    }<br>
-                    End Date: ${
-                        ed.toLocaleString("en-US", {
-                        day: "numeric",
-                        month: "short",
-                        year: "numeric",
-                        hour: "numeric",
-                        minute: "2-digit"
-                        })
-                    }<br>
-                    Description: ${event["description"]}<br>
-                    <a href="/calendar/countdown/${event["id"]}/start/">Countdown to Start</a>
-                    <a href="/calendar/countdown/${event["id"]}/end/">Countdown to End</a>`)
-                if (localStorage.getItem('debug') == 1) {
-                    $('.modal-body').append(`<br><i>Id: ${event["id"]}</i>`)
-                }
+            if (event["enddate"] == "None") {date_ = moment(sd).format('LLLL')}
+            else if (event["allday"] == true) {
+                sd1 = moment(sd)
+                ed1 = moment(ed).subtract(1, 'days')
+                if (sd1.calendar() == ed1.calendar()) {date_ = moment(sd).format('LL')}
+                else {date_ = moment(sd).format('LL') + " - " + moment(ed).format('LL')}
             }
+            else {date_ = moment(sd).format('LLL') + " - " + moment(ed).format('LLL')}
+            if (localStorage.getItem('debug') == 1) {dev_info = `<br><i>Id: ${event["id"]}</i>`}
+            else {dev_info = ""}
+            if (event["description"] == "" || event["description"] == null) {show_desc = false}
+            else {show_desc = true}
 
-            else if (button.dataset.type == "task") {
-                task = data["tasks"][button.dataset.no]
-                d = new Date(task["date"])
-                $('.modal-title').html(task["name"])
-                $('.modal-body').html(`
-                    For: ${task["calendar"]['name']}<br>
-                    Date: ${
-                        d.getUTCDate() + " " +
-                        months[d.getMonth()] + " " +
-                        d.getFullYear()
-                    }<br>
-                    Description: ${task["description"]}<br>`)
-                if (localStorage.getItem('debug') == 1) {
-                    $('.modal-body').append(`<i>Id: ${task["id"]}</i><br>`)
-                }
-            }
+            $('.modal-body').html(event_info_template({
+                "date": date_,
+                "calendar": event["calendar"]['name'],
+                "show_desc": show_desc, "description": DOMPurify.sanitize(event["description"]),
+                "countdown": `<a href="/calendar/countdown/${event["id"]}/start/">Countdown to Start</a> <a href="/calendar/countdown/${event["id"]}/end/">Countdown to End</a>`,
+                "dev_info": dev_info,
+                "event_id": button.dataset.no,
+                "owner": event["calendar"]["owner"]["id"] == "{{ request.user.id }}"
+            }))
         }, 100)
     }
 
@@ -924,7 +626,7 @@
 
             if (class_["owner"]["id"] == '{{ request.user.id }}') {
                 $('.big-modal-title').html(`${class_["name"]}`)
-                $('.big-modal-body').html(class_info_template())
+                $('.big-modal-body').html(calendar_info_template())
                 document.querySelector('.student-list').innerHTML += `<li style="color: blue;">${class_["owner"]["first_name"]} ${class_["owner"]["last_name"]} (${class_["owner"]["username"]}) [OWNER]</li>`
                 for (i = 0; i < class_["subscribers"].length; i++) {
                     studentinfo = `
@@ -1052,6 +754,26 @@
         request.send()
     }
 
+    function delete_event(event_no) {
+        event = data["events"][event_no]
+        if (event["calendar"]["owner"]["id"] == "{{ request.user.id }}") {
+            var request = new XMLHttpRequest()
+            request.open('POST', `{% url 'delete_event' %}`)
+            request.setRequestHeader("X-CSRFToken", "{{ csrf_token }}")
+            request.onload = () => {
+                res = JSON.parse(request.responseText);
+                console.log(res)
+                if (res["status"] === "success") {
+                    $("#modal").modal("hide");
+                    jump_()
+                }
+                else {
+                    alert(res["data"])
+                }
+            }
+            request.send(event["id"])
+        }
+    }
 
     function randomText(length) {
         var result           = '';
@@ -1186,6 +908,7 @@
             <div class="calendarlist" style="display: flex; flex-flow: column; height: 100%;">
 
             </div>
+            <!-- <a href="#" data-toggle="popover" title="Popover Header" data-bs-content="Some content inside the popover">Toggle popover</a> -->
             <!--<br>
             <button type="button" style="margin-left: 12px; padding-top: 4px;" class="btn btn-info create-btn" data-bs-toggle="modal" data-bs-target="#modal" onclick="create_calendar()">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-calendar-plus" viewBox="0 0 16 16">

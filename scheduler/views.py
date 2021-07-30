@@ -40,76 +40,73 @@ def get_events(request):
     if request.GET.get("show_all") == "1":
         calendars = user_.calendar_subscribers.all().union(user_.calendar_owner.all())
     else:
-        calendars = user_.calendar_subscribers.filter(active=True).union(user_.calendar_owner.filter(active=True))
+        calendars = user_.calendar_subscribers.filter(active=True).union(user_.calendar_owner.filter(active=True)).order_by('name')
     ans["data"]["calendars"] = [i.getinfo() for i in calendars.iterator()]
-    ans["data"]["assignments"] = []
-    ans["data"]["events"] = []
-    ans["data"]["tasks"] = []
+    ans["data"]["events"] = [i.getinfo() for i in Event.objects.filter(
+        Q(calendar__in=list(calendars)) & 
+        ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) |
+        (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year)))) |
+        Q(Q(startdate__month__lt=(int(month) + 1), enddate__month__gt=(int(month) + 1)) & (Q(startdate__year=int(year), enddate__year=int(year)))))
+    ).order_by('startdate').iterator()]
     ans["data"]["online_mode"] = ONLINE_MODE
-
-    ans["data"]["assignments"].extend([i.getinfo() for i in Assignment.objects.filter(calendar__in=list(calendars), date__month=(int(month) + 1), date__year=int(year)).order_by('date').iterator()])
-    ans["data"]["events"].extend([i.getinfo() for i in Event.objects.filter(
-        Q(calendar__in=list(calendars)) & ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) | (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year)))) | Q(Q(startdate__month__lt=(int(month) + 1), enddate__month__gt=(int(month) + 1)) & Q(startdate__year=int(year), enddate__year=int(year))))
-    ).order_by('startdate').iterator()])
-    ans["data"]["tasks"].extend([i.getinfo() for i in Task.objects.filter(calendar__in=list(calendars), date__month=(int(month) + 1), date__year=int(year)).order_by('date').iterator()])
 
     return JsonResponse(ans)
 
-def sync_events(calendar_id, sy, sm, ey, em):
-    if ONLINE_MODE:
-        calendar = Calendar.objects.filter(id=calendar_id)[0]
-        if calendar.calendar_type == 1:
-            tzoffset = datetime.datetime.now(pytz.timezone(timezone.get_current_timezone_name())).strftime('%z')
+# def sync_events(calendar_id, sy, sm, ey, em):
+#     if ONLINE_MODE:
+#         calendar = Calendar.objects.filter(id=calendar_id)[0]
+#         if calendar.calendar_type == 1:
+#             tzoffset = datetime.datetime.now(pytz.timezone(timezone.get_current_timezone_name())).strftime('%z')
 
-            start_time = f"{sy}-{sm}-01T00:00:00{tzoffset}"
-            end_time = f"{ey}-{em}-01T00:00:00{tzoffset}"
-            fields = str("items(kind,summary,start,end)")
+#             start_time = f"{sy}-{sm}-01T00:00:00{tzoffset}"
+#             end_time = f"{ey}-{em}-01T00:00:00{tzoffset}"
+#             fields = str("items(kind,summary,start,end)")
 
-            r = requests.get(f"https://www.googleapis.com/calendar/v3/calendars/{calendar.calendar_url}/events?key={GOOGLE_API_KEY}&timeMin={start_time}&timeMax={end_time}&singleEvents=true&orderBy=startTime")
-            #print(r.text)
-            res = r.json()
-            #if res["code"] == 200:
-            print(len(res["items"]))
-            for i in res["items"]:
-                try:
-                    try:
-                        sd = i["start"]["date"]
-                        ed = i["end"]["date"]
-                        etype = Task
-                        if (datetime.datetime.strptime(ed, "%Y-%m-%d") - datetime.datetime.strptime(sd, "%Y-%m-%d")).days != 1:
-                            etype = Event
-                            sd = datetime.datetime.strptime(sd, "%Y-%m-%d")
-                            ed = datetime.datetime.strptime(ed, "%Y-%m-%d")
+#             r = requests.get(f"https://www.googleapis.com/calendar/v3/calendars/{calendar.calendar_url}/events?key={GOOGLE_API_KEY}&timeMin={start_time}&timeMax={end_time}&singleEvents=true&orderBy=startTime")
+#             #print(r.text)
+#             res = r.json()
+#             #if res["code"] == 200:
+#             print(len(res["items"]))
+#             for i in res["items"]:
+#                 try:
+#                     try:
+#                         sd = i["start"]["date"]
+#                         ed = i["end"]["date"]
+#                         etype = Task
+#                         if (datetime.datetime.strptime(ed, "%Y-%m-%d") - datetime.datetime.strptime(sd, "%Y-%m-%d")).days != 1:
+#                             etype = Event
+#                             sd = datetime.datetime.strptime(sd, "%Y-%m-%d")
+#                             ed = datetime.datetime.strptime(ed, "%Y-%m-%d")
                             
-                    except KeyError:
-                        #print(i)
-                        sd = i["start"]["dateTime"]
-                        ed = i["end"]["dateTime"]
-                        etype = Event
+#                     except KeyError:
+#                         #print(i)
+#                         sd = i["start"]["dateTime"]
+#                         ed = i["end"]["dateTime"]
+#                         etype = Event
                     
-                    e1 = etype.objects.filter(sync_id=i["id"])
-                    if e1:
-                        e_ = e1[0]
-                    else:
-                        e_ = etype()
+#                     e1 = etype.objects.filter(sync_id=i["id"])
+#                     if e1:
+#                         e_ = e1[0]
+#                     else:
+#                         e_ = etype()
 
-                    e_.calendar = calendar
-                    e_.name = i["summary"]
-                    e_.sync_id = i["id"]
-                    if etype == Task:
-                        e_.date = sd
-                    else:
-                        e_.startdate = sd
-                        e_.enddate = ed
+#                     e_.calendar = calendar
+#                     e_.name = i["summary"]
+#                     e_.sync_id = i["id"]
+#                     if etype == Task:
+#                         e_.date = sd
+#                     else:
+#                         e_.startdate = sd
+#                         e_.enddate = ed
                     
-                    e_.save()
-                except Exception as ex:
-                    print(f"A(n) {type(ex).__name__} occurred. {ex.args}")
+#                     e_.save()
+#                 except Exception as ex:
+#                     print(f"A(n) {type(ex).__name__} occurred. {ex.args}")
         
-        elif calendar.calendar_type == 2:
-            pass
-    else:
-        print("Server is on Offline Mode")
+#         elif calendar.calendar_type == 2:
+#             pass
+#     else:
+#         print("Server is on Offline Mode")
 
 def clone_event(event_id, n):
     e = Event.objects.filter(id=event_id)[0]
@@ -129,8 +126,12 @@ def countdown(request, event_id, time="start"):
                 event_time = event_.enddate
             else:
                 raise Http404()
+
+            if event_time == None:
+                raise Http404
         
             return render(request, 'scheduler/countdown.html', {"event": event_.getinfo(), "time": event_time.strftime("%b %d %Y %H:%M:%S %z"), "se": time})
+            
 
         else:
             return HttpResponse('401 Unauthorized', status=401)
@@ -142,7 +143,7 @@ def get_recent(user_):
 
     calendars = list(user_.calendar_subscribers.all().union(user_.calendar_owner.all()))
     ans["data"]["events"] = [i.getinfo_zip() for i in Event.objects.filter(calendar__in=calendars, startdate__gte=datetime.datetime.now(), startdate__lte=datetime.datetime.now() + datetime.timedelta(days=7)).order_by('startdate')[:5]]
-    ans["data"]["tasks"] = [i.getinfo_zip() for i in Task.objects.filter(calendar__in=calendars, date=datetime.datetime.now().date())]
+    ans["data"]["tasks"] = []
 
     return ans
 
@@ -181,17 +182,6 @@ def add(request):
 
             if (Calendar.objects.filter(id=req["calendar"])[0].owner == request.user):
                 try:
-                    if req["type"] == "assignment":
-                        assignment = Assignment(
-                            calendar=Calendar.objects.filter(id=req["calendar"])[0],
-                            name=req["name"],
-                            date=datetime.datetime.strptime(req["date"], '%Y-%m-%d %H:%M'),
-                            description=req["description"],
-                            public=req["public"] == 'true',
-                            priority=req["priority"],
-                        )
-                        assignment.save()
-
                     if req["type"] == "event":
                         event = Event(
                             calendar=Calendar.objects.filter(id=req["calendar"])[0],
@@ -203,22 +193,33 @@ def add(request):
                             priority=req["priority"],
                         )
                         event.save()
-
-                    elif req["type"] == "task":
-                        task = Task(
-                            calendar=Calendar.objects.filter(id=req["calendar"])[0],
-                            name=req["name"],
-                            date=datetime.datetime.strptime(req["date"], '%Y-%m-%d'),
-                            description=req["description"],
-                            priority=req["priority"],
-                        )
-                        task.save()
+                        return JsonResponse({"status": "success", "data": "OK"})
                 
                 except Exception as ex:
                     return JsonResponse({"status": "error", "data": f"A(n) {type(ex).__name__} occurred. {ex.args}"})    
 
             else:
-                return JsonResponse({"status": "error", "data": "You dot not own this calendar"})
+                return JsonResponse({"status": "error", "data": "You do not own this calendar"})
+        else:
+            return JsonResponse({"status": "error", "data": "Not logged in"})
+
+def delete(request):
+    if request.method == 'POST':
+        if request.user.is_authenticated:
+            evs = Event.objects.filter(id=request.body.decode("utf-8"))
+            try:
+                ev = evs[0]
+                if (ev.calendar.owner == request.user):
+                    try:
+                        ev.delete()
+                        return JsonResponse({"status": "success", "data": "OK"})
+                    except Exception as ex:
+                        return JsonResponse({"status": "error", "data": f"A(n) {type(ex).__name__} occurred. {ex.args}"})
+                else:
+                    return JsonResponse({"status": "error", "data": "You do not own this calendar"})
+
+            except IndexError:
+                return JsonResponse({"status": "error", "data": "Invalid Event"})
         else:
             return JsonResponse({"status": "error", "data": "Not logged in"})
 
@@ -232,25 +233,25 @@ def enroll(request):
     invite = Invite.objects.filter(code=invitecode)
     if request.method == 'GET':
         try:
-            class_ = invite[0].calendar
-            if class_ in request.user.calendar_subscribers.all():
+            calendar_ = invite[0].calendar
+            if calendar_ in request.user.calendar_subscribers.all() or calendar_.owner == request.user:
                 return JsonResponse({"status": "error", "data": "You are already subscribed to this calendar"})
             else:
                 if invite[0].active == True:
-                    return JsonResponse({"status": "success", "data": class_.getinfo()})
+                    return JsonResponse({"status": "success", "data": calendar_.getinfo()})
                 else:
                     return JsonResponse({"status": "error", "data": "This invite is not active"})
         except IndexError:
             return JsonResponse({"status": "error", "data": "Invalid Invite Code"})
     else:
         try:
-            class_ = invite[0].calendar
-            if class_ in request.user.calendar_subscribers.all():
+            calendar_ = invite[0].calendar
+            if calendar_ in request.user.calendar_subscribers.all():
                 return JsonResponse({"status": "error", "data": "You are already subscribed to this calendar"})
             else:
                 invite_ = invite[0]
                 if invite_.active == True:
-                    class_.subscribers.add(request.user)
+                    calendar_.subscribers.add(request.user)
                     invite_.uses += 1
                     invite_.save()
                     return JsonResponse({"status": "success"})
@@ -298,19 +299,19 @@ def invite(request):
                 temp = invite[0].getinfo()
                 return JsonResponse({"status": "error", "data": "This invite already exists"})
             except IndexError:
-                class_ = request.GET.get("class")
-                if class_ == None:
+                calendar_ = request.GET.get("class")
+                if calendar_ == None:
                     return JsonResponse({"status": "error", "data": "No Calendar provided"})
                 
                 try:
                     if len(invitecode) > 8:
                         return JsonResponse({"status": "error", "data": "Invite code too long"})
                     else:
-                        class1 = Calendar.objects.filter(id=class_)[0]
-                        if class1.owner.id != request.user.id:
+                        calendar1_ = Calendar.objects.filter(id=calendar_)[0]
+                        if calendar1_.owner.id != request.user.id:
                             return JsonResponse({"status": "error", "data": "Unauthorized"})
 
-                        invite = Invite(calendar=class1, code=invitecode, uses=0, active=True)
+                        invite = Invite(calendar=calendar1_, code=invitecode, uses=0, active=True)
                         invite.save()
 
                         return JsonResponse({"status": "success", "data": invite.id})

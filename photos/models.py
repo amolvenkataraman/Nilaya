@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from users.models import *
 from GPSPhoto import gpsphoto
@@ -8,6 +9,7 @@ def parse_upload_path(instance, filename):
     return f"uploads/{instance.owner.id}/{filename}"
 
 class Photo(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='photo_owner')
     photo = models.FileField(upload_to=parse_upload_path)
     width = models.IntegerField(null=True)
@@ -47,7 +49,7 @@ class Photo(models.Model):
 
     def get_info(self):
         return json.dumps({
-            "id": self.id,
+            "id": str(self.id),
             "photo": self.photo.url,
             "width": self.width,
             "height": self.height,

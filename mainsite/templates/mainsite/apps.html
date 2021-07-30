@@ -13,8 +13,9 @@
 
 {% block page_body %}
 <div style="padding: 24px;">
+    <h2>Apps</h2>
     <div class="row">
-        <div class="col-sm-6">
+        <div class="col-auto">
             <a href="{% url 'display_calendar' %}" class="card" style="width: 16rem; padding: 20px;">
                 <center>
                     <svg xmlns="http://www.w3.org/2000/svg" width="6rem" height="6rem" fill="currentColor" class="bi bi-calendar-week" viewBox="0 0 16 16">
@@ -24,7 +25,8 @@
                 </center>
                 <center><h5 class="card-title" style="padding-top: 20px;">Calendar</h5></center>
             </a>
-
+        </div>
+        <div class="col-auto">
             <a href="{% url 'chat' %}" class="card" style="width: 16rem; padding: 20px;">
                 <center>
                     <svg xmlns="http://www.w3.org/2000/svg" width="6rem" height="6rem" fill="currentColor" class="bi bi-chat-right-text" viewBox="0 0 16 16">
@@ -34,7 +36,8 @@
                 </center>
                 <center><h5 class="card-title" style="padding-top: 20px;">Chat</h5></center>
             </a>
-
+        </div>
+        <div class="col-auto">
             <a href="{% url 'photos' %}" class="card" style="width: 16rem; padding: 20px;">
                 <center>
                     <svg xmlns="http://www.w3.org/2000/svg" width="6rem" height="6rem" fill="currentColor" class="bi bi-image" viewBox="0 0 16 16">

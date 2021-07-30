@@ -13,7 +13,7 @@ var selectYear = document.getElementById("year");
 var selectMonth = document.getElementById("month");
 
 
-var createYear = generate_year_range(currentYear, currentYear);
+var createYear = generate_year_range(currentYear - 5, currentYear + 5);
 /** or
 * createYear = generate_year_range( 1970, currentYear );
 */
@@ -104,6 +104,7 @@ function showCalendar(month, year) {
                     <div class='date-span' data-bs-toggle='modal' data-bs-target='#big-modal' onclick="display_day_info(this)"><span data-bs-toggle='modal' data-bs-target='#big-modal' onclick="display_day_info(this.parentElement)">${date}</span></div>
                     <div class='day-events day-events-${date}'></div>
                     <div class='reg-events reg-events-${date}'></div>
+                    <span class="badge add-on-day-btn" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="add_on_date(this.parentElement.dataset.date)">+</span>
                 `
 
                 if ( date === today.getDate() && year === today.getFullYear() && month === today.getMonth() ) {

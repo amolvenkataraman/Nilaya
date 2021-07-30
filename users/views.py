@@ -54,17 +54,20 @@ def password_change_view(request):
     return render(request, 'users/reset_password.html', {'form': form, 'error': error, 'image': {'id': id_, 'description': description, 'location': location}})
 
 # Render the user profile view
-def profile_view(request):
+def profile_view(request, user=None):
     if request.method == 'GET':
-        try:
-            username = request.GET.get('user')
-            if username == None:
-                user = request.user
-            else:
-                user = ComptechUser.objects.filter(username=username)[0]
-            return render(request, 'users/profile.html', {'user': user.getinfo()})
-        except IndexError:
-            raise Http404()
+        if user == None:
+            user = request.user
+        else:
+            try:
+                user = ComptechUser.objects.filter(id=user)[0]
+            except:
+                try:
+                    user = ComptechUser.objects.filter(username=user)[0]
+                except:
+                    raise Http404()
+    
+        return render(request, 'users/profile.html', {'user': user.getinfo()})
 
 # Log a user out and redirect to login
 def logout_view(request):

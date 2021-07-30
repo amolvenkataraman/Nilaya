@@ -28,7 +28,7 @@ class Calendar(models.Model):
     subscribers = models.ManyToManyField(ComptechUser, related_name='calendar_subscribers', blank=True)
     calendar_type = models.PositiveSmallIntegerField(choices=(
         (0, 'Local Calendar'),
-        (1, 'Google Calendar'),
+        #(1, 'Google Calendar'),
     ), default=0)
     calendar_url = models.CharField(max_length=128, null=True, blank=True)
     colour = models.CharField(max_length=16, default='#000000')
@@ -69,49 +69,18 @@ class Calendar(models.Model):
 
         return ans
 
-class Assignment(models.Model):
-    calendar = models.ForeignKey(Calendar, on_delete=models.CASCADE)
-    name = models.CharField(max_length=256)
-    date = models.DateTimeField(auto_now=False)
-    description = models.TextField(null=True, blank=True)
-    public = models.BooleanField(default=False)
-    priority = models.SmallIntegerField(default=10)
-    sync_id = models.CharField(max_length=64, null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.name} for {self.calendar.name}. Due: {str(self.date)}"
-
-    def getinfo(self):
-        ans = {
-            "id": self.id,
-            "calendar": self.calendar.getinfo(),
-            "name": self.name,
-            "date": str(self.date),
-            "description": self.description,
-            "public": str(self.public),
-            "priority": self.priority,
-        }
-        return ans
-
-    def getinfo_zip(self):
-        ans = {
-            "id": self.id,
-            "name": self.name,
-            "date": str(self.date),
-            "description": self.description,
-            "public": str(self.public),
-            "priority": self.priority,
-        }
-        return ans
-
 class Event(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
     calendar = models.ForeignKey(Calendar, on_delete=models.CASCADE)
     name = models.CharField(max_length=256)
     startdate = models.DateTimeField(auto_now=False)
-    enddate = models.DateTimeField(auto_now=False)
+    enddate = models.DateTimeField(auto_now=False, null=True, blank=True)
+    allday = models.BooleanField(default=False)
     description = models.TextField(null=True, blank=True)
     public = models.BooleanField(default=False)
     priority = models.SmallIntegerField(default=10)
+    repeat_every = models.IntegerField(null=True, blank=True)
+    repeat_end = models.DateField(null=True, blank=True)
     sync_id = models.CharField(max_length=64, null=True, blank=True)
 
     def __str__(self):
@@ -119,61 +88,31 @@ class Event(models.Model):
 
     def getinfo(self):
         ans = {
-            "id": self.id,
+            "id": str(self.id),
             "calendar": self.calendar.getinfo(),
             "name": self.name,
             "startdate": str(self.startdate),
             "enddate": str(self.enddate),
+            "allday": self.allday,
             "description": self.description,
             "public": str(self.public),
             "priority": self.priority,
+            "repeat_every": self.repeat_every,
+            "repeat_end": self.repeat_end,
         }
         return ans
 
     def getinfo_zip(self):
         ans = {
-            "id": self.id,
+            "id": str(self.id),
             "name": self.name,
             "startdate": str(self.startdate),
             "enddate": str(self.enddate),
+            "allday": self.allday,
             "description": self.description,
             "public": str(self.public),
             "priority": self.priority,
+            "repeat_every": self.repeat_every,
+            "repeat_end": self.repeat_end,
         }
         return ans
-
-class Task(models.Model):
-    calendar = models.ForeignKey(Calendar, on_delete=models.CASCADE)
-    name = models.CharField(max_length=256)
-    date = models.DateField(auto_now=False)
-    description = models.TextField(null=True, blank=True)
-    completed = models.BooleanField(default=False)
-    priority = models.SmallIntegerField(default=10)
-    sync_id = models.CharField(max_length=64, null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.name} for {self.calendar.name}. On {str(self.date)}"
-
-    def getinfo(self):
-        ans = {
-            "id": self.id,
-            "calendar": self.calendar.getinfo(),
-            "name": self.name,
-            "date": str(self.date),
-            "description": self.description,
-            "completed": str(self.completed),
-            "priority": self.priority,
-        }
-        return ans
-
-    def getinfo_zip(self):
-        ans = {
-            "id": self.id,
-            "name": self.name,
-            "date": str(self.date),
-            "description": self.description,
-            "completed": str(self.completed),
-            "priority": self.priority,
-        }
-        return ans
-

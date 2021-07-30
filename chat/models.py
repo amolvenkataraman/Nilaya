@@ -1,3 +1,4 @@
+import uuid
 from django.db import models
 from users.models import *
 
@@ -25,18 +26,20 @@ class DirectMessage(models.Model):
 
 class DMUser(models.Model):
     dm = models.ForeignKey(DirectMessage, on_delete=models.CASCADE)
-    user_id = models.IntegerField()
+    user_id = models.UUIDField()
 
 class Message(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
     dm = models.ForeignKey(DirectMessage, on_delete=models.CASCADE)
     message = models.CharField(max_length=2048, null=True, blank=True)
     attachment = models.FileField(upload_to='chat/attachments', null=True, blank=True)
-    sent_by = models.IntegerField()
+    sent_by = models.UUIDField()
     sent_time = models.DateTimeField(auto_now=True)
 
     def getinfo(self):
         user_ = ComptechUser.objects.filter(id=self.sent_by)[0]
         ans = {
+            "id": str(self.id),
             "dm": self.dm.id,
             "message": self.message,
             "sent_by_id": self.sent_by,

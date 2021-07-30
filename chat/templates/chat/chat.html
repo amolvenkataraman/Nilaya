@@ -88,7 +88,7 @@
     <script id="self-sent-message" type="text/x-handlebars-template">
         <div class="message-area self-sent">
             <div class="message self-sent bg-primary text-light">
-                {% verbatim %} {{{ message }}} {% endverbatim %}
+                {% verbatim %} {{ message }} {% endverbatim %}
             </div>
         </div>
         <br>
@@ -98,7 +98,7 @@
         <div class="message-area other-sent">
             <div class="message other-sent bg-secondary text-light">
                 <span class="sent-by">{% verbatim %} {{ user }} {% endverbatim %}</span><br>
-                {% verbatim %} {{{ message }}} {% endverbatim %}
+                {% verbatim %} {{ message }} {% endverbatim %}
             </div>
         </div>
         <br>
@@ -153,7 +153,7 @@
             r.onload = () => {
                 messages = JSON.parse(r.responseText)["messages"];
                 for (i = 0; i < messages.length; i++) {
-                    if (messages[i].sent_by_id == {{ request.user.id }}) {
+                    if (messages[i].sent_by_id == "{{ request.user.id }}") {
                         $('.message-display').prepend(self_sent_message({"message": parse_message(messages[i].message)}));
                     }
                     else {
@@ -202,7 +202,7 @@
 
             chatSocket.onmessage = function(e) {
                 const data = JSON.parse(e.data);
-                if (data.user == {{ request.user.id }}) {
+                if (data.user == "{{ request.user.id }}") {
                     document.querySelector('.message-display').innerHTML += self_sent_message({"message": parse_message(data.message)});
                 }
                 else {
