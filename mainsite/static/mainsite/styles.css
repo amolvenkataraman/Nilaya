@@ -28,6 +28,17 @@ a, a:hover {
   font-weight: 600;
 }
 
-.col-sm {
-    
+.current-time {
+  font-size: 150px;
+}
+
+#search-box {
+  width: 800px;
+  max-width: 80%;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.search {
+  align-items: center;
 }

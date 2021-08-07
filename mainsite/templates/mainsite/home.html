@@ -30,6 +30,13 @@
         document.querySelector('.minute').innerHTML = m
         document.querySelector('.second').innerHTML = s
 
+        if (h > 0 && h <= 11) {s = "Good Morning"}
+        else if (h > 11 && h <= 14) {s = "Good Afternoon"}
+        else if (h > 14 && h <= 18) {s = "Good Evening"}
+        else if (h > 18 && h <= 22) {s = "Good Night"}
+        else {s = "Good Midnight"}
+        $('.greeting-greeting').html(s);
+
         var months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
 
@@ -37,8 +44,9 @@
 
         var t = setTimeout(startTime, 500);
     }
+
     function checkTime(i) {
-        if (i < 10) {i = "0" + i};  // add zero in front of numbers < 10
+        if (i < 10) {i = "0" + i};
         return i;
     }
 
@@ -64,6 +72,12 @@
         r.send()
     }
 
+    function search(e) {
+        if(e.keyCode === 13){
+            window.location.href = `https://google.com/search?q=${$('#search-box').val()}`
+        }  
+    }
+
     document.addEventListener('DOMContentLoaded', () => {
         startTime();
 
@@ -75,11 +89,11 @@
 {% endblock %}
 
 {% block page_body %}
-    <div class="greeting" data-aos="fade-down">{{ greeting }}, {{ request.user.first_name }}</div>
+    <div class="greeting"><span class="greeting-greeting"></span>, {{ request.user.first_name }}</div>
 
     <div class="clock col-auto">
-        <div class="container" data-aos="zoom-in">
-            <div class="row justify-content-center" style="font-size: 200px;">
+        <div class="container">
+            <div class="row justify-content-center current-time">
                 <div class="col-auto hour">
                     00
                 </div>
@@ -105,7 +119,12 @@
     </div>
     <br>
 
-    <div class="container" data-aos="fade-up">
+    <div class="search">
+        <input type="text" class="form-control" id="search-box" placeholder="Type here to search" aria-describedby="Search Text" onKeydown="search(event);">
+    </div>
+    <br>
+
+    <div class="container">
         <div class="row">
             <div class="col-sm">
                 <a class="card recent-card" href="{% url 'display_calendar' %}">
@@ -119,15 +138,12 @@
                 </a>
             </div>
             <div class="col-sm">
-                <a class="card recent-card" href="{% url 'display_calendar' %}">
-                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Tasks</h5>
-                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Tasks for Today</p>
+                <div class="card recent-card">
+                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Name</h5>
+                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Description</p>
                     <div class="card-body">
-                        <ul class="list-group list-group-flush tasks-today">
-                            
-                        </ul>
                     </div>
-                </a>
+                </div>
             </div>
             <div class="col-sm">
                 <div class="card recent-card">
@@ -139,7 +155,7 @@
             </div>
         </div>
         {% if desktop_app != 'true' %}
-        <br>
+        <!-- <br>
         <div class="row">
             {% for group in links.groups %}
             <div class="col-sm">
@@ -162,7 +178,7 @@
                 </div>
             </div>
             {% endfor %}
-        </div>
+        </div> -->
         {% endif %}
     </div>
 {% endblock %}

@@ -11,24 +11,7 @@ import random
 # Create your views here.
 @login_required
 def home(request):
-    #print(request.user.timezone)
-
-    if random.randrange(2) == 0:
-        greeting = random.choice(GREETINGS)
-    else:
-        hour = datetime.datetime.now().hour
-        if hour > 0 and hour <= 11:
-            greeting = "Good Morning"
-        elif hour > 11 and hour <= 14:
-            greeting = "Good Afternoon"
-        elif hour > 14 and hour <= 18:
-            greeting = "Good Evening"
-        elif hour > 18 and hour <= 22:
-            greeting = "Good Night"
-        else:
-            greeting = "Good Midnight"
-
-    return render(request, 'mainsite/home.html', {"greeting": greeting, "links": LINKS, "desktop_app": request.COOKIES.get('desktop_app')})
+    return render(request, 'mainsite/home.html', {"links": LINKS, "desktop_app": request.COOKIES.get('desktop_app')})
 
 @login_required
 def get_recent_events(request):
