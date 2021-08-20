@@ -243,8 +243,6 @@
         set_localstorage()
 
         populate_calendar(m, y)
-
-        //
     })
 
     function set_localstorage() {
@@ -503,7 +501,7 @@
                         if (sd.getDate() == ed.getDate()) {
                             dp = document.querySelector(`.reg-events-${j}`)
                             var ci = calendar_item({'calendar': e[i]['calendar'], 'i': i, 'type': "event", 'color': e[i]['calendar']['colour'], 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name']})
-                            dp.innerHTML += ci
+                            dp.innerHTML += ci 
 
                         }
                         else if (e[i]['allday'] == true) {
