@@ -14,6 +14,26 @@
     .add-on-day-btn {
         color: var(--bs-white);
     }
+
+    /* width */
+    ::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    /* Track */
+    ::-webkit-scrollbar-track {
+        background: var(--bs-dark);
+    }
+
+    /* Handle */
+    ::-webkit-scrollbar-thumb {
+        background: #888;
+    }
+
+    /* Handle on hover */
+    ::-webkit-scrollbar-thumb:hover {
+        background: #555;
+    }
 </style>
 {% else %}
 <style>
@@ -31,6 +51,26 @@
 
     .date-picker-dead {
         background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='%23f9f9fa' fill-opacity='1' fill-rule='evenodd'%3E%3Cpath d='M0 40L40 0H20L0 20M40 40V20L20 40'/%3E%3C/g%3E%3C/svg%3E")!important;
+    }
+
+    /* width */
+    ::-webkit-scrollbar {
+        width: 5px;
+    }
+
+    /* Track */
+    ::-webkit-scrollbar-track {
+        background: var(--bs-light);
+    }
+
+    /* Handle */
+    ::-webkit-scrollbar-thumb {
+        background: #888;
+    }
+
+    /* Handle on hover */
+    ::-webkit-scrollbar-thumb:hover {
+        background: #555;
     }
 </style>
 {% endif %}
@@ -195,39 +235,54 @@
 </script>
 
 <script id="event-create-template", type="text/x-handlebars-template">
-    <nav>
-        <div class="nav nav-tabs" id="nav-tab" role="tablist">
-            <button class="nav-link active" id="nav-home-tab" data-bs-toggle="tab" data-bs-target="#nav-home" type="button" role="tab" aria-controls="nav-home" aria-selected="true">Home</button>
-            <button class="nav-link" id="nav-profile-tab" data-bs-toggle="tab" data-bs-target="#nav-profile" type="button" role="tab" aria-controls="nav-profile" aria-selected="false">Profile</button>
-            <button class="nav-link" id="nav-contact-tab" data-bs-toggle="tab" data-bs-target="#nav-contact" type="button" role="tab" aria-controls="nav-contact" aria-selected="false">Contact</button>
+    <div style="width: 50%;">
+        <input type="text" class="form-control" placeholder="Name of the Event">
+        <br>
+        <div class="btn-group" role="group" aria-label="Basic example">
+            <button type="button" class="btn btn-sm btn-primary">Event</button>
+            <button type="button" class="btn btn-sm btn-primary">All-Day Event</button>
+            <button type="button" class="btn btn-sm btn-primary">Assignment</button>
         </div>
-    </nav>
-    <div class="tab-content" id="nav-tabContent">
-        <div class="tab-pane fade show active" id="nav-home" role="tabpanel" aria-labelledby="nav-home-tab">...</div>
-        <div class="tab-pane fade" id="nav-profile" role="tabpanel" aria-labelledby="nav-profile-tab">...</div>
-        <div class="tab-pane fade" id="nav-contact" role="tabpanel" aria-labelledby="nav-contact-tab">...</div>
+        <br><br>
+        <div class="">
+            <div class="">
+                <div class="input-group">
+                    <input type="date" class="form-control">
+                    <input type="time" class="form-control">
+                </div>
+                <div class="input-group">
+                    <input type="date" class="form-control">
+                    <input type="time" class="form-control">
+                </div>
+            </div>
+            <!-- <div class="">
+                <div class="input-group">
+                    <input type="date" class="form-control">
+                </div>
+                <div class="input-group">
+                    <input type="date" class="form-control">
+                </div>
+            </div>
+            <div class="">
+                <div class="input-group">
+                    <input type="date" class="form-control">
+                    <input type="time" class="form-control">
+                </div>
+            </div> -->
+        </div>
+        <div class="">
+        </div>
     </div>
-
-    <style>
-        .nav-link, .nav-link:focus, .nav-link:hover {
-            outline: none;
-        }
-        
-        .nav-link {
-            border: 0px none;
-            border-radius: 0.001px; /* this value must be greater than 0, otherwise it won't work */
-        }
-    </style>
 </script>
 
 <script>
-    const calendar_item = Handlebars.compile(document.querySelector("#calendar-item").innerHTML)
-    const calendar_name = Handlebars.compile(document.querySelector("#calendar-name").innerHTML)
-    const calendar_create_form = Handlebars.compile(document.querySelector("#calendar-create-form").innerHTML)
-    const subscribe_confirm = Handlebars.compile(document.querySelector("#subscribe-confirm").innerHTML)
-    const calendar_info_template = Handlebars.compile(document.querySelector("#calendar-info-template").innerHTML)
-    const event_info_template = Handlebars.compile(document.querySelector("#event-info-template").innerHTML)
-    const event_create_template = Handlebars.compile(document.querySelector("#event-create-template").innerHTML)
+    const calendar_item = Handlebars.compile($("#calendar-item").html())
+    const calendar_name = Handlebars.compile($("#calendar-name").html())
+    const calendar_create_form = Handlebars.compile($("#calendar-create-form").html())
+    const subscribe_confirm = Handlebars.compile($("#subscribe-confirm").html())
+    const calendar_info_template = Handlebars.compile($("#calendar-info-template").html())
+    const event_info_template = Handlebars.compile($("#event-info-template").html())
+    const event_create_template = Handlebars.compile($("#event-create-template").html())
 
     const d_ = new Date()
     var m = d_.getMonth()
@@ -256,9 +311,7 @@
     
     function add_on_date(date, month=m, year=y) {
         $('.modal-title').html("Create New Event")
-        $('.modal-body').html(event_create_template())
-        //$('.modal-body').html(`{{ form }}`)
-
+        $('.modal-body').html(event_create_template({'i': '1'}))
     }
 
     function make_holidays_red() {
@@ -594,7 +647,9 @@
                 if (sd1.calendar() == ed1.calendar()) {date_ = moment(sd).format('LL')}
                 else {date_ = moment(sd).format('LL') + " - " + moment(ed).format('LL')}
             }
-            else {date_ = moment(sd).format('LLL') + " - " + moment(ed).format('LLL')}
+            else {
+                if (sd.getDate() == ed.getDate()) {date_ = moment(sd).format('LLL') + " - " + moment(ed).format('LT')}
+                else {date_ = moment(sd).format('LLL') + " - " + moment(ed).format('LLL')}}
             if (localStorage.getItem('debug') == 1) {dev_info = `<br><i>Id: ${event["id"]}</i>`}
             else {dev_info = ""}
             if (event["description"] == "" || event["description"] == null) {show_desc = false}
@@ -655,13 +710,6 @@
                         </li>
                     `
                 }
-
-                /*for (i = 0; i < data["events"].length; i++) {
-                    event = data["events"][i]
-                    if (event["calendar"]["id"] == class_["id"]) {
-            
-                    }
-                }*/
 
                 document.querySelectorAll('.invite-label').forEach(il => {
                     il.onclick = () => {

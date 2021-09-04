@@ -43,7 +43,7 @@ def get_events(request):
         calendars = user_.calendar_subscribers.filter(active=True).union(user_.calendar_owner.filter(active=True)).order_by('name')
     ans["data"]["calendars"] = [i.getinfo() for i in calendars.iterator()]
     ans["data"]["events"] = [i.getinfo() for i in Event.objects.filter(
-        Q(calendar__in=list(calendars)) & 
+        Q(calendar__in=list(calendars)) &
         ((Q(startdate__month=(int(month) + 1)) & Q(startdate__year=(int(year)))) |
         (Q(enddate__month=(int(month) + 1)) & Q(enddate__year=(int(year)))) |
         Q(Q(startdate__month__lt=(int(month) + 1), enddate__month__gt=(int(month) + 1)) & (Q(startdate__year=int(year), enddate__year=int(year)))))
@@ -52,61 +52,48 @@ def get_events(request):
 
     return JsonResponse(ans)
 
-# def sync_events(calendar_id, sy, sm, ey, em):
-#     if ONLINE_MODE:
-#         calendar = Calendar.objects.filter(id=calendar_id)[0]
-#         if calendar.calendar_type == 1:
-#             tzoffset = datetime.datetime.now(pytz.timezone(timezone.get_current_timezone_name())).strftime('%z')
+def sync_events(calendar_id, sy, sm, ey, em, sync_type):
+    if ONLINE_MODE:
+        calendar = Calendar.objects.filter(id=calendar_id)[0]
+        if sync_type == "pgc": # Public Google Calendar
+            tzoffset = datetime.datetime.now(pytz.timezone(timezone.get_current_timezone_name())).strftime('%z')
 
-#             start_time = f"{sy}-{sm}-01T00:00:00{tzoffset}"
-#             end_time = f"{ey}-{em}-01T00:00:00{tzoffset}"
-#             fields = str("items(kind,summary,start,end)")
+            start_time = f"{sy}-{sm}-01T00:00:00{tzoffset}"
+            end_time = f"{ey}-{em}-01T00:00:00{tzoffset}"
+            fields = str("items(kind,summary,start,end)")
 
-#             r = requests.get(f"https://www.googleapis.com/calendar/v3/calendars/{calendar.calendar_url}/events?key={GOOGLE_API_KEY}&timeMin={start_time}&timeMax={end_time}&singleEvents=true&orderBy=startTime")
-#             #print(r.text)
-#             res = r.json()
-#             #if res["code"] == 200:
-#             print(len(res["items"]))
-#             for i in res["items"]:
-#                 try:
-#                     try:
-#                         sd = i["start"]["date"]
-#                         ed = i["end"]["date"]
-#                         etype = Task
-#                         if (datetime.datetime.strptime(ed, "%Y-%m-%d") - datetime.datetime.strptime(sd, "%Y-%m-%d")).days != 1:
-#                             etype = Event
-#                             sd = datetime.datetime.strptime(sd, "%Y-%m-%d")
-#                             ed = datetime.datetime.strptime(ed, "%Y-%m-%d")
-                            
-#                     except KeyError:
-#                         #print(i)
-#                         sd = i["start"]["dateTime"]
-#                         ed = i["end"]["dateTime"]
-#                         etype = Event
+            r = requests.get(f"https://www.googleapis.com/calendar/v3/calendars/{calendar.calendar_url}/events?key={GOOGLE_API_KEY}&timeMin={start_time}&timeMax={end_time}&singleEvents=true&orderBy=startTime")
+            res = r.json()
+            print(len(res["items"]))
+            for i in res["items"]:
+                try:
+                    #print(i, end="\n\n")
+                    e_ = Event.objects.filter(sync_id=i['id'])
+                    try:
+                        e = e_[0]
+                    except IndexError:
+                        e = Event()
+
+                    e.calendar = calendar
+                    e.name = i['summary']
+                    e.sync_id = i['id']
+                    try:
+                        e.startdate = i['start']['dateTime']
+                    except KeyError:
+                        e.startdate = i['start']['date']
+                        e.allday = True
+                    try:
+                        e.enddate = i['end']['dateTime']
+                    except KeyError:
+                        e.enddate = i['end']['date']
+                        e.allday = True
                     
-#                     e1 = etype.objects.filter(sync_id=i["id"])
-#                     if e1:
-#                         e_ = e1[0]
-#                     else:
-#                         e_ = etype()
+                    e.save()
 
-#                     e_.calendar = calendar
-#                     e_.name = i["summary"]
-#                     e_.sync_id = i["id"]
-#                     if etype == Task:
-#                         e_.date = sd
-#                     else:
-#                         e_.startdate = sd
-#                         e_.enddate = ed
-                    
-#                     e_.save()
-#                 except Exception as ex:
-#                     print(f"A(n) {type(ex).__name__} occurred. {ex.args}")
-        
-#         elif calendar.calendar_type == 2:
-#             pass
-#     else:
-#         print("Server is on Offline Mode")
+                except Exception as ex:
+                    print(f"A(n) {type(ex).__name__} occurred. {ex.args}")
+    else:
+        print("Server is on Offline Mode")
 
 def clone_event(event_id, n):
     e = Event.objects.filter(id=event_id)[0]
@@ -142,7 +129,7 @@ def get_recent(user_):
     ans = {"data": {}}
 
     calendars = list(user_.calendar_subscribers.all().union(user_.calendar_owner.all()))
-    ans["data"]["events"] = [i.getinfo_zip() for i in Event.objects.filter(calendar__in=calendars, startdate__gte=datetime.datetime.now(), startdate__lte=datetime.datetime.now() + datetime.timedelta(days=7)).order_by('startdate')[:5]]
+    ans["data"]["events"] = [i.getinfo_zip() for i in Event.objects.filter(calendar__in=calendars, startdate__gte=timezone.now(), startdate__lte=timezone.now() + datetime.timedelta(days=7)).order_by('startdate')[:5]]
     ans["data"]["tasks"] = []
 
     return ans

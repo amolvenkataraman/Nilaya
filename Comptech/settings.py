@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'scheduler',
     'gamevault',
     'photos',
+    'socialmedia',
 ]
 
 MIDDLEWARE = [

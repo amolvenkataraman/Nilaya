@@ -6,6 +6,26 @@
 {% block page_styles %}
 <link href="{% static 'mainsite/styles.css' %}" rel="stylesheet" media="all"/>
 <link href="{% static 'css/aos/aos.css' %}" rel="stylesheet">
+
+{% if request.user.dark_mode %}
+<style>
+    body, .card {
+        background-color: var(--bs-dark);
+    }
+
+    .card {
+        border-color: var(--bs-light);
+    }
+
+    .greeting, .clock, .card-title, .card-text {
+        color: var(--bs-white);
+    }
+</style>
+{% else %}
+<style>
+
+</style>
+{% endif %}
 {% endblock %}
 
 {% block page_script %}
@@ -58,12 +78,15 @@
                 data = JSON.parse(r.responseText.replace(/&#x27;/g,'"'))["data"]
                 
                 document.querySelector('.recent-events').innerHTML = ""
-                document.querySelector('.tasks-today').innerHTML = ""
 
                 for (i = 0; i<data["events"].length; i++) {
+                    date__ = moment(new Date(data["events"][i]["startdate"])).calendar();
+                    if (data["events"][i]["allday"] == true) {
+                        date__ = date__.split(" at")[0]
+                    }
                     document.querySelector('.recent-events').innerHTML += `
                         <li href="#" class="list-group-item text-dark">
-                            <span class="event-name">${data["events"][i]["name"]}</span>&nbsp-&nbsp${moment(new Date(data["events"][i]["startdate"])).calendar()}
+                            <span class="event-name">${data["events"][i]["name"]}</span>&nbsp-&nbsp${date__}
                         </li>
                     `
                 }

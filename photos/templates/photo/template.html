@@ -84,19 +84,6 @@
 
 {% block page_body %}
     <link href="{% static 'photo/styles.css' %}" rel="stylesheet" media="all"/>
-
-    <!-- Flashed messages -->
-    <div id="messages">
-        {% if messages %}
-            {% for message in messages %}
-                <div class="alert alert-{{ message.tags }} alert-dismissible">
-                    <a href="#" class="close" data-dismiss="alert" aria-label="close">&times;</a>
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-    </div>
-
     <nav id="sidebar" class="navbar navbar-expand-lg navbar-light bg-light">
         <ul class="nav">
             <li class="nav-item">
