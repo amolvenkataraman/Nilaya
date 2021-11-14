@@ -57,7 +57,6 @@ class ChatConsumer(AsyncWebsocketConsumer):
             'username': username,
         }))
 
-@sync_to_async
 def check_user_dm(user_id, dm_id):
     if dm_id == 0:
         return True
@@ -68,7 +67,6 @@ def check_user_dm(user_id, dm_id):
     except IndexError:
         return False
 
-@sync_to_async
 def create_message(user_id, msg, sent_by):
     msg = Message(dm=DirectMessage.objects.filter(id=user_id)[0], message=msg, sent_by=sent_by)
     msg.save()

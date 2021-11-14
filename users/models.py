@@ -53,6 +53,7 @@ class ComptechUser(AbstractUser):
             "first_name": self.first_name,
             "last_name": self.last_name,
             "description": self.description,
+            "birthday": str(self.birthday),
             "is_staff": self.is_staff,
             "is_admin": self.is_superuser,
             "groups": [i.getinfo() for i in self.user_groups.all()]
@@ -71,7 +72,7 @@ class ComptechUser(AbstractUser):
             "username": self.username,
             "first_name": self.first_name,
             "last_name": self.last_name,
-            "description": self.description,
+            "birthday": str(self.birthday),
             "is_admin": self.is_superuser,
         }
 

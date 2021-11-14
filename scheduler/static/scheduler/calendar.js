@@ -14,9 +14,6 @@ var selectMonth = document.getElementById("month");
 
 
 var createYear = generate_year_range(currentYear - 5, currentYear + 5);
-/** or
-* createYear = generate_year_range( 1970, currentYear );
-*/
 
 document.getElementById("year").innerHTML = createYear;
 
@@ -74,11 +71,13 @@ function showCalendar(month, year) {
 
     // creating all cells
     var date = 1;
-    for ( var i = 0; i < 6; i++ ) {
+    for (var i = 0; i < 6; i++) {
+        today = new Date();
+
         var row = document.createElement("tr");
 
-        for ( var j = 0; j < 7; j++ ) {
-            if ( i === 0 && j < firstDay ) {
+        for (var j = 0; j < 7; j++) {
+            if (i === 0 && j < firstDay) {
                 cell = document.createElement( "td" );
                 cellText = document.createTextNode("");
                 cell.appendChild(cellText);
@@ -104,11 +103,11 @@ function showCalendar(month, year) {
                     <div class='date-span' data-bs-toggle='modal' data-bs-target='#big-modal' onclick="display_day_info(this)"><span data-bs-toggle='modal' data-bs-target='#big-modal' onclick="display_day_info(this.parentElement)">${date}</span></div>
                     <div class='day-events day-events-${date}'></div>
                     <div class='reg-events reg-events-${date}'></div>
-                    <span class="badge add-on-day-btn" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="add_on_date(this.parentElement.dataset.date)">+</span>
+                    <span class="badge add-on-day-btn" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="add_edit_event(this.parentElement.dataset.date)">+</span>
                 `
 
                 if ( date === today.getDate() && year === today.getFullYear() && month === today.getMonth() ) {
-                        cell.className = `date-picker selected date-picker-${date}`;
+                    cell.className = `date-picker selected date-picker-${date}`;
                 }
                 row.appendChild(cell);
                 date++;
@@ -124,58 +123,3 @@ function showCalendar(month, year) {
 function daysInMonth(iMonth, iYear) {
     return 32 - new Date(iYear, iMonth, 32).getDate();
 }
-
-/*function showMicroCalendar(month, year) {
-
-    var firstDay = ( new Date( year, month ) ).getDay();
-
-    tbl = document.getElementById("micro-calendar-body");
-
-    
-    tbl.innerHTML = "";
-
-    
-    monthAndYear.innerHTML = months[month] + " " + year;
-    selectYear.value = year;
-    selectMonth.value = month;
-
-    // creating all cells
-    var date = 1;
-    for ( var i = 0; i < 6; i++ ) {
-        var row = document.createElement("tr");
-
-        for ( var j = 0; j < 7; j++ ) {
-            if ( i === 0 && j < firstDay ) {
-                cell = document.createElement( "td" );
-                cellText = document.createTextNode("");
-                cell.appendChild(cellText);
-                row.appendChild(cell);
-            }
-            else if (date > daysInMonth(month, year)) {
-                break;
-            }
-            else {
-                cell = document.createElement("td");
-                cell.setAttribute("data-date", date);
-                cell.setAttribute("data-month", month + 1);
-                cell.setAttribute("data-year", year);
-                cell.setAttribute("data-month_name", months[month]);
-                cell.setAttribute("data-day", j);
-                cell.className = `micro-date-picker micro-date-picker-${date}`;
-                cell.innerHTML = `
-                    <div class='micro-date-span'><span>${date}</span></div>
-                `
-
-                if ( date === today.getDate() && year === today.getFullYear() && month === today.getMonth() ) {
-                    cell.className = `micro-date-picker selected micro-date-picker-${date}`;
-                }
-                row.appendChild(cell);
-                date++;
-            }
-        }
-
-        if (row.innerHTML != "") {
-            tbl.appendChild(row);
-        }
-    }
-}*/

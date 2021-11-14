@@ -20,9 +20,10 @@
         {% block page_styles %} {% endblock page_styles %}
 
         <style>
-            /* nav {
-                background: linear-gradient(to right, #4169E1, #48D1CC)
-            } */
+            nav {
+                background: linear-gradient(90deg, #89f7fe 0%, #66a6ff 100%);
+                /*background: linear-gradient(to right, #4169E1, #48D1CC);*/
+            }
         </style>
 
         {% block page_script %} {% endblock page_script %}
@@ -70,7 +71,7 @@
                             </option>-->
                         </datalist>
                     </div>
-                    
+
                     <ul class="navbar-nav mr-0 mb-2 mb-lg-0">
                         <li class="nav-item dropdown apps-dropdown me-2">
                             <button type="button" class="btn btn-secondary dropdown-toggle" id="navbarDropdown1" role="button" data-bs-toggle="dropdown" aria-expanded="false">
@@ -83,6 +84,7 @@
                                 <li><a class="dropdown-item" href="{% url 'chat' %}">Chat</a></li>
                                 <li><a class="dropdown-item" href="{% url 'display_calendar' %}">Calendar</a></li>
                                 <li><a class="dropdown-item" href="{% url 'photos' %}">Photos</a></li>
+                                <li><a class="dropdown-item" href="{% url 'sm_home' %}">Social Media</a></li>
                                 <li><hr class="dropdown-divider"></li>
                                 <li><a class="dropdown-item" href="{% url 'apps' %}">All Apps</a></li>
                             </ul>
@@ -119,7 +121,7 @@
                                             }
                                         </script>
                                         <input class="form-check-input" type="checkbox" id="dark_mode_switch" onclick="toggle_dark_mode();" {% if request.user.dark_mode %} checked {% endif %}>
-                                        <label class="form-check-label" for="dark_mode_switch" style="display: block;">Toggle Dark Mode</label>
+                                        <label class="form-check-label" for="dark_mode_switch" style="display: block;">[EXP] Toggle Dark Mode</label>
                                     </div>
                                 </li>
                                 <li><hr class="dropdown-divider"></li>
@@ -161,6 +163,31 @@
                 </div>
             </div>
         </nav>
+
+        <div class="alert alert-danger page-alert" role="alert">
+            A simple danger alert—check it out!
+        </div>
+
+        <style>
+            .page-alert {
+                position: absolute;
+                top: 20px;
+                left: 50vw;
+                width: 500px;
+                margin-left: -250px;
+                text-align: center;
+                display: none;
+                z-index: 65536;
+            }
+
+            @media (max-width: 500px) {
+                .page-alert {
+                    width: 100%;
+                    left: 0;
+                    margin: 0;
+                }
+            }
+        </style>
 
         <!-- Main body -->
         <div id="main-page-body">

@@ -1,14 +1,3 @@
-.wrapper {
-  position: absolute;
-  right: 0;
-  width: 70vw;
-  min-width: calc(100% - 256px);
-  height: calc(100vh - 56px);
-  overflow: auto;
-  display: flex;
-  flex-direction: column;
-}
-
 .container-calendar {
   width: 100%;
   height: 100%;
@@ -35,7 +24,7 @@
 }
 
 .table-calendar td, .table-calendar th {
-  padding: 5px;
+  padding: 3px;
   text-align: center;
   vertical-align: top;
 }
@@ -59,7 +48,7 @@
   outline: 1px solid #00BCD4;
 }
 
-.date-picker.selected span {
+.date-picker.selected .add-on-day-btn {
   border-bottom: 2px solid currentColor;
 }
 

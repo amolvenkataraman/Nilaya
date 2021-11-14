@@ -1,7 +1,13 @@
 {% extends "base.html" %}
 {% load static %}
 
-{% block page_title %} Countdown to {{ se }} of {{ event.name }} {% endblock %}
+{% block page_title %}
+{% if se == "none" %}
+Countdown to {{ event.name }}
+{% else %}
+Countdown to {{ se }} of {{ event.name }}
+{% endif %}
+{% endblock %}
 
 {% block page_styles %}
 <style>
@@ -15,10 +21,14 @@
 
 {% block page_body %}
 <center>
+    {% if se == "none" %}
+    <p id="title">Countdown to {{ event.name }}</p>
+    {% else %}
     <p id="title">Countdown to {{ se }} of {{ event.name }}</p>
+    {% endif %}
     <div class="clock col-auto">
         <div class="container">
-            <div class="row justify-content-center" style="font-size: 200px;">
+            <div class="row justify-content-center countdown" style="font-size: 200px;">
                 <div class="col-auto day">
                     00
                 </div>
@@ -81,16 +91,25 @@
         var countdownDate = new Date("{{ time }}").getTime();
         var timeNow = new Date().getTime();
         var dist = countdownDate - timeNow;
+        if (dist < 0) {
+            if (Math.floor((dist % (1000 * 60)) / 1000) % 2 == 0) {
+                document.querySelector('.countdown').style.color = "red";
+            }
+            else {
+                document.querySelector('.countdown').style.color = "black";
+            }
+        }
+        else {
+            var days = Math.floor(dist / (1000 * 60 * 60 * 24)) + '';
+            var hours = Math.floor((dist % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)) + '';
+            var minutes = Math.floor((dist % (1000 * 60 * 60)) / (1000 * 60)) + '';
+            var seconds = Math.floor((dist % (1000 * 60)) / 1000) + '';
 
-        var days = Math.floor(dist / (1000 * 60 * 60 * 24)) + '';
-        var hours = Math.floor((dist % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)) + '';
-        var minutes = Math.floor((dist % (1000 * 60 * 60)) / (1000 * 60)) + '';
-        var seconds = Math.floor((dist % (1000 * 60)) / 1000) + '';
-
-        document.querySelector('.day').innerHTML = days;
-        document.querySelector('.hour').innerHTML = hours.padStart(2, "0");
-        document.querySelector('.minute').innerHTML = minutes.padStart(2, "0");
-        document.querySelector('.second').innerHTML = seconds.padStart(2, "0");
+            document.querySelector('.day').innerHTML = days;
+            document.querySelector('.hour').innerHTML = hours.padStart(2, "0");
+            document.querySelector('.minute').innerHTML = minutes.padStart(2, "0");
+            document.querySelector('.second').innerHTML = seconds.padStart(2, "0");
+        }
 
         /* if (hours <= 2 || hours >= 22) {
             console.log("fading")
