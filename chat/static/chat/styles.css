@@ -46,17 +46,20 @@
 
 .message-area {
     width: 100%;
-    margin-bottom: 10px;
-    padding-bottom: 10px;
+    margin-bottom: 5px;
 }
 
 .message {
-    border-radius: 30px;
+    border-radius: 15px;
     padding: 7px;
     padding-left: 15px;
     padding-right: 15px;
     max-width: 50vw;
     overflow-x: hidden;
+}
+
+.message-area.self-sent:last-of-type .message {
+    border-radius: 15px 15px 0px 15px;
 }
 
 .self-sent {

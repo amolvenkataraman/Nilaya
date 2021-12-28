@@ -23,7 +23,7 @@ class Invite(models.Model):
         return ans
 
 class Calendar(models.Model):
-    name = models.CharField(max_length=64, unique=True)
+    name = models.CharField(max_length=64)
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='calendar_owner')
     calendar_type = models.PositiveSmallIntegerField(choices=(
         (0, 'Local Calendar'),
@@ -171,6 +171,6 @@ class Todo(models.Model):
             "completed": str(self.completed),
             "priority": self.priority,
             "recurring": str(self.recurring),
-            "completiondate": str(self.completiondate),
+            "completion": str(self.completiondate),
         }
         return ans

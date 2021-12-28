@@ -1,0 +1,27 @@
+.table-calendar td, .table-calendar th {
+    border: 1px solid #4d4d4d;
+}
+
+.add-on-day-btn {
+    color: var(--bs-white);
+}
+
+/* width */
+::-webkit-scrollbar {
+    width: 5px;
+}
+
+/* Track */
+::-webkit-scrollbar-track {
+    background: var(--bs-dark);
+}
+
+/* Handle */
+::-webkit-scrollbar-thumb {
+    background: #888;
+}
+
+/* Handle on hover */
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}

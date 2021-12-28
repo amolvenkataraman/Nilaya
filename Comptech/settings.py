@@ -195,6 +195,7 @@ CALENDAR_VARS = {
 SESSION_COOKIE_AGE = 1209600
 
 MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_URL = '/  media/'
 
 
 GREETINGS = ["Hello There", "Hey There", "Good Day", "Nice to see you", "May the Force be with you",]
