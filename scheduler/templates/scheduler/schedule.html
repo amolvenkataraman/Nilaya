@@ -17,10 +17,16 @@
 <script src="{% static 'js/dompurify/purify.min.js' %}" type="text/javascript"></script>
 
 <script>
-    var CSRF_TOKEN = "{{ csrf_token }}"
+    const currver = "5.0.2";
+    if (!localStorage.getItem("calendar_version")) { localStorage.setItem("calendar_version", currver); }
+    else if (localStorage.getItem("calendar_version") != currver) { localStorage.setItem("calendar_version", currver); document.location.reload(true); }
+
+    var USER_ID = "{{ request.user.id }}";
+    var CSRF_TOKEN = "{{ csrf_token }}";
 
     var URLS = {
         "create_edit_event": "{% url 'create_edit_event' %}",
+        "duplicate_event": "{% url 'duplicate_event' %}",
         "todo_add": "{% url 'todo' 'add' %}",
         "todo_edit": "{% url 'todo' 'edit' %}",
         "todo_complete": "{% url 'todo' 'complete' %}",
@@ -31,8 +37,9 @@
         "get_todos": "{% url 'get_todos' %}",
         "invite": "{% url 'invite' %}",
         "sync_events": "{% url 'sync_events' %}",
-        "delete_event": "{% url 'delete_event' %}"
-    }
+        "delete_event": "{% url 'delete_event' %}",
+        "unsubscribe": "{% url 'unsubscribe' %}",
+    };
 
     var vars = JSON.parse("{{ vars }}".replace(/&#x27;/g,'"'));
 
@@ -94,7 +101,6 @@
             </div>
             <div class="sidebar-footer">
                 <button class="unstyled-button refresh-info-btn" onclick="populate_calendar(m, y, true);">Last refreshed: <span id="last-refresh" style="font-weight: bold;">NEVER</span>.</button>
-
             </div>
         </div>
     </div>

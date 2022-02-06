@@ -56,7 +56,7 @@ def get_events(request):
         ((Q(startdate__month=int(month)) & Q(startdate__year=(int(year)))) |
         (Q(enddate__month=int(month)) & Q(enddate__year=(int(year)))) |
         Q(Q(startdate__month__lt=int(month), enddate__month__gt=int(month)) & (Q(startdate__year=int(year), enddate__year=int(year)))))
-    ).order_by('startdate', 'name').iterator()]
+    ).order_by('startdate', '-enddate', 'name').iterator()]
 
     return JsonResponse(ans)
 
@@ -109,7 +109,7 @@ def clone_event(event_id, n):
     e = Event.objects.filter(id=event_id)[0]
     e.pk = None
     e.startdate = e.startdate + datetime.timedelta(days=n)
-    e.enddate = e.enddate + datetime.timedelta(days=n)
+    if e.enddate != None: e.enddate = e.enddate + datetime.timedelta(days=n)
     e.save()
 
 def countdown(request, event_id, time="start"):
@@ -161,7 +161,16 @@ def calendar(request):
                 try:
                     c_ = Calendar.objects.filter(id=calendar)[0]
                     if len(c_.users_subscribed.filter(user=request.user)) > 0:
-                        return JsonResponse(c_.getinfo_full())
+                        command = request.GET.get("command")
+                        if command == "info" or command == None:
+                            return JsonResponse(c_.getinfo_full())
+                        elif command == "active":
+                            if c_.users_subscribed.filter(user=request.user)[0].subscribe_type in [0, 1]:
+                                c_.active = not c_.active
+                                c_.save()
+                                return success_response()
+                            else:
+                                return error_response("Not authorized", 401)
                     else:
                         return error_response("Not authorized", 401)
                 except IndexError:
@@ -254,6 +263,46 @@ def create_edit_event(request):
                 e.save()
 
                 return success_response()
+
+            except Exception as ex:
+                return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
+        else:
+            return error_response("Not logged in", 401)
+
+def duplicate_event(request):
+    if request.method == 'POST':
+        if request.user.is_authenticated:
+            try:
+                req = json.loads(request.body)
+            except:
+                return error_response("Malformed JSON. Can not decode.")
+
+            try:
+                try:
+                    e = Event.objects.filter(id=req["id"])[0]
+
+                    try:
+                        reqcal = e.calendar
+                        try:
+                            if reqcal.users_subscribed.filter(user=request.user)[0].subscribe_type not in [0, 1]:
+                                return error_response("Not authorized", 401)
+                        except IndexError:
+                            return error_response("Not authorized", 401)
+                    except IndexError:
+                        return error_response("Calendar does not exist")
+
+                    e.pk = None
+                    e.id = None
+                    e.save()
+
+                    e.startdate = e.startdate + datetime.timedelta(days=int(req["days"]))
+                    e.enddate = e.enddate + datetime.timedelta(days=int(req["days"]))
+                    e.save()
+
+                    return success_response()
+
+                except IndexError:
+                    return error_response("Event does not exist", 401)
 
             except Exception as ex:
                 return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
@@ -364,7 +413,6 @@ def subscribe(request):
             else:
                 invite_ = invite[0]
                 if invite_.active == True:
-                    calendar_.subscribers.add(request.user)
                     s = Subscriber(calendar=calendar_, user=request.user)
                     s.save()
                     invite_.uses += 1
@@ -374,6 +422,21 @@ def subscribe(request):
                     return JsonResponse({"status": "error", "data": "This invite is not active"})
         except IndexError:
             return JsonResponse({"status": "error", "data": "Invalid Invite Code"})
+
+@login_required
+def unsubscribe(request):
+    if request.user.is_authenticated:
+        if request.method == 'POST':
+            try:
+                calendar_ = Calendar.objects.filter(id=request.GET.get("calendar"))[0]
+                try:
+                    sub = calendar_.users_subscribed.filter(user=request.user)[0]
+                    sub.delete()
+                    return success_response()
+                except IndexError: return error_response("Not subscribed to this calendar")
+            except IndexError: return error_response("Invalid Calendar ID")
+    else:
+        return error_response("Not logged in", 401)
 
 @login_required
 def invite(request):

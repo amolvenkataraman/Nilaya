@@ -34,7 +34,7 @@
     <body>
         <nav class="navbar navbar-expand navbar-light" style="background-color: #1abc9c;">
             <div class="container-fluid">
-                <a class="navbar-brand" href="{% url 'index' %}">Unnamed</a>
+                <a class="navbar-brand" href="{% url 'index' %}">&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp</a>
                 <div class="collapse navbar-collapse" id="navbarSupportedContent">
                     <ul class="navbar-nav me-auto mb-2 mb-lg-0">
                         {% block navbar %}
@@ -50,7 +50,7 @@
                               </svg>
                             <ul class="dropdown-menu {% if request.user.dark_mode %} dropdown-menu-dark {% endif %} dropdown-menu-end" aria-labelledby="navbarDropdown1">
                                 {% if request.user.is_staff %}
-                                
+
                                 {% endif %}
                                 <li><a class="dropdown-item" href="{% url 'chat' %}">Chat</a></li>
                                 <li><a class="dropdown-item" href="{% url 'display_calendar' %}">Calendar</a></li>
@@ -106,9 +106,7 @@
             </div>
         </nav>
 
-        <div class="alert alert-danger page-alert" role="alert">
-            A simple danger alert—check it out!
-        </div>
+        <div class="alert alert-danger page-alert" role="alert"></div>
 
         <!-- Main body -->
         <div id="main-page-body">

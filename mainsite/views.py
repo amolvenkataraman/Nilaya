@@ -3,7 +3,7 @@ from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-from Comptech.settings import GREETINGS, LINKS
+from Comptech.settings import GREETINGS
 from scheduler.views import get_recent
 import datetime
 import random
@@ -11,7 +11,7 @@ import random
 # Create your views here.
 @login_required
 def home(request):
-    return render(request, 'mainsite/home.html', {"links": LINKS, "desktop_app": request.COOKIES.get('desktop_app')})
+    return render(request, 'mainsite/home.html', {"desktop_app": request.COOKIES.get('desktop_app')})
 
 @login_required
 def get_recent_events(request):

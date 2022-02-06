@@ -85,6 +85,7 @@ def profile_picture(request):
             return FileResponse(user.profile_picture)
         except ValueError:
             return FileResponse(open('media/profile_picture.png', 'rb'))
+
     elif request.method == 'POST':
         request.user.profile_picture = request.body
         request.user.save()

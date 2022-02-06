@@ -12,9 +12,11 @@ urlpatterns = [
     path("calendar/", views.calendar, name='calendar'),
     path("visibility/", views.toggle_visibility, name='toggle_visibility'),
     path("create/", views.create_edit_event, name='create_edit_event'),
+    path("duplicate/", views.duplicate_event, name='duplicate_event'),
     path("delete/", views.delete_event, name='delete_event'),
     path("todo/<slug:command>/", views.todo, name='todo'),
     path("subscribe/", views.subscribe, name='subscribe'),
+    path("unsubscribe/", views.unsubscribe, name='unsubscribe'),
     path("invite/", views.invite, name='invite'),
     path("block/", views.get_block_status, name='get_block_status'),
 ]

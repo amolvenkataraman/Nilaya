@@ -61,7 +61,7 @@
                 <div class="my-friends">
                     {% for i in friends %}
                     <div class="user-display">
-                        <img class="profile-img" src="{% url 'profile_picture' %}?user={{ i.username }}" alt="">
+                        <img class="profile-img" src="{{ i.profile_picture }}" alt="">
                         {{ i.username }}
                     </div>
                     {% if not forloop.last %}<hr class="user-divider">{% endif %}
@@ -134,7 +134,7 @@
 
         var dm_id = {{ dm_id }};
 
-        var newMessageNotification = new Audio(`{% static 'chat/ding.wav' %}`);
+        var newMessageNotification = new Audio(`{% static 'sound/Calender_SFX_1_DH.mp3' %}`);
 
         var oldestTime = new Date();
 

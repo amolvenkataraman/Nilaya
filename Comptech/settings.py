@@ -100,8 +100,6 @@ ASGI_APPLICATION = 'Comptech.asgi.application'
 
 DATABASES = {
     'default': {
-        #'ENGINE': 'django.db.backends.sqlite3',
-        #'NAME': BASE_DIR / 'db.sqlite3',
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'Comptech',
         'USER': 'postgres',
@@ -110,8 +108,6 @@ DATABASES = {
         'PORT': '5432',
     },
     'chat_db': {
-        #'ENGINE': 'django.db.backends.sqlite3',
-        #'NAME': BASE_DIR / 'chat.sqlite3',
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'chat',
         'USER': 'postgres',
@@ -195,124 +191,9 @@ CALENDAR_VARS = {
 SESSION_COOKIE_AGE = 1209600
 
 MEDIA_ROOT = BASE_DIR / 'media'
-MEDIA_URL = '/  media/'
+MEDIA_URL = '/media/'
 
 
 GREETINGS = ["Hello There", "Hey There", "Good Day", "Nice to see you", "May the Force be with you",]
-
-LINKS = {
-    "groups": [
-        {
-            "name": "Apps",
-            "description": "Apps that are a part of this website",
-            "external": False,
-            "links":
-            [
-                {
-                    "name": "Chat",
-                    "description": "Chat App",
-                    "link": "/chat/",
-                },
-                {
-                    "name": "Calendar",
-                    "description": "Calendar (formerly Docket)",
-                    "link": "/calendar/",
-                },
-                {
-                    "name": "Photos",
-                    "description": "Photos",
-                    "link": "/photos/",
-                },
-            ],
-        },
-        {
-            "name": "Self-Hosted",
-            "description": "Websites and apps that are hosted by me (very safe)",
-            "external": False,
-            "links":
-            [
-                {
-                    "name": "NextCloud",
-                    "description": "Self-hosted productivity platform",
-                    "link": "https://192.168.50.12",
-                },
-                {
-                    "name": "GiTea",
-                    "description": "Secure storage for code",
-                    "link": "http://192.168.50.11:3000",
-                },
-                {
-                    "name": "Some Other App",
-                    "description": "Insert Description Here",
-                    "link": "http://127.0.0.1:8000",
-                },
-            ],
-        },
-        {
-            "name": "Google",
-            "description": "Google apps",
-            "external": True,
-            "links":
-            [
-                {
-                    "name": "Google Search",
-                    "description": "Search the Internet",
-                    "link": "https://www.google.com",
-                },
-                {
-                    "name": "Gmail",
-                    "description": "Email",
-                    "link": "https://www.mail.google.com",
-                },
-                {
-                    "name": "Google Docs",
-                    "description": "Online document editing",
-                    "link": "https://docs.google.com",
-                },
-                {
-                    "name": "Google Maps",
-                    "description": "Maps",
-                    "link": "https://www.maps.google.com",
-                },
-                {
-                    "name": "Google Meet",
-                    "description": "Video Meetings",
-                    "link": "https://www.meet.google.com",
-                },
-                
-            ],
-        },
-        {
-            "name": "External",
-            "description": "These websites may or may not sell your information",
-            "external": True,
-            "links":
-            [
-                {
-                    "name": "Google Search",
-                    "description": "Search the Internet",
-                    "link": "https://www.google.com",
-                },
-                {
-                    "name": "YouTube",
-                    "description": "Watch Videos",
-                    "link": "https://www.youtube.com",
-                },
-                {
-                    "name": "Spotify",
-                    "description": "Listen to Music",
-                    "link": "https://open.spotify.com/browse?_ga=2.115927942.1003104512.1616764485-1284907103.1584541070",
-                },
-                {
-                    "name": "GitHub",
-                    "description": "View and share code",
-                    "link": "https://www.github.com",
-                },
-            ],
-        },
-        
-        
-    ],
-}
 
 # P@ssw0rrd

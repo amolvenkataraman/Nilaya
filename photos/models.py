@@ -8,6 +8,10 @@ import json
 def parse_upload_path(instance, filename):
     return f"uploads/{instance.owner.id}/{filename}"
 
+class Album(models.Model):
+    name = models.CharField(max_length=64)
+    owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='album_owner')
+
 class Photo(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='photo_owner')

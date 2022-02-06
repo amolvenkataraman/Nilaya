@@ -1,6 +1,5 @@
 from django.db import models
 from users.models import *
-from rest_framework import serializers
 
 # Create your models here.
 class Invite(models.Model):
@@ -21,6 +20,11 @@ class Invite(models.Model):
             "active": str(self.active),
         }
         return ans
+
+# class Timetable(models.Model):
+#     name = models.CharField(max_length=64)
+#     startdate = models.DateField(auto_now=False)
+#     enddate = models.DateField(auto_now=False)
 
 class Calendar(models.Model):
     name = models.CharField(max_length=64)
@@ -73,7 +77,7 @@ class Subscriber(models.Model):
         (0, 'Owner'),
         (1, 'Admin'),
         (2, 'Subscriber'),
-    ), default=0)
+    ), default=2)
     visible = models.BooleanField(default=True)
 
     def __str__(self):
@@ -120,7 +124,8 @@ class Event(models.Model):
         (5, 'Work'),
         (6, 'Personal'),
         (7, 'Tech Break'),
-        (8, 'Other'),
+        (8, 'Test / Exam'),
+        (9, 'Other'),
     ), default=0)
     description = models.TextField(null=True, blank=True)
     public = models.BooleanField(default=False)

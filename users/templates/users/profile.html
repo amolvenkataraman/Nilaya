@@ -101,7 +101,7 @@
 <div class="user-profile-area">
     <div class="user-profile">
         <div class="profile-profile-picture">
-            <img class="profile-picture-img" src="{% url 'profile_picture' %}?user={{ user.username }}" alt="Profile picture for {{ user.username }}">
+            <img class="profile-picture-img" src="{{ user.profile_picture }}" alt="Profile picture for {{ user.username }}">
             {% if request.user.id == user.id %}
             <button class="btn btn-secondary change-picture-icon" data-bs-toggle="modal" data-bs-target="#changeProfileModal" onclick="changeProfilePicture();">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-camera-fill" viewBox="0 0 16 16">
