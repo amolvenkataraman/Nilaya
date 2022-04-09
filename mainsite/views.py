@@ -3,7 +3,6 @@ from django.contrib import messages
 from django.shortcuts import redirect, render
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
-from Comptech.settings import GREETINGS
 from scheduler.views import get_recent
 import datetime
 import random

@@ -70,6 +70,7 @@ class ComptechUser(AbstractUser):
             "last_name": self.last_name,
             "birthday": str(self.birthday),
             "is_admin": self.is_superuser,
+            "profile_picture": self.profile_picture.url,
         }
 
         return ans

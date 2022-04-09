@@ -128,6 +128,7 @@ class Event(models.Model):
         (9, 'Other'),
     ), default=0)
     description = models.TextField(null=True, blank=True)
+    completed = models.BooleanField(default=False)
     public = models.BooleanField(default=False)
     priority = models.SmallIntegerField(default=10)
     repeat_every = models.IntegerField(null=True, blank=True)
@@ -147,10 +148,12 @@ class Event(models.Model):
             "allday": self.allday,
             "category": self.category,
             "description": self.description,
+            "completed": str(self.completed),
             "public": str(self.public),
             "priority": self.priority,
             "repeat_every": self.repeat_every,
             "repeat_end": self.repeat_end,
+            "sync_id": self.sync_id,
         }
         return ans
 

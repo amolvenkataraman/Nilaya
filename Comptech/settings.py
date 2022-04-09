@@ -31,7 +31,7 @@ ONLINE_MODE = True # Change to False to disable all external requests
 
 ALLOWED_HOSTS = ['*']
 
-
+                
 # Application definition
 
 INSTALLED_APPS = [
@@ -119,7 +119,7 @@ DATABASES = {
 
 DATABASE_ROUTERS = ['chat.routers.ChatRouter']
 
-CHANNEL_LAYERS={
+CHANNEL_LAYERS = {
     #"default": {
     #    "BACKEND": "channels.layers.InMemoryChannelLayer"
     #}
@@ -192,8 +192,5 @@ SESSION_COOKIE_AGE = 1209600
 
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
-
-
-GREETINGS = ["Hello There", "Hey There", "Good Day", "Nice to see you", "May the Force be with you",]
 
 # P@ssw0rrd

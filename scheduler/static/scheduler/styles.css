@@ -58,7 +58,7 @@
   backdrop-filter: blur(4px);
 }
 
-.spinner-container {
+.loading-screen .spinner-container {
   display: flex;
   justify-content: center;
   position: absolute;

@@ -41,6 +41,32 @@
 <script src="{% static 'js/moment/moment.min.js' %}" type="text/javascript"></script>
 
 <script>
+    var data = null;
+
+    function setGreeting() {
+        h = new Date().getHours();
+        if (h > 0 && h <= 11) {s = "Good Morning, {{ request.user.first_name }}"}
+        else if (h > 11 && h <= 14) {s = "Good Afternoon, {{ request.user.first_name }}"}
+        else if (h > 14 && h <= 18) {s = "Good Evening, {{ request.user.first_name }}"}
+        else if (h > 18 && h <= 22) {s = "Good Night, {{ request.user.first_name }}"}
+        else {s = "Good Midnight"}
+
+        if (data != null) {
+            for (event of data["events"].reverse()) {
+                if (new Date(event['startdate']) - new Date() < 1000 * 60 * 60 * 3) {
+                    s = `${event['name']} is ${moment(new Date(event['startdate'])).fromNow()}!`
+                }
+            }
+            for (todo of data["todos"].reverse()) {
+                cd = new Date(todo["completion"]);
+                if (cd <= new Date()) { s = `${todo['name']} is overdue! (${moment(new Date(todo['completion'])).fromNow()})` }
+                else if (cd.getTime() - new Date().getTime() <= 1000 * 60 * 60 * 24 * 2) { s = `${todo['name']} must be completed ${moment(new Date(todo['completion'])).fromNow()}!` }
+            }
+        }
+
+        $('.greeting-greeting').html(s);
+    }
+
     function startTime() {
         var today = new Date();
         var h = today.getHours();
@@ -57,13 +83,6 @@
         document.querySelector('.hour').innerHTML = h
         document.querySelector('.minute').innerHTML = m
         document.querySelector('.second').innerHTML = s
-
-        if (h > 0 && h <= 11) {s = "Good Morning"}
-        else if (h > 11 && h <= 14) {s = "Good Afternoon"}
-        else if (h > 14 && h <= 18) {s = "Good Evening"}
-        else if (h > 18 && h <= 22) {s = "Good Night"}
-        else {s = "Good Midnight"}
-        $('.greeting-greeting').html(s);
 
         var months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
         var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -84,6 +103,8 @@
         r.onload = () => {
             if (r.status == 200) {
                 data = JSON.parse(r.responseText.replace(/&#x27;/g,'"'))["data"]
+
+                setGreeting();
                 
                 document.querySelector('.recent-events').innerHTML = ""
 
@@ -110,17 +131,21 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
+        setGreeting();
+
         startTime();
+
+        $('#search-box').focus();
 
         populateEvents();
 
-        AOS.init();
+        // AOS.init();
     });
 </script>
 {% endblock %}
 
 {% block page_body %}
-    <div class="greeting"><span class="greeting-greeting"></span>, {{ request.user.first_name }}</div>
+    <div class="greeting"><span class="greeting-greeting">Hello There, {{ request.user.first_name }}</span></div>
 
     <div class="clock col-auto">
         <div class="container">

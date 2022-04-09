@@ -4,6 +4,7 @@ from channels.generic.websocket import WebsocketConsumer, AsyncWebsocketConsumer
 from channels.db import database_sync_to_async
 from django.contrib.sessions.models import Session
 from chat.models import *
+import datetime
 
 class ChatConsumer(AsyncWebsocketConsumer):
     async def connect(self):
@@ -39,6 +40,7 @@ class ChatConsumer(AsyncWebsocketConsumer):
                 'message': message,
                 'user': str(self.scope['user'].id),
                 'username': self.scope['user'].username,
+                'timestamp': str(datetime.datetime.now())
             }
         )
 
@@ -46,15 +48,12 @@ class ChatConsumer(AsyncWebsocketConsumer):
 
     # Receive message from room group
     async def chat_message(self, event):
-        message = event['message']
-        user = event['user']
-        username = event['username']
-
         # Send message to WebSocket
         await self.send(text_data=json.dumps({
-            'message': message,
-            'user': user,
-            'username': username,
+            'message': event['message'],
+            'user': event['user'],
+            'username': event['username'],
+            'timestamp': event['timestamp']
         }))
 
 def check_user_dm(user_id, dm_id):

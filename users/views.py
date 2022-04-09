@@ -7,6 +7,14 @@ from django.contrib.auth.decorators import login_required
 from .forms import UserRegisterForm
 from bg_images.views import get_random_image
 from .models import *
+from Comptech.utils import *
+from Comptech.settings import MEDIA_ROOT
+
+from PIL import Image
+import base64
+import json
+import io
+import bleach
 
 # Views for login and logout
 
@@ -56,18 +64,41 @@ def password_change_view(request):
 # Render the user profile view
 def profile_view(request, user=None):
     if request.method == 'GET':
-        if user == None:
-            user = request.user
+        if user == None: user = request.user
         else:
             try:
                 user = ComptechUser.objects.filter(id=user)[0]
             except:
                 try:
                     user = ComptechUser.objects.filter(username=user)[0]
-                except:
-                    raise Http404()
+                except: raise Http404()
     
         return render(request, 'users/profile.html', {'user': user.getinfo()})
+
+    elif request.method == 'POST':
+        if request.user.is_authenticated:
+            try:
+                req = json.loads(request.body)
+            except:
+                return error_response("Malformed JSON. Can not decode.")
+
+            try:
+                user = request.user
+                user.first_name = bleach.clean(req['first_name'].lstrip().rstrip())
+                user.last_name = bleach.clean(req['last_name'].lstrip().rstrip())
+                user.username = bleach.clean(req['username'].lstrip().rstrip())
+                user.description = bleach.clean(req['description'].lstrip().rstrip())
+
+                user.save()
+
+                return success_response()
+
+            except Exception as ex:
+                return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
+
+        else:
+            return error_response("Not logged in", 401)
+        print("E")
 
 # Log a user out and redirect to login
 def logout_view(request):
@@ -87,8 +118,12 @@ def profile_picture(request):
             return FileResponse(open('media/profile_picture.png', 'rb'))
 
     elif request.method == 'POST':
-        request.user.profile_picture = request.body
+        filename = f"users/profile_pictures/{random_characters()}.jpg"
+        with open(f"{MEDIA_ROOT}/{filename}", "wb") as f:
+            f.write(base64.b64decode(str(request.body).split(';')[1].split(',')[1]))
+        request.user.profile_picture = filename
         request.user.save()
+        return success_response()
 
 def get_user_info(request):
     if request.user.is_authenticated:

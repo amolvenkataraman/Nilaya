@@ -55,255 +55,258 @@
 {% endblock %}
 
 {% block page_script %}
-    <script id="chat-home" type="text/x-handlebars-template">
-        <div class="chat-home-display {% if request.user.dark_mode %} bg-dark {% else %} bg-light {% endif %}">
-            <div class="status-display">
-                <div class="my-friends">
-                    {% for i in friends %}
-                    <div class="user-display">
-                        <img class="profile-img" src="{{ i.profile_picture }}" alt="">
-                        {{ i.username }}
-                    </div>
-                    {% if not forloop.last %}<hr class="user-divider">{% endif %}
-                    {% endfor %}
+<script src="{% static 'js/moment/moment.min.js' %}" type="text/javascript"></script>
+
+<script id="chat-home" type="text/x-handlebars-template">
+    <div class="chat-home-display {% if request.user.dark_mode %} bg-dark {% else %} bg-light {% endif %}">
+        <div class="status-display">
+            <div class="my-friends">
+                {% for i in friends %}
+                <div class="user-display">
+                    <img class="profile-img" src="{{ i.profile_picture }}" alt="">
+                    {{ i.username }}
                 </div>
+                {% if not forloop.last %}<hr class="user-divider">{% endif %}
+                {% endfor %}
             </div>
         </div>
-    </script>
+    </div>
+</script>
 
-    <script id="direct-message" type="text/x-handlebars-template">
-        <div class="message-display {% if request.user.dark_mode %} bg-dark {% else %} bg-light {% endif %}">
+<script id="direct-message" type="text/x-handlebars-template">
+    <div class="message-display {% if request.user.dark_mode %} bg-dark {% else %} bg-light {% endif %}">
 
+    </div>
+
+    <div class="send-message">
+        <div class="input-group {% if request.user.dark_mode %} bg-dark {% else %} bg-light {% endif %}">
+            <!--<input type="text" class="form-control message-input" placeholder="Message" aria-label="Message" aria-describedby="Send Message">-->
+            <textarea class="form-control message-input" placeholder="Message" aria-label="Message" aria-describedby="Send Message" cols="30" rows="1"></textarea>
+            <button class="btn btn-primary" type="button" id="send-button" disabled>Send</button>
         </div>
+    </div>
+</script>
 
-        <div class="send-message">
-            <div class="input-group {% if request.user.dark_mode %} bg-dark {% else %} bg-light {% endif %}">
-                <!--<input type="text" class="form-control message-input" placeholder="Message" aria-label="Message" aria-describedby="Send Message">-->
-                <textarea class="form-control message-input" placeholder="Message" aria-label="Message" aria-describedby="Send Message" cols="30" rows="1"></textarea>
-                <button class="btn btn-primary" type="button" id="send-button" disabled>Send</button>
-            </div>
+<script id="self-sent-message" type="text/x-handlebars-template">
+    <div class="message-area self-sent">
+        <div class="message self-sent bg-primary text-light">
+            <span class="timestamp" style="font-size: 10px;">{% verbatim %} {{ timestamp }} {% endverbatim %}</span><br>
+            {% verbatim %} {{{ message }}} {% endverbatim %}
         </div>
-    </script>
+    </div>
+    <br>
+</script>
 
-    <script id="self-sent-message" type="text/x-handlebars-template">
-        <div class="message-area self-sent">
-            <div class="message self-sent bg-primary text-light">
-                {% verbatim %} {{ message }} {% endverbatim %}
-            </div>
+<script id="other-sent-message" type="text/x-handlebars-template">
+    <div class="message-area other-sent">
+        <div class="message other-sent bg-secondary text-light">
+            <span class="sent-by">{% verbatim %} <b>{{ user }}</b> {{ timestamp }} {% endverbatim %}</span><br>
+            {% verbatim %} {{{ message }}} {% endverbatim %}
         </div>
-        <br>
-    </script>
+    </div>
+    <br>
+</script>
 
-    <script id="other-sent-message" type="text/x-handlebars-template">
-        <div class="message-area other-sent">
-            <div class="message other-sent bg-secondary text-light">
-                <span class="sent-by">{% verbatim %} {{ user }} {% endverbatim %}</span><br>
-                {% verbatim %} {{ message }} {% endverbatim %}
-            </div>
-        </div>
-        <br>
-    </script>
+<script>
+    const chat_home = Handlebars.compile($("#chat-home").html())
+    const direct_message = Handlebars.compile($("#direct-message").html());
 
-    <script>
-        const chat_home = Handlebars.compile($("#chat-home").html())
-        const direct_message = Handlebars.compile($("#direct-message").html());
+    const self_sent_message = Handlebars.compile($("#self-sent-message").html());
+    const other_sent_message = Handlebars.compile($("#other-sent-message").html());
 
-        const self_sent_message = Handlebars.compile($("#self-sent-message").html());
-        const other_sent_message = Handlebars.compile($("#other-sent-message").html());
+    var friends =   JSON.parse("{{ friends }}".replace(/&#x27;/g,'"').replaceAll("False", "\"False\"").replaceAll("True", "\"True\""));
+    var dms =       JSON.parse("{{ dms }}".replace(/&#x27;/g,'"').replaceAll("False", "\"False\"").replaceAll("True", "\"True\""));
+    var fr_out =    JSON.parse("{{ fr_out }}".replace(/&#x27;/g,'"').replaceAll("False", "\"False\"").replaceAll("True", "\"True\""));
+    var fr_in =     JSON.parse("{{ fr_in }}".replace(/&#x27;/g,'"').replaceAll("False", "\"False\"").replaceAll("True", "\"True\""));
 
-        var friends =   JSON.parse("{{ friends }}".replace(/&#x27;/g,'"').replaceAll("False", "\"False\"").replaceAll("True", "\"True\""));
-        var dms =       JSON.parse("{{ dms }}".replace(/&#x27;/g,'"').replaceAll("False", "\"False\"").replaceAll("True", "\"True\""));
-        var fr_out =    JSON.parse("{{ fr_out }}".replace(/&#x27;/g,'"').replaceAll("False", "\"False\"").replaceAll("True", "\"True\""));
-        var fr_in =     JSON.parse("{{ fr_in }}".replace(/&#x27;/g,'"').replaceAll("False", "\"False\"").replaceAll("True", "\"True\""));
-
-        function wspath(code) {
-            if (window.location.protocol == 'https:') {
-                protocol = 'wss://';
-            }
-            else {
-                protocol = 'ws://';
-            }
-            return protocol
-            + window.location.host
-            + '/ws/chat/'
-            + code
-            + '/'
+    function wspath(code) {
+        if (window.location.protocol == 'https:') {
+            protocol = 'wss://';
         }
-
-        var chatSocket = new WebSocket(wspath('0'));
-
-        var dm_id = {{ dm_id }};
-
-        var newMessageNotification = new Audio(`{% static 'sound/Calender_SFX_1_DH.mp3' %}`);
-
-        var oldestTime = new Date();
-
-        function show_home() {
-            $('.chat-middle').html(chat_home());
-
-            chatSocket.close();
-            chatSocket = new WebSocket(wspath(dm_id));
-
-            window.history.pushState('data', 'Chat', "{% url 'chat' %}");
+        else {
+            protocol = 'ws://';
         }
+        return protocol
+        + window.location.host
+        + '/ws/chat/'
+        + code
+        + '/'
+    }
 
-        function get_messages(dm_id_, oldest, scroll_) {
-            r = new XMLHttpRequest;
-            r.open("GET", "{% url 'get_messages' %}?dm=" + dm_id_ + "&timestamp=" + oldest.toJSON());
-            r.onload = () => {
-                messages = JSON.parse(r.responseText)["messages"];
-                for (i = 0; i < messages.length; i++) {
-                    if (messages[i].sent_by_id == "{{ request.user.id }}") {
-                        $('.message-display').prepend(self_sent_message({"message": parse_message(messages[i].message)}));
-                    }
-                    else {
-                        $('.message-display').prepend(other_sent_message({"message": parse_message(messages[i].message), "user": messages[i].sent_by_user.username}));
-                    }
-                    oldestTime = new Date(messages[i].sent_time)
-                }
-                $('.message-display').prepend(`<button onclick="get_messages(dm_id, oldestTime, false)">E</button>`)
+    var chatSocket = new WebSocket(wspath('0'));
 
-                if (scroll_) {
-                    message_display = document.querySelector('.message-display');
-                    message_display.scrollTop = message_display.scrollHeight - message_display.clientHeight;
-                }
-            };
-            r.send();
-        }
+    var dm_id = {{ dm_id }};
 
-        function show_dm(dm_id) {
-            $('.chat-middle').html(direct_message());
+    var newMessageNotification = new Audio(`{% static 'sound/Calender_SFX_1_DH.mp3' %}`);
 
-            chatSocket.close();
-            chatSocket = new WebSocket(wspath(dm_id));
+    var oldestTime = new Date();
 
-            var input = document.querySelector('.message-input');
-            input.select();
-            input.addEventListener('keyup', function(event) {
-                if (input.value == "") {
-                    document.querySelector('#send-button').disabled = true;
+    function show_home() {
+        $('.chat-middle').html(chat_home());
+
+        chatSocket.close();
+        chatSocket = new WebSocket(wspath(dm_id));
+
+        window.history.pushState('data', 'Chat', "{% url 'chat' %}");
+    }
+
+    function get_messages(dm_id_, oldest, scroll_) {
+        r = new XMLHttpRequest;
+        r.open("GET", "{% url 'get_messages' %}?dm=" + dm_id_ + "&timestamp=" + oldest.toJSON());
+        r.onload = () => {
+            messages = JSON.parse(r.responseText)["messages"];
+            for (i = 0; i < messages.length; i++) {
+                if (messages[i].sent_by_id == "{{ request.user.id }}") {
+                    $('.message-display').prepend(self_sent_message({"message": parse_message(messages[i].message), "timestamp": moment(new Date(messages[i].sent_time)).calendar()}));
                 }
                 else {
-                    document.querySelector('#send-button').disabled = false;
+                    $('.message-display').prepend(other_sent_message({"message": parse_message(messages[i].message), "user": messages[i].sent_by_user.username, "timestamp": moment(new Date(messages[i].sent_time)).calendar()}));
+                }
+                oldestTime = new Date(messages[i].sent_time)
+            }
+            $('.message-display').prepend(`<button onclick="get_messages(dm_id, oldestTime, false)">E</button>`)
 
-                    if (event.keyCode === 13) {
-                        if (!event.shiftKey) {
-                            event.preventDefault();
-                            if (input.value != "") {
-                                document.querySelector('#send-button').click();
-                            }
+            if (scroll_) {
+                message_display = document.querySelector('.message-display');
+                message_display.scrollTop = message_display.scrollHeight - message_display.clientHeight;
+            }
+        };
+        r.send();
+    }
+
+    function show_dm(dm_id) {
+        $('.chat-middle').html(direct_message());
+
+        chatSocket.close();
+        chatSocket = new WebSocket(wspath(dm_id));
+
+        var input = document.querySelector('.message-input');
+        input.select();
+        input.addEventListener('keyup', function(event) {
+            if (input.value == "") {
+                document.querySelector('#send-button').disabled = true;
+            }
+            else {
+                document.querySelector('#send-button').disabled = false;
+
+                if (event.keyCode === 13) {
+                    if (!event.shiftKey) {
+                        event.preventDefault();
+                        if (input.value != "") {
+                            document.querySelector('#send-button').click();
                         }
                     }
                 }
-            });
+            }
+        });
 
-            oldestTime = new Date();
-            get_messages(dm_id, oldestTime, true);
+        oldestTime = new Date();
+        get_messages(dm_id, oldestTime, true);
 
-            chatSocket.onmessage = function(e) {
-                const data = JSON.parse(e.data);
-                if (data.user == "{{ request.user.id }}") {
-                    document.querySelector('.message-display').innerHTML += self_sent_message({"message": parse_message(data.message)});
-                }
-                else {
-                    document.querySelector('.message-display').innerHTML += other_sent_message({"message": parse_message(data.message), "user": data.username});
-                }
+        chatSocket.onmessage = function(e) {
+            const data = JSON.parse(e.data);
+            if (data.user == "{{ request.user.id }}") {
+                document.querySelector('.message-display').innerHTML += self_sent_message({"message": parse_message(data.message), "timestamp": moment(new Date(data.timestamp)).calendar()});
+            }
+            else {
+                document.querySelector('.message-display').innerHTML += other_sent_message({"message": parse_message(data.message), "user": data.username, "timestamp": moment(new Date(data.timestamp)).calendar()});
+            }
 
-                if (!document.hasFocus())
-                {
-                    newMessageNotification.play();
-                }
-                
-                message_display = document.querySelector('.message-display');
-                message_display.scrollTop = message_display.scrollHeight - message_display.clientHeight;
-            };
+            if (!document.hasFocus())
+            {
+                newMessageNotification.play();
+            }
+            
+            message_display = document.querySelector('.message-display');
+            message_display.scrollTop = message_display.scrollHeight - message_display.clientHeight;
+        };
 
-            chatSocket.onclose = function(e) {
-                console.error('Chat socket closed unexpectedly');
-            };
+        chatSocket.onclose = function(e) {
+            console.error('Chat socket closed unexpectedly');
+        };
 
-            document.querySelector('#send-button').onclick = function(e) {
-                const messageInput = document.querySelector('.message-input');
-                const message = messageInput.value;
-                chatSocket.send(JSON.stringify({
-                    'message': message
-                }));
-                messageInput.value = '';
-                document.querySelector('#send-button').disabled = true;
-            };
+        document.querySelector('#send-button').onclick = function(e) {
+            const messageInput = document.querySelector('.message-input');
+            const message = messageInput.value;
+            chatSocket.send(JSON.stringify({
+                'message': message
+            }));
+            messageInput.value = '';
+            document.querySelector('#send-button').disabled = true;
+        };
 
-            window.history.pushState('data', 'Chat', "{% url 'chat' %}" + dm_id + "/");
+        window.history.pushState('data', 'Chat', "{% url 'chat' %}" + dm_id + "/");
+    }
+
+    function parse_message(text) {
+        text = text.replace("\n", "<br>")
+        var urlRegex = /(https?:\/\/[^\s]+)/g;
+        return text.replace(urlRegex, function(url) {
+            return '<a href="' + url + '" target="blank">' + url + '</a>';
+        })
+    }
+
+    window.addEventListener('DOMContentLoaded', (event) => {
+        if (dm_id == 0) {
+            show_home();
+        }
+        else {
+            show_dm(dm_id);
         }
 
-        function parse_message(text) {
-            text = text.replace("\n", "<br>")
-            var urlRegex = /(https?:\/\/[^\s]+)/g;
-            return text.replace(urlRegex, function(url) {
-              return '<a href="' + url + '" target="blank">' + url + '</a>';
-            })
-        }
-
-        window.addEventListener('DOMContentLoaded', (event) => {
-            if (dm_id == 0) {
+        window.onpopstate = function() {
+            oldpath = window.location.pathname.replace('chat', '').replaceAll('/', '');
+            
+            if (oldpath == '') {
+                dm_id = 0;
                 show_home();
             }
             else {
+                dm_id = oldpath;
                 show_dm(dm_id);
             }
+        };
 
-            window.onpopstate = function() {
-                oldpath = window.location.pathname.replace('chat', '').replaceAll('/', '');
-                
-                if (oldpath == '') {
-                    dm_id = 0;
-                    show_home();
-                }
-                else {
-                    dm_id = oldpath;
-                    show_dm(dm_id);
-                }
-            };
-
-            dm_list = document.querySelector('.dm-list')
-            for (i=0; i<dms.length; i++) {
-                dm_list.innerHTML += `
-                    <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="dm_id = ${ dms[i].id }; show_dm(${ dms[i].id })">${ dms[i].name }</button>
-                `
-            }
-        })
-    </script>
+        dm_list = document.querySelector('.dm-list')
+        for (i=0; i<dms.length; i++) {
+            dm_list.innerHTML += `
+                <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="dm_id = ${ dms[i].id }; show_dm(${ dms[i].id })">${ dms[i].name }</button>
+            `
+        }
+    })
+</script>
 {% endblock %}
 
 {% block page_body %}
-    <link href="{% static 'chat/styles.css' %}" rel="stylesheet" media="all"/>
+<link href="{% static 'chat/styles.css' %}" rel="stylesheet" media="all"/>
 
-    <div id="chat-container">
-        <div class="chat chat-left {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
-            <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_home()">Home</button>
-            <br><br>
-            <div class="dm-list">
-
-            </div>
-            <br><br>
-            <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_home()">Create DM</button>
-        </div>
-
-        <div class="chat chat-middle {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
+<div id="chat-container">
+    <div class="chat chat-left {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
+        <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_home()">Home</button>
+        <br><br>
+        <div class="dm-list">
 
         </div>
-
-        <div class="chat chat-right {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
-            {% for friend in friends %}
-                {{ friend.username }}<br>
-            {% endfor %}
-            <hr>
-            {% for i in fr_out %}
-                {{ i.from.username }} -> {{ i.to.username }}<br>
-            {% endfor %}
-            <hr>
-            {% for i in fr_in %}
-                {{ i.from.username }} -> {{ i.to.username }}<br>
-            {% endfor %}
-        </div>
+        <br><br>
+        <button class="btn {% if request.user.dark_mode %} btn-dark {% else %} btn-light {% endif %} dm-btn" onclick="show_home()">Create DM</button>
     </div>
+
+    <div class="chat chat-middle {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
+
+    </div>
+
+    <div class="chat chat-right {% if request.user.dark_mode %} bg-dark text-light {% else %} bg-light text-dark {% endif %}">
+        <!-- {% for friend in friends %}
+            {{ friend.username }}<br>
+        {% endfor %}
+        <hr>
+        {% for i in fr_out %}
+            {{ i.from.username }} -> {{ i.to.username }}<br>
+        {% endfor %}
+        <hr>
+        {% for i in fr_in %}
+            {{ i.from.username }} -> {{ i.to.username }}<br>
+        {% endfor %} -->
+    </div>
+</div>
 {% endblock %}

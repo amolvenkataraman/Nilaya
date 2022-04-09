@@ -8,9 +8,15 @@ import json
 def parse_upload_path(instance, filename):
     return f"uploads/{instance.owner.id}/{filename}"
 
+def parse_album_path(instance, filename):
+    return f"photos/album/{instance.id}/{filename}"
+
 class Album(models.Model):
     name = models.CharField(max_length=64)
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='album_owner')
+    oldestdate = models.DateTimeField(null=True)
+    newestdate = models.DateTimeField(null=True)
+    picture = models.ImageField(upload_to=parse_album_path, null=True)
 
 class Photo(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')

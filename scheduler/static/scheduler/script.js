@@ -7,6 +7,25 @@ const calendar_item = Handlebars.compile(`
     <div class="event-button" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type = "{{ type }}" {{#if modal}}data-bs-toggle="modal" data-bs-target="#modal" {{/if}}style="font-size: 12px; color: {{ color }}; background-color: {{ bg_color }}; border-radius: {{ bo_radius }}; margin-bottom: 2px;" {{#if modal}}onclick="display_info(this)"{{/if}}><span class="event-icon">{{{ icon }}}</span>{{#if del}}<del>{{/if}}{{{ text }}}{{#if del}}</div>{{/if}}</div>
 `);
 
+const todo_item = Handlebars.compile(`
+    <div class="card mb-1">
+    <div class="card-body" data-todo-id="{{ id }}">
+        <h6 class="card-title">{{{ name }}}</h6>
+        <span class="text-primary" style="cursor: pointer;" onclick="complete_todo(this.parentElement);">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check2-square" viewBox="0 0 16 16">
+                <path d="M3 14.5A1.5 1.5 0 0 1 1.5 13V3A1.5 1.5 0 0 1 3 1.5h8a.5.5 0 0 1 0 1H3a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5V8a.5.5 0 0 1 1 0v5a1.5 1.5 0 0 1-1.5 1.5H3z"/>
+                <path d="m8.354 10.354 7-7a.5.5 0 0 0-.708-.708L8 9.293 5.354 6.646a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0z"/>
+            </svg>
+        </span>
+        <a class="card-link" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#modal" onclick="add_edit_todo(command='edit', edit_todo={{ i }});">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">
+                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+            </svg>
+        </a>
+    </div>
+    </div>
+`);
+
 const calendar_name = Handlebars.compile(`
     <div class="custom-control custom-checkbox calendar-name-div" data-calendar="{{ calendar }}" data-calendar-type="{{ calendar_type }}">
         <input type="checkbox" class="form-check-input" id="{{ name }}" {{ checked }} onchange="toggle_calendar_visibility(this, false)">
@@ -175,8 +194,17 @@ const event_info_template = Handlebars.compile(`
     {{#if owner}}
     <div class="ei-controls">
         <div class="btn-group mb-2" role="group" aria-label="Event controls">
-            <button type="button" class="btn btn-warning" onclick="$('#modal').modal('hide'); $('#big-modal').modal('show'); add_edit_event(1, m+1, y, command='edit', edit_event=data['events']['{{ event_no }}'])">Edit</button>
-            <button type="button" class="btn btn-danger" onclick="delete_event('{{ event_no }}')">Delete</button>
+            <button type="button" class="btn btn-warning" onclick="$('#modal').modal('hide'); $('#big-modal').modal('show'); add_edit_event(1, m+1, y, command='edit', edit_event=data['events']['{{ event_no }}'])">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">
+                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                </svg>
+            </button>
+            <button type="button" class="btn btn-danger" onclick="delete_event('{{ event_no }}')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+            </button>
         </div>
         <div class="input-group input-group-sm" style="width: 50%;">
             <input type="number" id="evDupDays" class="form-control" value="1"/>
@@ -317,6 +345,7 @@ var todos;
 var calendars = {};
 var events = {};
 var ss_available = false;
+var timediff = 1000 * 60 * 60 * 24 * 2;
 
 var ICONS = [
     "",
@@ -348,6 +377,14 @@ var ICONS = [
     ""
 ];
 
+var TASK_ICON = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-list-task" viewBox="0 0 16 16">
+        <path fill-rule="evenodd" d="M2 2.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V3a.5.5 0 0 0-.5-.5H2zM3 3H2v1h1V3z"/>
+        <path d="M5 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zM5.5 7a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 4a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9z"/>
+        <path fill-rule="evenodd" d="M1.5 7a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V7zM2 7h1v1H2V7zm0 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5H2zm1 .5H2v1h1v-1z"/>
+    </svg>
+`
+
 if ('speechSynthesis' in window) {
     ss_available = true;
     var speech_synthesis = new SpeechSynthesisUtterance();
@@ -360,9 +397,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     set_localstorage();
 
-    populate_calendar(m, y);
+    set_display();
 
-    populate_todos();
+    populate_calendar(m, y);
 
     setTimeout(tick, 1000);
 })
@@ -506,6 +543,28 @@ function set_localstorage() {
     if (!localStorage.getItem('calendar_notifications')) {
         localStorage.setItem('calendar_notifications', JSON.stringify([]))
     }
+    if (!localStorage.getItem('calendar_show_todos')) {
+        localStorage.setItem('calendar_show_todos', 1)
+    }
+    if (!localStorage.getItem('calendar_show_birthdays')) {
+        localStorage.setItem('calendar_show_birthdays', 1)
+    }
+}
+
+function set_display() {
+    if (localStorage.getItem('calendar_show_todos') == 1) { document.getElementById('displayBirthdaysCb').checked = true; }
+    else { document.getElementById('displayBirthdaysCb').checked = false; }
+    if (localStorage.getItem('calendar_show_birthdays') == 1) { document.getElementById('displayBirthdaysCb').checked = true; }
+    else { document.getElementById('displayBirthdaysCb').checked = false; }
+}
+
+function change_display() {
+    if (document.getElementById('displayBirthdaysCb').checked) { localStorage.setItem('calendar_show_birthdays', 1); }
+    else { localStorage.setItem('calendar_show_birthdays', 0); }
+    if (document.getElementById('displayTodosCb').checked) { localStorage.setItem('calendar_show_todos', 1); }
+    else { localStorage.setItem('calendar_show_todos', 0); }
+    reload();
+    reload_calendar();
 }
 
 window.addEventListener("focus", () => {
@@ -555,11 +614,11 @@ function tick() {
             d1 = moment().add(time, 'minutes')
             try {
                 for (ev of events["events"][parseInt(d1.format("DD"))]) {
-                    ed_ = moment(new Date(event["startdate"]))
+                    ed_ = moment(new Date(event["startdate"]));
                     if ((ed_.format("HH") == d1.format("HH")) && (ed_.format("mm") == d1.format("mm"))) {
                         notification.play()
                         if (ss_available) {
-                            speech_synthesis.text = `${ev["name"]} is in ${time} minutes.`
+                            speech_synthesis.text = `${ev["name"]} is in ${time} minutes.`;
                             window.speechSynthesis.speak(speech_synthesis);
                         }
                     }
@@ -580,12 +639,12 @@ function add_edit_event(date, month=m+1, year=y, command="add", edit_event=null)
         else if (edit_event['enddate'] == "None") {curreventtype="assignment"}
         else {curreventtype="event"}
     }
-    $('.big-modal-body').html(event_create_template({'i': '1'}))
-    $('.event-datetime').css({'display': 'none'})
+    $('.big-modal-body').html(event_create_template({'i': '1'}));
+    $('.event-datetime').css({'display': 'none'});
     $('.event-type-btn').click(function() {
         $('.event-datetime').css({'display': 'none'});
         $(`.event-datetime-${jQuery(this).data('event-type')}`).css({'display': 'block'});
-        curreventtype = jQuery(this).data('event-type')
+        curreventtype = jQuery(this).data('event-type');
     });
 
     i = 0;
@@ -597,7 +656,7 @@ function add_edit_event(date, month=m+1, year=y, command="add", edit_event=null)
         i++;
     }
 
-    if (command=="add") {
+    if (command =="add") {
         document.querySelector('.event-type-btn-ade').click();
         document.querySelectorAll('.event-date-start').forEach(function(e) {
             e.valueAsDate = new Date(`${year}-${month}-${date}`);
@@ -615,7 +674,7 @@ function add_edit_event(date, month=m+1, year=y, command="add", edit_event=null)
             e.value = `${moment(new Date()).add(2, "hours").format("hh")}:00:00`;
         });
     }
-    else if (command=="edit") {
+    else if (command =="edit") {
         $('.create-event-btn').html('Edit')
 
         esdate = new Date(edit_event['startdate']);
@@ -740,7 +799,7 @@ function add_edit_todo( command="add", edit_todo=null) {
         r.onload = () => {
             res = JSON.parse(r.responseText)
             if (res['status'] == 'success') {
-                populate_todos();
+                populate_calendar(m, y, true);
             }
             else {
                 alert(res['data']);
@@ -909,6 +968,9 @@ function display_day_info(ds) {
 function reload_calendar() {
     $('.calendarlist-mine').html("")
     $('.calendarlist-other').html("")
+    $('.todo-list').html("");
+    $('.day-events').html("");
+    $('.reg-events').html("");
 
     events = {
         "events": {},
@@ -945,13 +1007,15 @@ function reload_calendar() {
         }
     }
 
-    b = data["birthdays"]
-    for (i = 0; i < b.length; i++)
-    {
-        date_ = new Date(b[i]["birthday"]).getUTCDate()
-        dp = document.querySelector(`.day-events-${date_}`)
-        var ci = calendar_item({'modal': false, 'calendar': [], 'i': i, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'text': `<span style="font-weight: normal;">🎂</span> ${b[i]['username']}'s Birthday`})
-        dp.innerHTML += ci
+    if (localStorage.getItem('calendar_show_birthdays') == 1) {
+        b = data["birthdays"]
+        for (i = 0; i < b.length; i++)
+        {
+            date_ = new Date(b[i]["birthday"]).getUTCDate()
+            dp = document.querySelector(`.day-events-${date_}`)
+            var ci = calendar_item({'modal': false, 'calendar': [], 'i': i, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'text': `<span style="font-weight: normal;">🎂</span> ${b[i]['username']}'s Birthday`})
+            dp.innerHTML += ci
+        }
     }
 
     e = data["events"]
@@ -964,7 +1028,7 @@ function reload_calendar() {
 
         if (e[i]['enddate'] == 'None') {
             dp = document.querySelector(`.reg-events-${sd.getDate()}`)
-            var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'color': calendars[e[i]['calendar']]['colour'], 'icon': icon, 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name']})
+            var ci = calendar_item({'modal': true, 'del': e[i]['completed'] == "True", 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'color': calendars[e[i]['calendar']]['colour'], 'icon': icon, 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name'], 'del': e[i]['completed'] == "True"})
             dp.innerHTML += ci
 
             events["events"][sd.getDate()].push(e[i]);
@@ -975,7 +1039,7 @@ function reload_calendar() {
             {
                 if (sd.getDate() == ed.getDate()) {
                     dp = document.querySelector(`.reg-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'color': calendars[e[i]['calendar']]['colour'], 'icon': icon, 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name']})
+                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'color': calendars[e[i]['calendar']]['colour'], 'icon': icon, 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name'], 'del': e[i]['completed'] == "True"})
                     dp.innerHTML += ci
 
                     events["events"][j].push(e[i]);
@@ -983,17 +1047,17 @@ function reload_calendar() {
                 else if (e[i]['allday'] == true) {
                     if (j != ed.getDate()) {
                         dp = document.querySelector(`.day-events-${j}`)
-                        var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name']})
+                        var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == "True"})
                         dp.innerHTML += ci
 
                         events["allday"][j].push(e[i]);
                     }
                 }
                 else {
-                    if (j == j) {prepend = moment(sd).format('LT').replace(":00", "") + " - "; events["events"][j].push(e[i]);}
+                    if (j == sd.getDate()) {prepend = moment(sd).format('LT').replace(":00", "") + " - "; events["events"][j].push(e[i]);}
                     else {prepend = ""}
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': prepend + e[i]['name']})
+                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': prepend + e[i]['name'], 'del': e[i]['completed'] == "True"})
                     dp.innerHTML += ci
                 }
             }
@@ -1003,7 +1067,7 @@ function reload_calendar() {
             {
                 if (e[i]['allday'] == true) {
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name']})
+                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == "True"})
                     dp.innerHTML += ci
 
                     events["allday"][j].push(e[i]);
@@ -1012,7 +1076,7 @@ function reload_calendar() {
                     if (j == sd.getDate()) {prepend = moment(sd).format('LT').replace(":00", "") + " - "; events["events"][j].push(e[i]);}
                     else {prepend = ""}
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': prepend + e[i]['name']})
+                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': prepend + e[i]['name'], 'del': e[i]['completed'] == "True"})
                     dp.innerHTML += ci
                 }
             }
@@ -1023,7 +1087,7 @@ function reload_calendar() {
                 if (e[i]["allday"] == true && j == ed.getDate()) {}
                 else {
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name']})
+                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == "True"})
                     dp.innerHTML += ci
                 }
             }
@@ -1032,9 +1096,32 @@ function reload_calendar() {
             for (j = 1; j <= daysInMonth(m, y); j++)
             {
                 dp = document.querySelector(`.day-events-${j}`)
-                var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name']})
+                var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == "True"})
                 dp.innerHTML += ci
             }
+        }
+    }
+
+    t = data["todos"]
+    for (let [num, todo] of t.entries()) {
+        if (todo["completion"] == "None") { tn = `<span class="text-muted">${todo.name}</span>`}
+        else {
+            cd = new Date(todo["completion"]);
+            if (cd <= new Date()) { overdue = "5"; }
+            else if (cd.getTime() - new Date().getTime() <= timediff) { overdue = "1"; }
+            else { overdue = "0"; }
+
+            if (localStorage.getItem("calendar_show_todos") == 1) {
+                if (cd.getMonth() == m) {
+                    j = cd.getDate();
+                    dp = document.querySelector(`.day-events-${j}`)
+                    var ci = calendar_item({'modal': false, 'calendar': [], 'i': num, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'text': `${TASK_ICON} ${todo.name}`});
+                    dp.innerHTML += ci
+                }
+            }
+        if (overdue == "5") { tn = `<span class="text-danger">⚠ ${todo.name}</span>` } else if (overdue == "1") { tn = `<span class="text-warning">${todo.name}</span>` } else { tn = `${todo.name}` } }
+        if (todo["completed"] == "False") {
+            document.querySelector('.todo-list').innerHTML += todo_item({'id': todo.id, 'name': tn, 'i': num});
         }
     }
 
@@ -1050,10 +1137,10 @@ function reload_calendar() {
 }
 
 function populate_calendar(m, y, jumponload=false) {
-    r = new XMLHttpRequest()
-    r.open("GET", `${URLS['get_events']}?month=${m+1}&year=${y}&show_all=${localStorage.getItem('calendar_show_all')}`)
+    r = new XMLHttpRequest();
+    r.open("GET", `${URLS['get_events']}?month=${m+1}&year=${y}&show_all=${localStorage.getItem('calendar_show_all')}`);
     r.onload = () => {
-        data = JSON.parse(r.responseText.replace(/&#x27;/g,'"'))["data"]
+        data = JSON.parse(r.responseText.replace(/&#x27;/g,'"'))["data"];
         
         // Session Expired
         if (data == "Not logged in") {
@@ -1063,46 +1150,15 @@ function populate_calendar(m, y, jumponload=false) {
         document.querySelector('.page-alert').style.display = "none";
 
         if (jumponload) {reload()};
-        reload_calendar()
+        reload_calendar();
         lastrefresh = new Date();
-        $('#last-refresh').html(moment(lastrefresh).format('LTS'))
+        $('#last-refresh').html(moment(lastrefresh).format('LTS'));
     }
     r.onerror = () => {
         document.querySelector('.page-alert').style.display = "block";
-        $('.page-alert').html("Unable to connect to server (Network connection lost).")
+        $('.page-alert').html("Unable to connect to server (Network connection lost).");
     }
-    r.send()
-}
-
-function reload_todos() {
-    $('.todo-list').html("");
-    timediff = 1000 * 60 * 60 * 24 * 2;
-    for (let [num, todo] of todos.entries()) {
-        if (todo["completion"] == "None") { tn = `<span class="text-muted">${todo.name}</span>`}
-        else { cd = new Date(todo["completion"]); if (cd <= new Date()) { overdue = "5"; } else if (cd.getTime() - new Date().getTime() <= timediff) { overdue = "1"; } else { overdue = "0"; } 
-        if (overdue == "5") { tn = `<span class="text-danger">⚠ ${todo.name}</span>` } else if (overdue == "1") { tn = `<span class="text-warning">${todo.name}</span>` } else { tn = `${todo.name}` } }
-        document.querySelector('.todo-list').innerHTML += `
-            <div class="card">
-                <div class="card-body" data-todo-id="${todo.id}">
-                    <h5 class="card-title">${tn}</h5>
-                    <p class="card-text">${todo.description}</p>
-                    <a class="card-link" style="cursor: pointer;" onclick="complete_todo(this.parentElement);">Mark as done</a>
-                    <a class="card-link" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#modal" onclick="add_edit_todo(command='edit', edit_todo=${num});">Edit</a>
-                </div>
-            </div>
-            <br>
-        `
-    }
-}
-
-function populate_todos() {
-    r1 = new XMLHttpRequest()
-    r1.open("GET", `${URLS['get_todos']}`)
-    r1.onload = () => {
-        todos = JSON.parse(r1.responseText.replace(/&#x27;/g, '"'))["data"]["todos"]
-        reload_todos()
-    }
-    r1.send()
+    r.send();
 }
 
 function complete_todo(todo_) {
@@ -1112,7 +1168,7 @@ function complete_todo(todo_) {
     r.onload = () => {
         res = JSON.parse(r.responseText)
         if (res['status'] == 'success') {
-            populate_todos();
+            populate_calendar(m, y, true);
         }
         else {
             alert(res['data']);
@@ -1124,9 +1180,15 @@ function complete_todo(todo_) {
 function display_info(button) {
     setTimeout(function() {
         event = data["events"][button.dataset.no]
+        console.log(event)
         sd = new Date(event["startdate"])
         ed = new Date(event["enddate"])
-        $('.modal-title').html(event["name"])
+        if (event['sync_id'] != null) { title = `${event['name']} <span class="text-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16">
+                <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
+                <path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
+            </svg></span>` }
+        else { title = event['name'] }
+        $('.modal-title').html(title)
 
         if (event["enddate"] == "None") {date_ = moment(sd).format('LLLL')}
         else if (event["allday"] == true) {

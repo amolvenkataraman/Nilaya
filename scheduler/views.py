@@ -19,6 +19,7 @@ import datetime
 import json
 import pytz
 import time
+import bleach
 
 # Create your views here.
 @login_required
@@ -57,6 +58,7 @@ def get_events(request):
         (Q(enddate__month=int(month)) & Q(enddate__year=(int(year)))) |
         Q(Q(startdate__month__lt=int(month), enddate__month__gt=int(month)) & (Q(startdate__year=int(year), enddate__year=int(year)))))
     ).order_by('startdate', '-enddate', 'name').iterator()]
+    ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(Q(user=user_) & (Q(completed=False) | Q(completiondate__month=int(month)))).order_by('completiondate')]
 
     return JsonResponse(ans)
 
@@ -90,7 +92,7 @@ def sync_events(request):
                     token = None
 
                 if calendar.calendar_type == 1: # ICalendar:
-                    status = sync_ical(calendar)
+                    status = sync_ical(calendar) ## ACTUAL SYNC
                     if status: return success_response()
 
                 elif calendar.calendar_type == 2: # Public Google Calendar
@@ -98,20 +100,14 @@ def sync_events(request):
                     start_time = f"{req['sy']}-{req['sm']}-01T00:00:00{tzoffset}"
                     end_time = f"{req['ey']}-{req['em']}-01T00:00:00{tzoffset}"
 
-                    status = sync_google(calendar, start_time, end_time, token)
+                    status = sync_google(calendar, start_time, end_time, token) ## ACTUAL SYNC
                     if status: return success_response()
 
                 else: return error_response("Calendar is a local calendar")
             else: return error_response("Not logged in", 401)
         else: return error_response("Server is in offline mode")
 
-def clone_event(event_id, n):
-    e = Event.objects.filter(id=event_id)[0]
-    e.pk = None
-    e.startdate = e.startdate + datetime.timedelta(days=n)
-    if e.enddate != None: e.enddate = e.enddate + datetime.timedelta(days=n)
-    e.save()
-
+@login_required
 def countdown(request, event_id, time="start"):
     try:
         event_ = Event.objects.filter(id=event_id)[0]
@@ -184,7 +180,7 @@ def calendar(request):
                 c = Calendar(name=b['name'], colour=b['color'])
                 c.owner = request.user
                 c.save()
-                s = Subscriber(user=request.user, calendar=c)
+                s = Subscriber(user=request.user, calendar=c, subscribe_type=0)
                 s.save()
                 return success_response()
             except Exception as ex:
@@ -242,7 +238,7 @@ def create_edit_event(request):
 
                 e.calendar = reqcal
                 e.category = req["category"]
-                e.name = req["name"]
+                e.name = bleach.clean(req["name"])
                 e.description = req["description"]
                 e.public = req["public"]
                 e.priority = req["priority"]
@@ -348,7 +344,7 @@ def todo(request, command):
                         try: t = Todo.objects.filter(id=req["old_id"])[0]
                         except IndexError: return error_response("Todo does not exist")
                     if req["name"] == "": req["name"] = "Unnamed"
-                    t.name = req['name']
+                    t.name = bleach.clean(req['name'])
                     t.description = req['description']
                     t.user = request.user
                     t.priority = req['priority']
