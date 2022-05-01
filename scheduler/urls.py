@@ -1,22 +1,23 @@
 from django.urls import include, path
-from . import views
+from . import views, api
 
 # URL patterns for calendar app
 urlpatterns = [
     path("", views.index, name='display_calendar'),
     path("countdown/<slug:event_id>/<slug:time>/", views.countdown, name='countdown_to_event'),
 
-    path("events/", views.get_events, name='get_events'),
-    path("todos/", views.get_todos, name='get_todos'), 
-    path("sync/", views.sync_events, name='sync_events'),
-    path("calendar/", views.calendar, name='calendar'),
-    path("visibility/", views.toggle_visibility, name='toggle_visibility'),
-    path("create/", views.create_edit_event, name='create_edit_event'),
-    path("duplicate/", views.duplicate_event, name='duplicate_event'),
-    path("delete/", views.delete_event, name='delete_event'),
-    path("todo/<slug:command>/", views.todo, name='todo'),
-    path("subscribe/", views.subscribe, name='subscribe'),
-    path("unsubscribe/", views.unsubscribe, name='unsubscribe'),
-    path("invite/", views.invite, name='invite'),
-    path("block/", views.get_block_status, name='get_block_status'),
+    path("api/events/", api.get_events, name='get_events'),
+    path("api/todos/", api.get_todos, name='get_todos'), 
+    path("api/calendar/", api.calendar, name='calendar'),
+    path("api/calendarevents/", api.get_calendar_events, name='get_calendar_events'),
+    path("api/sync/", api.sync_events, name='sync_events'),
+    path("api/visibility/", api.toggle_visibility, name='toggle_visibility'),
+    path("api/create/", api.create_edit_event, name='create_edit_event'),
+    path("api/duplicate/", api.duplicate_event, name='duplicate_event'),
+    path("api/delete/", api.delete_event, name='delete_event'),
+    path("api/todo/<slug:command>/", api.todo, name='todo'),
+    path("api/subscribe/", api.subscribe, name='subscribe'),
+    path("api/unsubscribe/", api.unsubscribe, name='unsubscribe'),
+    path("api/invite/", api.invite, name='invite'),
+    path("api/block/", api.get_block_status, name='get_block_status'),
 ]

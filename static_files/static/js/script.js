@@ -1,9 +1,9 @@
-$(function(){
-    $('[data-toggle="tooltip"]').tooltip();
-});
-$(function(){
-    $('[data-toggle="popover"]').popover();
-});
+// $(function(){
+//     $('[data-toggle="tooltip"]').tooltip();
+// });
+// $(function(){
+//     $('[data-toggle="popover"]').popover();
+// });
 
 document.addEventListener('DOMContentLoaded', () => {
     console.log('%c WARNING! ', 'color: red; font-size: 32px; font-weight: 600;');
@@ -21,3 +21,4 @@ function toggle_dark_mode() {
     r.onload = () => {window.location.reload();}
     r.send();
 }
+ 

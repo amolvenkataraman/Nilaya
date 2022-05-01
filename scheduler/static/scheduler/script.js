@@ -28,8 +28,8 @@ const todo_item = Handlebars.compile(`
 
 const calendar_name = Handlebars.compile(`
     <div class="custom-control custom-checkbox calendar-name-div" data-calendar="{{ calendar }}" data-calendar-type="{{ calendar_type }}">
-        <input type="checkbox" class="form-check-input" id="{{ name }}" {{ checked }} onchange="toggle_calendar_visibility(this, false)">
-        <label class="custom-control-label calendar-name-label" for="{{ name }}" style="color: {{ colour }};">{{#if admin}}<em>{{/if}}{{ name }}{{#if admin}}</em>{{/if}}</label>
+        <input type="checkbox" class="form-check-input" id="{{ name }}" {{ checked }} onchange="toggle_calendar_visibility(this, false)" style="opacity: {{ opacity }};">
+        <label class="custom-control-label calendar-name-label" for="{{ name }}" style="color: {{ colour }}; opacity: {{ opacity }};">{{#if admin}}<em>{{/if}}{{ name }}{{#if admin}}</em>{{/if}}</label>
         <button class="btn btn-white calendar-options-btn"
             type="button" id="dropdownMenu{{ id }}" data-bs-toggle="dropdown"
             aria-haspopup="true" aria-expanded="false" aria-label="Calendar options">
@@ -37,7 +37,7 @@ const calendar_name = Handlebars.compile(`
                 <path fill-rule="evenodd" d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
             </svg>
         </button>
-        <div class="dropdown-menu" aria-labelledby="dropdownMenu{{ id }}">
+        <div class="dropdown-menu" aria-labelledby="dropdownMenu{{ id }}" style="opacity: 1;">
             <a class="dropdown-item" href="#!" onclick="toggle_calendar_visibility(this, true)">Display this only</a>
             {{#if owner}}
             <a class="dropdown-item" href="#!" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="display_calendar_info(this)">Settings</a>
@@ -142,13 +142,22 @@ const calendar_info_template = Handlebars.compile(`
         </div>
     </div>
     <div>
-    <button type="button" class="btn btn-primary toggle-calendar-activation-btn">Toggle Activation</button>
+    <button type="button" class="btn btn-primary toggle-calendar-activation-btn" onclick="toggle_calendar_enable(this);">Toggle Activation</button>
     </div>
     <script>
-        $(function(){
-            $('[data-bs-toggle="tooltip"]').tooltip();
-        });
+        //$(function(){
+        //    $('[data-bs-toggle="tooltip"]').tooltip();
+        //});
     </script>
+`);
+
+const calendar_invite = Handlebars.compile(`
+    <li>
+        <div class="custom-control custom-checkbox">
+            <input type="checkbox" class="custom-control-input" id="customCheck{{ invite_no }}" data-invite="{{ invite }}" data-calendar="{{ calendar_id }}" {{ checked }} onclick="this.disabled=true;toggle_invite(this);">
+            <label class="custom-control-label invite-label" for="customCheck{{ invite_no }}">{{ invite_name }}</label>
+        </div>
+    </li>
 `);
 
 const calendar_sync_template = Handlebars.compile(`
@@ -997,7 +1006,9 @@ function reload_calendar() {
 
         calendars[c[i]["id"]] = c[i];
 
-        cal_name = calendar_name({"id": c[i]["id"], "name": c[i]["name"], "calendar": i, "calendar-type": c[i]["calendar_type"], "checked": checked, "colour": c[i]['colour'], "owner": c[i]["subscribe_type"] == 0, "admin": c[i]["subscribe_type"] == 1, "sync": c[i]["calendar_type"] != "0", "c_owner": c[i]["owner"] == USER_ID});
+        if (c[i]['active'] == 'False') { opacity = 0.6; }
+        else { opacity = 1; }
+        cal_name = calendar_name({"id": c[i]["id"], "name": c[i]["name"], "calendar": i, "calendar-type": c[i]["calendar_type"], "checked": checked, "colour": c[i]['colour'], "owner": c[i]["subscribe_type"] == 0, "opacity": opacity, "admin": c[i]["subscribe_type"] == 1, "sync": c[i]["calendar_type"] != "0", "c_owner": c[i]["owner"] == USER_ID});
 
         if (c[i]["subscribe_type"] == 0) {
             document.querySelector('.calendarlist-mine').innerHTML += cal_name;
@@ -1179,19 +1190,19 @@ function complete_todo(todo_) {
 
 function display_info(button) {
     setTimeout(function() {
-        event = data["events"][button.dataset.no]
-        console.log(event)
-        sd = new Date(event["startdate"])
-        ed = new Date(event["enddate"])
-        if (event['sync_id'] != null) { title = `${event['name']} <span class="text-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16">
+        event_ = data["events"][button.dataset.no]
+
+        sd = new Date(event_["startdate"])
+        ed = new Date(event_["enddate"])
+        if (event_['sync_id'] != null) { title = `${event_['name']} <span class="text-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16">
                 <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
                 <path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
             </svg></span>` }
-        else { title = event['name'] }
+        else { title = event_['name'] }
         $('.modal-title').html(title)
 
-        if (event["enddate"] == "None") {date_ = moment(sd).format('LLLL')}
-        else if (event["allday"] == true) {
+        if (event_["enddate"] == "None") {date_ = moment(sd).format('LLLL')}
+        else if (event_["allday"] == true) {
             sd1 = moment(sd)
             ed1 = moment(ed).subtract(1, 'days')
             if (sd1.calendar() == ed1.calendar()) {date_ = moment(sd).format('LL')}
@@ -1200,22 +1211,22 @@ function display_info(button) {
         else {
             if (sd.getDate() == ed.getDate()) {date_ = moment(sd).format('LLL') + " - " + moment(ed).format('LT')}
             else {date_ = moment(sd).format('LLL') + " - " + moment(ed).format('LLL')}}
-        if (localStorage.getItem('debug') == 1) {dev_info = `<br><i>Id: ${event["id"]}</i>`}
+        if (localStorage.getItem('debug') == 1) {dev_info = `<br><i>Id: ${event_["id"]}</i>`}
         else {dev_info = ""}
-        if (event["description"] == "" || event["description"] == null) {show_desc = false; desc = null}
-        else {show_desc = true; desc = DOMPurify.sanitize(parse_message(event["description"]));}
+        if (event_["description"] == "" || event_["description"] == null) {show_desc = false; desc = null}
+        else {show_desc = true; desc = DOMPurify.sanitize(parse_message(event_["description"]));}
 
-        if (event["enddate"] == "None") {countdown = `<a href="/calendar/countdown/${event["id"]}/start/">Countdown to Start</a>`}
-        else {countdown = `<a href="/calendar/countdown/${event["id"]}/start/">Countdown to Start</a> <a href="/calendar/countdown/${event["id"]}/end/">Countdown to End</a>`}
+        if (event_["enddate"] == "None") {countdown = `<a href="/calendar/countdown/${event_["id"]}/start/">Countdown to Start</a>`}
+        else {countdown = `<a href="/calendar/countdown/${event_["id"]}/start/">Countdown to Start</a> <a href="/calendar/countdown/${event_["id"]}/end/">Countdown to End</a>`}
 
         $('.modal-body').html(event_info_template({
             "date": date_,
-            "calendar": `${calendars[event["calendar"]]["name"]} [${event["category"]}]`,
+            "calendar": `${calendars[event_["calendar"]]["name"]} [${event_["category"]}]`,
             "show_desc": show_desc, "description": desc,
             "countdown": countdown,
             "dev_info": dev_info,
             "event_no": button.dataset.no,
-            "owner": calendars[event["calendar"]]["subscribe_type"] == 0 || calendars[event["calendar"]]["subscribe_type"] == 1,
+            "owner": calendars[event_["calendar"]]["subscribe_type"] == 0 || calendars[event_["calendar"]]["subscribe_type"] == 1,
         }))
     }, 100)
 }
@@ -1224,122 +1235,72 @@ var no_invites = 0
 var calendar_
 
 function display_calendar_info(btn) {
+    $('.big-modal-title').html("Loading...");
     $('.big-modal-body').html(`
         <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">Loading...</span>
         </div>
     `);
 
-    cal = data["calendars"][btn.parentElement.parentElement.dataset.calendar]
-    calid = cal["id"]
+    cal = data["calendars"][btn.parentElement.parentElement.dataset.calendar];
+    calid = cal["id"];
 
     if (cal["subscribe_type"] == 0) {
-        r = new XMLHttpRequest()
+        r = new XMLHttpRequest();
 
-        r.open('GET', `${URLS['calendar']}?id=${calid}`)
+        r.open('GET', `${URLS['calendar']}?id=${calid}`);
         r.onload = function() {
-            calendar_ = JSON.parse(r.responseText)
+            calendar_ = JSON.parse(r.responseText);
 
-            $('.big-modal-title').html(`${calendar_["name"]}`)
-            $('.big-modal-body').html(calendar_info_template())
+            $('.big-modal-title').html(`${calendar_["name"]}`);
+            $('.big-modal-body').html(calendar_info_template());
 
-            if (calendar_["active"] == "True") { $('.toggle-calendar-activation-btn').html("Disable") }
-            else { $('.toggle-calendar-activation-btn').html("Enable") }
+            if (calendar_["active"] == "True") { $('.toggle-calendar-activation-btn').html("Disable"); }
+            else { $('.toggle-calendar-activation-btn').html("Enable"); }
+            $('.toggle-calendar-activation-btn').attr("data-calendar", calid);
 
             for (i = 0; i < calendar_["subscribers"].length; i++) {
                 subscriberinfo = `
-                    ${calendar_["subscribers"][i]["user"]["first_name"]} 
-                    ${calendar_["subscribers"][i]["user"]["last_name"]} 
-                    (${calendar_["subscribers"][i]["user"]["username"]})
-                `
+                    ${calendar_["subscribers"][i]["user"]["first_name"]}  ${calendar_["subscribers"][i]["user"]["last_name"]}  (${calendar_["subscribers"][i]["user"]["username"]})
+                `;
 
-                if (calendar_["subscribers"][i]["subscribe_type"] == 0) {
-                    document.querySelector('.subscriber-list').innerHTML += `<li style="color: blue;">${subscriberinfo} [OWNER]</li>`
-                }
-                else if (calendar_["subscribers"][i]["subscribe_type"] == 1) {
-                    document.querySelector('.subscriber-list').innerHTML += `<em><li>${subscriberinfo}</li></em>`
-                }
-                else {
-                    document.querySelector('.subscriber-list').innerHTML += `<li>${subscriberinfo}</li>`
-                }
+                if (calendar_["subscribers"][i]["subscribe_type"] == 0) { document.querySelector('.subscriber-list').innerHTML += `<li style="color: blue;">${subscriberinfo} [OWNER]</li>`; }
+                else if (calendar_["subscribers"][i]["subscribe_type"] == 1) { document.querySelector('.subscriber-list').innerHTML += `<em><li>${subscriberinfo}</li></em>`; }
+                else { document.querySelector('.subscriber-list').innerHTML += `<li>${subscriberinfo}</li>`; }
             }
 
-            for (i = 0; i < calendar_["invites"].length; i++) {
-                invite = calendar_["invites"][i]
-                temp = ""
-                if (invite["active"] == "True") {temp = "checked"}
-                no_invites += 1
-                document.querySelector('.invite-list').innerHTML += `
-                    <li>
-                        <div class="custom-control custom-checkbox">
-                            <input type="checkbox" class="custom-control-input" id="customCheck${no_invites}" data-invite="${invite["id"]}" data-class="${calendar_["id"]}" ${temp} onclick="this.disabled=true;toggleInvite(this);">
-                            <label class="custom-control-label invite-label" for="customCheck${no_invites}">${invite["code"]}</label>
-                        </div>
-                    </li>
-                `
+            for (inv of calendar_['invites']) {
+                temp = "";
+                if (inv["active"] == "True") { temp = "checked"; }
+                no_invites++;
+                document.querySelector('.invite-list').innerHTML += calendar_invite({"invite_no": no_invites, "invite": inv["id"], "calendar_id": calendar_["id"], "checked": temp, "invite_name": inv["code"]});
             }
 
-            document.querySelectorAll('.invite-label').forEach(il => {
-                il.onclick = () => {
-                    ta = document.querySelector('.copy-ta')
-                    ta.value = il.innerHTML
-                    setTimeout(function() {
-                    ta.select()
-                    document.execCommand("copy")
-                    }, 100)
-                    ta.value = ""
-                }
-            })
-
-            document.querySelector('.random-invite').onclick = function() {
-                document.querySelector('.invite-text').value = randomText(8)
-            }
+            document.querySelector('.random-invite').onclick = function() { document.querySelector('.invite-text').value = randomText(8); }
 
             document.querySelector('.create-invite').onclick = function() {
-                inv = document.querySelector('.invite-text').value
-                if (inv == "") {
-                    $('.invite-warn').html("Please enter an invite code")
-                }
+                inv = document.querySelector('.invite-text').value;
+                if (inv == "") { $('.invite-warn').html("Please enter an invite code"); }
                 else {
-                    $('.invite-warn').html("")
-
-                    var r = new XMLHttpRequest()
-                    r.open('POST', `${URLS['invite']}?code=${document.querySelector('.invite-text').value}&class=${calendar_["id"]}&option=create`)
-                    r.setRequestHeader("X-CSRFToken", CSRF_TOKEN)
-                    r.onload = () => {
-                        res = JSON.parse(r.responseText)
-                        if (res["status"] === "error")
-                        { $('.invite-warn').html(res["data"])}
-                        else
-                        {
-                            no_invites += 1
-                            document.querySelector('.invite-list').innerHTML += `
-                                <li>
-                                    <div class="custom-control custom-checkbox">
-                                        <input type="checkbox" class="custom-control-input" id="customCheck${no_invites}" data-invite="${res["data"]}" data-class="${calendar_["id"]}" checked onclick="this.disabled=true;toggleInvite(this);">
-                                        <label class="custom-control-label invite-label" for="customCheck${no_invites}">${document.querySelector('.invite-text').value}</label>
-                                    </div>
-                                </li>
-                            `
-                            document.querySelector('.invite-text').value = ""
-                        }
-                    }
-                    r.send()
+                    $('.invite-warn').html("");
+                    create_invite(calendar_)
                 }
-            }
-
-            document.querySelector('.toggle-calendar-activation-btn').onclick = function() {
-                r = new XMLHttpRequest()
-                r.open('GET', `${URLS['calendar']}?id=${calid}&command=active`)
-                r.onload = () => {
-                    $('.big-modal').modal("hide");
-                    populate_calendar(m, y, true);
-                }
-                r.send();
             }
 
             if (calendar_["calendar_type"] != "0") {
-                document.querySelector('.big-modal-body').innerHTML += "This is a synced calendar."
+                document.querySelector('.big-modal-title').innerHTML += `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16">
+                    <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"></path>
+                    <path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"></path>
+                </svg>
+                `;
+            }
+            if (calendar_["public"] == "True") {
+                document.querySelector('.big-modal-title').innerHTML += `
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-globe" viewBox="0 0 16 16">
+                    <path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.674a6.958 6.958 0 0 0-.656 2.5h2.49zM4.847 5a12.5 12.5 0 0 0-.338 2.5H7.5V5H4.847zM8.5 5v2.5h2.99a12.495 12.495 0 0 0-.337-2.5H8.5zM4.51 8.5a12.5 12.5 0 0 0 .337 2.5H7.5V8.5H4.51zm3.99 0V11h2.653c.187-.765.306-1.608.338-2.5H8.5zM5.145 12c.138.386.295.744.468 1.068.552 1.035 1.218 1.65 1.887 1.855V12H5.145zm.182 2.472a6.696 6.696 0 0 1-.597-.933A9.268 9.268 0 0 1 4.09 12H2.255a7.024 7.024 0 0 0 3.072 2.472zM3.82 11a13.652 13.652 0 0 1-.312-2.5h-2.49c.062.89.291 1.733.656 2.5H3.82zm6.853 3.472A7.024 7.024 0 0 0 13.745 12H11.91a9.27 9.27 0 0 1-.64 1.539 6.688 6.688 0 0 1-.597.933zM8.5 12v2.923c.67-.204 1.335-.82 1.887-1.855.173-.324.33-.682.468-1.068H8.5zm3.68-1h2.146c.365-.767.594-1.61.656-2.5h-2.49a13.65 13.65 0 0 1-.312 2.5zm2.802-3.5a6.959 6.959 0 0 0-.656-2.5H12.18c.174.782.282 1.623.312 2.5h2.49zM11.27 2.461c.247.464.462.98.64 1.539h1.835a7.024 7.024 0 0 0-3.072-2.472c.218.284.418.598.597.933zM10.855 4a7.966 7.966 0 0 0-.468-1.068C9.835 1.897 9.17 1.282 8.5 1.077V4h2.355z"/>
+                </svg>
+                `;
             }
         }
         r.send()
@@ -1352,11 +1313,11 @@ function display_calendar_info(btn) {
 
 function sync_events(btn) {
     cal = data["calendars"][btn.parentElement.parentElement.dataset.calendar]
-
+    
     $('.modal-title').html(`Sync Events for ${cal["name"]}`)
     if (cal["subscribe_type"] == 0 || cal["subscribe_type"] == 1) {
         $('.modal-body').html(calendar_sync_template())
-
+        
         document.querySelectorAll('.month-select').forEach(e => {
             for (i=0; i<months.length; i++) {
                 e.innerHTML += `<option value="${i}">${months[i]}</option>`
@@ -1367,7 +1328,7 @@ function sync_events(btn) {
             e.innerHTML = generate_year_range(currentYear - 5, currentYear + 5);
             e.value = new Date().getFullYear();
         })
-
+        
         $('.calendar-sync-btn').click(function() {
             result = {
                 "calendar": cal["id"],
@@ -1378,7 +1339,7 @@ function sync_events(btn) {
             }
             st = $('#calendar-sync-token').val();
             if (st != "") {result["token"] = st}
-
+            
             var r = new XMLHttpRequest()
             r.open('POST', URLS['sync_events'])
             r.setRequestHeader("X-CSRFToken", CSRF_TOKEN)
@@ -1417,30 +1378,56 @@ function unsubscribe(btn) {
     r.send()
 }
 
-function toggleInvite(cb) {
+function create_invite(c) {
+    var r = new XMLHttpRequest();
+    r.open('POST', `${URLS['invite']}?code=${document.querySelector('.invite-text').value}&calendar=${c["id"]}&option=create`);
+    r.setRequestHeader("X-CSRFToken", CSRF_TOKEN);
+    r.onload = () => {
+        res = JSON.parse(r.responseText);
+        if (res["status"] === "error") { $('.invite-warn').html(res["data"]); }
+        else
+        {
+            no_invites++;
+            document.querySelector('.invite-list').innerHTML += calendar_invite({"invite_no": no_invites, "invite": res["data"]["id"], "calendar_id": c["id"], "checked": "checked", "invite_name": res["data"]["code"]});
+            document.querySelector('.invite-text').value = "";
+        }
+    }
+    r.send();
+}
+
+function toggle_invite(cb) {
     var r = new XMLHttpRequest()
     r.open('POST', `${URLS['invite']}?code=${cb.dataset.invite}&option=active`)
     r.setRequestHeader("X-CSRFToken", CSRF_TOKEN)
     r.onload = () => {
         res = JSON.parse(r.responseText)
-        if (res["status"] === "error")
-        {alert("Something went wrong on the server-side. Please try again.")}
+        if (res["status"] === "error") { alert("Something went wrong on the server-side. Please try again.") }
         else
         {
-            for(i=0; i<data["calendars"][cb.dataset.class]["invites"].length; i++)
+            for (i=0; i<data["calendars"][cb.dataset.class]["invites"].length; i++)
             {
-                if(data["calendars"][cb.dataset.class]["invites"][i]["id"] == cb.dataset.invite)
+                if (data["calendars"][cb.dataset.class]["invites"][i]["id"] == cb.dataset.invite)
                 {
-                    if(data["calendars"][cb.dataset.class]["invites"][i]["active"] == "True")
-                    {data["calendars"][cb.dataset.class]["invites"][i]["active"] = "False"}
+                    if (data["calendars"][cb.dataset.class]["invites"][i]["active"] == "True")
+                    { data["calendars"][cb.dataset.class]["invites"][i]["active"] = "False" }
                     else
-                    {data["calendars"][cb.dataset.class]["invites"][i]["active"] = "True"}
+                    { data["calendars"][cb.dataset.class]["invites"][i]["active"] = "True" }
                 }
             }
             cb.disabled = false
         }
     }
     request.send()
+}
+
+function toggle_calendar_enable(e) {
+    r = new XMLHttpRequest();
+    r.open('GET', `${URLS['calendar']}?id=${e.dataset.calendar}&command=active`);
+    r.onload = () => {
+        $('#big-modal').modal("hide");
+        populate_calendar(m, y, true);
+    }
+    r.send();
 }
 
 function delete_event(event_no) {

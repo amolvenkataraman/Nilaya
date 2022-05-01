@@ -44,10 +44,6 @@
     var vars = JSON.parse("{{ vars }}".replace(/&#x27;/g,'"'));
 
     var notification = new Audio(`{% static 'sound/Calender_SFX_1_DH.mp3' %}`);
-
-    $(document).ready(function(){
-        $('[data-bs-toggle="tooltip"]').tooltip();
-    });
 </script>
 {% endblock %}
 

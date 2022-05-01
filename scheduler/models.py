@@ -36,6 +36,7 @@ class Calendar(models.Model):
     ), default=0)
     calendar_url = models.CharField(max_length=128, null=True, blank=True)
     colour = models.CharField(max_length=16, default='#000000')
+    public = models.BooleanField(default=False)
     active = models.BooleanField(default=True)
 
     def  __str__(self):
@@ -48,6 +49,7 @@ class Calendar(models.Model):
             "owner": {"id": self.owner.id},
             "calendar_type": self.calendar_type,
             "active": str(self.active),
+            "public": str(self.public),
             "colour": self.colour,
         }
 
@@ -60,6 +62,7 @@ class Calendar(models.Model):
             "owner": {"id": self.owner.id, "username": self.owner.username, "first_name": self.owner.first_name, "last_name": self.owner.last_name},
             "active": str(self.active),
             "calendar_type": self.calendar_type,
+            "public": str(self.public),
             "colour": self.colour,
             "subscribers": [i.getinfo_zip() for i in self.users_subscribed.all()],
             "invites": [i.getinfo() for i in Invite.objects.filter(calendar=self)]
