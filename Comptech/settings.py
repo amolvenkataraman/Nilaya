@@ -13,6 +13,7 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 import os
 from pathlib import Path
 from django.urls import reverse
+from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,13 +26,13 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'secret.txt')).read().rstrip()
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True # True in development, False in production
+DEBUG = False # True in development, False in production
 
 ONLINE_MODE = True # Change to False to disable all external requests
 
 ALLOWED_HOSTS = ['*']
 
-                
+
 # Application definition
 
 INSTALLED_APPS = [
@@ -46,8 +47,6 @@ INSTALLED_APPS = [
     'crispy_forms',
     'reset_migrations',
     'rest_framework',
-    #'rest_framework.authtoken',
-    'oidc_provider',
     'import_export',
 
     'users',
@@ -57,7 +56,6 @@ INSTALLED_APPS = [
 
     'chat',
     'scheduler',
-    'gamevault',
     'photos',
     'socialmedia',
 ]
@@ -69,7 +67,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
-    'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    #'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
 ROOT_URLCONF = 'Comptech.urls'
@@ -152,7 +150,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTH_USER_MODEL = 'users.ComptechUser'
 
-OIDC_USERINFO = 'Comptech.oidc_provider_settings.userinfo'
+CSRF_TRUSTED_ORIGINS = ['https://192.168.50.11', 'https://example.org', 'https://app.example.org', 'https://example.net', 'https://203.0.113.11']
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/
@@ -192,5 +190,20 @@ SESSION_COOKIE_AGE = 1209600
 
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
+
+# Celery settings
+CELERY_BROKER_URL = "redis://localhost:6379"
+CELERY_RESULT_BACKEND = "redis://localhost:6379"
+CELERY_TIMEZONE = TIME_ZONE
+CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+
+CELERY_BEAT_SCHEDULE = {
+    "autosync_calendars": {
+        "task": "scheduler.tasks.autosync_calendars",
+        "schedule": crontab(minute=0, hour=16),
+    },
+}
 
 # P@ssw0rrd

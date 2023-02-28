@@ -1,6 +1,6 @@
-body::-webkit-scrollbar {
+/* body::-webkit-scrollbar {
     display: none;
-}
+} */
 
 body {
     -ms-overflow-style: none;
@@ -9,54 +9,40 @@ body {
 
 #sidebar {
     width: 240px;
-    height: calc(100vh - 56px);
+    height: 100vh;
     background-color: lightgray;
     position: fixed;
-    top: 56px;
+    top: 0;
     padding-left: 0;
+    padding-top: 56px;
+    z-index: -1;
+    display: block;
 }
 
 #main-body  {
-    width: calc(100vw - 240px);
+    width: calc(100vw - 260px);
     position: absolute;
     top: 58px;
     right: 0;
 }
 
 #sidebar .nav-item {
-    background-color: aqua;
+    background-color: gainsboro;
     width: 240px;
-    border-top-right-radius: 20px;
-    border-bottom-right-radius: 20px;
+    border-radius: 2px;
+    margin-bottom: 5px;
+    padding: 10px;
     position: relative;
     top: 0;
 }
 
-#upload-area {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 999;
-    opacity: 0.9;
-    text-align: center;
-    line-height: 100vh;
-    visibility: hidden;
-}
-
-#upload-area-text {
-    text-align: center;
-    display: block;
-    color: white;
-    font-size: 30px;
-}
-
-#alerts {
-    position: fixed;
-    bottom: 0;
-    left: 240px;
-    padding: 20px;
+.photo-page-link, .photo-page-link:hover {
+    margin: 5px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+    text-decoration: none;
+    color: black;
+    font-size: 1.2em;
 }
 
 #main-body {
@@ -74,11 +60,31 @@ body {
     visibility: hidden;
 }
 
+.day-photos {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    overflow: hidden;
+}
+
+.day-label {
+    font-size: 1.5em;
+    font-weight: bold;
+}
+
+.list-img {
+    transition-duration: 0.3s;
+}
+
+.photo img {
+    border-radius: 5px;
+}
+
 #photo-area {
     position: fixed;
     width: 80%;
     height: 100vh;
-    background-color: lightcyan;
+    background-color: white;
 }
 
 .photo-btn {
@@ -100,10 +106,43 @@ body {
     right: 0;
 }
 
+#exit-btn {
+    position: absolute;
+    top: 20px;
+    left: 10px;
+}
+
 .image-displayed {
     height: 100vh;
     max-width: 100%;
     display: block;
     margin-left: auto;
     margin-right: auto;
+}
+
+.photo-info {
+    width: 20%;
+    height: 100vh;
+    position: absolute;
+    top: 0;
+    right: 0;
+    padding: 10px;
+}
+
+.photo-id {
+    font-weight: bold;
+}
+
+.camera-info-header {
+    font-weight: bold;
+    text-decoration: underline;
+    font-size: 1.25em;
+}
+
+#mapid {
+    width: 300px;
+    height: 300px;
+    position: absolute;
+    bottom: 20px;
+    right: 20px;
 }

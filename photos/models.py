@@ -1,29 +1,31 @@
 import uuid
 from django.db import models
 from users.models import *
-from GPSPhoto import gpsphoto
-import json
 
 # Create your models here.
-def parse_upload_path(instance, filename):
-    return f"uploads/{instance.owner.id}/{filename}"
-
 def parse_album_path(instance, filename):
     return f"photos/album/{instance.id}/{filename}"
 
 class Album(models.Model):
     name = models.CharField(max_length=64)
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='album_owner')
-    oldestdate = models.DateTimeField(null=True)
-    newestdate = models.DateTimeField(null=True)
-    picture = models.ImageField(upload_to=parse_album_path, null=True)
+    oldestdate = models.DateTimeField(null=True, blank=True)
+    newestdate = models.DateTimeField(null=True, blank=True)
+    picture = models.ImageField(upload_to=parse_album_path, null=True, blank=True)
+    location = models.CharField(max_length=128)
+    split = models.BooleanField(default=True) # Whether photos are split in different folders by year and month
+
+    def __str__(self):
+        return f"{self.name} [{self.owner.username}]"
 
 class Photo(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='photo_owner')
-    photo = models.FileField(upload_to=parse_upload_path)
-    width = models.IntegerField(null=True)
-    height = models.IntegerField(null=True)
+    album = models.ForeignKey(Album, on_delete=models.PROTECT, related_name='photo_album')
+    filepath = models.CharField(max_length=128)
+
+    width = models.IntegerField(null=True, blank=True)
+    height = models.IntegerField(null=True, blank=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     orientation = models.CharField(max_length=32)
@@ -42,28 +44,36 @@ class Photo(models.Model):
     video = models.BooleanField(default=False)
     length = models.IntegerField(null=True, blank=True)
 
-    def get_url(self):
-        return self.photo.url
-
     def get_dimensions(self):
-        return json.dumps({
+        return {
             "width": self.width,
             "height": self.height
-        })
+        }
 
     def get_gps_data(self):
-        return json.dumps({
-            "latitude": self.latitude,
-            "longitude": self.longitude
-        })
+        return {
+            "lat": self.latitude,
+            "lon": self.longitude
+        }
 
     def get_info(self):
-        return json.dumps({
+        return {
             "id": str(self.id),
-            "photo": self.photo.url,
+            "path": str(self.album.location + self.filepath),
+            "filepath": str(self.filepath),
             "width": self.width,
             "height": self.height,
-            "latitude": self.latitude,
-            "longitude": self.longitude,
-            "date_taken": str(self.date_taken)
-        })
+            "lat": self.latitude,
+            "lon": self.longitude,
+            "date_taken": str(self.date_taken),
+
+            "camera_make": self.camera_make,
+            "camera_model": self.camera_model,
+            "exposure": self.exposure,
+            "fnumber": self.fnumber,
+            "isospeed": self.isospeed,
+            "shutterspeed": self.shutterspeed,
+            "aperture": self.aperture,
+            "flash": self.flash,
+            "focallength": self.focallength
+        }

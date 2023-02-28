@@ -6,6 +6,9 @@ __pycache__
 media
 SSL
 nginx
-Tor
+photo_cache
 secret.txt
 db_password.txt
+nohup.out
+celerybeat-schedule.db
+data.json

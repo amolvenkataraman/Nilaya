@@ -5,9 +5,11 @@ from . import views, api
 urlpatterns = [
     path("", views.index, name='display_calendar'),
     path("countdown/<slug:event_id>/<slug:time>/", views.countdown, name='countdown_to_event'),
+    path("public/<slug:calendar_id>/", views.public_calendar, name='public_calendar'),
+    path("availability/<slug:username>/", views.availability, name='availability_page'),
 
     path("api/events/", api.get_events, name='get_events'),
-    path("api/todos/", api.get_todos, name='get_todos'), 
+    path("api/availability/<slug:username>/", api.get_availability, name='availability'),
     path("api/calendar/", api.calendar, name='calendar'),
     path("api/calendarevents/", api.get_calendar_events, name='get_calendar_events'),
     path("api/sync/", api.sync_events, name='sync_events'),
@@ -19,5 +21,5 @@ urlpatterns = [
     path("api/subscribe/", api.subscribe, name='subscribe'),
     path("api/unsubscribe/", api.unsubscribe, name='unsubscribe'),
     path("api/invite/", api.invite, name='invite'),
-    path("api/block/", api.get_block_status, name='get_block_status'),
+    path("block/", api.get_block_status, name='get_block_status'),
 ]

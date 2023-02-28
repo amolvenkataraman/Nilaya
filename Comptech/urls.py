@@ -27,9 +27,7 @@ urlpatterns = [
     path("calendar/", include("scheduler.urls")),
     path("photos/", include("photos.urls")),
     path("social/", include("socialmedia.urls")),
-    path("games/", include("gamevault.urls")),
 
-    re_path(r'^openid/', include('oidc_provider.urls', namespace='oidc_provider')),
     path('admin/', admin.site.urls),
 ]
 

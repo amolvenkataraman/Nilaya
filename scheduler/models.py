@@ -1,3 +1,4 @@
+from xml.etree.ElementInclude import default_loader
 from django.db import models
 from users.models import *
 
@@ -21,23 +22,24 @@ class Invite(models.Model):
         }
         return ans
 
-# class Timetable(models.Model):
-#     name = models.CharField(max_length=64)
-#     startdate = models.DateField(auto_now=False)
-#     enddate = models.DateField(auto_now=False)
-
 class Calendar(models.Model):
     name = models.CharField(max_length=64)
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='calendar_owner')
+    colour = models.CharField(max_length=16, default='#000000')
+    public = models.BooleanField(default=False)
+    active = models.BooleanField(default=True)
     calendar_type = models.PositiveSmallIntegerField(choices=(
         (0, 'Local Calendar'),
         (1, 'ICalendar'),
         (2, 'Google Calendar'),
+        (50, 'UWaterloo WCMS'),
     ), default=0)
-    calendar_url = models.CharField(max_length=128, null=True, blank=True)
-    colour = models.CharField(max_length=16, default='#000000')
-    public = models.BooleanField(default=False)
-    active = models.BooleanField(default=True)
+    calendar_url = models.CharField(max_length=256, null=True, blank=True)
+    auto_sync = models.BooleanField(default=False)
+    auto_sync_sm = models.IntegerField(null=True, blank=True)
+    auto_sync_sy = models.IntegerField(null=True, blank=True)
+    auto_sync_em = models.IntegerField(null=True, blank=True)
+    auto_sync_ey = models.IntegerField(null=True, blank=True)
 
     def  __str__(self):
         return f"{self.name}, Owner: {self.owner.username}"
@@ -81,6 +83,12 @@ class Subscriber(models.Model):
         (1, 'Admin'),
         (2, 'Subscriber'),
     ), default=2)
+    display_busy = models.PositiveSmallIntegerField(choices=(
+        (0, 'None'),
+        (1, 'Event Type Only'),
+        (2, 'All'),
+    ), default=0)
+    colour = models.CharField(max_length=16, null=True, blank=True, default=None)
     visible = models.BooleanField(default=True)
 
     def __str__(self):
@@ -128,7 +136,8 @@ class Event(models.Model):
         (6, 'Personal'),
         (7, 'Tech Break'),
         (8, 'Test / Exam'),
-        (9, 'Other'),
+        (9, 'Lecture'),
+        (100, 'Other'),
     ), default=0)
     description = models.TextField(null=True, blank=True)
     completed = models.BooleanField(default=False)
@@ -136,13 +145,13 @@ class Event(models.Model):
     priority = models.SmallIntegerField(default=10)
     repeat_every = models.IntegerField(null=True, blank=True)
     repeat_end = models.DateField(null=True, blank=True)
-    sync_id = models.CharField(max_length=64, null=True, blank=True)
+    sync_id = models.CharField(max_length=256, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} for {self.calendar.name}. From {str(self.startdate)} to {str(self.enddate)}"
 
     def getinfo(self):
-        ans = {
+        return {
             "id": str(self.id),
             "calendar": self.calendar.id,
             "name": self.name,
@@ -158,7 +167,21 @@ class Event(models.Model):
             "repeat_end": self.repeat_end,
             "sync_id": self.sync_id,
         }
-        return ans
+
+    def getinfo_homepage(self):
+        return {
+            "id": str(self.id),
+            "calendar": self.calendar.id,
+            "colour": self.calendar.colour,
+            "name": self.name,
+            "startdate": str(self.startdate),
+            "enddate": str(self.enddate),
+            "allday": self.allday,
+            "category": self.category,
+            "priority": self.priority,
+            "repeat_every": self.repeat_every,
+            "repeat_end": self.repeat_end,
+        }
 
 class Todo(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
@@ -174,7 +197,7 @@ class Todo(models.Model):
         return f"{self.name} for {self.user.username}."
 
     def getinfo(self):
-        ans = {
+        return {
             "id": str(self.id),
             "user": self.user.id,
             "name": self.name,
@@ -184,4 +207,3 @@ class Todo(models.Model):
             "recurring": str(self.recurring),
             "completion": str(self.completiondate),
         }
-        return ans

@@ -1,150 +1,106 @@
 from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse, FileResponse
 from django.contrib.auth.decorators import login_required
+from django.utils import timezone
 from .models import *
+from scheduler.models import *
+from Comptech.settings import BASE_DIR, TIME_ZONE
 
-import exifread
 from PIL import Image, ExifTags, ImageOps
-from PIL.ExifTags import TAGS, GPSTAGS
-from GPSPhoto import gpsphoto
+from Comptech.utils import *
 import datetime
 import dateparser
+import pytz
 
 # Create your views here.
-@login_required(login_url="/users/login")
+@login_required
 def photos(request):
-    try:
-        context = {
-            'newest': Photo.objects.filter(owner=request.user).order_by('date_taken').reverse()[0].date_taken.date()
-        }
-    except IndexError:
-        context = {
-            'newest': None
-        }
-    return render(request, 'photo/photos.html', context)
+    rd = request.GET.get('date')
+    if rd == None:
+        try:
+            if (request.GET.get('north') and request.GET.get('south') and request.GET.get('east') and request.GET.get('west')):
+                bounds = {"north": request.GET.get('north'), "south": request.GET.get('south'), "east": request.GET.get('east'), "west": request.GET.get('west')}
+                newest = timezone.localtime(Photo.objects.filter(owner=request.user, latitude__lte=request.GET.get('north'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east')).order_by('date_taken').reverse()[0].date_taken, pytz.timezone(TIME_ZONE)).date()
+            else:
+                bounds = None
+                newest = timezone.localtime(Photo.objects.filter(owner=request.user).order_by('date_taken').reverse()[0].date_taken, pytz.timezone(TIME_ZONE)).date()
+        except IndexError: newest = None
+    else:
+        newest = dateparser.parse(request.GET.get('date')).date()
+        bounds = None
 
+    return render(request, 'photos/photos.html', { 'newest': newest, 'forward': request.GET.get('forward') == '1', 'bounds': bounds })
+
+@login_required
+def map(request):
+    return render(request, 'photos/map.html', { 'coords': [[i.latitude, i.longitude] for i in Photo.objects.filter(owner=request.user, latitude__isnull=False, longitude__isnull=False).exclude(latitude=0, longitude=0)] })
+
+@login_required
+def day(request, year, month, day):
+    context = {'photos':
+        [i.get_info() for i in Photo.objects.filter(owner=request.user, date_taken__date=datetime.datetime.strptime(f"{year}-{month}-{day}", "%Y-%m-%d").date()).order_by('date_taken')]
+    }
+    return render(request, 'photos/day.html', context)
+
+@login_required
+def event(request, event_id):
+    try:
+        e = Event.objects.filter(id=event_id)[0]
+
+        if e.enddate == None: return error_response("Event is not bounded on the end time.")
+        context = { 'photos': [i.get_info() for i in Photo.objects.filter(owner=request.user, date_taken__gte=e.startdate, date_taken__lte=e.enddate).order_by('date_taken')] }
+        return render(request, 'photos/day.html', context)
+    except IndexError: return error_response("Invalid event")
+
+@login_required_api
+def month_stats(request, year, month):
+    pl = [timezone.localtime(i.date_taken, pytz.timezone(TIME_ZONE)).day for i in Photo.objects.filter(owner=request.user, date_taken__month=month, date_taken__year=year)]
+    ans = {i:pl.count(i) for i in pl}
+    return JsonResponse(ans)
+
+@login_required_api
 def get_photos_for_date(request):
-    return JsonResponse({'photos': 
-        [i.get_info() for i in Photo.objects.filter(owner=request.user, date_taken__date=dateparser.parse(request.GET.get('date')).date()).order_by('date_taken')]
+    ord = 'date_taken' if request.GET.get('forward') == '1' else '-date_taken'
+    if (request.GET.get('north') and request.GET.get('south') and request.GET.get('east') and request.GET.get('west')):
+        photos = Photo.objects.filter(owner=request.user, date_taken__date=dateparser.parse(request.GET.get('date')).date(),
+            latitude__gte=request.GET.get('south'), latitude__lte=request.GET.get('north'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east'))
+
+        if request.GET.get('forward') == '1':
+            nphoto = Photo.objects.filter(owner=request.user, date_taken__date=dateparser.parse(request.GET.get('date')).date(),
+                latitude__gte=request.GET.get('south'), latitude__lte=request.GET.get('north'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east'))
+
+        else:
+            nphoto = Photo.objects.filter(owner=request.user, date_taken__date=dateparser.parse(request.GET.get('date')).date(),
+                latitude__gte=request.GET.get('south'), latitude__lte=request.GET.get('north'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east'))
+
+    else:
+        photos = Photo.objects.filter(owner=request.user, date_taken__date=dateparser.parse(request.GET.get('date')).date())
+    return JsonResponse({'photos':
+        [i.get_info() for i in photos.order_by(ord)]
     })
 
-def get_photo(request):
-    photo_id = request.GET.get("id")
-    type_ = request.GET.get("type")
-    if photo_id != None and type_ != None:
-        try:
-            photo = Photo.objects.filter(id=photo_id)[0]
-            response = HttpResponse(content_type='image/jpeg')
-            img = Image.open(photo.photo.path)
-            img = ImageOps.exif_transpose(img)
+@login_required_api
+def get_photo(request, photo_id, ret_type):
+    try:
+        photo = Photo.objects.filter(id=photo_id)[0]
 
-            if type_ == 'thumbnail':
-                img.thumbnail((500, 200), Image.ANTIALIAS)
+        if photo.album.owner == request.user or request.user.is_superuser:
+            if ret_type == "info":
+                return JsonResponse(photo.get_info())
+            elif ret_type == "thumbnail":
+                response = HttpResponse(content_type='image/jpeg')
+                response['X-Accel-Redirect'] = f"/thumbnail/{photo.id}.jpg"
+                response['Content-Disposition'] = f'attachment; filename="{BASE_DIR}photo_cache/thumbnail/{photo.id}.jpg"'
+                return response
+            elif ret_type == "image":
+                response = HttpResponse(content_type='image/jpeg')
+                img = Image.open(photo.album.location + photo.filepath)
+                img = ImageOps.exif_transpose(img)
                 img.save(response, "JPEG")
                 return response
-        except IndexError:
-            return HttpResponse("")
-
-def upload_photo(request):
-    if request.method == 'POST':
-        if request.user.is_authenticated:
-            try:
-                _ = Photo(owner=request.user)
-                _.photo = request.FILES['photo']
-                _.save()
-
-                filepath = _.photo.path
-                image = Image.open(_.photo.path)
-
-                _.width = image.size[0]
-                _.height = image.size[1]
-
-                try:
-                    gpsdata = gpsphoto.getGPSData(filepath)
-                    _.latitude = gpsdata['Latitude']
-                    _.longitude = gpsdata['Longitude']
-                except ValueError:
-                    pass
-                except IndexError:
-                    pass
-                except KeyError:
-                    pass
-
-                exif = image._getexif()
-
-                if exif is not None:
-                    exif1 = {}
-                    for key, value in exif.items():
-                        name = TAGS.get(key, key)
-                        exif1[name] = exif[key]
-
-
-                try:
-                    datetaken = datetime.datetime.strptime(exif['DateTime'], "%Y:%m:%d %H:%M:%S")
-                except KeyError:
-                    try:
-                        datetaken = datetime.datetime.strptime(exif['DateTimeOriginal'], "%Y:%m:%d %H:%M:%S")
-                    except KeyError:
-                        try:
-                            datetaken = datetime.datetime.strptime(exif['DateTimeDigitized'], "%Y:%m:%d %H:%M:%S")
-                        except KeyError:
-                            pass
-                except TypeError:
-                    pass
-                except IndexError:
-                    pass
-
-                try:
-                    _.date_taken = datetaken
-                except UnboundLocalError:
-                    _.date_taken = datetime.datetime.now()
-                
-                
-                try:
-                    try:
-                        _.camera_make = exif['Make']
-                    except KeyError:
-                        pass
-                    try:
-                        _.camera_model = exif['Model']
-                    except KeyError:
-                        pass
-                    try:
-                        _.exposure = exif['ExposureTime']
-                    except KeyError:
-                        pass
-                    try:
-                        _.fnumber = exif['FNumber']
-                    except KeyError:
-                        pass
-                    try:
-                        _.isospeed = exif['ISOSpeedRatings']
-                    except KeyError:
-                        pass
-                    try:
-                        _.shutterspeed = exif['ShutterSpeedValue']
-                    except KeyError:
-                        pass
-                    try:
-                        _.aperture = exif['ApertureValue']
-                    except KeyError:
-                        pass
-                    try:
-                        _.flash = exif['Flash']
-                    except KeyError:
-                        pass
-                    try:
-                        _.focallength = exif['FocalLength']
-                    except KeyError:
-                        pass
-                except TypeError:
-                    pass
-
-                _.save()
-
-                return JsonResponse({'status': 'success', 'data': 'Photos uploaded successfully'})
-
-            except IndexError:
-                return JsonResponse({'status': 'error', 'data': 'No file provided'})
+            else:
+                return error_response("Invalid return type")
         else:
-            return JsonResponse({'status': 'error', 'data': 'Not authenticated'})
+            return error_response("Not authorized", 401)
+    except:
+        return error_response("Invalid photo")

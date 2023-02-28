@@ -77,9 +77,7 @@ Countdown to {{ se }} of {{ event.name }}
     </div>
     <div>
         Event Info:
-        Name: {{ event.name }},
-        Calendar: {{ event.calendar.name }}
-        Created By: {{ event.calendar.owner.first_name }} {{ event.calendar.owner.last_name }} ({{ event.calendar.owner.username }})
+        Name: {{ event.name }}
     </div>
     {{ time }}
     <!--{{ event }}-->
@@ -88,7 +86,7 @@ Countdown to {{ se }} of {{ event.name }}
 
 <script>
     function updateTime() {
-        var countdownDate = new Date("{{ time }}").getTime();
+        var countdownDate = new Date("{{ time.isoformat }}").getTime();
         var timeNow = new Date().getTime();
         var dist = countdownDate - timeNow;
         if (dist < 0) {

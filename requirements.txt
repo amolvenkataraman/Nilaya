@@ -13,3 +13,4 @@ dateparser
 whitenoise
 Pillow
 bleach
+ics

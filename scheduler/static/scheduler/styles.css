@@ -43,8 +43,6 @@
 
 .sidebar-footer {
   font-size: 14px;
-  position: absolute;
-  bottom: 5px;
   width: 240px;
 }
 
@@ -158,20 +156,13 @@
   border-bottom: 0px!important;
 }
 
-.page-title {
-  margin: 50px 50px 50px 50px;
-}
-
-.page-subheading {
-  margin: 10px 10px 30px 50px;
-}
-
-.settings-group {
-  margin: 0px 0px 0px 50px;
-}
-
-.settings-select {
-  width: 250px;
+.day-images-btn {
+  position: absolute;
+  left: 5px;
+  bottom: 5px;
+  cursor: pointer;
+  border-bottom: 0px!important;
+  color: black;
 }
 
 .sticky-bottom {
@@ -323,7 +314,43 @@
 }
 
 
+@media print {
+  .noprint {
+    display: none;
+  }
+}
 
+.month-picker {
+  background: #1abc9c!important;
+  border: 0!important;
+  font-size: 1.5em;
+  font-weight: bold;
+  margin: 0!important;
+  padding: 0!important;
+}
+
+.month-picker option {
+  font-size: 0.5em!important;
+  font-weight: 400;
+}
+
+.my-selector-container {
+  margin-left: 20px;
+  display: flex;
+}
+
+#month {
+  width: 200px;
+}
+
+#year {
+  width: 150px;
+}
+
+.other-calendar-options {
+  position: absolute;
+  bottom: 0;
+}
 
 
 /* .day-list-f, .day-list-f td {

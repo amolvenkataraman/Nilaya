@@ -1,28 +1,32 @@
 // Comptech Calendar (Docket) main script
-// (c) Amol Venkataraman 2019 - 2022
+// (c) Amol Venkataraman 2019 - 2023
 
 // Handlebars Templates
 // =======================================================================================================================================================================
 const calendar_item = Handlebars.compile(`
-    <div class="event-button" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type = "{{ type }}" {{#if modal}}data-bs-toggle="modal" data-bs-target="#modal" {{/if}}style="font-size: 12px; color: {{ color }}; background-color: {{ bg_color }}; border-radius: {{ bo_radius }}; margin-bottom: 2px;" {{#if modal}}onclick="display_info(this)"{{/if}}><span class="event-icon">{{{ icon }}}</span>{{#if del}}<del>{{/if}}{{{ text }}}{{#if del}}</div>{{/if}}</div>
+    <div class="event-button" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type = "{{ type }}" {{#if modal}}data-bs-toggle="modal" data-bs-target="#modal" {{/if}}style="font-size: 12px; color: {{ color }}; background-color: {{ bg_color }}; border-radius: {{ bo_radius }}; margin-bottom: 2px; @media print { color: {{ color }}; }" {{#if modal}}onclick="display_info(this)"{{/if}}><span class="event-icon">{{{ icon }}}</span>{{#if del}}<del>{{/if}}{{{ text }}}{{#if del}}</div>{{/if}}</div>
 `);
 
-const todo_item = Handlebars.compile(`
+const todo_item = Handlebars.compile(`  
     <div class="card mb-1">
-    <div class="card-body" data-todo-id="{{ id }}">
-        <h6 class="card-title">{{{ name }}}</h6>
-        <span class="text-primary" style="cursor: pointer;" onclick="complete_todo(this.parentElement);">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check2-square" viewBox="0 0 16 16">
-                <path d="M3 14.5A1.5 1.5 0 0 1 1.5 13V3A1.5 1.5 0 0 1 3 1.5h8a.5.5 0 0 1 0 1H3a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5V8a.5.5 0 0 1 1 0v5a1.5 1.5 0 0 1-1.5 1.5H3z"/>
-                <path d="m8.354 10.354 7-7a.5.5 0 0 0-.708-.708L8 9.293 5.354 6.646a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0z"/>
-            </svg>
-        </span>
-        <a class="card-link" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#modal" onclick="add_edit_todo(command='edit', edit_todo={{ i }});">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">
-                <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
-            </svg>
-        </a>
-    </div>
+        <div class="card-body" data-todo-id="{{ id }}" style="padding: 8px;">
+            <span class="card-title">
+                <span>
+                    <span class="text-primary" style="cursor: pointer;" onclick="complete_todo('{{ id }}');">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check2-square" viewBox="0 0 16 16">
+                            <path d="M3 14.5A1.5 1.5 0 0 1 1.5 13V3A1.5 1.5 0 0 1 3 1.5h8a.5.5 0 0 1 0 1H3a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5V8a.5.5 0 0 1 1 0v5a1.5 1.5 0 0 1-1.5 1.5H3z"/>
+                            <path d="m8.354 10.354 7-7a.5.5 0 0 0-.708-.708L8 9.293 5.354 6.646a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0z"/>
+                        </svg>
+                    </span>
+                    <span class="text-primary" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#modal" onclick="add_edit_todo(command='edit', edit_todo={{ i }});">
+                        <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-three-dots-vertical" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                            <path fill-rule="evenodd" d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"></path>
+                        </svg>
+                    </span>
+                </span>
+                <span>{{{ name }}}</span>
+            </span>
+        </div>
     </div>
 `);
 
@@ -214,6 +218,12 @@ const event_info_template = Handlebars.compile(`
                     <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
                 </svg>
             </button>
+            <button type="button" class="btn btn-primary" onclick="$('#modal').modal('hide'); $('#big-modal').modal('show'); view_event_images(data['events']['{{ event_no }}'])">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-camera" viewBox="0 0 16 16">
+                    <path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1v6zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2z"/>
+                    <path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/>
+                </svg>
+            </button>
         </div>
         <div class="input-group input-group-sm" style="width: 50%;">
             <input type="number" id="evDupDays" class="form-control" value="1"/>
@@ -361,29 +371,34 @@ var ICONS = [
     `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-projector" viewBox="0 0 16 16">
         <path d="M14 7.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM2.5 6a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1h-4Zm0 2a.5.5 0 0 0 0 1h4a.5.5 0 0 0 0-1h-4Z"/>
         <path fill-rule="evenodd" d="M0 6a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2 1 1 0 0 1-1 1h-1a1 1 0 0 1-1-1H5a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1 2 2 0 0 1-2-2V6Zm2-1h12a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/>
-    </svg>&nbsp`,
+    </svg>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-person-workspace" viewBox="0 0 16 16">
         <path d="M4 16s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H4Zm4-5.95a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
         <path d="M2 1a2 2 0 0 0-2 2v9.5A1.5 1.5 0 0 0 1.5 14h.653a5.373 5.373 0 0 1 1.066-2H1V3a1 1 0 0 1 1-1h12a1 1 0 0 1 1 1v9h-2.219c.554.654.89 1.373 1.066 2h.653a1.5 1.5 0 0 0 1.5-1.5V3a2 2 0 0 0-2-2H2Z"/>
-    </svg>&nbsp`,
+    </svg>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-hourglass-split" viewBox="0 0 16 16">
         <path d="M2.5 15a.5.5 0 1 1 0-1h1v-1a4.5 4.5 0 0 1 2.557-4.06c.29-.139.443-.377.443-.59v-.7c0-.213-.154-.451-.443-.59A4.5 4.5 0 0 1 3.5 3V2h-1a.5.5 0 0 1 0-1h11a.5.5 0 0 1 0 1h-1v1a4.5 4.5 0 0 1-2.557 4.06c-.29.139-.443.377-.443.59v.7c0 .213.154.451.443.59A4.5 4.5 0 0 1 12.5 13v1h1a.5.5 0 0 1 0 1h-11zm2-13v1c0 .537.12 1.045.337 1.5h6.326c.216-.455.337-.963.337-1.5V2h-7zm3 6.35c0 .701-.478 1.236-1.011 1.492A3.5 3.5 0 0 0 4.5 13s.866-1.299 3-1.48V8.35zm1 0v3.17c2.134.181 3 1.48 3 1.48a3.5 3.5 0 0 0-1.989-3.158C8.978 9.586 8.5 9.052 8.5 8.351z"/>
-    </svg>&nbsp`,
+    </svg>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">
         <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
-    </svg>&nbsp`,
+    </svg>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-briefcase" viewBox="0 0 16 16">
         <path d="M6.5 1A1.5 1.5 0 0 0 5 2.5V3H1.5A1.5 1.5 0 0 0 0 4.5v8A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-8A1.5 1.5 0 0 0 14.5 3H11v-.5A1.5 1.5 0 0 0 9.5 1h-3zm0 1h3a.5.5 0 0 1 .5.5V3H6v-.5a.5.5 0 0 1 .5-.5zm1.886 6.914L15 7.151V12.5a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5V7.15l6.614 1.764a1.5 1.5 0 0 0 .772 0zM1.5 4h13a.5.5 0 0 1 .5.5v1.616L8.129 7.948a.5.5 0 0 1-.258 0L1 6.116V4.5a.5.5 0 0 1 .5-.5z"/>
-    </svg>&nbsp`,
+    </svg>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-emoji-smile" viewBox="0 0 16 16">
         <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
         <path d="M4.285 9.567a.5.5 0 0 1 .683.183A3.498 3.498 0 0 0 8 11.5a3.498 3.498 0 0 0 3.032-1.75.5.5 0 1 1 .866.5A4.498 4.498 0 0 1 8 12.5a4.498 4.498 0 0 1-3.898-2.25.5.5 0 0 1 .183-.683zM7 6.5C7 7.328 6.552 8 6 8s-1-.672-1-1.5S5.448 5 6 5s1 .672 1 1.5zm4 0c0 .828-.448 1.5-1 1.5s-1-.672-1-1.5S9.448 5 10 5s1 .672 1 1.5z"/>
-    </svg>&nbsp`,
+    </svg>`,
     `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-tree" viewBox="0 0 16 16">
         <path d="M8.416.223a.5.5 0 0 0-.832 0l-3 4.5A.5.5 0 0 0 5 5.5h.098L3.076 8.735A.5.5 0 0 0 3.5 9.5h.191l-1.638 3.276a.5.5 0 0 0 .447.724H7V16h2v-2.5h4.5a.5.5 0 0 0 .447-.724L12.31 9.5h.191a.5.5 0 0 0 .424-.765L10.902 5.5H11a.5.5 0 0 0 .416-.777l-3-4.5zM6.437 4.758A.5.5 0 0 0 6 4.5h-.066L8 1.401 10.066 4.5H10a.5.5 0 0 0-.424.765L11.598 8.5H11.5a.5.5 0 0 0-.447.724L12.69 12.5H3.309l1.638-3.276A.5.5 0 0 0 4.5 8.5h-.098l2.022-3.235a.5.5 0 0 0 .013-.507z"/>
-    </svg>&nbsp`,
-    `⚠`,
-    ""
+    </svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-exclamation-triangle" viewBox="0 0 16 16">
+        <path d="M7.938 2.016A.13.13 0 0 1 8.002 2a.13.13 0 0 1 .063.016.146.146 0 0 1 .054.057l6.857 11.667c.036.06.035.124.002.183a.163.163 0 0 1-.054.06.116.116 0 0 1-.066.017H1.146a.115.115 0 0 1-.066-.017.163.163 0 0 1-.054-.06.176.176 0 0 1 .002-.183L7.884 2.073a.147.147 0 0 1 .054-.057zm1.044-.45a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566z"/>
+        <path d="M7.002 12a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 5.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995z"/>
+    </svg>`,
+    `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-easel3" viewBox="0 0 16 16">
+        <path fill-rule="evenodd" d="M8.5 13.134V12h5a1.5 1.5 0 0 0 1.5-1.5V2h.5a.5.5 0 0 0 0-1H.5a.5.5 0 0 0 0 1H1v8.5A1.5 1.5 0 0 0 2.5 12h5v1.134a1 1 0 1 0 1 0ZM2 2v8.5a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5V2H2Z"/>
+    </svg>`
 ];
 
 var TASK_ICON = `
@@ -399,7 +414,7 @@ if ('speechSynthesis' in window) {
     var speech_synthesis = new SpeechSynthesisUtterance();
 }
 
-//navigator.registerProtocolHandler("webcal", "https://example.org/calendar/?import_id=%s","Calendar");
+//navigator.registerProtocolHandler("webcal", "https://app.example.org/calendar/?import_id=%s","Calendar");
 
 document.addEventListener('DOMContentLoaded', () => {
     make_holidays_red();
@@ -411,6 +426,25 @@ document.addEventListener('DOMContentLoaded', () => {
     populate_calendar(m, y);
 
     setTimeout(tick, 1000);
+
+    document.querySelector('#toggle-l-sidebar').onclick = function() {
+        sb = document.querySelector('.sidebar-left');
+        if (sb.style.display == 'none') {
+            sb.style.display = 'block';
+        }
+        else {
+            sb.style.display = 'none';   
+        }
+    }
+    document.querySelector('#toggle-r-sidebar').onclick = function() {
+        sb = document.querySelector('.sidebar-right');
+        if (sb.style.display == 'none') {
+            sb.style.display = 'block';
+        }
+        else {
+            sb.style.display = 'none';   
+        }
+    }
 })
 
 
@@ -431,7 +465,7 @@ var selectYear = document.getElementById("year");
 var selectMonth = document.getElementById("month");
 
 
-var createYear = generate_year_range(currentYear - 5, currentYear + 5);
+var createYear = generate_year_range(2004, currentYear + 5);
 
 document.getElementById("year").innerHTML = createYear;
 
@@ -452,7 +486,6 @@ document.getElementById("thead-month").innerHTML = dayHeader;
 
 monthAndYear = document.getElementById("monthAndYear");
 showCalendar(currentMonth, currentYear);
-
 
 
 function next() {
@@ -478,10 +511,8 @@ function showCalendar(month, year) {
     var firstDay = ( new Date( year, month ) ).getDay();
 
     tbl = document.getElementById("calendar-body");
-
     
     tbl.innerHTML = "";
-
     
     monthAndYear.innerHTML = months[month] + " " + year;
     selectYear.value = year;
@@ -501,7 +532,8 @@ function showCalendar(month, year) {
                 cell.appendChild(cellText);
                 cell.className = `date-picker-dead`;
                 row.appendChild(cell);
-            } else if (date > daysInMonth(month, year)) {
+            }
+            else if (date > daysInMonth(month, year)) {
                 if (row.innerHTML != "") {
                     cell = document.createElement( "td" );
                     cellText = document.createTextNode("");
@@ -509,7 +541,8 @@ function showCalendar(month, year) {
                     cell.className = `date-picker-dead`;
                     row.appendChild(cell);
                 }
-            } else {
+            }
+            else {
                 cell = document.createElement("td");
                 cell.setAttribute("data-date", date);
                 cell.setAttribute("data-month", month + 1);
@@ -521,7 +554,8 @@ function showCalendar(month, year) {
                     <div class='date-span' data-bs-toggle='modal' data-bs-target='#big-modal' onclick="display_day_info(this)"><span data-bs-toggle='modal' data-bs-target='#big-modal' onclick="display_day_info(this.parentElement)">${date}</span></div>
                     <div class='day-events day-events-${date}'></div>
                     <div class='reg-events reg-events-${date}'></div>
-                    <span class="badge add-on-day-btn" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="add_edit_event(this.parentElement.dataset.date)">+</span>
+                    <span class="badge add-on-day-btn" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="add_edit_event(${date})">+</span>
+                    <span class="badge day-images-btn day-images-btn-${date}" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="view_day_images(${date})">-</span>
                 `
 
                 if ( date === today.getDate() && year === today.getFullYear() && month === today.getMonth() ) {
@@ -561,8 +595,8 @@ function set_localstorage() {
 }
 
 function set_display() {
-    if (localStorage.getItem('calendar_show_todos') == 1) { document.getElementById('displayBirthdaysCb').checked = true; }
-    else { document.getElementById('displayBirthdaysCb').checked = false; }
+    if (localStorage.getItem('calendar_show_todos') == 1) { document.getElementById('displayTodosCb').checked = true; }
+    else { document.getElementById('displayTodosCb').checked = false; }
     if (localStorage.getItem('calendar_show_birthdays') == 1) { document.getElementById('displayBirthdaysCb').checked = true; }
     else { document.getElementById('displayBirthdaysCb').checked = false; }
 }
@@ -572,6 +606,8 @@ function change_display() {
     else { localStorage.setItem('calendar_show_birthdays', 0); }
     if (document.getElementById('displayTodosCb').checked) { localStorage.setItem('calendar_show_todos', 1); }
     else { localStorage.setItem('calendar_show_todos', 0); }
+    if (document.getElementById('displayAllCb').checked) { localStorage.setItem('calendar_show_all', 1); }
+    else { localStorage.setItem('calendar_show_all', 0); }
     reload();
     reload_calendar();
 }
@@ -606,34 +642,53 @@ function tick() {
         if (ss_available) {speech_synthesis.text = `Tomorrow is ${moment().add(1, 'days').format("dddd, MMMM Do YYYY")}. Your events tomorrow are: `}
         if (today.getDate != daysInMonth(m, y))
         {
+            is_ev = false;
             for (ev of events["allday"][parseInt(moment().add(1, 'days').format("DD"))]) {
-                if (ss_available) {speech_synthesis.text += `${ev['name']} all day, `}
+                if (ss_available) { speech_synthesis.text += `${ev['name']} all day, `; }
+                is_ev = true;
             }
             for (ev of events["events"][parseInt(moment().add(1, 'days').format("DD"))]) {
-                if (ev['enddate'] == "None") {sst = `${ev['name']} at ${ev['startdate']}, `}
-                else {sst = `${ev['name']} from ${ev['startdate']} to ${ev['enddate']}, `}
-                if (ss_available) {speech_synthesis.text += sst}
+                if (ev['enddate'] == "None") {sst = `${ev['name']} at ${moment(ev['startdate']).format('LT')}, `}
+                else {sst = `${ev['name']} from ${moment(ev['startdate']).format('LT')} to ${moment(ev['enddate']).format('LT')}, `}
+                if (ss_available) { speech_synthesis.text += sst; }
+                is_ev = true;
+            }
+
+            if (is_ev == false) {
+                if (ss_available) { speech_synthesis.text += "There are no events tomorrow."; }
             }
         }
 
         if (ss_available) {setTimeout(function() {window.speechSynthesis.speak(speech_synthesis);}, 3000)}
     }
     if (moment().format("ss") == "00") {
+        is_ev = false;
+        if (ss_available) { speech_synthesis.text = ""; }
         for (time of [0, 5, 15, 30]) {
             d1 = moment().add(time, 'minutes')
             try {
                 for (ev of events["events"][parseInt(d1.format("DD"))]) {
-                    ed_ = moment(new Date(event["startdate"]));
+                    ed_ = moment(new Date(ev["startdate"]));
                     if ((ed_.format("HH") == d1.format("HH")) && (ed_.format("mm") == d1.format("mm"))) {
-                        notification.play()
                         if (ss_available) {
-                            speech_synthesis.text = `${ev["name"]} is in ${time} minutes.`;
-                            window.speechSynthesis.speak(speech_synthesis);
+                            if (time == 0) {
+                                speech_synthesis.text += `${ev["name"]} is starting now, `;
+                            }
+                            else {
+                                speech_synthesis.text += `${ev["name"]} is starting in ${time} minutes, `;
+                            }
                         }
                     }
                 }
             }
             catch {}
+        }
+
+        if (is_ev) {
+            notification.play();
+            if (ss_available) {
+                setTimeout(function() { window.speechSynthesis.speak(speech_synthesis); }, 500);
+            }
         }
     }
     setTimeout(tick, 1000)
@@ -657,10 +712,13 @@ function add_edit_event(date, month=m+1, year=y, command="add", edit_event=null)
     });
 
     i = 0;
-    for (cat of ['Uncategorized', 'Meeting', 'Focus Time', 'Break Time', 'Study', 'Work', 'Personal', 'Tech Break', 'Test / Exam', 'Other']) {
+    for (cat of ['Uncategorized', 'Meeting', 'Focus Time', 'Break Time', 'Study', 'Work', 'Personal', 'Tech Break', 'Test / Exam', 'Lecture',  'Other']) {
         option = document.createElement('option');
         option.text = cat;
         option.value = i;
+        if (option.text == 'Other') {
+            option.value = 100;
+        }
         document.querySelector('.form-category-input-1').add(option);
         i++;
     }
@@ -755,6 +813,13 @@ function add_edit_event(date, month=m+1, year=y, command="add", edit_event=null)
             result["end"] = `${$('.event-date-end-event').val()} ${$('.event-time-end-event').val()}`;
         }
 
+        if (curreventtype != "ade") {
+            result['start'] = new Date(result['start'])
+        }
+        if (curreventtype == "assignment") {
+            result['end'] = new Date(result['end'])
+        }
+
         r = new XMLHttpRequest();
         r.open("POST", URLS['create_edit_event']);
         r.setRequestHeader("X-CSRFToken", CSRF_TOKEN);
@@ -777,7 +842,7 @@ function add_edit_todo( command="add", edit_todo=null) {
     $('.modal-body').html(todo_create_template({'i': '1'}))
 
     if (command == "edit") {
-        et = todos[edit_todo];
+        et = data["todos"][edit_todo];
         $('.modal-title').html(`Edit ${et["name"]}`)
         $('.todo-name-input-1').val(et["name"]);
         $('#todo-description-input').val(et["description"]);
@@ -941,33 +1006,97 @@ function display_day_info(ds) {
 
                     </tbody>
                 </table>
+
+                <style>
+                    .day-list .day-list-f {
+                        border: 1px solid #e2e2e2;
+                    }
+
+                    .day-list-f td {
+                        border-right: 1px solid #e2e2e2;
+                    }
+
+                    .day-list-f {
+                        height: 20px;
+                    }
+
+                    .day-list-events {
+                        width: 15%;
+                    }
+
+                    .day-list-time {
+                        width: 10%;
+                    }
+                </style>
             `);
 
-            for(i=0;i<48;i++) {
-                d__ = moment(new Date(`${dp.dataset.year} ${dp.dataset.month} ${dpd}`)).add(30 * i, "m").toDate()
+            cols = {};
+
+            for(i = 0; i < 96; i++) {
+                d__ = moment(new Date(`${dp.dataset.year} ${dp.dataset.month} ${dpd}`)).add(15 * i, "m").toDate()
+                if (d__.getMinutes() == 0) { lbl = moment(d__).format('LT'); }
+                else { lbl = ""; }
+
                 $('.day-list-tb').append(`
-                    <tr class="day-list-f day-list-${d__.getHours()}-${(d__.getMinutes() + '').padStart(2, "0")}">
-                        <td>
-                            ${(d__.getHours() + '').padStart(2, "0")}:${(d__.getMinutes() + '').padStart(2, "0")}
+                    <tr class="day-list-f day-list-${d__.getHours()}-${(String(d__.getMinutes())).padStart(2, "0")}">
+                        <td class="day-list-time">
+                            ${lbl}
                         </td>
-                        <td class="day-list-events-1">
+                        <td class="day-list-events day-list-events-1">
+                            
+                        </td>
+                        <td class="day-list-events day-list-events-2">
+                            
+                        </td>
+                        <td class="day-list-events day-list-events-3">
+                            
+                        </td>
+                        <td class="day-list-events day-list-events-4">
+                            
+                        </td>
+                        <td class="day-list-events day-list-events-5">
                             
                         </td>
                     </tr>
                     <br>
                 `)
+
+                cols[`${d__.getHours()}-${(String(d__.getMinutes())).padStart(2, "0")}`] = [0, 0, 0, 0, 0]
             }
 
-            //console.log(events["events"][dpd])
-            //console.log(events["allday"][dpd])
             for (ev of events["events"][dpd]) {
-                console.log(ev["name"]);
-                evd = new Date(ev["startdate"]);
-                document.querySelector(`.day-list-${evd.getHours()}-00`).querySelector('.day-list-events-1').innerHTML += ev["name"] + "<br>";
+                evd = roundDate(new Date(ev["startdate"]), 15);
+                evt = `${evd.getHours()}-${String(evd.getMinutes()).padStart(2, "0")}`
+                cr = document.querySelector(`.day-list-${evt}`);
+
+                col = 5;
+                for (c = 0; c < 5; c++) {
+                    if (cols[evt][c] == 0) {
+                        col = c + 1;
+                        cols[evt][c] = 1;
+                        break;
+                    }
+                }
+
+                cr.querySelector(`.day-list-events-${col}`).innerHTML += ev["name"] + "<br>";
+                cr.querySelector(`.day-list-events-${col}`).style.backgroundColor = calendars[ev["calendar"]]["colour"];
+                document.querySelector(`.day-list-${evt}`).style.borderBottom = "0";
+
                 if (ev["enddate"] != "None")
                 {
-                    evd1 = new Date(ev["enddate"]);
-                    document.querySelector(`.day-list-${evd1.getHours()}-00`).querySelector('.day-list-events-1').innerHTML += "END " + ev["name"] + "<br>";
+                    evd1 = roundDate(new Date(ev["enddate"]), 15);
+                    for (i = evd.valueOf(); i < evd1.valueOf(); i += 1000 * 60 * 15) {
+                        evd2 = new Date(i);
+                        evt1 = `${evd2.getHours()}-${String(evd2.getMinutes()).padStart(2, "0")}`
+                        cr = document.querySelector(`.day-list-${evt1}`);
+                        cc = cr.querySelector(`.day-list-events-${col}`);
+                        cc.style.backgroundColor = calendars[ev["calendar"]]["colour"]
+                        cr.style.borderTop = "0";
+                        cr.style.borderBottom = "0";
+                        
+                        cols[evt1][col - 1] = 1;
+                    }
+                    cc.style.borderBottom = "1px solid #e2e2e2";
                 }
             }
         }, 100)
@@ -1035,7 +1164,12 @@ function reload_calendar() {
         sd = new Date(e[i]['startdate'])
         ed = new Date(e[i]['enddate'])
 
-        icon = ICONS[e[i]['category']];
+        if (e[i]['category'] == 100) {
+            icon = "";
+        }
+        else {
+            icon = ICONS[e[i]['category']] + "&nbsp";
+        }
 
         if (e[i]['enddate'] == 'None') {
             dp = document.querySelector(`.reg-events-${sd.getDate()}`)
@@ -1123,10 +1257,10 @@ function reload_calendar() {
             else { overdue = "0"; }
 
             if (localStorage.getItem("calendar_show_todos") == 1) {
-                if (cd.getMonth() == m) {
+                if (cd.getMonth() == m && cd.getFullYear() == y) {
                     j = cd.getDate();
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': false, 'calendar': [], 'i': num, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'text': `${TASK_ICON} ${todo.name}`});
+                    var ci = calendar_item({'modal': false, 'calendar': [], 'i': num, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'del': todo["completed"] == "True", 'text': `${TASK_ICON}&nbsp${ moment(cd).format('LT').replace(":00", "")} - ${todo.name}`});
                     dp.innerHTML += ci
                 }
             }
@@ -1135,6 +1269,14 @@ function reload_calendar() {
             document.querySelector('.todo-list').innerHTML += todo_item({'id': todo.id, 'name': tn, 'i': num});
         }
     }
+
+    r1 = new XMLHttpRequest();
+    r1.open("GET", `/photos/month-stats/${y}/${m+1}/`)
+    r1.onload = () => {
+        dph = JSON.parse(r1.responseText);
+        for (i of Object.entries(dph)) { $(`.day-images-btn-${i[0]}`).html(i[1]); }
+    }
+    r1.send();
 
     change_height()
 
@@ -1169,6 +1311,7 @@ function populate_calendar(m, y, jumponload=false) {
         document.querySelector('.page-alert').style.display = "block";
         $('.page-alert').html("Unable to connect to server (Network connection lost).");
     }
+
     r.send();
 }
 
@@ -1185,7 +1328,7 @@ function complete_todo(todo_) {
             alert(res['data']);
         }
     }
-    r.send(JSON.stringify({'id': todo_.dataset.todoId, 'completion': 'True'}));
+    r.send(JSON.stringify({'id': todo_, 'completion': 'True'}));
 }
 
 function display_info(button) {
@@ -1470,6 +1613,16 @@ function duplicate_event(event_no) {
     }
 }
 
+function view_day_images(date) {
+    $('.modal-title').html(`Images for ${date}-${m+1}-${y}`)
+    $('.modal-body').html(`<iframe src="${window.origin}/photos/day/${y}/${m+1}/${date}/" style="width: 100%; height: 65vh;">`)
+}
+
+function view_event_images(evt) {
+    $('.modal-title').html(`Images for ${evt['name']}`)
+    $('.modal-body').html(`<iframe src="${window.origin}/photos/event/${evt['id']}/" style="width: 100%; height: 65vh;">`)
+}
+
 function randomText(length) {
     var result           = '';
     var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -1483,6 +1636,12 @@ function randomText(length) {
 function convertUTCDateToLocalDate(date) {
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     return date;
+}
+
+function roundDate(date = new Date(), mins) {
+    ms = 1000 * 60 * mins;
+    nd = new Date(Math.ceil(date.getTime() / ms) * ms);
+    return nd
 }
 
 function parse_message(text) {

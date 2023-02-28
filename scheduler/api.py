@@ -1,6 +1,4 @@
-from django.http import HttpResponse, HttpResponseBadRequest, HttpResponseForbidden, JsonResponse
-from django.shortcuts import redirect, render, Http404
-from django.contrib.auth.decorators import login_required
+from django.http import HttpResponseBadRequest, JsonResponse
 from django.db.models import Q
 from django.utils import timezone
 from .models import *
@@ -9,11 +7,9 @@ from .sync import *
 from Comptech.settings import CALENDAR_VARS, ONLINE_MODE
 from Comptech.utils import *
 
-import requests
 import datetime
 import json
 import pytz
-import time
 import bleach
 
 @login_required_api
@@ -47,14 +43,8 @@ def get_events(request):
         (Q(enddate__month=int(month)) & Q(enddate__year=(int(year)))) |
         Q(Q(startdate__month__lt=int(month), enddate__month__gt=int(month)) & (Q(startdate__year=int(year), enddate__year=int(year)))))
     ).order_by('startdate', '-enddate', 'name').iterator()]
-    ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(Q(user=user_) & (Q(completed=False) | Q(completiondate__month=int(month)))).order_by('completiondate')]
+    ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(Q(user=user_) & (Q(completed=False) | (Q(completiondate__month=int(month)) & Q(completiondate__year=int(year))))).order_by('completiondate')]
 
-    return JsonResponse(ans)
-
-@login_required_api
-def get_todos(request):
-    ans = {"data": {}}
-    ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(user=request.user, completed=False).order_by('completiondate')]
     return JsonResponse(ans)
 
 @post_request_only
@@ -77,20 +67,48 @@ def sync_events(request):
         except KeyError:
             token = None
 
+        tzoffset = datetime.datetime.now(pytz.timezone(timezone.get_current_timezone_name())).strftime('%z')
+        start_time = f"{req['sy']}-{req['sm']}-01T00:00:00{tzoffset}"
+        end_time = f"{req['ey']}-{req['em']}-01T00:00:00{tzoffset}"
+
         if calendar.calendar_type == 1: # ICalendar:
-            status = sync_ical(calendar) ## ACTUAL SYNC
+            status = sync_ical(calendar, start_time, end_time) ## ACTUAL SYNC
             if status: return success_response()
 
         elif calendar.calendar_type == 2: # Public Google Calendar
-            tzoffset = datetime.datetime.now(pytz.timezone(timezone.get_current_timezone_name())).strftime('%z')
-            start_time = f"{req['sy']}-{req['sm']}-01T00:00:00{tzoffset}"
-            end_time = f"{req['ey']}-{req['em']}-01T00:00:00{tzoffset}"
-
             status = sync_google(calendar, start_time, end_time, token) ## ACTUAL SYNC
+            if status: return success_response()
+
+        elif calendar.calendar_type == 50: # UWaterloo WCMS
+            status = sync_uwaterloo(calendar, start_time, end_time)
             if status: return success_response()
 
         else: return error_response("Calendar is a local calendar")
     else: return error_response("Server is in offline mode")
+
+def get_availability(request, username):
+    dts = request.GET.get("date")
+    if dts == None: return error_response("No date provided")
+    dt = datetime.datetime.strptime(dts, '%Y-%m-%d')
+    dt1 = dt + datetime.timedelta(days=1)
+
+    try:
+        u = ComptechUser.objects.filter(username=username)[0]
+
+        cals = Subscriber.objects.filter(user=u, calendar__active=True)
+        c1 = [i.calendar for i in cals if i.display_busy == 1] # Busy some events
+        c2 = [i.calendar for i in cals if i.display_busy == 2] # Busy all events
+
+        ev1 = Event.objects.filter(Q(calendar__in=c1) & Q(Q(Q(startdate__gte=dt) & Q(enddate__lte=dt1)) | Q(Q(startdate__lt=dt) & Q(enddate__gt=dt1))) & Q(category__in=[1, 2, 4, 5, 6, 7, 9]))
+        ev2 = Event.objects.filter(Q(calendar__in=c2) & Q(Q(Q(startdate__gte=dt) & Q(enddate__lte=dt1)) | Q(Q(startdate__lt=dt) & Q(enddate__gt=dt1))))
+        evs = ev1.union(ev2).order_by('startdate')
+
+        busy = [[i.startdate, i.enddate] for i in evs]
+        ans = {"busy": busy}
+
+        return success_response(ans)
+
+    except IndexError: return error_response("User does not exist")
 
 def get_calendar_events(request):
     try:
@@ -195,7 +213,7 @@ def create_edit_event(request):
         e.calendar = reqcal
         e.category = req["category"]
         e.name = bleach.clean(req["name"])
-        e.description = req["description"]
+        e.description = bleach.clean(req["description"])
         e.public = req["public"]
         e.priority = req["priority"]
 
@@ -298,35 +316,32 @@ def todo(request, command):
             t.save()
             return success_response()
 
-        elif command == "delete":
-            try:
-                t = Todo.objects.filter(id=req['id'])[0]
-            except IndexError:
-                return error_response("Todo does not exist")
-            if t.user == request.user:
-                t.delete()
-                return success_response()
-            else:
-                return error_response("Not authorized", 401)
 
-        elif command == "complete":
+        elif command in ["delete", "complete"]:
             try:
                 t = Todo.objects.filter(id=req['id'])[0]
             except IndexError:
                 return error_response("Todo does not exist")
+
             if t.user == request.user:
-                if req['completion'] == 'True': t.completed = True
-                elif req['completion'] == 'False': t.completed = False
-                t.save()
-                return success_response()
-            else:
-                return error_response("Not authorized", 401)
+                if command == "delete":
+                    t.delete()
+                    return success_response()
+
+                elif command == "complete":
+                    if req['completion'] == 'True': t.completed = True
+                    elif req['completion'] == 'False': t.completed = False
+                    t.save()
+                    return success_response()
+
+            else: return error_response("Not authorized", 401)
+
     except Exception as ex:
         return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
 
 @login_required_api
 def subscribe(request):
-    invitecode = request.GET.get('invitecode')
+    invitecode = request.GET.get('code')
     if invitecode is None: return error_response("No invite code provided")
     invite = Invite.objects.filter(code=invitecode)
     try:
@@ -369,28 +384,26 @@ def invite(request):
     if option == None: return error_response("No Choice provided")
 
     elif option == "active":
-        try:
-            invite = Invite.objects.filter(code=invitecode)[0]
+        try: invite = Invite.objects.filter(code=invitecode)[0]
         except IndexError: return error_response("Invalid invite")
-        
+
         try:
             if Subscriber.objects.filter(calendar=invite.calendar, user=request.user)[0].subscribe_type not in [0, 1]:
                 return error_response("Not authorized", 401)
         except IndexError: return error_response("Not authorized", 401)
-        
+
         invite.active = not invite.active
         invite.save()
         return success_response()
 
     elif option == "create":
-        calendar = request.POST.get("calendar")
+        calendar = request.GET.get("calendar")
         if calendar == None: return error_response("No Calendar provided")
-        try:
-            calendar = Calendar.objects.filter(id=calendar)[0]
+        try: calendar = Calendar.objects.filter(id=calendar)[0]
         except IndexError: return error_response("Invalid Calendar")
         if calendar.users_subscribed.filter(user=request.user)[0].subscribe_type not in [0, 1]:
             return error_response("Not authorized", 401)
-        
+
         try:
             invite = Invite(code=invitecode, active=True, calendar=calendar)
             invite.save()
@@ -404,6 +417,6 @@ def get_block_status(request):
     if username == None: return error_response("No username provided")
     try:
         user = ComptechUser.objects.filter(username=username)[0]
-        calendars = [i.calendar for i in user.calendar_subscribed.filter(calendar__active=True, visible=True)]
+        calendars = [i.calendar for i in user.calendar_subscribed.filter(calendar__active=True)]
         return JsonResponse({"status": "success", "data": [i.category for i in Event.objects.filter(calendar__in=calendars, startdate__lte=timezone.now(), enddate__gte=timezone.now())]})
     except IndexError: return error_response("User does not exist")

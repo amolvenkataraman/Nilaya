@@ -1,0 +1,81 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Map</title>
+
+    <link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">
+    <script src="{% static 'js/leaflet/leaflet.js' %}" type="text/javascript"></script>
+    <script src="{% static 'js/heatmap/heatmap.min.js' %}" type="text/javascript"></script>
+    <script src="{% static 'js/leaflet-heatmap/leaflet-heatmap.js' %}" type="text/javascript"></script>
+
+    <style>
+        html, body {
+            margin: 0;
+            border: 0;
+            padding: 0;
+        }
+
+        #mapid {
+            width: 100vw;
+            height: 100vh;
+        }
+
+        .overlay {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 10000;
+            background-color: #3498db;
+            padding: 10px;
+            border-radius: 5px;
+            line-height: 1.5;
+        }
+    </style>
+</head>
+<body>
+    <div id="mapid"></div>
+    <div class="overlay">
+        <button class="show-photos-btn">View photos</button>
+    </div>
+
+    <script>
+        var map = L.map('mapid').setView([43.6425662, -79.3870568], 10);
+      
+        L.tileLayer( 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 28,
+            tileSize: 256,
+        }).addTo(map);
+
+        var cfg = {
+            "radius": 10,
+            "maxOpacity": .75,
+            "scaleRadius": false,
+            "useLocalExtrema": true,
+            latField: 'lat',
+            lngField: 'lng',
+            valueField: 'count'
+        };
+
+        var heatmapLayer = new HeatmapOverlay(cfg).addTo(map);
+      
+
+        let parsedJSON = JSON.parse('{{ coords }}');
+        let pj1 = []
+        for (c of parsedJSON) {
+            if (c[0] != 0 && c[1] != 0) {
+                pj1.push({'lat': c[0], 'lng': c[1], 'count': 1})
+            }
+        }
+        heatmapLayer.setData({'max': 1, 'data': pj1});
+
+        document.querySelector('.overlay').onclick = function() {
+            bounds = map.getBounds()
+            window.open(`/photos/?north=${bounds._northEast.lat}&south=${bounds._southWest.lat}&east=${bounds._northEast.lng}&west=${bounds._southWest.lng}`, '_blank')
+        }
+    </script>
+</body>
+</html>

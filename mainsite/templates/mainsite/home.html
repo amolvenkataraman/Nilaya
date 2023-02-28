@@ -20,6 +20,14 @@
     .greeting, .clock, .card-title, .card-text {
         color: var(--bs-white);
     }
+
+    .event-name-container {
+        background-color: var(--bs-dark)!important;
+    }
+
+    input {
+        background-color: var(--bs-dark)!important;
+    }
 </style>
 {% else %}
 <style>
@@ -49,7 +57,7 @@
         else if (h > 11 && h <= 14) {s = "Good Afternoon, {{ request.user.first_name }}"}
         else if (h > 14 && h <= 18) {s = "Good Evening, {{ request.user.first_name }}"}
         else if (h > 18 && h <= 22) {s = "Good Night, {{ request.user.first_name }}"}
-        else {s = "Good Midnight"}
+        else {s = "Hey {{ request.user.first_name }}, you should really be sleeping now"}
 
         if (data != null) {
             for (event of data["events"].reverse()) {
@@ -114,7 +122,7 @@
                         date__ = date__.split(" at")[0]
                     }
                     document.querySelector('.recent-events').innerHTML += `
-                        <li href="#" class="list-group-item event-name-container text-dark">
+                        <li style="color: ${data["events"][i]["colour"]}" class="list-group-item event-name-container">
                             <span class="event-name">${data["events"][i]["name"]}</span>&nbsp-&nbsp${date__}
                         </li>
                     `
