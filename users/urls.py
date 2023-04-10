@@ -13,6 +13,5 @@ urlpatterns = [
     path("get_user_info/", views.get_user_info, name='get_user_info'),
     path("change_password/", views.password_change_view, name='change_password'),
     path("darkmode/", views.toggle_dark_mode, name='dark_mode'),
-    path("friend_request/", views.friend_request, name='friend_request'),
     path("logout/", views.logout_view, name='logout'),
 ]

@@ -5,7 +5,6 @@ from django.contrib.auth import login, logout
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.contrib.auth.decorators import login_required
 from .forms import UserRegisterForm
-from bg_images.views import get_random_image
 from .models import *
 from Comptech.utils import *
 from Comptech.settings import MEDIA_ROOT
@@ -42,8 +41,7 @@ def login_view(request):
     else:
         form = AuthenticationForm
 
-    id_, description, location = get_random_image()
-    return render(request, 'users/login.html', {'form': form, 'error': error, 'image': {'id': id_, 'description': description, 'location': location}}, status=status)
+    return render(request, 'users/login.html', {'form': form, 'error': error}, status=status)
 
 @login_required
 def password_change_view(request):
@@ -58,19 +56,16 @@ def password_change_view(request):
     else:
         form = PasswordChangeForm(user=request.user)
 
-    id_, description, location = get_random_image()
-    return render(request, 'users/reset_password.html', {'form': form, 'error': error, 'image': {'id': id_, 'description': description, 'location': location}})
+    return render(request, 'users/reset_password.html', {'form': form, 'error': error})
 
 # Render the user profile view
 def profile_view(request, user=None):
     if request.method == 'GET':
         if user == None: user = request.user
         else:
-            try:
-                user = ComptechUser.objects.filter(id=user)[0]
+            try: user = ComptechUser.objects.filter(id=user)[0]
             except:
-                try:
-                    user = ComptechUser.objects.filter(username=user)[0]
+                try: user = ComptechUser.objects.filter(username=user)[0]
                 except: raise Http404()
     
         return render(request, 'users/profile.html', {'user': user.getinfo()})
@@ -98,7 +93,6 @@ def profile_view(request, user=None):
 
         else:
             return error_response("Not logged in", 401)
-        print("E")
 
 # Log a user out and redirect to login
 def logout_view(request):
@@ -106,7 +100,7 @@ def logout_view(request):
     return redirect('login')
 
 def profile_picture(request):
-    if request.method == 'GET':
+    if request.method == 'GET': # Slower method, only for compatibility. Use NGINX
         username = request.GET.get('user')
         if username == None:
             user = request.user
@@ -140,7 +134,3 @@ def toggle_dark_mode(request):
     user_.save()
 
     return HttpResponse("DONE")
-
-def friend_request(request):
-    if request.method == "POST":
-        print(request.body)

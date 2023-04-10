@@ -48,7 +48,6 @@ def sync_google(calendar, start, end, token, url=None):
     r = requests.get(f"https://www.googleapis.com/calendar/v3/calendars/{url}/events?key={GOOGLE_API_KEY}&timeMin={start}&timeMax={end}&singleEvents=true&orderBy=startTime&showDeleted=true", headers= {'Authorization': f'Bearer {token}'} if token != None else None)
     res = r.json()
 
-    print(res)
     for i in res["items"]:
         try:
             e_ = Event.objects.filter(sync_id=i['id'])

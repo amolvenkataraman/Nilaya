@@ -79,13 +79,13 @@
                                     </svg>
                                     {% endif %}
                                 </p>
-                                <li><hr class="dropdown-divider"></li>
+                                <!-- <li><hr class="dropdown-divider"></li>
                                 <li class="dropdown-item">
                                     <div class="form-check form-switch">
                                         <input class="form-check-input" type="checkbox" id="dark_mode_switch" onclick="toggle_dark_mode();" {% if request.user.dark_mode %} checked {% endif %}>
                                         <label class="form-check-label" for="dark_mode_switch" style="display: block;">[EXP] Toggle Dark Mode</label>
                                     </div>
-                                </li>
+                                </li> -->
                                 <li><hr class="dropdown-divider"></li>
                                 {% if request.user.is_staff %}
                                 <li><a class="dropdown-item" href="{% url 'admin:index' %}">Django Admin</a></li>

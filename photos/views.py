@@ -15,15 +15,18 @@ import pytz
 # Create your views here.
 @login_required
 def photos(request):
+    album_subs = request.user.album_subscribed.all()
+    albums = [i.album for i in album_subs]
+
     rd = request.GET.get('date')
     if rd == None:
         try:
             if (request.GET.get('north') and request.GET.get('south') and request.GET.get('east') and request.GET.get('west')):
                 bounds = {"north": request.GET.get('north'), "south": request.GET.get('south'), "east": request.GET.get('east'), "west": request.GET.get('west')}
-                newest = timezone.localtime(Photo.objects.filter(owner=request.user, latitude__lte=request.GET.get('north'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east')).order_by('date_taken').reverse()[0].date_taken, pytz.timezone(TIME_ZONE)).date()
+                newest = timezone.localtime(Photo.objects.filter(album__in=albums, latitude__lte=request.GET.get('north'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east')).order_by('date_taken').reverse()[0].date_taken, pytz.timezone(TIME_ZONE)).date()
             else:
                 bounds = None
-                newest = timezone.localtime(Photo.objects.filter(owner=request.user).order_by('date_taken').reverse()[0].date_taken, pytz.timezone(TIME_ZONE)).date()
+                newest = timezone.localtime(Photo.objects.filter(album__in=albums).order_by('date_taken').reverse()[0].date_taken, pytz.timezone(TIME_ZONE)).date()
         except IndexError: newest = None
     else:
         newest = dateparser.parse(request.GET.get('date')).date()
@@ -33,58 +36,83 @@ def photos(request):
 
 @login_required
 def map(request):
-    return render(request, 'photos/map.html', { 'coords': [[i.latitude, i.longitude] for i in Photo.objects.filter(owner=request.user, latitude__isnull=False, longitude__isnull=False).exclude(latitude=0, longitude=0)] })
+    year=request.GET.get('year')
+
+    album_subs = request.user.album_subscribed.all()
+    albums = [i.album for i in album_subs]
+
+    if year == None:
+        photos = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False).exclude(latitude=0, longitude=0)
+    else:
+        photos = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False, date_taken__year__lte=year).exclude(latitude=0, longitude=0)
+
+    return render(request, 'photos/map.html', { 'coords': [[i.latitude, i.longitude] for i in photos] })
 
 @login_required
 def day(request, year, month, day):
+    album_subs = request.user.album_subscribed.all()
+    albums = [i.album for i in album_subs]
+
     context = {'photos':
-        [i.get_info() for i in Photo.objects.filter(owner=request.user, date_taken__date=datetime.datetime.strptime(f"{year}-{month}-{day}", "%Y-%m-%d").date()).order_by('date_taken')]
+        [i.get_info() for i in Photo.objects.filter(album__in=albums, date_taken__date=datetime.datetime.strptime(f"{year}-{month}-{day}", "%Y-%m-%d").date()).order_by('date_taken')]
     }
     return render(request, 'photos/day.html', context)
 
 @login_required
 def event(request, event_id):
+    album_subs = request.user.album_subscribed.all()
+    albums = [i.album for i in album_subs]
+
     try:
         e = Event.objects.filter(id=event_id)[0]
 
         if e.enddate == None: return error_response("Event is not bounded on the end time.")
-        context = { 'photos': [i.get_info() for i in Photo.objects.filter(owner=request.user, date_taken__gte=e.startdate, date_taken__lte=e.enddate).order_by('date_taken')] }
+        context = { 'photos': [i.get_info() for i in Photo.objects.filter(album__in=albums, date_taken__gte=e.startdate, date_taken__lte=e.enddate).order_by('date_taken')] }
         return render(request, 'photos/day.html', context)
     except IndexError: return error_response("Invalid event")
 
 @login_required_api
 def month_stats(request, year, month):
-    pl = [timezone.localtime(i.date_taken, pytz.timezone(TIME_ZONE)).day for i in Photo.objects.filter(owner=request.user, date_taken__month=month, date_taken__year=year)]
+    album_subs = request.user.album_subscribed.all()
+    albums = [i.album for i in album_subs]
+
+    pl = [timezone.localtime(i.date_taken, pytz.timezone(TIME_ZONE)).day for i in Photo.objects.filter(album__in=albums, date_taken__month=month, date_taken__year=year)]
     ans = {i:pl.count(i) for i in pl}
     return JsonResponse(ans)
 
 @login_required_api
 def get_photos_for_date(request):
+    album_subs = request.user.album_subscribed.all()
+    albums = [i.album for i in album_subs]
+
     ord = 'date_taken' if request.GET.get('forward') == '1' else '-date_taken'
     if (request.GET.get('north') and request.GET.get('south') and request.GET.get('east') and request.GET.get('west')):
-        photos = Photo.objects.filter(owner=request.user, date_taken__date=dateparser.parse(request.GET.get('date')).date(),
+        photos = Photo.objects.filter(album__in=albums, date_taken__date=dateparser.parse(request.GET.get('date')).date(),
             latitude__gte=request.GET.get('south'), latitude__lte=request.GET.get('north'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east'))
 
         if request.GET.get('forward') == '1':
-            nphoto = Photo.objects.filter(owner=request.user, date_taken__date=dateparser.parse(request.GET.get('date')).date(),
+            nphoto = Photo.objects.filter(album__in=albums, date_taken__date=dateparser.parse(request.GET.get('date')).date(),
                 latitude__gte=request.GET.get('south'), latitude__lte=request.GET.get('north'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east'))
 
         else:
-            nphoto = Photo.objects.filter(owner=request.user, date_taken__date=dateparser.parse(request.GET.get('date')).date(),
+            nphoto = Photo.objects.filter(album__in=albums, date_taken__date=dateparser.parse(request.GET.get('date')).date(),
                 latitude__gte=request.GET.get('south'), latitude__lte=request.GET.get('north'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east'))
 
     else:
-        photos = Photo.objects.filter(owner=request.user, date_taken__date=dateparser.parse(request.GET.get('date')).date())
+        photos = Photo.objects.filter(album__in=albums, date_taken__date=dateparser.parse(request.GET.get('date')).date())
     return JsonResponse({'photos':
         [i.get_info() for i in photos.order_by(ord)]
     })
 
 @login_required_api
 def get_photo(request, photo_id, ret_type):
+    album_subs = request.user.album_subscribed.all()
+    albums = [i.album for i in album_subs]
+
     try:
         photo = Photo.objects.filter(id=photo_id)[0]
 
-        if photo.album.owner == request.user or request.user.is_superuser:
+        if photo.album in albums or request.user.is_superuser:
             if ret_type == "info":
                 return JsonResponse(photo.get_info())
             elif ret_type == "thumbnail":

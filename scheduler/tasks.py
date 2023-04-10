@@ -14,7 +14,7 @@ logger = get_task_logger(__name__)
 @shared_task
 def autosync_calendars():
     if ONLINE_MODE:
-        c = Calendar.objects.filter(calendar_type__gt=0, auto_sync=True)
+        c = Calendar.objects.filter(calendar_type__gt=0, auto_sync=True, active=True)
         for cal in c:
             print(f"Syncing {cal.name}...")
             try:
@@ -34,6 +34,12 @@ def autosync_calendars():
                 elif cal.calendar_type == 2: # Public Google Calendar
                     status = sync_google(cal, start_time, end_time, None) ## ACTUAL SYNC
 
+                elif cal.calendar_type == 50: # UWaterloo WCMS
+                    status = sync_uwaterloo(cal, start_time, end_time)
+
                 print(f"{cal.name} has been synced!")
 
             except: print(f"An error ocuurred syncing {cal.name}")
+    else:
+        print("Calendar sync task has been cancelled because the server is in offline mode.")
+

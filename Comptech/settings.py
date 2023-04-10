@@ -52,7 +52,6 @@ INSTALLED_APPS = [
     'users',
     'mainsite',
     'static_files',
-    'bg_images',
 
     'chat',
     'scheduler',

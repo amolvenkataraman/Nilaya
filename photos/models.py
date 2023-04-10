@@ -18,6 +18,41 @@ class Album(models.Model):
     def __str__(self):
         return f"{self.name} [{self.owner.username}]"
 
+class Album_Subscriber(models.Model):
+    album = models.ForeignKey(Album, on_delete=models.CASCADE, related_name='users_subscribed')
+    user = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='album_subscribed')
+    subscribe_type = models.PositiveSmallIntegerField(choices=(
+        (0, 'Owner'),
+        (1, 'Editor'),
+        (2, 'Viewer'),
+    ), default=2)
+    visible = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.user.username} subscribed to {self.album.name}"
+
+    def getinfo(self):
+        ans = {
+            "id": self.album.id,
+            "subscribe_id": self.id,
+            "name": self.album.name,
+            "owner": self.album.owner.id,
+            "user": self.user.id,
+            "subscribe_type": self.subscribe_type,
+            "visible": str(self.visible),
+        }
+
+        return ans
+
+    def getinfo_zip(self):
+        ans = {
+            "id": self.id,
+            "user": self.user.getinfo_zip(),
+            "subscribe_type": self.subscribe_type,
+        }
+
+        return ans
+
 class Photo(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='photo_owner')
@@ -43,6 +78,9 @@ class Photo(models.Model):
 
     video = models.BooleanField(default=False)
     length = models.IntegerField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.id}, taken on {str(self.date_taken)}"
 
     def get_dimensions(self):
         return {

@@ -21,7 +21,6 @@ from Comptech import settings
 urlpatterns = [
     path("", include("mainsite.urls")),
     path("accounts/", include("users.urls")),
-    path("bg_images/", include("bg_images.urls")),
 
     path("chat/", include("chat.urls")),
     path("calendar/", include("scheduler.urls")),
