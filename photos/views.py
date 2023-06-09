@@ -36,15 +36,18 @@ def photos(request):
 
 @login_required
 def map(request):
-    year=request.GET.get('year')
+    year = request.GET.get('year')
+    year1 = request.GET.get('year-')
 
     album_subs = request.user.album_subscribed.all()
     albums = [i.album for i in album_subs]
 
-    if year == None:
+    if year == None and year1 == None:
         photos = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False).exclude(latitude=0, longitude=0)
-    else:
-        photos = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False, date_taken__year__lte=year).exclude(latitude=0, longitude=0)
+    elif year != None:
+        photos = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False, date_taken__year=year).exclude(latitude=0, longitude=0)
+    elif year1 != None:
+        photos = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False, date_taken__year__lte=year1).exclude(latitude=0, longitude=0)
 
     return render(request, 'photos/map.html', { 'coords': [[i.latitude, i.longitude] for i in photos] })
 
