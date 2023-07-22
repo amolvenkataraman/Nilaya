@@ -32,7 +32,7 @@ def photos(request):
         newest = dateparser.parse(request.GET.get('date')).date()
         bounds = None
 
-    return render(request, 'photos/photos.html', { 'newest': newest, 'forward': request.GET.get('forward') == '1', 'bounds': bounds })
+    return render(request, 'photos/photos.html', { 'newest': newest, 'forward': request.GET.get('forward') == '1', 'bounds': bounds, "left_sidebar": True, "right_sidebar": True})
 
 @login_required
 def map(request):
@@ -50,6 +50,15 @@ def map(request):
         photos = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False, date_taken__year__lte=year1).exclude(latitude=0, longitude=0)
 
     return render(request, 'photos/map.html', { 'coords': [[i.latitude, i.longitude] for i in photos] })
+
+@login_required
+def geoguessr(request):
+    album_subs = request.user.album_subscribed.all()
+    albums = [i.album for i in album_subs]
+
+    photo = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False).exclude(latitude=0, longitude=0).order_by("?").first()
+
+    return render(render, 'photos/geoguessr.html', { 'photo': photo.get_info() })
 
 @login_required
 def day(request, year, month, day):

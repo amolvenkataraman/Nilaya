@@ -10,7 +10,7 @@ import random
 # Create your views here.
 @login_required
 def home(request):
-    return render(request, 'mainsite/home.html', {"desktop_app": request.COOKIES.get('desktop_app')})
+    return render(request, 'mainsite/home.html')
 
 @login_required
 def get_recent_events(request):
@@ -19,3 +19,6 @@ def get_recent_events(request):
 @login_required
 def apps(request):
     return render(request, 'mainsite/apps.html', {})
+
+def basev2(request):
+    return render(request, 'base_v2.html', {"left_sidebar": True, "right_sidebar": True})

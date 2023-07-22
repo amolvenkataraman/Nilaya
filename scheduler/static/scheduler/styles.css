@@ -1,6 +1,6 @@
 /* Page Styles */
 .main-container {
-  width: 100vw;
+  width: 100%;
   height: calc(100vh - 56px);
   display: flex;
 }
@@ -10,26 +10,11 @@
   height: 100%;
 }
 
-.sidebar-left {
-  width: 256px!important;
-}
-
 .wrapper {
   flex-grow: 100;
   display: flex;
   flex-direction: column;
   width: calc(100vw - 512px);
-}
-
-.sidebar-right {
-  width: 256px!important;
-}
-
-.sidebar {
-  overflow-y: scroll;
-  height: calc(100vh - 56px);
-  margin: 0px;
-  padding: 10px;
 }
 
 .sidebar::-webkit-scrollbar {
@@ -177,25 +162,9 @@
   outline: none !important;
 }
 
-.ei-date-info {
-
-}
-
-.ei-calendar-info {
-
-}
-
 .ei-description {
   width: 100%;
   border: 1px solid black;
-}
-
-.ei-countdown {
-
-}
-
-.ei-dev-info {
-
 }
 
 .custom-control-label {
@@ -318,20 +287,6 @@
   .noprint {
     display: none;
   }
-}
-
-.month-picker {
-  background: #1abc9c!important;
-  border: 0!important;
-  font-size: 1.5em;
-  font-weight: bold;
-  margin: 0!important;
-  padding: 0!important;
-}
-
-.month-picker option {
-  font-size: 0.5em!important;
-  font-weight: 400;
 }
 
 .my-selector-container {

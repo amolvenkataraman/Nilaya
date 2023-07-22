@@ -14,7 +14,7 @@ def sync_ical(calendar, start, end, url=None):
     for i in cal.events:
         try:
             sd = parser.parse(str(i.begin))
-            ed = parser.parse(str(i.begin))
+            ed = parser.parse(str(i.end))
 
             if (sd >= parser.parse(start) and ed <= parser.parse(end)):
                 if i.status != None and i.status.lower() == "cancelled":

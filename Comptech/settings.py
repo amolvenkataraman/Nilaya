@@ -32,10 +32,13 @@ ONLINE_MODE = True # Change to False to disable all external requests
 
 ALLOWED_HOSTS = ['*']
 
+INTERNAL_IPS = ['127.0.0.1', '192.168.50.11']
+
 
 # Application definition
 
 INSTALLED_APPS = [
+    # Part of Django
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -43,16 +46,17 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
 
+    # Other Python libraries
     'channels',
     'crispy_forms',
-    'reset_migrations',
-    'rest_framework',
-    'import_export',
 
+    # Important apps (necessary for others)
     'users',
     'mainsite',
     'static_files',
+    'notifications',
 
+    # Main functionality apps
     'chat',
     'scheduler',
     'photos',
@@ -117,9 +121,6 @@ DATABASES = {
 DATABASE_ROUTERS = ['chat.routers.ChatRouter']
 
 CHANNEL_LAYERS = {
-    #"default": {
-    #    "BACKEND": "channels.layers.InMemoryChannelLayer"
-    #}
     'default': {
         'BACKEND': 'channels_redis.core.RedisChannelLayer',
         'CONFIG': {
@@ -154,7 +155,8 @@ CSRF_TRUSTED_ORIGINS = ['https://192.168.50.11', 'https://example.org', 'https:/
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/
 
-LANGUAGE_CODE = 'en-us'
+LANGUAGE_CODE = 'en'
+LANGUAGES = [('en', 'English')]
 
 TIME_ZONE = 'Canada/Eastern'
 
@@ -185,7 +187,7 @@ CALENDAR_VARS = {
     "holidays": [0, 6],
 }
 
-SESSION_COOKIE_AGE = 1209600
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 30
 
 MEDIA_ROOT = BASE_DIR / 'media'
 MEDIA_URL = '/media/'
@@ -204,5 +206,3 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(minute=0, hour=16),
     },
 }
-
-# P@ssw0rrd

@@ -426,25 +426,6 @@ document.addEventListener('DOMContentLoaded', () => {
     populate_calendar(m, y);
 
     setTimeout(tick, 1000);
-
-    document.querySelector('#toggle-l-sidebar').onclick = function() {
-        sb = document.querySelector('.sidebar-left');
-        if (sb.style.display == 'none') {
-            sb.style.display = 'block';
-        }
-        else {
-            sb.style.display = 'none';   
-        }
-    }
-    document.querySelector('#toggle-r-sidebar').onclick = function() {
-        sb = document.querySelector('.sidebar-right');
-        if (sb.style.display == 'none') {
-            sb.style.display = 'block';
-        }
-        else {
-            sb.style.display = 'none';   
-        }
-    }
 })
 
 
@@ -1357,7 +1338,7 @@ function display_info(button) {
         if (localStorage.getItem('debug') == 1) {dev_info = `<br><i>Id: ${event_["id"]}</i>`}
         else {dev_info = ""}
         if (event_["description"] == "" || event_["description"] == null) {show_desc = false; desc = null}
-        else {show_desc = true; desc = DOMPurify.sanitize(parse_message(event_["description"]));}
+        else {show_desc = true; desc = parse_message(event_["description"]);}
 
         if (event_["enddate"] == "None") {countdown = `<a href="/calendar/countdown/${event_["id"]}/start/">Countdown to Start</a>`}
         else {countdown = `<a href="/calendar/countdown/${event_["id"]}/start/">Countdown to Start</a> <a href="/calendar/countdown/${event_["id"]}/end/">Countdown to End</a>`}

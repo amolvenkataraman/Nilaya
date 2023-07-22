@@ -14,7 +14,7 @@ import time
 # Create your views here.
 @login_required
 def index(request):
-    return render(request, 'scheduler/schedule.html', {"vars": CALENDAR_VARS, "today": datetime.date.today()})
+    return render(request, 'scheduler/calendar.html', {"vars": CALENDAR_VARS, "today": datetime.date.today(), "left_sidebar": True, "right_sidebar": True})
 
 def public_calendar(request, calendar_id):
     try: cal = Calendar.objects.filter(id=calendar_id)[0]
