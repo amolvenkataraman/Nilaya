@@ -6,112 +6,208 @@
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        
+
         <title>{% block page_title %} {% endblock page_title %}</title>
         <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}" />
 
         <!-- Scripts and stylesheets -->
         <link href="{% static 'css/bootstrap/bootstrap.min.css' %}" rel="stylesheet">
-
-        <script src="{% static 'js/jquery/jquery.min.js' %}" type="text/javascript"></script>
         <script src="{% static 'js/bootstrap/bootstrap.bundle.min.js' %}" type="text/javascript"></script>
-        <script src="{% static 'js/handlebars/handlebars.js' %}" type="text/javascript"></script>
 
-        <link href="{% static 'css/styles.css' %}" rel="stylesheet">
+        <link href="{% static 'css/styles_v2.css' %}" rel="stylesheet">
         <script src="{% static 'js/script.js' %}" type="text/javascript"></script>
 
         {% block page_styles %} {% endblock page_styles %}
 
         {% block page_script %} {% endblock page_script %}
-
-        <!-- Script for tooltips -->
-        <script>
-
-        </script>
+        
+        <style>
+            /* * { 
+                transition: none !important; 
+            } */
+        </style>
     </head>
 
-    <!-- #16a085 #1abc9c -->
     <body>
-        <nav class="navbar navbar-expand navbar-light" style="background-color: #1abc9c;">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="{% url 'index' %}">&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp&nbsp</a>
-                <div class="collapse navbar-collapse" id="navbarSupportedContent">
-                    <ul class="navbar-nav me-auto mb-2 mb-lg-0">
-                        {% block navbar %}
+        <div class="ct-navbar">
+            <div class="navbar-content navbar-left">
+                {% if left_sidebar %}
+                <button class="unstyled-button navbar-btn left-sidebar-btn" onclick=toggleLeftSidebar()>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-list" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
+                    </svg>
+                </button>
+                {% endif %}
 
-                        {% endblock navbar %}
+                <a class="unstyled-button navbar-btn home-btn" href="{% url 'index' %}">
+                    <!-- <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-circle-fill" viewBox="0 0 16 16">
+                        <circle cx="8" cy="8" r="8"/>
+                    </svg> -->
+                    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" viewBox="0 0 16 16">
+                        <g transform="translate(0, 20) scale(0.03,-0.03)" fill="#000000" stroke="none">
+                        <path d="M342 648 c-24 -29 -49 -130 -87 -343 -19 -107 -33 -155 -46 -155 -5 0 -8 3 -7 7 2 5 0 9 -4 11 -5 1 -8 0 -8 -3 0 -3 0 -9 0 -15 0 -5 9 -10 20 -10 32 0 48 47 90 262 40 203 59 271 67 236 6 -23 26 -23 21 -1 -4 22 -31 28 -46 11z"/>
+                        </g>
+                    </svg>
+                </a>
+
+                {% block navbar %}
+
+                {% endblock navbar %}
+            </div>
+
+            <div class="navbar-content navbar-right">
+                {% if request.user.is_authenticated %}
+
+                <div class="dropdown nav-dd">
+                    <button class="dropdown unstyled-button navbar-btn notif-dd" type="button" id="notificationsDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-bell-fill" viewBox="0 0 16 16">
+                            <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zm.995-14.901a1 1 0 1 0-1.99 0A5.002 5.002 0 0 0 3 6c0 1.098-.5 6-2 7h14c-1.5-1-2-5.902-2-7 0-2.42-1.72-4.44-4.005-4.901z"/>
+                        </svg>
+                    </button>
+
+                    <ul class="dropdown-menu dropdown-menu-end" role="menu" aria-labelledby="notificationsDropdownBtn">
+                        No Notifications
                     </ul>
+                </div>
 
-                    {% if request.user.is_authenticated %}
-                    <ul class="navbar-nav mr-0 mb-2 mb-lg-0 noprint">
-                        <li class="nav-item dropdown apps-dropdown me-2">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="38" height="38" fill="currentColor" class="bi bi-grid-3x3-gap-fill app-dropdown navbar-dropdown-toggle" id="navbarDropdown1" role="button" data-bs-toggle="dropdown" aria-expanded="false" viewBox="0 0 16 16">
-                                <path d="M1 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2zM1 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V7zM1 12a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2z"/>
-                              </svg>
-                            <ul class="dropdown-menu {% if request.user.dark_mode %} dropdown-menu-dark {% endif %} dropdown-menu-end" aria-labelledby="navbarDropdown1">
-                                {% if request.user.is_staff %}
+                <div class="dropdown nav-dd">
+                    <button class="unstyled-button navbar-btn apps-dd" type="button" id="appsDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-grid-3x3-gap-fill" viewBox="0 0 16 16">
+                            <path d="M1 2a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V2zM1 7a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V7zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1V7zM1 12a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1v-2zm5 0a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-2z"/>
+                        </svg>
+                    </button>
 
-                                {% endif %}
-                                <li><a class="dropdown-item" href="{% url 'chat' %}">Chat</a></li>
-                                <li><a class="dropdown-item" href="{% url 'display_calendar' %}">Calendar</a></li>
-                                <li><a class="dropdown-item" href="{% url 'photos' %}">Photos</a></li>
-                                <li><a class="dropdown-item" href="{% url 'sm_home' %}">Social Media</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'apps' %}">All Apps</a></li>
-                            </ul>
-                        </li>
+                    <ul class="dropdown-menu dropdown-menu-end" role="menu" aria-labelledby="appsDropdownBtn">
+                        <li><a class="dropdown-item" href="{% url 'chat' %}">Chat</a></li>
+                        <li><a class="dropdown-item" href="{% url 'display_calendar' %}">Calendar</a></li>
+                        <li><a class="dropdown-item" href="{% url 'photos' %}">Photos</a></li>
+                        <li><a class="dropdown-item" href="{% url 'sm_home' %}">Social Media</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{% url 'apps' %}">All Apps</a></li>
+                    </ul>
+                </div>
 
-                        <li class="nav-item dropdown user-dropdown me-2">
-                            <div class="navbar-dropdown-toggle" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <img class="user-dropdown-btn-img" src="{{ request.user.profile_picture.url }}">
+                <div class="dropdown nav-dd">
+                    <button class="unstyled-button navbar-btn user-dd" type="button" id="userInfoDropdownBtn" data-bs-toggle="dropdown" aria-expanded="false">
+                        <img class="user-dropdown-btn-img" src="{{ request.user.profile_picture.url }}">
+                    </button>
+
+                    <div class="user-dd-menu dropdown-menu dropdown-menu-end" role="menu" aria-labelledby="userInfoDropdownBtn">
+                        <div class="user-dd-user-info">
+                            <div class="user-dd-user-image">
+                                <img class="profile-picture-img" src="{{ request.user.profile_picture.url }}" alt="Profile picture for {{ request.user.username }}">
                             </div>
-                            <ul class="dropdown-menu {% if request.user.dark_mode %} dropdown-menu-dark {% endif %} dropdown-menu-end" aria-labelledby="navbarDropdown">
-                                <div class="profile-picture-in-dropdown">
-                                    <img class="profile-picture-img" src="{{ request.user.profile_picture.url }}" alt="Profile picture for {{ user.username }}">
-                                </div>
+                            <div class="user-dd-user-text">
+                                <span class="user-dd-user-fname">{{ request.user.first_name }} {{ request.user.last_name }}</span>
                                 <br>
-                                <h4 class="user-info">{{ request.user.first_name }} {{ request.user.last_name }}</h4>
-                                <p class="user-info">
-                                    {{ request.user.username }}
-                                    {% if request.user.is_staff %}
+                                <span class="user-dd-user-username">@{{ request.user.username }}</span>
+                                <br>
+                                <span class="user-dd-user-uuid">{{ request.user.id }}</span>
+                            </div>
+                        </div>
+                        <hr class="dropdown-divider">
+                        <div class="user-dd-options">
+                            <div class="user-dd-options-left">
+                                {% if request.user.is_staff %}
+                                <a class="user-dd-link-icon unstyled-button" href="{% url 'admin:index' %}">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-terminal-fill" viewBox="0 0 16 16">
                                         <path d="M0 3a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3zm9.5 5.5h-3a.5.5 0 0 0 0 1h3a.5.5 0 0 0 0-1zm-6.354-.354a.5.5 0 1 0 .708.708l2-2a.5.5 0 0 0 0-.708l-2-2a.5.5 0 1 0-.708.708L4.793 6.5 3.146 8.146z"/>
                                     </svg>
-                                    {% endif %}
-                                </p>
-                                <!-- <li><hr class="dropdown-divider"></li>
-                                <li class="dropdown-item">
-                                    <div class="form-check form-switch">
-                                        <input class="form-check-input" type="checkbox" id="dark_mode_switch" onclick="toggle_dark_mode();" {% if request.user.dark_mode %} checked {% endif %}>
-                                        <label class="form-check-label" for="dark_mode_switch" style="display: block;">[EXP] Toggle Dark Mode</label>
-                                    </div>
-                                </li> -->
-                                <li><hr class="dropdown-divider"></li>
-                                {% if request.user.is_staff %}
-                                <li><a class="dropdown-item" href="{% url 'admin:index' %}">Django Admin</a></li>
+                                </a>
                                 {% endif %}
-                                <li><a class="dropdown-item" href="{% url 'profile' %}">Profile</a></li>
-                                <li><hr class="dropdown-divider"></li>
-                                <li><a class="dropdown-item" href="{% url 'change_password' %}">Change Password</a></li>
-                                <li><a class="dropdown-item" href="{% url 'logout' %}">Log Out</a></li>
-                            </ul>
-                        </li>
-                    </ul>
-                    {% else %}
-                    <button type="button" class="btn btn-secondary noprint" role="button" onclick="window.location.href=`{% url 'login' %}`;">
-                        Login
-                    </button>
-                    {% endif %}
+
+                                <a class="user-dd-link-icon unstyled-button" href="{% url 'profile' %}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-person-circle" viewBox="0 0 16 16">
+                                        <path d="M11 6a3 3 0 1 1-6 0 3 3 0 0 1 6 0z"/>
+                                        <path fill-rule="evenodd" d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm8-7a7 7 0 0 0-5.468 11.37C3.242 11.226 4.805 10 8 10s4.757 1.225 5.468 2.37A7 7 0 0 0 8 1z"/>
+                                    </svg>
+                                </a>
+                                <a class="user-dd-link-icon unstyled-button" href="{% url 'change_password' %}" target="_blank">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-pencil-fill" viewBox="0 0 16 16">
+                                        <path d="M12.854.146a.5.5 0 0 0-.707 0L10.5 1.793 14.207 5.5l1.647-1.646a.5.5 0 0 0 0-.708l-3-3zm.646 6.061L9.793 2.5 3.293 9H3.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.207l6.5-6.5zm-7.468 7.468A.5.5 0 0 1 6 13.5V13h-.5a.5.5 0 0 1-.5-.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.5-.5V10h-.5a.499.499 0 0 1-.175-.032l-.179.178a.5.5 0 0 0-.11.168l-2 5a.5.5 0 0 0 .65.65l5-2a.5.5 0 0 0 .168-.11l.178-.178z"/>
+                                    </svg>
+                                </a>
+                            </div>
+
+                            <div class="user-dd-options-right">
+                                <a class="user-dd-link-icon unstyled-button" href="{% url 'logout' %}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-right" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+                                        <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+                                    </svg>
+                                </a>
+                            </div>
+                        </div>
+                    </div>
                 </div>
+                
+                {% else %}
+
+                <button class="unstyled-button navbar-btn user-dd" type="button" onclick="window.location.href=`{% url 'login' %}`;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-person-fill" viewBox="0 0 16 16">
+                        <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3Zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
+                    </svg>
+                </button>
+
+                {% endif %}
+
+                {% if right_sidebar %}
+                <button class="unstyled-button navbar-btn right-sidebar-btn" onclick=toggleRightSidebar()>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-list" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
+                    </svg>
+                </button>
+                {% endif %}
             </div>
-        </nav>
-
-        <div class="alert alert-danger page-alert" role="alert"></div>
-
-        <!-- Main body -->
-        <div id="main-page-body">
-            {% block page_body %} {% endblock page_body %}
         </div>
 
+        <div class="page-contents">
+            <div class="sidebar sidebar-left" id="sidebar-left">
+                <div class="sidebar-content left-sidebar-content">
+                    {% block left_sidebar %}
+
+                    {% endblock left_sidebar %}
+                </div>
+                <div class="sidebar-footer sidebar-left-footer">
+                    {% block left_sidebar_footer %}
+
+                    {% endblock left_sidebar_footer %}
+                </div>
+            </div>
+
+            <div class="alert page-alert" role="alert"></div>
+
+            <main class="main-content mc-no-sidebar">
+                {% block page_body %}
+
+                {% endblock page_body %}
+            </main>
+
+            <div class="sidebar sidebar-right" id="sidebar-right">
+                <div class="sidebar-content right-sidebar-content">
+                    {% block right_sidebar %}
+
+                    {% endblock right_sidebar %}
+                </div>
+                <div class="sidebar-footer sidebar-right-footer">
+                    {% block right_sidebar_footer %}
+
+                    {% endblock right_sidebar_footer %}
+                </div>
+            </div>
+        </div>
     </body>
+
+    <script>
+        left_sb = false;
+        right_sb = false;
+        {% if left_sidebar %}
+        left_sb = true;
+        {% endif %}
+        {% if right_sidebar %}
+        right_sb = true;
+        {% endif %}
+
+        updateSidebars(left_sb, right_sb);
+    </script>
 </html>

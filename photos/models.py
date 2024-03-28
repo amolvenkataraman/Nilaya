@@ -63,6 +63,7 @@ class Photo(models.Model):
     height = models.IntegerField(null=True, blank=True)
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
+    altitude = models.FloatField(null=True, blank=True)
     orientation = models.CharField(max_length=32)
     date_taken = models.DateTimeField(auto_now=False, null=True, blank=True)
 
@@ -94,7 +95,7 @@ class Photo(models.Model):
             "lon": self.longitude
         }
 
-    def get_info(self):
+    def getinfo(self):
         return {
             "id": str(self.id),
             "path": str(self.album.location + self.filepath),
@@ -113,5 +114,18 @@ class Photo(models.Model):
             "shutterspeed": self.shutterspeed,
             "aperture": self.aperture,
             "flash": self.flash,
-            "focallength": self.focallength
+            "focallength": self.focallength,
+
+            "video": self.video,
+            "length": self.length,            
+        }
+
+    def getinfo_zip(self):
+        return {
+            "id": str(self.id),
+            "path": str(self.album.location + self.filepath),
+            "filepath": str(self.filepath),
+            "date_taken": str(self.date_taken),
+            "video": self.video,
+            "length": self.length,
         }

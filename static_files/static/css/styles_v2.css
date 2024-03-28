@@ -117,10 +117,48 @@ html, body {
 
 .sidebar, .main-content {
     height: 100%;
+
+    -webkit-transition: all 0.35s ease;
+    -moz-transition: all 0.35s ease;
+    -ms-transition: all 0.35s ease;
+    -o-transition: all 0.35s ease;
+    transition: all 0.35s ease;
+}
+
+.sidebar {
+    /* display: none; */
+    width: 0px;
+    overflow: hidden;
+    overflow-x: hidden;
 }
 
 .main-content {
     overflow: scroll;
+}
+
+.mc-no-sidebar {
+    width: 100vw;
+}
+
+.mc-one-sidebar {
+    width: calc(100vw - (1 * 256px));
+}
+
+.mc-two-sidebar {
+    width: calc(100vw - (2 * 256px));
+}
+
+.sidebar-visible {
+    width: 256px!important;
+    /* display: block!important; */
+}
+
+.sidebar-left {
+    border-right: 1px solid rgba(0, 0, 0, 0.5);
+}
+
+.sidebar-right {
+    border-left: 1px solid rgba(0, 0, 0, 0.5);
 }
 
 .alert {

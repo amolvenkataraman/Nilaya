@@ -1,5 +1,5 @@
 {% for photo in photos %}
 <div class="photo">
-    <img src="/photos/photo/{{ photo.id }}/thumbnail/" style='display: block; float: left; margin: 2px; cursor: pointer;' onclick="window.open('/photos/photo/{{ photo.id }}/image/', '_blank')" height="200px">
+    <img src="/photos/photo/{{ photo.id }}/thumbnail/" style='display: block; float: left; margin: 2px; cursor: pointer;' onclick="window.open('/photos/view-photo/{{ photo.id }}/', '_blank')" height="200px">
 </div>
 {% endfor %}

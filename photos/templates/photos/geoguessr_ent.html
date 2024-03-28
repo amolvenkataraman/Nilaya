@@ -1,0 +1,145 @@
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CT-GIS Data Entry Tool</title>
+
+    <link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">
+    <script src="{% static 'js/leaflet/leaflet.js' %}" type="text/javascript"></script>
+    <script src="{% static 'js/heatmap/heatmap.min.js' %}" type="text/javascript"></script>
+    <script src="{% static 'js/leaflet-heatmap/leaflet-heatmap.js' %}" type="text/javascript"></script>
+
+    <style>
+        html, body {
+            margin: 0;
+            border: 0;
+            padding: 0;
+        }
+
+        .wrapper {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #mapid, #photo {
+            width: 40vw;
+            height: 40vh;
+        }
+
+        #photo img {
+            height: 100%;
+        }
+
+        .locations {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            background-color: aqua;
+            padding: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="wrapper">
+        <div id="photo">
+            <img src="/photos/photo/{{ photo.id }}/image/" alt="">
+        </div>
+        <div id="mapid"></div>
+
+        <div class="locations">
+            <button class="snap-btn" onclick="map.setView([43.6425662, -79.3870568], 18)">CC</button>
+            <button class="snap-btn" onclick="map.setView([43.6425662, -79.3870568], 15)">TOR</button>
+            <button class="snap-btn" onclick="map.setView([43.4722854, -80.5448576], 17)">UW</button>
+            <button class="snap-btn" onclick="map.setView([12.9715987, 77.5945627], 18)">PSN</button>
+            <br>
+            <button class="snap-btn" onclick="update_latlng(43.6425662, -79.3870568, true)">CC</button>
+            <button class="snap-btn" onclick="update_latlng(43.6425662, -79.3870568, true)">DM</button>
+            <button class="snap-btn" onclick="update_latlng(43.4722854, -80.5448576, true)">V1</button>
+            <button class="snap-btn" onclick="update_latlng(43.4722854, -80.5448576, true)">LST</button>
+            <button class="snap-btn" onclick="update_latlng(43.4722854, -80.5448576, true)">CSC</button>
+            <button class="snap-btn" onclick="update_latlng(null, null, true)">X</button>
+            <button class="snap-btn" onclick="location.reload()">O</button>
+            <br>
+            <button class="lhm-btn" onclick="load_heatmap()">Load Heatmap</button>
+        </div>
+    </div>
+
+    <script>
+        function load_heatmap() {
+            var cfg = {
+                "radius": 7,
+                "maxOpacity": .9,
+                "scaleRadius": false,
+                "useLocalExtrema": true,
+                latField: 'lat',
+                lngField: 'lng',
+                valueField: 'count'
+            };
+
+            var heatmapLayer = new HeatmapOverlay(cfg).addTo(map);
+
+            r = new XMLHttpRequest();
+            r.open("GET", "/photos/map/?vals=y")
+            r.onload = () => {
+                res = JSON.parse(r.responseText)
+
+                let pj1 = []
+                for (c of res['coords']) {
+                    if (c[0] != 0 && c[1] != 0) {
+                        pj1.push({'lat': c[0], 'lng': c[1], 'count': 1})
+                    }
+                }
+                heatmapLayer.setData({'max': 1, 'data': pj1});
+            }
+            r.send();
+        }
+
+        var map = L.map('mapid').setView([43.6425662, -79.3870568], 10);
+        var mguess = L.marker([43.6425662, -79.3870568]).addTo(map);
+
+        var greenIcon = new L.Icon({
+            iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+            shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+            iconSize: [25, 41],
+            iconAnchor: [12, 41],
+            popupAnchor: [1, -34],
+            shadowSize: [41, 41]
+        });
+      
+        L.tileLayer( 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 28,
+            tileSize: 256,
+        }).addTo(map);
+
+        function update_latlng(lat, lng, refresh=false) {
+            if (lat != null && lng != null) {
+                mguess.setLatLng([lat, lng]);
+            }
+
+            r = new XMLHttpRequest();
+            r.open("POST", "/photos/geoguessr_ent/");
+            r.setRequestHeader("X-CSRFToken", '{{ csrf_token }}');
+            r.onload = () => {
+            res = JSON.parse(r.responseText)
+                if (res['status'] == 'success') {
+                    location.reload();
+                }
+                else {
+                    alert("FAILURE");
+                }
+            }
+            r.send(JSON.stringify({"photo": '{{ photo.id }}', "lat": lat, "lng": lng}));
+        }
+
+        map.on('click', function(e){
+            update_latlng(e.latlng.lat, e.latlng.lng)
+        });
+    </script>
+</body>
+</html>

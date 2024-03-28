@@ -4,9 +4,9 @@ staticfiles
 *.pyc
 __pycache__
 media
+media_private
 SSL
 nginx
-photo_cache
 secret.txt
 db_password.txt
 nohup.out

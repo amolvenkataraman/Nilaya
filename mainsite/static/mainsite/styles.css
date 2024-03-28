@@ -42,3 +42,8 @@ a, a:hover {
 .search {
   align-items: center;
 }
+
+.event-name-container {
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}

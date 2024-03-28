@@ -39,7 +39,7 @@ def autosync_calendars():
 
                 print(f"{cal.name} has been synced!")
 
-            except: print(f"An error ocuurred syncing {cal.name}")
+            except: print(f"An error ocurred syncing {cal.name}")
     else:
         print("Calendar sync task has been cancelled because the server is in offline mode.")
 

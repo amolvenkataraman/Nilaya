@@ -1,10 +1,8 @@
 from django.http import HttpResponse, FileResponse, JsonResponse
 from django.shortcuts import render, redirect, Http404
-from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.contrib.auth.decorators import login_required
-from .forms import UserRegisterForm
 from .models import *
 from Comptech.utils import *
 from Comptech.settings import MEDIA_ROOT

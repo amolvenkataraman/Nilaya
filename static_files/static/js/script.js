@@ -15,3 +15,31 @@ function toggle_dark_mode() {
     r.send();
 }
  
+function updateSidebars(left_sb, right_sb) {
+    sl = document.querySelector(".sidebar-left");
+    sr = document.querySelector(".sidebar-right");
+
+    if (left_sb) { sl.classList.add("sidebar-visible"); }
+    else { sl.classList.remove("sidebar-visible"); }
+    if (right_sb) { sr.classList.add("sidebar-visible"); }
+    else { sr.classList.remove("sidebar-visible"); }
+
+    mc = document.querySelector(".main-content");
+    mc.classList.remove("mc-no-sidebar");
+    mc.classList.remove("mc-one-sidebar");
+    mc.classList.remove("mc-two-sidebar");
+
+    if (left_sb && right_sb) { mc.classList.add("mc-two-sidebar"); }
+    else if (left_sb || right_sb) { mc.classList.add("mc-one-sidebar"); }
+    else { mc.classList.add("mc-no-sidebar"); }
+}
+
+function toggleLeftSidebar() {
+    left_sb = !left_sb;
+    updateSidebars(left_sb, right_sb);
+}
+
+function toggleRightSidebar() {
+    right_sb = !right_sb;
+    updateSidebars(left_sb, right_sb);
+}

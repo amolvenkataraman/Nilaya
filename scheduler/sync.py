@@ -13,8 +13,12 @@ def sync_ical(calendar, start, end, url=None):
     cal = Cal(r.text)
     for i in cal.events:
         try:
-            sd = parser.parse(str(i.begin))
-            ed = parser.parse(str(i.end))
+            sd = i.begin.naive.replace(tzinfo=i.begin.tzinfo)
+            ed = i.end.naive.replace(tzinfo=i.end.tzinfo)
+
+            if i.all_day:
+                sd = sd.replace(tzinfo=pytz.timezone('America/Toronto'))
+                ed = ed.replace(tzinfo=pytz.timezone('America/Toronto'))
 
             if (sd >= parser.parse(start) and ed <= parser.parse(end)):
                 if i.status != None and i.status.lower() == "cancelled":
@@ -31,9 +35,10 @@ def sync_ical(calendar, start, end, url=None):
                     e.name = i.name
                     e.calendar = calendar
                     e.description = i.description
+                    e.allday = i.all_day
                     e.sync_id = i.uid
-                    e.startdate = str(i.begin)
-                    e.enddate = str(i.end)
+                    e.startdate = sd
+                    e.enddate = ed
                     e.save()
 
         except Exception as ex:

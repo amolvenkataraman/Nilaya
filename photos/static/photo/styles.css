@@ -12,13 +12,16 @@ body {
 } */
 
 #sidebar-left .nav-item {
-    background-color: gainsboro;
-    width: 240px;
+    width: 256px;
     border-radius: 2px;
-    margin-bottom: 5px;
+    margin-top: 5px;
     padding: 10px;
     position: relative;
     top: 0;
+}
+
+.nav-item-selected {
+    background-color: gainsboro;
 }
 
 .photo-page-link, .photo-page-link:hover {

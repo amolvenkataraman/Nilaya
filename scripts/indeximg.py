@@ -16,8 +16,7 @@ import datetime
 from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 
-SOURCE_DIR = "/mnt/f/DCIM_Amol/Ingest/Camera"
-#SOURCE_DIR = "/mnt/f/Pictures/Screenshots/"
+SOURCE_DIR = "/mnt/drv0/Photos/DCIM_Amol/Ingest/**"
 DEST_ALBUM_ID = 2
 USERNAME = 'amol'
 
@@ -25,6 +24,8 @@ files = [i for i in glob.glob(f"{SOURCE_DIR}/*.*") if str(i).split('.')[-1].lowe
 album = Album.objects.filter(id=DEST_ALBUM_ID)[0]
 user = ComptechUser.objects.filter(username=USERNAME)[0]
 DEST_DIR = album.location
+
+dtn = datetime.datetime.now()
 
 for ff in files:
     print(ff)
@@ -42,11 +43,18 @@ for ff in files:
         destdir = f"{DEST_DIR}"
         destdir1 = ""
     if not os.path.exists(destdir): os.makedirs(destdir)
-    if not os.path.isfile(f"{destdir}{os.path.basename(ff)}"):
-        shutil.move(ff, f"{destdir}{os.path.basename(ff)}")
-        print(f"{destdir}{os.path.basename(ff)}")
 
-    #continue
+    if os.path.isfile(f"{destdir}{os.path.basename(ff)}"):
+        print(f"IGNORED {ff}")
+
+        if (dtn - dt).days >= 30:
+            print(f"DELETE {ff}")
+            os.remove(ff)
+
+        continue
+
+    shutil.copy(ff, f"{destdir}{os.path.basename(ff)}")
+    print(f"{destdir}{os.path.basename(ff)}")
 
     p = Photo()
     p.owner = user
@@ -62,7 +70,7 @@ for ff in files:
         try:
             img = Image.open(f); p.width = img.size[0]; p.height = img.size[1]
             try:
-                gpsdata = gpsphoto.getGPSData(f); p.latitude = gpsdata['Latitude']; p.longitude = gpsdata['Longitude']
+                gpsdata = gpsphoto.getGPSData(f); p.latitude = gpsdata['Latitude']; p.longitude = gpsdata['Longitude']; p.altitude = gpsdata['Altitude']
             except: pass
             p.orientation = 1
 
@@ -135,8 +143,8 @@ for ff in files:
     try:
         if p.video == False:
             u = p.album.location + p.filepath 
-            img = Image.open(u)               
+            img = Image.open(u)
             img = ImageOps.exif_transpose(img)
             img.thumbnail((500, 200), Image.ANTIALIAS)
-            img.save('/opt/Comptech/photo_cache/thumbnail/' + str(p.id) + '.jpg', "JPEG")
+            img.save('/opt/Comptech/media_private/photos_cache/thumbnail/' + str(p.id) + '.jpg', "JPEG")
     except: pass

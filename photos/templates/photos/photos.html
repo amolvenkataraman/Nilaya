@@ -1,4 +1,4 @@
-{% extends "base_v2.html" %}
+{% extends "base.html" %}
 
 {% load static %}
 
@@ -18,7 +18,7 @@
 <script id="photo-in-list" type="text/x-handlebars-template">
     {% verbatim %}
     <div class="photo">
-        <img src="{{ photo_url }}" data-id="{{ id }}" class="list-img" style='display: block; float: left; margin: 2px;' onclick="view_image(this)" height="200px">
+        <img src="{{ photo_url }}" data-id="{{ id }}" data-video="{{ video }}" class="list-img" style='display: block; float: left; margin: 2px;' onclick="view_image(this)" height="200px">
     </div>
     {% endverbatim %}
 </script>
@@ -68,16 +68,34 @@
     const forward = '{{ forward }}' === 'True';
     var currimage;
     var imgloaded = false;
+    var dates = [];
 
     function view_image(e) {
         imgloaded = true;
         currimage = e;
         document.getElementById("photo-display-area").style.visibility = "visible";
-        img = document.createElement("img");
-        img.src = e.src.slice(0, -10) + 'image/';
-        img.classList.add("image-displayed");
-        document.getElementById("photo").innerHTML = "";
-        document.getElementById("photo").appendChild(img);
+        if (e.dataset.video == "true") {
+            vid = document.createElement("video");
+            src = document.createElement('source');
+
+            src.src = e.src.slice(0, -10) + 'image/';
+            src.type = "video/mp4"
+            vid.appendChild(src)
+            vid.classList.add("image-displayed");
+            vid.controls = true;
+            vid.loop = true;
+
+            document.getElementById("photo").innerHTML = "";
+            document.getElementById("photo").appendChild(vid);
+            vid.play()
+        } else {
+            img = document.createElement("img");
+            img.src = e.src.slice(0, -10) + 'image/';
+            img.classList.add("image-displayed");
+
+            document.getElementById("photo").innerHTML = "";
+            document.getElementById("photo").appendChild(img);
+        }
 
         document.querySelector(".photo-info").innerHTML = "";
 
@@ -107,6 +125,7 @@
     function close_image() {
         imgloaded = false;
         document.getElementById("photo-display-area").style.visibility = "hidden";
+        document.getElementById("photo").innerHTML = "";
     }
 
     function prev_image() {
@@ -127,7 +146,14 @@
         }
     }
 
-    function get_photos_for_date(date) {
+    function get_photos_for_date(date, next=0) {
+        var date1 = moment(date).format('YYYY-MM-DD')
+
+        if (dates.includes(date1)) { return; }
+        dates.push(date1);
+
+        document.querySelector(".photos").innerHTML += `<span class="day-label day-label-${date1}">${date1} - ${moment(date).format('dddd')}</span><div class="day-photos day-photos-${date1}"></div>`
+
         var r = new XMLHttpRequest()
         {% if not bounds %}
         bounds = ""
@@ -135,73 +161,56 @@
         bounds = `&north={{ bounds.north }}&south={{ bounds.south }}&east={{ bounds.east }}&west={{ bounds.west }}`
         {% endif %}
 
-        if (forward) { r.open("GET", `{% url 'get_photos_for_date' %}?date=${date}&forward=1${bounds}`) }
-        else { r.open("GET", `{% url 'get_photos_for_date' %}?date=${date}${bounds}`) }
+        if (forward) { r.open("GET", `{% url 'get_photos_for_date' %}?date=${date1}&forward=1${bounds}`) }
+        else { r.open("GET", `{% url 'get_photos_for_date' %}?date=${date1}${bounds}`) }
         r.onload = () => {
             res = JSON.parse(r.responseText)
+            currdate = res['next']
+
             if (res["photos"].length != 0) {
                 for (i = 0; i < res["photos"].length; i++) {
                     photo = res["photos"][i]
-                    document.querySelector(`.day-photos-${date}`).innerHTML += photo_in_list({"photo_url": `/photos/photo/${photo['id']}/thumbnail/`, "id": photo['id']})
+                    document.querySelector(`.day-photos-${date1}`).innerHTML += photo_in_list({"photo_url": `/photos/photo/${photo['id']}/thumbnail/`, "id": photo['id'], "video": photo["video"]})
                 }
+            }
+
+            if (next > 0) {
+                get_photos_for_date(res['next'], next - 1)
             }
         }
         r.send()
     }
 
     window.addEventListener('DOMContentLoaded', (event) => {
-        if (forward) {
-            for (i = 0; i > -3; i--)  {
-                date = moment(currdate).subtract(i, 'day').format('YYYY-MM-DD')
-                document.querySelector(".photos").innerHTML += `<span class="day-label day-label-${date}">${date}</span><div class="day-photos day-photos-${date}"></div>`
-                get_photos_for_date(date)
-            }
-
-            currdate = new Date(currdate.getTime() + (2 * 86400000))
-        }
-
-        else {
-            for (i = 0; i < 3; i++)  {
-                date = moment(currdate).subtract(i, 'day').format('YYYY-MM-DD')
-                document.querySelector(".photos").innerHTML += `<span class="day-label day-label-${date}">${date}</span><div class="day-photos day-photos-${date}"></div>`
-                get_photos_for_date(date)
-            }
-
-            currdate = new Date(currdate.getTime() - (2 * 86400000))
-        }
-    })
-
-    document.onkeydown = function (e) {
-        if (e.key == 'Escape') {
-            close_image();
-        }
+        get_photos_for_date(currdate, 4)
         
-        else if (e.key == 'ArrowLeft') {
-            prev_image();
+        document.onkeydown = function (e) {
+            if (e.key == 'Escape') {
+                close_image();
+            }
+            
+            else if (e.key == 'ArrowLeft') {
+                prev_image();
+            }
+            
+            else if (e.key == 'ArrowRight') {
+                next_image();
+            }
         }
 
-        else if (e.key == 'ArrowRight') {
-            next_image();
-        }
-
-    }
-
-    document.querySelector(".main-content").addEventListener('scroll', (event) => {
-        if (document.querySelector(".main-content").scrollY + window.innerHeight >= $('.photos').height()) {
-            if (forward) { date = moment(currdate).add(1, 'day').format('YYYY-MM-DD') }
-            else { date = moment(currdate).subtract(1, 'day').format('YYYY-MM-DD') }
-            document.querySelector(".photos").innerHTML += `<span class="day-label day-label-${date}">${date}</span><div class="day-photos day-photos-${date}"></div>`
-            get_photos_for_date(date)
-            if (forward) { currdate = new Date(currdate.getTime() + 86400000) }
-            else { currdate = new Date(currdate.getTime() - 86400000) }
-        }
+        document.querySelector(".main-content").addEventListener('scroll', (event) => {
+            el = document.querySelector(".main-content");
+            if (el.scrollHeight - el.scrollTop - el.clientHeight < 1 ) {
+                get_photos_for_date(currdate)
+            }
+        })
     })
 </script>
 {% endblock %}
 
 {% block left_sidebar %}
 <ul class="nav">
-    <li class="nav-item">
+    <li class="nav-item nav-item-selected">
         <a class="photo-page-link" href="#">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-home"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
             Photos

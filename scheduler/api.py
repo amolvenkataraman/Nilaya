@@ -3,9 +3,11 @@ from django.db.models import Q
 from django.utils import timezone
 from .models import *
 from .sync import *
+from .inject import get_additions
 
-from Comptech.settings import CALENDAR_VARS, ONLINE_MODE
+from Comptech.settings import CALENDAR_VARS, ONLINE_MODE, TIME_ZONE
 from Comptech.utils import *
+from photos.models import *
 
 import datetime
 import json
@@ -24,6 +26,7 @@ def get_events(request):
     ans = {"data": {}}
     user_ = request.user
     calendars = user_.calendar_subscribed.all()
+    albums = [i.album for i in user_.album_subscribed.all()]
 
     if request.GET.get("show_all") == "0":
         calendars = user_.calendar_subscribed.filter(calendar__active=True)
@@ -32,7 +35,9 @@ def get_events(request):
 
     calendars1 = [i.calendar for i in calendars.filter(visible=True)]
 
-    ans["data"]["calendars"] = [i.getinfo() for i in calendars.order_by('calendar__name')]
+    habits = Habit.objects.filter(user=user_)
+
+    ans["data"]["calendars"] = [i.getinfo(cal=True) for i in calendars.order_by('calendar__name')]
     ans["data"]["birthdays"] = [i.getinfo_zip() for i in user_.friends.filter(birthday__month=int(month))]
     try:
         if user_.birthday.month == int(month): ans["data"]["birthdays"].append(user_.getinfo_zip())
@@ -43,7 +48,19 @@ def get_events(request):
         (Q(enddate__month=int(month)) & Q(enddate__year=(int(year)))) |
         Q(Q(startdate__month__lt=int(month), enddate__month__gt=int(month)) & (Q(startdate__year=int(year), enddate__year=int(year)))))
     ).order_by('startdate', '-enddate', 'name').iterator()]
-    ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(Q(user=user_) & (Q(completed=False) | (Q(completiondate__month=int(month)) & Q(completiondate__year=int(year))))).order_by('completiondate')]
+    ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(Q(user=user_) & (Q(completed=False) | (Q(complete_by__month=int(month)) & Q(complete_by__year=int(year))))).order_by('complete_by')]
+    ans["data"]["habits"] = [i.getinfo() for i in habits]
+    ans["data"]["habit_days"] = [i.getinfo() for i in Habit_Day.objects.filter(habit__in=habits)]
+
+    pl = [timezone.localtime(i.date_taken, pytz.timezone(TIME_ZONE)).day for i in Photo.objects.filter(album__in=albums, date_taken__month=month, date_taken__year=year)]
+    ans["data"]["photos"] = {i: pl.count(i) for i in pl}
+
+    # TEMPORARY - For experiments
+    # To remove later
+    # cals, evs = get_additions(month, year, request.user.id)
+    # ans["data"]["calendars"].append(cals)
+    # for i in evs: ans["data"]["events"].append(i)
+
 
     return JsonResponse(ans)
 
@@ -51,10 +68,8 @@ def get_events(request):
 @login_required_api
 def sync_events(request):
     if ONLINE_MODE:
-        try:
-            req = json.loads(request.body)
-        except:
-            return error_response("Malformed JSON. Can not decode.")
+        try: req = json.loads(request.body)
+        except: return error_response("Malformed JSON. Can not decode.")
 
         try:
             calendar = Calendar.objects.filter(id=req["calendar"])[0]
@@ -73,18 +88,36 @@ def sync_events(request):
 
         if calendar.calendar_type == 1: # ICalendar:
             status = sync_ical(calendar, start_time, end_time) ## ACTUAL SYNC
-            if status: return success_response()
 
         elif calendar.calendar_type == 2: # Public Google Calendar
             status = sync_google(calendar, start_time, end_time, token) ## ACTUAL SYNC
-            if status: return success_response()
 
         elif calendar.calendar_type == 50: # UWaterloo WCMS
             status = sync_uwaterloo(calendar, start_time, end_time)
-            if status: return success_response()
 
         else: return error_response("Calendar is a local calendar")
+
+        if status: return success_response()
+
     else: return error_response("Server is in offline mode")
+
+@post_request_only
+@login_required_api
+def set_habit_val(request):
+    hab = request.GET.get("habit")
+
+    try:
+        h = Habit.objects.filter(id=hab)[0]
+        if h.user == request.user:
+            hdq = Habit_Day.objects.filter(habit=h, day=datetime.date.today())
+            if hdq.count() > 0: hd = hdq[0]
+            else: hd = Habit_Day(habit=h, day=datetime.date.today())
+            hd.value = int(request.body.decode('utf8'))
+            hd.save()
+            return success_response()
+        else: return error_response("You do not own this habit", 401)
+    except KeyError:
+        return error_response("Invalid habit")
 
 def get_availability(request, username):
     dts = request.GET.get("date")
@@ -132,15 +165,15 @@ def get_calendar_events(request):
 @login_required_api
 def calendar(request):
     if request.method == 'GET':
-        calendar = request.GET.get("id")
-        if calendar == None:
+        cid = request.GET.get("id")
+        if cid == None:
             return error_response("Calendar ID not provided")
         try:
-            c_ = Calendar.objects.filter(id=calendar)[0]
+            c_ = Calendar.objects.filter(id=cid)[0]
             if len(c_.users_subscribed.filter(user=request.user)) > 0:
                 command = request.GET.get("command")
                 if command == "info" or command == None:
-                    return JsonResponse(c_.getinfo_full())
+                    return JsonResponse({**c_.getinfo(), **c_.get_subs()})
                 elif command == "active":
                     if c_.users_subscribed.filter(user=request.user)[0].subscribe_type in [0, 1]:
                         c_.active = not c_.active
@@ -159,7 +192,7 @@ def calendar(request):
             c = Calendar(name=b['name'], colour=b['color'])
             c.owner = request.user
             c.save()
-            s = Subscriber(user=request.user, calendar=c, subscribe_type=0)
+            s = Subscriber(user=request.user, calendar=c, subscribe_type=0, colour=b['color'])
             s.save()
             return success_response()
         except Exception as ex:
@@ -309,8 +342,8 @@ def todo(request, command):
             t.description = req['description']
             t.user = request.user
             t.priority = req['priority']
-            if req['completion'] != " ":  t.completiondate = req['completion']
-            else: t.completiondate = None
+            if req['completion'] != " ":  t.complete_by = req['completion']
+            else: t.complete_by = None
             t.recurring = req['recurring']
 
             t.save()
@@ -329,8 +362,8 @@ def todo(request, command):
                     return success_response()
 
                 elif command == "complete":
-                    if req['completion'] == 'True': t.completed = True
-                    elif req['completion'] == 'False': t.completed = False
+                    t.completed = req['completion']
+                    if req['completion']: t.completed_on = timezone.now()
                     t.save()
                     return success_response()
 
@@ -357,7 +390,7 @@ def subscribe(request):
     elif request.method == 'POST':
         calendar_ = invite.calendar
         if calendar_ in request.user.calendar_subscribed.all(): return error_response("You are already subscribed to this calendar")
-        s = Subscriber(calendar=calendar_, user=request.user)
+        s = Subscriber(calendar=calendar_, user=request.user, colour=calendar_.color)
         s.save()
         invite.uses += 1
         invite.save()

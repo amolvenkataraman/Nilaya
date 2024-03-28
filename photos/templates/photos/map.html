@@ -11,6 +11,7 @@
     <script src="{% static 'js/leaflet/leaflet.js' %}" type="text/javascript"></script>
     <script src="{% static 'js/heatmap/heatmap.min.js' %}" type="text/javascript"></script>
     <script src="{% static 'js/leaflet-heatmap/leaflet-heatmap.js' %}" type="text/javascript"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js"></script>
 
     <style>
         html, body {
@@ -40,10 +41,13 @@
     <div id="mapid"></div>
     <div class="overlay">
         <button class="show-photos-btn">View photos</button>
+        <br>
+        <input type="file" name="inputfile" id="inputfile" multiple="multiple">
     </div>
 
     <script>
         var map = L.map('mapid').setView([43.6425662, -79.3870568], 10);
+        COLOR = 'blue';
       
         L.tileLayer( 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 28,
@@ -72,10 +76,35 @@
         }
         heatmapLayer.setData({'max': 1, 'data': pj1});
 
-        document.querySelector('.overlay').onclick = function() {
+        document.querySelector('.show-photos-btn').onclick = function() {
             bounds = map.getBounds()
             window.open(`/photos/?north=${bounds._northEast.lat}&south=${bounds._southWest.lat}&east=${bounds._northEast.lng}&west=${bounds._southWest.lng}`, '_blank')
         }
+
+        document.getElementById('inputfile')
+        .addEventListener('change', function () {
+            for (f of this.files) {
+                if (f.name.includes("WALKING")) { COLOR = "green"; }
+                else { COLOR = "blue" }
+                let fileReader = new FileReader();
+                fileReader.onload = function () {
+                    new L.GPX(fileReader.result, {
+                        async: true,
+                        display_wpt: false,
+                        marker_options: {
+                            startIconUrl: null,
+                            endIconUrl: null,
+                            shadowUrl: null
+                        },
+                        polyline_options: {color: COLOR}
+                    }
+                    ).on('loaded', function(e) {
+                        map.fitBounds(e.target.getBounds());
+                    }).addTo(map);
+                }
+                fileReader.readAsText(f);
+            }
+        })
     </script>
 </body>
 </html>

@@ -12,17 +12,24 @@ const todo_item = Handlebars.compile(`
         <div class="card-body" data-todo-id="{{ id }}" style="padding: 8px;">
             <span class="card-title">
                 <span>
-                    <span class="text-primary" style="cursor: pointer;" onclick="complete_todo('{{ id }}');">
+                    <span class="text-success" style="cursor: pointer;" onclick="complete_todo('{{ i }}');">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check2-square" viewBox="0 0 16 16">
                             <path d="M3 14.5A1.5 1.5 0 0 1 1.5 13V3A1.5 1.5 0 0 1 3 1.5h8a.5.5 0 0 1 0 1H3a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5V8a.5.5 0 0 1 1 0v5a1.5 1.5 0 0 1-1.5 1.5H3z"/>
                             <path d="m8.354 10.354 7-7a.5.5 0 0 0-.708-.708L8 9.293 5.354 6.646a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0z"/>
                         </svg>
                     </span>
-                    <span class="text-primary" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#modal" onclick="add_edit_todo(command='edit', edit_todo={{ i }});">
-                        <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-three-dots-vertical" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                            <path fill-rule="evenodd" d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"></path>
+                    <span class="text-info" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#modal" onclick="add_edit_todo(command='edit', edit_todo={{ i }});">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">
+                            <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
                         </svg>
                     </span>
+                    <span class="text-danger" style="cursor: pointer;" onclick="delete_todo('{{ i }}');">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                        </svg>
+                    </span>
+
                 </span>
                 <span>{{{ name }}}</span>
             </span>
@@ -364,7 +371,8 @@ var todos;
 var calendars = {};
 var events = {};
 var ss_available = false;
-var timediff = 1000 * 60 * 60 * 24 * 2;
+var timediff1 = 1000 * 60 * 60 * 12;
+var timediff2 = 1000 * 60 * 60 * 24 * 2;
 
 var ICONS = [
     "",
@@ -756,8 +764,8 @@ function add_edit_event(date, month=m+1, year=y, command="add", edit_event=null)
     for (c of data["calendars"]) {
         if (c["subscribe_type"] == 0 || c["subscribe_type"] == 1) {
             option = document.createElement('option');
-            option.text = c["name"];
-            option.value = c["id"];
+            option.text = c["calendar"]["name"];
+            option.value = c["calendar"]["id"];
             document.querySelector('.form-calendar-input-1').add(option);
         }
 
@@ -829,7 +837,7 @@ function add_edit_todo( command="add", edit_todo=null) {
         $('#todo-description-input').val(et["description"]);
         $('#form-todo-priority-input').val(et["priority"]);
         document.querySelector('#todo-recurring-check').checked = et["recurring"];
-        tcd = new Date(et["completion"]);
+        tcd = new Date(et["complete_by"]);
         tcd = convertUTCDateToLocalDate(tcd);
         document.querySelector('.todo-date-complete').valueAsDate = tcd;
         document.querySelector('.todo-time-complete').valueAsDate = tcd;
@@ -865,6 +873,24 @@ function add_edit_todo( command="add", edit_todo=null) {
     });
 }
 
+function delete_todo(todo_num) {
+    todo = data["todos"][todo_num]
+    r = new XMLHttpRequest();
+    r.open("POST", URLS["todo_delete"]);
+    r.setRequestHeader("X-CSRFToken", CSRF_TOKEN);
+    r.onload = () => {
+        res = JSON.parse(r.responseText)
+        if (res['status'] == 'success') {
+            data["todos"].splice(todo_num, 1)
+            reload_calendar();
+        }
+        else {
+            alert(res['data']);
+        }
+    }
+    r.send(JSON.stringify({'id': todo["id"]}));
+}
+
 function make_holidays_red() {
     document.querySelectorAll('.date-span').forEach(ds => {
         if (vars["holidays"].includes(parseInt(ds.parentElement.dataset.day))) {
@@ -885,7 +911,7 @@ function toggle_calendar_visibility(e, only) {
     calendar_ = data["calendars"][e.parentElement.dataset.calendar]
 
     r = new XMLHttpRequest();
-    r.open("GET", `${URLS['toggle_visibility']}?calendar=${calendar_["id"]}`);
+    r.open("GET", `${URLS['toggle_visibility']}?calendar=${calendar_["calendar"]["id"]}`);
     r.onload = () => {
         res = JSON.parse(r.responseText)
         if (res['status'] == 'success') {
@@ -1077,7 +1103,10 @@ function display_day_info(ds) {
                         
                         cols[evt1][col - 1] = 1;
                     }
-                    cc.style.borderBottom = "1px solid #e2e2e2";
+
+                    try {
+                        cc.style.borderBottom = "1px solid #e2e2e2";
+                    } catch {}
                 }
             }
         }, 100)
@@ -1095,7 +1124,13 @@ function reload_calendar() {
         "events": {},
         "allday": {},
     }
-    
+
+    document.querySelectorAll('.date-span').forEach(ds => {
+        if (vars["holidays"].includes(parseInt(ds.dataset.day))) {
+            ds.style.color = "red"
+        }
+    })
+
     for (i=0; i<daysInMonth(m, y); i++) {
         events["events"][i+1] = [];
         events["allday"][i+1] = [];
@@ -1104,21 +1139,15 @@ function reload_calendar() {
     c = data["calendars"]
     for (i = 0; i < c.length; i++) {
         checked = "checked"
-        if (c[i]["visible"] == "False") {
-            checked = ""
-        }
-        if (c[i]["subscribe_type"] == 0) {
-            owner = true;
-        }
-        else {
-            owner = false;
-        }
+        if (c[i]["visible"] == false) { checked = ""; }
+        if (c[i]["subscribe_type"] == 0) { owner = true; }
+        else { owner = false; }
 
-        calendars[c[i]["id"]] = c[i];
+        calendars[c[i]["calendar"]["id"]] = c[i];
 
         if (c[i]['active'] == 'False') { opacity = 0.6; }
         else { opacity = 1; }
-        cal_name = calendar_name({"id": c[i]["id"], "name": c[i]["name"], "calendar": i, "calendar-type": c[i]["calendar_type"], "checked": checked, "colour": c[i]['colour'], "owner": c[i]["subscribe_type"] == 0, "opacity": opacity, "admin": c[i]["subscribe_type"] == 1, "sync": c[i]["calendar_type"] != "0", "c_owner": c[i]["owner"] == USER_ID});
+        cal_name = calendar_name({"id": c[i]["calendar"]["id"], "name": c[i]["calendar"]["name"], "calendar": i, "calendar-type": c[i]["calendar"]["calendar_type"], "checked": checked, "colour": c[i]['colour'], "owner": c[i]["subscribe_type"] == 0, "opacity": opacity, "admin": c[i]["subscribe_type"] == 1, "sync": c[i]["calendar"]["calendar_type"] != "0", "c_owner": c[i]["calendar"]["owner"] == USER_ID});
 
         if (c[i]["subscribe_type"] == 0) {
             document.querySelector('.calendarlist-mine').innerHTML += cal_name;
@@ -1134,7 +1163,7 @@ function reload_calendar() {
         {
             date_ = new Date(b[i]["birthday"]).getUTCDate()
             dp = document.querySelector(`.day-events-${date_}`)
-            var ci = calendar_item({'modal': false, 'calendar': [], 'i': i, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'text': `<span style="font-weight: normal;">🎂</span> ${b[i]['username']}'s Birthday`})
+            var ci = calendar_item({'modal': false, 'calendar': "", 'i': i, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'text': `<span style="font-weight: normal;">🎂</span> ${b[i]['username']}'s Birthday`})
             dp.innerHTML += ci
         }
     }
@@ -1152,9 +1181,9 @@ function reload_calendar() {
             icon = ICONS[e[i]['category']] + "&nbsp";
         }
 
-        if (e[i]['enddate'] == 'None') {
+        if (e[i]['enddate'] == null) {
             dp = document.querySelector(`.reg-events-${sd.getDate()}`)
-            var ci = calendar_item({'modal': true, 'del': e[i]['completed'] == "True", 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'color': calendars[e[i]['calendar']]['colour'], 'icon': icon, 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name'], 'del': e[i]['completed'] == "True"})
+            var ci = calendar_item({'modal': true, 'del': e[i]['completed'] == true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'color': calendars[e[i]['calendar']]['colour'], 'icon': icon, 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name'], 'del': e[i]['completed'] == true})
             dp.innerHTML += ci
 
             events["events"][sd.getDate()].push(e[i]);
@@ -1165,7 +1194,7 @@ function reload_calendar() {
             {
                 if (sd.getDate() == ed.getDate()) {
                     dp = document.querySelector(`.reg-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'color': calendars[e[i]['calendar']]['colour'], 'icon': icon, 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name'], 'del': e[i]['completed'] == "True"})
+                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'color': calendars[e[i]['calendar']]['colour'], 'icon': icon, 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name'], 'del': e[i]['completed'] == true})
                     dp.innerHTML += ci
 
                     events["events"][j].push(e[i]);
@@ -1173,7 +1202,7 @@ function reload_calendar() {
                 else if (e[i]['allday'] == true) {
                     if (j != ed.getDate()) {
                         dp = document.querySelector(`.day-events-${j}`)
-                        var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == "True"})
+                        var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == true})
                         dp.innerHTML += ci
 
                         events["allday"][j].push(e[i]);
@@ -1183,7 +1212,7 @@ function reload_calendar() {
                     if (j == sd.getDate()) {prepend = moment(sd).format('LT').replace(":00", "") + " - "; events["events"][j].push(e[i]);}
                     else {prepend = ""}
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': prepend + e[i]['name'], 'del': e[i]['completed'] == "True"})
+                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': prepend + e[i]['name'], 'del': e[i]['completed'] == true})
                     dp.innerHTML += ci
                 }
             }
@@ -1193,7 +1222,7 @@ function reload_calendar() {
             {
                 if (e[i]['allday'] == true) {
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == "True"})
+                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == true})
                     dp.innerHTML += ci
 
                     events["allday"][j].push(e[i]);
@@ -1202,7 +1231,7 @@ function reload_calendar() {
                     if (j == sd.getDate()) {prepend = moment(sd).format('LT').replace(":00", "") + " - "; events["events"][j].push(e[i]);}
                     else {prepend = ""}
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': prepend + e[i]['name'], 'del': e[i]['completed'] == "True"})
+                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': prepend + e[i]['name'], 'del': e[i]['completed'] == true})
                     dp.innerHTML += ci
                 }
             }
@@ -1213,7 +1242,7 @@ function reload_calendar() {
                 if (e[i]["allday"] == true && j == ed.getDate()) {}
                 else {
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == "True"})
+                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == true})
                     dp.innerHTML += ci
                 }
             }
@@ -1222,7 +1251,7 @@ function reload_calendar() {
             for (j = 1; j <= daysInMonth(m, y); j++)
             {
                 dp = document.querySelector(`.day-events-${j}`)
-                var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == "True"})
+                var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == true})
                 dp.innerHTML += ci
             }
         }
@@ -1230,44 +1259,60 @@ function reload_calendar() {
 
     t = data["todos"]
     for (let [num, todo] of t.entries()) {
-        if (todo["completion"] == "None") { tn = `<span class="text-muted">${todo.name}</span>`}
+        if (todo["complete_by"] == null) { tn = `<span class="text-muted">${todo.name}</span>`}
         else {
-            cd = new Date(todo["completion"]);
+            cd = new Date(todo["complete_by"]);
+            dc = cd.getTime() - new Date().getTime()
             if (cd <= new Date()) { overdue = "5"; }
-            else if (cd.getTime() - new Date().getTime() <= timediff) { overdue = "1"; }
+            else if (dc <= timediff1) { overdue = "2"; }
+            else if (dc <= timediff2) { overdue = "1"; }
             else { overdue = "0"; }
 
             if (localStorage.getItem("calendar_show_todos") == 1) {
                 if (cd.getMonth() == m && cd.getFullYear() == y) {
                     j = cd.getDate();
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': false, 'calendar': [], 'i': num, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'del': todo["completed"] == "True", 'text': `${TASK_ICON}&nbsp${ moment(cd).format('LT').replace(":00", "")} - ${todo.name}`});
+                    var ci = calendar_item({'modal': false, 'calendar': [], 'i': num, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'del': todo["completed"] == true, 'text': `${TASK_ICON}&nbsp${ moment(cd).format('LT').replace(":00", "")} - ${todo.name}`});
                     dp.innerHTML += ci
                 }
             }
-        if (overdue == "5") { tn = `<span class="text-danger">⚠ ${todo.name}</span>` } else if (overdue == "1") { tn = `<span class="text-warning">${todo.name}</span>` } else { tn = `${todo.name}` } }
-        if (todo["completed"] == "False") {
+        if (overdue == "5") { tn = `<span class="text-danger">⚠ ${todo.name}</span>` }
+        else if (overdue == "2") { tn = `<span class="text-warning">${todo.name}</span>` }
+        else if (overdue == "1") { tn = `<span class="text-info">${todo.name}</span>` }
+        else { tn = `${todo.name}` } }
+        if (todo["completed"] == false) {
             document.querySelector('.todo-list').innerHTML += todo_item({'id': todo.id, 'name': tn, 'i': num});
         }
     }
 
-    r1 = new XMLHttpRequest();
-    r1.open("GET", `/photos/month-stats/${y}/${m+1}/`)
-    r1.onload = () => {
-        dph = JSON.parse(r1.responseText);
-        for (i of Object.entries(dph)) { $(`.day-images-btn-${i[0]}`).html(i[1]); }
+    document.querySelector('.habit-list').innerHTML = "";
+    h = data["habits"]
+    for (let [num, hab] of h.entries()) {
+        document.querySelector('.habit-list').innerHTML += `
+
+            <div class="card mb-1">
+                <div class="card-body" data-habit-id="${hab['id']}" style="padding: 8px;">
+                    <span class="card-title">${hab['name']}</span>
+
+                    <div class="input-group input-group-sm" style="width: 50%;">
+                        <input type="number" id="habitVal-${num}" class="form-control" value="1"/>
+                        <button type="button" class="btn btn-primary" onclick="update_habit('${hab['id']}', this)">o</button>
+                    </div>
+                </div>
+            </div>
+
+        `;
     }
-    r1.send();
 
-    change_height()
+    for (h1 of data["habit_days"]) {
 
-    hide_loading()
+    }
 
-    document.querySelectorAll('.date-span').forEach(ds => {
-        if (vars["holidays"].includes(parseInt(ds.dataset.day))) {
-            ds.style.color = "red"
-        }
-    })
+    for (i of Object.entries(data["photos"])) { $(`.day-images-btn-${i[0]}`).html(i[1]); }
+
+    change_height();
+
+    hide_loading();
 }
 
 function populate_calendar(m, y, jumponload=false) {
@@ -1296,7 +1341,8 @@ function populate_calendar(m, y, jumponload=false) {
     r.send();
 }
 
-function complete_todo(todo_) {
+function complete_todo(todo_id) {
+    todo = data["todos"][todo_id]
     r = new XMLHttpRequest();
     r.open("POST", URLS['todo_complete']);
     r.setRequestHeader("X-CSRFToken", CSRF_TOKEN);
@@ -1309,7 +1355,7 @@ function complete_todo(todo_) {
             alert(res['data']);
         }
     }
-    r.send(JSON.stringify({'id': todo_, 'completion': 'True'}));
+    r.send(JSON.stringify({'id': todo["id"], 'completion': true}));
 }
 
 function display_info(button) {
@@ -1345,7 +1391,7 @@ function display_info(button) {
 
         $('.modal-body').html(event_info_template({
             "date": date_,
-            "calendar": `${calendars[event_["calendar"]]["name"]} [${event_["category"]}]`,
+            "calendar": `${calendars[event_["calendar"]]["calendar"]["name"]} [${event_["category"]}], ${value_or_empty(event_["location"])}`,
             "show_desc": show_desc, "description": desc,
             "countdown": countdown,
             "dev_info": dev_info,
@@ -1372,16 +1418,16 @@ function display_calendar_info(btn) {
     if (cal["subscribe_type"] == 0) {
         r = new XMLHttpRequest();
 
-        r.open('GET', `${URLS['calendar']}?id=${calid}`);
+        r.open('GET', `${URLS['calendar']}?id=${cal["calendar"]["id"]}`);
         r.onload = function() {
             calendar_ = JSON.parse(r.responseText);
 
             $('.big-modal-title').html(`${calendar_["name"]}`);
             $('.big-modal-body').html(calendar_info_template());
 
-            if (calendar_["active"] == "True") { $('.toggle-calendar-activation-btn').html("Disable"); }
+            if (calendar_["active"] == true) { $('.toggle-calendar-activation-btn').html("Disable"); }
             else { $('.toggle-calendar-activation-btn').html("Enable"); }
-            $('.toggle-calendar-activation-btn').attr("data-calendar", calid);
+            $('.toggle-calendar-activation-btn').attr("data-calendar", cal["calendar"]["id"]);
 
             for (i = 0; i < calendar_["subscribers"].length; i++) {
                 subscriberinfo = `
@@ -1395,7 +1441,7 @@ function display_calendar_info(btn) {
 
             for (inv of calendar_['invites']) {
                 temp = "";
-                if (inv["active"] == "True") { temp = "checked"; }
+                if (inv["active"] == true) { temp = "checked"; }
                 no_invites++;
                 document.querySelector('.invite-list').innerHTML += calendar_invite({"invite_no": no_invites, "invite": inv["id"], "calendar_id": calendar_["id"], "checked": temp, "invite_name": inv["code"]});
             }
@@ -1419,7 +1465,7 @@ function display_calendar_info(btn) {
                 </svg>
                 `;
             }
-            if (calendar_["public"] == "True") {
+            if (calendar_["public"] == true) {
                 document.querySelector('.big-modal-title').innerHTML += `
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-globe" viewBox="0 0 16 16">
                     <path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8zm7.5-6.923c-.67.204-1.335.82-1.887 1.855A7.97 7.97 0 0 0 5.145 4H7.5V1.077zM4.09 4a9.267 9.267 0 0 1 .64-1.539 6.7 6.7 0 0 1 .597-.933A7.025 7.025 0 0 0 2.255 4H4.09zm-.582 3.5c.03-.877.138-1.718.312-2.5H1.674a6.958 6.958 0 0 0-.656 2.5h2.49zM4.847 5a12.5 12.5 0 0 0-.338 2.5H7.5V5H4.847zM8.5 5v2.5h2.99a12.495 12.495 0 0 0-.337-2.5H8.5zM4.51 8.5a12.5 12.5 0 0 0 .337 2.5H7.5V8.5H4.51zm3.99 0V11h2.653c.187-.765.306-1.608.338-2.5H8.5zM5.145 12c.138.386.295.744.468 1.068.552 1.035 1.218 1.65 1.887 1.855V12H5.145zm.182 2.472a6.696 6.696 0 0 1-.597-.933A9.268 9.268 0 0 1 4.09 12H2.255a7.024 7.024 0 0 0 3.072 2.472zM3.82 11a13.652 13.652 0 0 1-.312-2.5h-2.49c.062.89.291 1.733.656 2.5H3.82zm6.853 3.472A7.024 7.024 0 0 0 13.745 12H11.91a9.27 9.27 0 0 1-.64 1.539 6.688 6.688 0 0 1-.597.933zM8.5 12v2.923c.67-.204 1.335-.82 1.887-1.855.173-.324.33-.682.468-1.068H8.5zm3.68-1h2.146c.365-.767.594-1.61.656-2.5h-2.49a13.65 13.65 0 0 1-.312 2.5zm2.802-3.5a6.959 6.959 0 0 0-.656-2.5H12.18c.174.782.282 1.623.312 2.5h2.49zM11.27 2.461c.247.464.462.98.64 1.539h1.835a7.024 7.024 0 0 0-3.072-2.472c.218.284.418.598.597.933zM10.855 4a7.966 7.966 0 0 0-.468-1.068C9.835 1.897 9.17 1.282 8.5 1.077V4h2.355z"/>
@@ -1438,7 +1484,7 @@ function display_calendar_info(btn) {
 function sync_events(btn) {
     cal = data["calendars"][btn.parentElement.parentElement.dataset.calendar]
     
-    $('.modal-title').html(`Sync Events for ${cal["name"]}`)
+    $('.modal-title').html(`Sync Events for ${cal["calendar"]["name"]}`)
     if (cal["subscribe_type"] == 0 || cal["subscribe_type"] == 1) {
         $('.modal-body').html(calendar_sync_template())
         
@@ -1455,7 +1501,7 @@ function sync_events(btn) {
         
         $('.calendar-sync-btn').click(function() {
             result = {
-                "calendar": cal["id"],
+                "calendar": cal["calendar"]["id"],
                 "sy": parseInt($('.calendar-sync-start-year').val()),
                 "sm": parseInt($('.calendar-sync-start-month').val()) + 1,
                 "ey": parseInt($('.calendar-sync-end-year').val()),
@@ -1532,10 +1578,10 @@ function toggle_invite(cb) {
             {
                 if (data["calendars"][cb.dataset.class]["invites"][i]["id"] == cb.dataset.invite)
                 {
-                    if (data["calendars"][cb.dataset.class]["invites"][i]["active"] == "True")
-                    { data["calendars"][cb.dataset.class]["invites"][i]["active"] = "False" }
+                    if (data["calendars"][cb.dataset.class]["invites"][i]["active"] == true)
+                    { data["calendars"][cb.dataset.class]["invites"][i]["active"] = false }
                     else
-                    { data["calendars"][cb.dataset.class]["invites"][i]["active"] = "True" }
+                    { data["calendars"][cb.dataset.class]["invites"][i]["active"] = true }
                 }
             }
             cb.disabled = false
@@ -1564,7 +1610,8 @@ function delete_event(event_no) {
             res = JSON.parse(request.responseText);
             if (res["status"] === "success") {
                 $("#modal").modal("hide");
-                populate_calendar(m, y, true);
+                data["events"].splice(event_no, 1)
+                reload_calendar();
             }
             else {
                 alert(res["data"])
@@ -1592,6 +1639,23 @@ function duplicate_event(event_no) {
         }
         request.send(JSON.stringify({"id": ev["id"], "days": $('#evDupDays').val()}))
     }
+}
+
+function update_habit(id, el) {
+    val = el.parentElement.querySelector('input').value
+    var request = new XMLHttpRequest()
+    request.open('POST', `/calendar/habit/?habit=${id}`)
+    request.setRequestHeader("X-CSRFToken", CSRF_TOKEN)
+    request.onload = () => {
+        res = JSON.parse(request.responseText);
+        if (res["status"] === "success") {
+            alert("Updated")
+        }
+        else {
+            alert(res["data"])
+        }
+    }
+    request.send(val)
 }
 
 function view_day_images(date) {
@@ -1631,6 +1695,20 @@ function parse_message(text) {
     return text.replace(urlRegex, function(url) {
       return '<a href="' + url + '" target="blank">' + url + '</a>';
     })
+}
+
+function value_or_empty(str) {
+    if (str == null) {
+        return "";
+    }
+    return str;
+}
+
+function show_in_sidebar(opt) {
+    document.querySelectorAll('.sidebar-info').forEach((el) => {
+        el.style.display = "none";
+    });
+    document.querySelector(opt).style.display = "block";
 }
 
 function hide_loading() {

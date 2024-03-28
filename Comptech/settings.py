@@ -24,6 +24,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'secret.txt')).read().rstrip()
+DB_PASSWORD = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'db_password.txt')).read().rstrip()
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False # True in development, False in production
@@ -86,7 +87,6 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
-                'users.context_processors.debug',
             ],
         },
     },
@@ -104,7 +104,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'Comptech',
         'USER': 'postgres',
-        'PASSWORD': open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'db_password.txt')).read().rstrip(),
+        'PASSWORD': DB_PASSWORD,
         'HOST': '127.0.0.1',
         'PORT': '5432',
     },
@@ -112,7 +112,7 @@ DATABASES = {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
         'NAME': 'chat',
         'USER': 'postgres',
-        'PASSWORD': open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'db_password.txt')).read().rstrip(),
+        'PASSWORD': DB_PASSWORD,
         'HOST': '127.0.0.1',
         'PORT': '5432',
     }
@@ -150,7 +150,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTH_USER_MODEL = 'users.ComptechUser'
 
-CSRF_TRUSTED_ORIGINS = ['https://192.168.50.11', 'https://example.org', 'https://app.example.org', 'https://example.net', 'https://203.0.113.11']
+CSRF_TRUSTED_ORIGINS = ['https://192.168.50.11', 'https://203.0.113.10']
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/

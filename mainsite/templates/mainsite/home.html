@@ -1,11 +1,10 @@
-{% extends "base_v2.html" %}
+{% extends "base.html" %}
 {% load static %}
 
 {% block page_title %} Home {% endblock %}
 
 {% block page_styles %}
 <link href="{% static 'mainsite/styles.css' %}" rel="stylesheet" media="all"/>
-<link href="{% static 'css/aos/aos.css' %}" rel="stylesheet">
 
 {% if request.user.dark_mode %}
 <style>
@@ -36,10 +35,6 @@
 {% endif %}
 
 <style>
-    .event-name-container {
-        white-space: nowrap;
-        text-overflow: ellipsis;
-    }
 </style>
 
 {% endblock %}
@@ -54,20 +49,20 @@
         h = new Date().getHours();
         if (h > 0 && h <= 11) {s = "Good Morning, {{ request.user.first_name }}"}
         else if (h > 11 && h <= 14) {s = "Good Afternoon, {{ request.user.first_name }}"}
-        else if (h > 14 && h <= 18) {s = "Good Evening, {{ request.user.first_name }}"}
-        else if (h > 18 && h <= 22) {s = "Good Night, {{ request.user.first_name }}"}
-        else {s = "Hey {{ request.user.first_name }}, you should really be sleeping now"}
+        else if (h > 14 && h <= 20) {s = "Good Evening, {{ request.user.first_name }}"}
+        else if (h > 20) {s = "Good Night, {{ request.user.first_name }}"}
 
         if (data != null) {
-            for (event of data["events"].reverse()) {
-                if (new Date(event['startdate']) - new Date() < 1000 * 60 * 60 * 3) {
+            for (event of data["events"]) {
+                if (new Date(event['startdate']) - new Date() < 1000 * 60 * 60 * 24) {
                     s = `${event['name']} is ${moment(new Date(event['startdate'])).fromNow()}!`
+                    break;
                 }
             }
-            for (todo of data["todos"].reverse()) {
+            for (todo of data["todos"]) {
                 cd = new Date(todo["completion"]);
-                if (cd <= new Date()) { s = `${todo['name']} is overdue! (${moment(new Date(todo['completion'])).fromNow()})` }
-                else if (cd.getTime() - new Date().getTime() <= 1000 * 60 * 60 * 24 * 2) { s = `${todo['name']} must be completed ${moment(new Date(todo['completion'])).fromNow()}!` }
+                if (cd <= new Date()) { s = `${todo['name']} is overdue! (${moment(new Date(todo['completion'])).fromNow()})`; break; }
+                else if (cd.getTime() - new Date().getTime() <= 1000 * 60 * 60 * 24 * 2) { s = `${todo['name']} must be completed ${moment(new Date(todo['completion'])).fromNow()}!`; break; }
             }
         }
 
@@ -114,6 +109,7 @@
                 setGreeting();
                 
                 document.querySelector('.recent-events').innerHTML = ""
+                document.querySelector('.recent-todos').innerHTML = ""
 
                 for (i = 0; i<data["events"].length; i++) {
                     date__ = moment(new Date(data["events"][i]["startdate"])).calendar();
@@ -126,6 +122,15 @@
                         </li>
                     `
                 }
+
+                for (i = 0; i<data["todos"].length; i++) {
+                    date__ = moment(new Date(data["todos"][i]["complete_by"])).calendar();
+                    document.querySelector('.recent-todos').innerHTML += `
+                        <li style="color: ${data["todos"][i]["colour"]}" class="list-group-item event-name-container">
+                            <span class="event-name">${data["todos"][i]["name"]}</span>&nbsp-&nbsp${date__}
+                        </li>
+                    `
+                }s
             }
         }
         r.send()
@@ -199,17 +204,20 @@
                 </a>
             </div>
             <div class="col-sm">
-                <div class="card recent-card">
-                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Name</h5>
-                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Description</p>
+                <a class="card recent-card" href="{% url 'display_calendar' %}">
+                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Upcoming Todos</h5>
+                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Todos with upcoming due dates</p>
                     <div class="card-body">
+                        <ul class="list-group list-group-flush recent-todos">
+                            
+                        </ul>
                     </div>
-                </div>
+                </a>
             </div>
             <div class="col-sm">
                 <div class="card recent-card">
-                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Name</h5>
-                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Description</p>
+                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Admin</h5>
+                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Server admin stuff</p>
                     <div class="card-body">
                     </div>
                 </div>

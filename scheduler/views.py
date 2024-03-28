@@ -16,15 +16,6 @@ import time
 def index(request):
     return render(request, 'scheduler/calendar.html', {"vars": CALENDAR_VARS, "today": datetime.date.today(), "left_sidebar": True, "right_sidebar": True})
 
-def public_calendar(request, calendar_id):
-    try: cal = Calendar.objects.filter(id=calendar_id)[0]
-    except: raise Http404()
-    if cal.public == False: raise Http404()
-    if request.user.is_authenticated: sub = len(Subscriber.objects.filter(calendar=cal, user=request.user)) > 0
-    else: sub = False
-
-    return render(request, "scheduler/public.html", {"calendar": cal.getinfo(), "subscribed": sub})
-
 def countdown(request, event_id, time="start"):
     try:
         event_ = Event.objects.filter(id=event_id)[0]
@@ -46,6 +37,15 @@ def countdown(request, event_id, time="start"):
     except IndexError:
         raise Http404()
 
+def public_calendar(request, calendar_id):
+    try: cal = Calendar.objects.filter(id=calendar_id)[0]
+    except: raise Http404()
+    if not cal.public: raise Http404()
+    if request.user.is_authenticated: sub = len(Subscriber.objects.filter(calendar=cal, user=request.user)) > 0
+    else: sub = False
+
+    return render(request, "scheduler/public.html", {"calendar": cal.getinfo(), "subscribed": sub})
+
 def availability(request, username):
     try:
         u = ComptechUser.objects.filter(username=username)[0]
@@ -59,8 +59,7 @@ def get_recent(user_):
     ans = {"data": {}}
 
     calendars = [i.calendar for i in user_.calendar_subscribed.filter(calendar__active=True, visible=True)]
-    ans["data"]["events"] = list(reversed([i.getinfo_homepage() for i in Event.objects.filter(calendar__in=calendars, startdate__gte=timezone.now(), startdate__lte=timezone.now() + datetime.timedelta(days=7)).order_by('startdate')[:5]]))
-    ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(user=user_, completed=False)[:5]]
-    ans["data"]["tasks"] = []
+    ans["data"]["events"] = list([i.getinfo() for i in Event.objects.filter(calendar__in=calendars, startdate__gte=timezone.now(), startdate__lte=timezone.now() + datetime.timedelta(days=7)).order_by('startdate')[:5]])
+    ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(user=user_, completed=False).order_by('complete_by')[:5]]
 
     return ans
