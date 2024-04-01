@@ -581,6 +581,9 @@ function set_localstorage() {
     if (!localStorage.getItem('calendar_show_birthdays')) {
         localStorage.setItem('calendar_show_birthdays', 1)
     }
+    if (!localStorage.getItem('calendar_extra')) {
+        localStorage.setItem('calendar_extra', "")
+    }
 }
 
 function set_display() {
@@ -1317,7 +1320,7 @@ function reload_calendar() {
 
 function populate_calendar(m, y, jumponload=false) {
     r = new XMLHttpRequest();
-    r.open("GET", `${URLS['get_events']}?month=${m+1}&year=${y}&show_all=${localStorage.getItem('calendar_show_all')}`);
+    r.open("GET", `${URLS['get_events']}?month=${m+1}&year=${y}&show_all=${localStorage.getItem('calendar_show_all')}&extra=${localStorage.getItem('calendar_extra')}`);
     r.onload = () => {
         data = JSON.parse(r.responseText.replace(/&#x27;/g,'"'))["data"];
         
@@ -1803,5 +1806,12 @@ document.onkeydown = function (e) {
                 }
             }
         }
+    }
+
+    if (e.altKey)
+    if (e.key == 'e') {
+        e.preventDefault();
+        localStorage.setItem('calendar_extra', prompt("Enter extra calendar code"));
+        jump_();
     }
 }

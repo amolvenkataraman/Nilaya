@@ -2,6 +2,7 @@ staticfiles
 .vscode
 *.sqlite3
 *.pyc
+*.db
 __pycache__
 media
 media_private

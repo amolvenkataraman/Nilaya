@@ -3,7 +3,7 @@ from django.db.models import Q
 from django.utils import timezone
 from .models import *
 from .sync import *
-from .inject import get_additions
+from .inject import *
 
 from Comptech.settings import CALENDAR_VARS, ONLINE_MODE, TIME_ZONE
 from Comptech.utils import *
@@ -57,10 +57,18 @@ def get_events(request):
 
     # TEMPORARY - For experiments
     # To remove later
-    # cals, evs = get_additions(month, year, request.user.id)
-    # ans["data"]["calendars"].append(cals)
-    # for i in evs: ans["data"]["events"].append(i)
-
+    ext = request.GET.get("extra")
+    if ext != "":
+        inj = [i.rstrip().lstrip() for i in ext.split(",")]
+        for i in inj:
+            try:
+                o, v = i.split(":")
+                if o == "UW" or o == "uw":
+                    cc = v.split(" ")
+                    cals, evs = inject_uw_courses(month, year, request.user.id, cc[0], cc[1])
+                    for i in cals: ans["data"]["calendars"].append(i)
+                    for i in evs: ans["data"]["events"].append(i)
+            except: pass
 
     return JsonResponse(ans)
 

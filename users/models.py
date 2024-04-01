@@ -31,8 +31,6 @@ class UserGroup(models.Model):
 class ComptechUser(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
     description = models.CharField(max_length=512, default="No description")
-    #gender = models.BooleanField(default=True)
-    #location = models.ForeignKey()
     birthday = models.DateField(null=True, blank=True)
     timezone = models.CharField(max_length=32, default='Canada/Eastern')
     profile_picture = models.ImageField(upload_to="users/profile_pictures", default='profile_picture.png')
