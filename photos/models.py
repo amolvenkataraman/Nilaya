@@ -58,6 +58,8 @@ class Photo(models.Model):
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='photo_owner')
     album = models.ForeignKey(Album, on_delete=models.PROTECT, related_name='photo_album')
     filepath = models.CharField(max_length=128)
+    thumbnail_hash = models.CharField(max_length=32, null=True, blank=True)
+    photo_hash = models.CharField(max_length=32, null=True, blank=True)
 
     width = models.IntegerField(null=True, blank=True)
     height = models.IntegerField(null=True, blank=True)
@@ -83,6 +85,9 @@ class Photo(models.Model):
     def __str__(self):
         return f"{self.id}, taken on {str(self.date_taken)}"
 
+    def get_path(self):
+        return str(self.album.location.replace("/mnt/drv0/Photos/", "") + self.filepath)
+
     def get_dimensions(self):
         return {
             "width": self.width,
@@ -98,13 +103,15 @@ class Photo(models.Model):
     def getinfo(self):
         return {
             "id": str(self.id),
-            "path": str(self.album.location + self.filepath),
+            "path": self.get_path(),
             "filepath": str(self.filepath),
             "width": self.width,
             "height": self.height,
             "lat": self.latitude,
             "lon": self.longitude,
             "date_taken": str(self.date_taken),
+            "thumbnail_hash": self.thumbnail_hash,
+            "photo_hash": self.photo_hash,
 
             "camera_make": self.camera_make,
             "camera_model": self.camera_model,
@@ -123,9 +130,11 @@ class Photo(models.Model):
     def getinfo_zip(self):
         return {
             "id": str(self.id),
-            "path": str(self.album.location + self.filepath),
+            "path": self.get_path(),
             "filepath": str(self.filepath),
             "date_taken": str(self.date_taken),
             "video": self.video,
             "length": self.length,
+            "thumbnail_hash": self.thumbnail_hash,
+            "photo_hash": self.photo_hash,
         }

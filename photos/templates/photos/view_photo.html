@@ -36,13 +36,14 @@
 <script>
     var video = "{{ video }}";
     var p_id = "{{ p_id }}";
+    var p_path = "{{ img_path }}"
 
     window.addEventListener('DOMContentLoaded', (event) => {
         if (video == "True") {
             vid = document.createElement("video");
             src = document.createElement('source');
 
-            src.src = `/photos/photo/${p_id}/image/`;
+            src.src = p_path;
             src.type = "video/mp4"
             vid.appendChild(src)
             vid.classList.add("image-displayed");
@@ -54,7 +55,7 @@
             vid.play()
         } else {
             img = document.createElement("img");
-            img.src = `/photos/photo/${p_id}/image/`;
+            img.src = p_path;
             img.classList.add("image-displayed");
 
             document.getElementById("photo").innerHTML = "";

@@ -114,9 +114,7 @@ class Event(models.Model):
     repeat_every = models.IntegerField(null=True, blank=True)
     repeat_end = models.DateField(null=True, blank=True)
     sync_id = models.CharField(max_length=256, null=True, blank=True)
-    flex1 = models.CharField(max_length=64, null=True, blank=True)
-    flex2 = models.CharField(max_length=64, null=True, blank=True)
-    flex3 = models.CharField(max_length=64, null=True, blank=True)
+    custom_info = models.JSONField(default={}, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} for {self.calendar.name}. From {str(self.startdate)} to {str(self.enddate)}"
@@ -125,7 +123,7 @@ class Event(models.Model):
         ans = get_model_attrs(self, ["id", "name", "startdate", "enddate", "allday", "category", "location", "description", "completed", "public", "priority"])
         ans["calendar"] = self.calendar.id
 
-        if full: ans = {**ans, **get_model_attrs(self, ["repeat_every", "repeat_end", "sync_id", "flex1", "flex2", "flex3"])}
+        if full: ans = {**ans, **get_model_attrs(self, ["repeat_every", "repeat_end", "sync_id"])}
 
         return ans
         
@@ -155,9 +153,7 @@ class Todo(models.Model):
     completed_on = models.DateTimeField(auto_now=False, null=True, blank=True)
     percent_complete = models.PositiveSmallIntegerField(null=True, blank=True)
     time_spent = models.PositiveSmallIntegerField(null=True, blank=True)
-    flex1 = models.CharField(max_length=64, null=True, blank=True)
-    flex2 = models.CharField(max_length=64, null=True, blank=True)
-    flex3 = models.CharField(max_length=64, null=True, blank=True)
+    custom_info = models.JSONField(default={}, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} for {self.user.username}."
@@ -184,6 +180,7 @@ class Habit(models.Model):
     daily_default = models.SmallIntegerField(default=0)
     daily_goal = models.SmallIntegerField(default=1)
     below_goal = models.BooleanField(default=False)
+    custom_info = models.JSONField(default={}, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} for {self.user.username}."

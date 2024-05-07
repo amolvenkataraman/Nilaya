@@ -6,6 +6,7 @@ from django.utils import timezone
 from wsgiref.util import FileWrapper
 from .models import *
 from scheduler.models import *
+from .indeximg import photo_ingest_for_album
 from Comptech.settings import BASE_DIR, TIME_ZONE
 
 from PIL import Image, ExifTags, ImageOps
@@ -60,6 +61,9 @@ def map(request):
         else:
             qry = Q(altitude__lte=alt) | Q(altitude=None)
         photos = photos.filter(qry)
+
+    if request.GET.get('date'):
+        photos = photos.filter(date_taken__date=dateparser.parse(request.GET.get('date')).date())
 
     if vals:
         return JsonResponse({ 'coords': [[i.latitude, i.longitude] for i in photos] })
@@ -139,7 +143,7 @@ def event(request, event_id):
 def view_photo(request, photo_id):
     try:
         p = Photo.objects.filter(id=photo_id)[0]
-        return render(request, 'photos/view_photo.html', { 'video': p.video, 'p_id': p.id })
+        return render(request, 'photos/view_photo.html', { 'video': p.video, 'p_id': p.id, 'img_path': f"/photo_cdn/{p.photo_hash}/{p.get_path()}" })
     except IndexError: pass
 
 @login_required_api
@@ -187,8 +191,8 @@ def get_photo(request, photo_id, ret_type):
                 ret, fr = f.read()
                 if ret:
                     fr = cv2.rectangle(fr, (0, 0), (fr.shape[0], 400), (255, 255, 255), -1)
+                    fr = cv2.cvtColor(fr, cv2.COLOR_BGR2RGB)
                     fr = cv2.putText(fr, 'Video', (100, 300), cv2.FONT_HERSHEY_SIMPLEX, 10, (255, 0), 10, cv2.LINE_AA)
-                    cv2.cvtColor(fr, cv2.COLOR_BGR2RGB)
 
                     thumb = Image.fromarray(fr)
                     thumb.thumbnail((500, 200), Image.ANTIALIAS)
@@ -209,18 +213,27 @@ def get_photo(request, photo_id, ret_type):
             #     response['Content-Disposition'] = f'attachement; filename="{photo.filepath}"'
             #     return response
             # else:
-            if 1 == 1:
-                response = HttpResponse(content_type='image/jpeg')
-                # img = Image.open(photo.album.location + photo.filepath)
-                # img = ImageOps.exif_transpose(img)
-                response['X-Accel-Redirect'] = f"/fs/{photo.album.location + photo.filepath}" # NEW
-                response['Content-Disposition'] = f'attachment; filename="{photo.filepath.split("/")[-1]}"' # NEW 
-                response['Pragma'] = 'no-cache' # NEW
-                response['Cache-Control'] = 'no-cache must-revalidate proxy-revalidate' # NEW
-                # img.save(response, "JPEG")
-                return response
+            response = HttpResponse(content_type='image/jpeg')
+            # img = Image.open(photo.album.location + photo.filepath)
+            # img = ImageOps.exif_transpose(img)
+            response['X-Accel-Redirect'] = f"/fs/{photo.album.location + photo.filepath}" # NEW
+            response['Content-Disposition'] = f'attachment; filename="{photo.filepath.split("/")[-1]}"' # NEW 
+            response['Pragma'] = 'no-cache' # NEW
+            response['Cache-Control'] = 'no-cache must-revalidate proxy-revalidate' # NEW
+            # img.save(response, "JPEG")
+            return response
 
         else:
             return error_response("Invalid return type")
     else:
         return error_response("Not authorized", 401)
+
+@login_required_api
+def ingest_photos(request):
+    try:
+        for album in Album.objects.filter(owner=request.user).order_by('id'):
+            photo_ingest_for_album(album, request.user)
+        
+        return success_response("Ingested")
+    except Exception as ex:
+        return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)

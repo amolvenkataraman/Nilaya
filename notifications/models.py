@@ -11,10 +11,9 @@ class Notification(models.Model):
     description = models.TextField(null=True, blank=True)
     created_on = models.DateTimeField(auto_now=True)
     priority = models.SmallIntegerField(default=10)
+    device_group = models.SmallIntegerField(default=0)
+    expires_on = models.DateTimeField(auto_now=False, null=True, blank=True)
     read = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.title} for {self.user.username}"
-
-    def getinfo(self):
-        return get_model_attrs(self, ["id", "title", "description", "created_on", "priority"])

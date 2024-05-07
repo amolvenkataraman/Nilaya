@@ -1,9 +1,9 @@
 from django.http import HttpResponseBadRequest, JsonResponse
 from django.db.models import Q
 from django.utils import timezone
-from .models import *
-from .sync import *
-from .inject import *
+from scheduler.models import *
+from scheduler.sync import *
+from scheduler.inject import *
 
 from Comptech.settings import CALENDAR_VARS, ONLINE_MODE, TIME_ZONE
 from Comptech.utils import *

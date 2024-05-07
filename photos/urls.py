@@ -12,4 +12,5 @@ urlpatterns = [
     path("view-photo/<slug:photo_id>/", views.view_photo, name="view_photo"),
     path("date/", views.get_photos_for_date, name='get_photos_for_date'),
     path("photo/<slug:photo_id>/<slug:ret_type>/", views.get_photo, name='get_photo'),
+    path("ingest/", views.ingest_photos, name='ingest_photos'),
 ]
