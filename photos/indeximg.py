@@ -151,11 +151,11 @@ def photo_ingest_for_album(album, user):
                 img = Image.open(u)
                 img = ImageOps.exif_transpose(img)
                 img.thumbnail((500, 200), Image.ANTIALIAS)
-                img.save('/www/private/photos_cache/thumbnail/' + str(p.id) + '.jpg', "JPEG")
+                img.save('/www/private/photo_cache/thumbnail/' + str(p.id) + '.jpg', "JPEG")
         except: pass
 
-        fp = (p.album.location + p.filepath + "__HASH_SALT_GOES_HERE__").replace("/mnt/drv0/Photos/", "")
-        fp1 = f"photos_cache/thumbnail/{p.id}.jpg__HASH_SALT_GOES_HERE__"
+        fp = (p.album.location + p.filepath + "__PASSWORD_GOES_HERE__").replace("/mnt/data/Photos/", "")
+        fp1 = f"photo_cache/thumbnail/{p.id}.jpg__PASSWORD_GOES_HERE__"
         hash_ = hashlib.md5(fp.encode('utf-8')).hexdigest()
         hash1_ = hashlib.md5(fp1.encode('utf-8')).hexdigest()
 

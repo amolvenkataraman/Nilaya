@@ -7,7 +7,7 @@ __pycache__
 media
 media_private
 SSL
-nginx
+CT_env
 secret.txt
 db_password.txt
 nohup.out

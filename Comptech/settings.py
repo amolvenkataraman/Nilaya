@@ -27,7 +27,7 @@ SECRET_KEY = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'secret.txt'
 DB_PASSWORD = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'db_password.txt')).read().rstrip()
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False # True in development, False in production
+DEBUG = True # True in development, False in production
 
 ONLINE_MODE = True # Change to False to disable all external requests
 
@@ -48,9 +48,9 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Other Python libraries
-    'rest_framework',
     'channels',
     'crispy_forms',
+    'crispy_bootstrap4',
 
     # Important apps (necessary for others)
     'users',
@@ -59,10 +59,8 @@ INSTALLED_APPS = [
     'notifications',
 
     # Main functionality apps
-    'chat',
     'scheduler',
     'photos',
-    'socialmedia',
 ]
 
 MIDDLEWARE = [
@@ -71,7 +69,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.contrib.messages.middleware.MessageMiddleware'
 ]
 
 ROOT_URLCONF = 'Comptech.urls'
@@ -108,26 +106,26 @@ DATABASES = {
         'HOST': '127.0.0.1',
         'PORT': '5432',
     },
-    'chat_db': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'chat',
-        'USER': 'postgres',
-        'PASSWORD': DB_PASSWORD,
-        'HOST': '127.0.0.1',
-        'PORT': '5432',
-    }
+    # 'chat_db': {
+    #     'ENGINE': 'django.db.backends.postgresql_psycopg2',
+    #     'NAME': 'chat',
+    #     'USER': 'postgres',
+    #     'PASSWORD': DB_PASSWORD,
+    #     'HOST': '127.0.0.1',
+    #     'PORT': '5432',
+    # }
 }
 
-DATABASE_ROUTERS = ['chat.routers.ChatRouter']
+# DATABASE_ROUTERS = ['chat.routers.ChatRouter']
 
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            "hosts": [('127.0.0.1', 6379)],
-        },
-    },
-}
+# CHANNEL_LAYERS = {
+#     'default': {
+#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
+#         'CONFIG': {
+#             "hosts": [('127.0.0.1', 6379)],
+#         },
+#     },
+# }
 
 
 # Password validation
@@ -150,7 +148,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTH_USER_MODEL = 'users.ComptechUser'
 
-CSRF_TRUSTED_ORIGINS = ['https://192.168.50.11', 'https://203.0.113.10']
+CSRF_TRUSTED_ORIGINS = ['https://192.168.50.11', 'https://app.example.com']
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/
@@ -206,3 +204,5 @@ CELERY_BEAT_SCHEDULE = {
         "schedule": crontab(minute=0, hour=16),
     },
 }
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

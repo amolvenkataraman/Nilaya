@@ -21,9 +21,9 @@ import Comptech.settings
 
 application = ProtocolTypeRouter({
   "http": get_asgi_application(),
-  "websocket": AuthMiddlewareStack(
-        URLRouter(
-            Comptech.routing.websocket_urlpatterns
-        )
-    ),
+#   "websocket": AuthMiddlewareStack(
+#         URLRouter(
+#             Comptech.routing.websocket_urlpatterns
+#         )
+#     ),
 })

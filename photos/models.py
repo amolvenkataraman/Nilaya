@@ -58,6 +58,8 @@ class Photo(models.Model):
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='photo_owner')
     album = models.ForeignKey(Album, on_delete=models.PROTECT, related_name='photo_album')
     filepath = models.CharField(max_length=128)
+    raw_filepath = models.CharField(max_length=128)
+    orig_filepath = models.CharField(max_length=128)
     thumbnail_hash = models.CharField(max_length=32, null=True, blank=True)
     photo_hash = models.CharField(max_length=32, null=True, blank=True)
 
@@ -69,6 +71,9 @@ class Photo(models.Model):
     orientation = models.CharField(max_length=32)
     date_taken = models.DateTimeField(auto_now=False, null=True, blank=True)
 
+    video = models.BooleanField(default=False)
+    length = models.IntegerField(null=True, blank=True)
+
     camera_make = models.CharField(max_length=32, null=True, blank=True)
     camera_model = models.CharField(max_length=32, null=True, blank=True)
     exposure = models.CharField(max_length=32, null=True, blank=True)
@@ -79,14 +84,15 @@ class Photo(models.Model):
     flash = models.CharField(max_length=32, null=True, blank=True)
     focallength = models.CharField(max_length=32, null=True, blank=True)
 
-    video = models.BooleanField(default=False)
-    length = models.IntegerField(null=True, blank=True)
+    metadata = models.JSONField(default={}, null=True, blank=True)
+    ai_index_info = models.JSONField(default={}, null=True, blank=True)
+    file_not_available = models.BooleanField(default=False)
 
     def __str__(self):
         return f"{self.id}, taken on {str(self.date_taken)}"
 
     def get_path(self):
-        return str(self.album.location.replace("/mnt/drv0/Photos/", "") + self.filepath)
+        return str(self.album.location.replace("/mnt/data/Photos/", "") + self.filepath)
 
     def get_dimensions(self):
         return {
