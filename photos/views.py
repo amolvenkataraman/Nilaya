@@ -146,7 +146,7 @@ def view_photo(request, photo_id):
 
     try:
         p = Photo.objects.filter(id=photo_id)[0]
-        if photo.album in albums or request.user.is_superuser:
+        if p.album in albums or request.user.is_superuser:
             return render(request, 'photos/view_photo.html', { 'video': p.video, 'p_id': p.id, 'img_path': f"/photo_cdn/{p.photo_hash}/{p.get_path()}" })
         else:
             return error_response("Not authorized", 401)
@@ -243,3 +243,18 @@ def ingest_photos(request):
         return success_response("Ingested")
     except Exception as ex:
         return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
+
+@post_request_only
+@login_required_api
+def del_photo_req(request, photo_id):
+    album_subs = request.user.album_subscribed.all()
+    albums = [i.album for i in album_subs]
+
+    try:
+        p = Photo.objects.filter(id=photo_id)[0]
+        if p.album in albums or request.user.is_superuser:
+            delete_photo(p)
+            return success_response()
+        else:
+            return error_response("Not authorized", 401)
+    except IndexError: pass

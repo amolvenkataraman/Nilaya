@@ -10,6 +10,7 @@ SSL
 CT_env
 secret.txt
 db_password.txt
+salt.txt
 nohup.out
 celerybeat-schedule.db
 data.json

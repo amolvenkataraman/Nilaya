@@ -1,6 +1,12 @@
 
 # Comptech
-My very own tech giant. 
+My very own tech giant. (Recovered backup from April 2024 modified for running with the current server setup)
+
+### WARNING: This is a half-decade old codebase carrying all the technical debt that high school me created. I strongly suggest NOT deploying this until I make my full rewrite (currently a work in progress). This repository is only to serve as a memory of my old code, and as a reference for the aforementioned full rewrite. This version is currently NOT STABLE ENOUGH FOR PRODUCTION.
+
+## Features
+- Calendar and todo-list app for time management.
+- Photos app (like self-hosted Google Photos).
 
 ## Rules
 1. **DO NOT** share the code, entirely or in part to **ANYONE** external or **ANY EXTERNAL WEBSITE/SERVICE** under **ANY CONDITION**. This is necessary to make sure that the code does not get leaked anywhere.
@@ -8,7 +14,9 @@ My very own tech giant.
 3. If you are working on a feature that involves connecting to some other company's APIs or servers, please make sure you have my consent before implementing such code. Connecting to some servers is not allowed for secutity reasons.
 
 ## Installation Instructions
-1. Create an empty folder and run the command `git clone http://git.example.net:3000/amolven/Comptech.git` to clone the repository to your computer. You will need to provide authentication.
+***DON'T EVEN TRY!*** This codebase is a complete mess as of now, and I intend to do a full rewrite when I get the time. This repository only serves as a backup and a reference until that happens. If, however, you are crazy and still want to run this version of the app, then **don't follow the instructions below**, I am keeping them as a memory of "the old days". **Please contact me for help** setting up or deploying.
+
+1. Create an empty folder and run the command `git clone https://github.com/amolvenkataraman/Comptech_V1` to clone the repository to your computer. You will need to provide authentication.
 2. Make sure you are in the root directory of the program (the directory with `manage.py`).
 3. Install all the package dependencies by running the command `pip install -r requirements.txt`.
 4. Run the commands `python manage.py makemigrations` and `python manage.py migrate` to set up the database.

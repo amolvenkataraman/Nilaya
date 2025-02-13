@@ -204,6 +204,9 @@ const event_info_template = Handlebars.compile(`
     <div class="ei-description">
         {{{ description }}}
     </div>
+    <div class="ei-location">
+        Location: {{{ location }}}
+    </div>
     {{/if}}
     <div class="ei-countdown">
         {{{ countdown }}}
@@ -296,6 +299,11 @@ const event_create_template = Handlebars.compile(`
                 <div class="form-floating">
                     <textarea class="form-control" id="event-description-input" style="height: 150px;" placeholder="Description"></textarea>
                     <label for="event-description-input">Description</label>
+                </div>
+                <br>
+                <div class="form-floating">
+                    <input type="text" class="form-control event-loc-input event-loc-input-{{i}}" id="event-loc-input" placeholder="Location">
+                    <label for="event-loc-input">Location</label>
                 </div>
                 <br>
                 <div class="form-floating">
@@ -759,6 +767,7 @@ function add_edit_event(date, month=m+1, year=y, command="add", edit_event=null)
         });
 
         $('.event-name-input-1').val(edit_event['name'])
+        $('.event-loc-input-1').val(edit_event['location'])
         $('#event-description-input').val(edit_event['description'])
         $('#form-event-priority-input').val(edit_event['priority'])
         document.querySelector('#event-public-check').checked = edit_event['public']
@@ -788,6 +797,7 @@ function add_edit_event(date, month=m+1, year=y, command="add", edit_event=null)
             "calendar": $('.form-calendar-input-1').val(),
             "category": $('.form-category-input-1').val(),
             "name": $('.event-name-input-1').val(),
+            "location": $('.event-loc-input-1').val(),
             "description": $('#event-description-input').val(),
             "priority": $('#form-event-priority-input').val(),
             "public": document.querySelector('#event-public-check').checked,
@@ -1394,8 +1404,8 @@ function display_info(button) {
 
         $('.modal-body').html(event_info_template({
             "date": date_,
-            "calendar": `${calendars[event_["calendar"]]["calendar"]["name"]} [${event_["category"]}], ${value_or_empty(event_["location"])}`,
-            "show_desc": show_desc, "description": desc,
+            "calendar": `${calendars[event_["calendar"]]["calendar"]["name"]} [${event_["category"]}]`,
+            "show_desc": show_desc, "description": desc, "location": value_or_empty(event_["location"]),
             "countdown": countdown,
             "dev_info": dev_info,
             "event_no": button.dataset.no,

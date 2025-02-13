@@ -258,6 +258,9 @@ def create_edit_event(request):
         e.public = req["public"]
         e.priority = req["priority"]
 
+        if "location" in req:
+            e.location = req["location"]
+
         if req['type'] == "ade":
             e.startdate = req["start"]
             e.enddate = req["end"]

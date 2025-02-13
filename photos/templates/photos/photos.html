@@ -15,10 +15,17 @@
 <script src="{% static 'js/jquery/jquery.min.js' %}" type="text/javascript"></script>
 <script src="{% static 'js/handlebars/handlebars.js' %}" type="text/javascript"></script>
 
+<style>
+    .img-selected {
+        outline: 5px solid blue;
+        outline-offset: -5px;
+    }
+</style>
+
 <script id="photo-in-list" type="text/x-handlebars-template">
     {% verbatim %}
     <div class="photo">
-        <img src="{{ thumbnail }}" data-id="{{ id }}" data-url="{{ url }}" data-video="{{ video }}" class="list-img" style='display: block; float: left; margin: 2px;' onclick="view_image(this)" height="200px">
+        <img src="{{ thumbnail }}" data-id="{{ id }}" data-url="{{ url }}" data-video="{{ video }}" class="list-img" style='display: block; float: left; margin: 2px;' onclick="event.shiftKey ? select_photo(this) : view_image(this)" height="200px">
     </div>
     {% endverbatim %}
 </script>
@@ -55,6 +62,7 @@
         </div>
 
         <button onclick="load_map({{ lat }}, {{ lon }})">Load Map</button>
+        <button onclick="del_photo('{{ id }}')">Delete</button>
         <div id="mapid"></div>
     </div>
     {% endverbatim %}
@@ -71,6 +79,10 @@
     var dates = [];
 
     function view_image(e) {
+        if (e.shiftKey) {
+            alert("test");
+        }
+
         imgloaded = true;
         currimage = e;
         document.getElementById("photo-display-area").style.visibility = "visible";
@@ -112,6 +124,10 @@
         r.send();
     }
 
+    function select_photo(e) {
+        e.classList.toggle("img-selected");
+    }
+
     function load_map(lat, lng) {
         var map = L.map('mapid').setView([lat, lng], 12);
 
@@ -144,6 +160,14 @@
                 view_image(ni.querySelector('img'));
             }
         }
+    }
+
+    function del_photo(p) {
+        var r = new XMLHttpRequest()
+        r.open("POST", `/photos/delete/${p}/`)
+        r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+        r.onload = () => {}
+        r.send();
     }
 
     function get_photos_for_date(date, next=0) {
@@ -220,6 +244,13 @@
             
             else if (e.key == 'ArrowRight') {
                 next_image();
+            }
+
+            else if (e.key == 'Delete') {
+                document.querySelectorAll(".img-selected").forEach(img => {
+                    del_photo(img.dataset.id);
+                    img.parentElement.remove();
+                })
             }
         }
 

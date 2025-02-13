@@ -1,14 +1,19 @@
-import hashlib
+import os
 import cv2
+import hashlib
 from photos.models import *
-from PIL import Image, ExifTags, ImageOps, UnidentifiedImageError
+from PIL import Image, ImageOps, UnidentifiedImageError
 from PIL.ExifTags import TAGS, GPSTAGS
 
-p = Photo.objects.all().order_by('-date_taken')
+p = Photo.objects.order_by('-date_taken')
 for i in p:
+    if os.path.exists('/www/private/photo_cache/thumbnail/' + str(i.id) + '.jpg'): continue
+
     try:
+        i.filepath = i.filepath.replace(" ", "_")
+        i.file_not_available = False
         if i.video == False:
-            u = i.album.location + i.filepath 
+            u = i.album.location + i.filepath
             img = Image.open(u)               
             img = ImageOps.exif_transpose(img)
             img.thumbnail((500, 200))
@@ -27,18 +32,15 @@ for i in p:
 
                 thumb.save('/www/private/photo_cache/thumbnail/' + str(i.id) + '.jpg', "JPEG")
 
-        fp = (i.album.location + i.filepath + "__PASSWORD_GOES_HERE__").replace("/mnt/data/Photos/", "")
-        fp1 = f"photo_cache/thumbnail/{i.id}.jpg__PASSWORD_GOES_HERE__"
-        hash_ = hashlib.md5(fp.encode('utf-8')).hexdigest()
-        hash1_ = hashlib.md5(fp1.encode('utf-8')).hexdigest()
-
-        i.photo_hash = hash_
-        i.thumbnail_hash = hash1_
-        i.save()
+        i.regen_hashes()
 
         print(u)
 
     except (FileNotFoundError, UnidentifiedImageError, OSError):
-        print("Error:", i.id)
-        i.file_not_available = True
-        i.save()
+        if os.path.exists(i.album.location + i.filepath):
+            i.file_not_available = False
+            i.save()
+        else:
+            print("Error:", i.id)
+            i.file_not_available = True
+            i.save()
