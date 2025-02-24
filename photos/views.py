@@ -44,6 +44,7 @@ def map(request):
     year1 = request.GET.get('year-')
     alt = request.GET.get('alt-')
     vals = request.GET.get('vals')
+    spec = request.GET.get('special')
 
     album_subs = request.user.album_subscribed.all()
     albums = [i.album for i in album_subs]
@@ -54,12 +55,16 @@ def map(request):
         photos = photos.filter(date_taken__year=year)
     elif year1 != None:
         photos = photos.filter(date_taken__year__lte=year1)
+
+    if spec == "1":
+        photos = photos.filter(file_not_available=True)
     
     if alt != None:
         if alt == "NIL":
             qry = Q(altitude=None)
         else:
             qry = Q(altitude__lte=alt) | Q(altitude=None)
+
         photos = photos.filter(qry)
 
     if request.GET.get('date'):
@@ -212,23 +217,6 @@ def get_photo(request, photo_id, ret_type):
                 response['X-Accel-Redirect'] = f"/media_private/photo_cache/thumbnail/{photo.id}.jpg"
                 response['Content-Disposition'] = f'attachment; filename="{BASE_DIR}media_private/photo_cache/thumbnail/{photo.id}.jpg"'
                 return response
-        elif ret_type == "image":
-            # if photo.video:
-            #     file = FileWrapper(open(photo.album.location + photo.filepath, 'rb'))
-            #     response = HttpResponse(file, content_type='video/mp4')
-            #     response['Content-Disposition'] = f'attachement; filename="{photo.filepath}"'
-            #     return response
-            # else:
-            response = HttpResponse(content_type='image/jpeg')
-            # img = Image.open(photo.album.location + photo.filepath)
-            # img = ImageOps.exif_transpose(img)
-            response['X-Accel-Redirect'] = f"/fs/{photo.album.location + photo.filepath}" # NEW
-            response['Content-Disposition'] = f'attachment; filename="{photo.filepath.split("/")[-1]}"' # NEW 
-            response['Pragma'] = 'no-cache' # NEW
-            response['Cache-Control'] = 'no-cache must-revalidate proxy-revalidate' # NEW
-            # img.save(response, "JPEG")
-            return response
-
         else:
             return error_response("Invalid return type")
     else:

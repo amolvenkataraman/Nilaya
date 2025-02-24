@@ -196,6 +196,8 @@
                     photo = res["photos"][i]
                     document.querySelector(`.day-photos-${date1}`).innerHTML += photo_in_list({"thumbnail": `/private/${photo['thumbnail_hash']}/photo_cache/thumbnail/${photo['id']}.jpg`, "url": `/photo_cdn/${photo['photo_hash']}/${photo['path']}`, "id": photo['id'], "video": photo["video"]})
                 }
+
+                document.querySelector(`.day-label-${date1}`).innerHTML += ` [${res["photos"].length}]`
             }
 
             if (next > 0) {

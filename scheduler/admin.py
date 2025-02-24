@@ -6,6 +6,7 @@ class EventAdmin(admin.ModelAdmin):
     ordering = ('-startdate',)
 
 admin.site.register(Calendar)
+admin.site.register(Subscriber)
 admin.site.register(Event, EventAdmin)
 admin.site.register(Todo)
 admin.site.register(Invite)
