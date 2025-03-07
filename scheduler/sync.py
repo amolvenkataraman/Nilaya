@@ -4,6 +4,7 @@ from Comptech.api import *
 from ics import Calendar as Cal
 
 from dateutil import parser
+import datetime
 import requests
 import pytz
 
@@ -16,9 +17,14 @@ def sync_ical(calendar, start, end, url=None):
             sd = i.begin.naive.replace(tzinfo=i.begin.tzinfo)
             ed = i.end.naive.replace(tzinfo=i.end.tzinfo)
 
-            if i.all_day:
+            is_all_day = i.all_day or (
+                sd.date() == ed.date() and  # Same start and end date
+                sd.time() == ed.time() == sd.replace(tzinfo=pytz.UTC).time()  # Time is 00:00 UTC
+            )
+            if is_all_day:
                 sd = sd.replace(tzinfo=pytz.timezone('America/Toronto'))
                 ed = ed.replace(tzinfo=pytz.timezone('America/Toronto'))
+                if sd.date() == ed.date(): ed = ed + datetime.timedelta(days=1)
 
             if (sd >= parser.parse(start) and ed <= parser.parse(end)):
                 if i.status != None and i.status.lower() == "cancelled":
@@ -35,7 +41,7 @@ def sync_ical(calendar, start, end, url=None):
                     e.name = i.name
                     e.calendar = calendar
                     e.description = i.description
-                    e.allday = i.all_day
+                    e.allday = is_all_day
                     e.sync_id = i.uid
                     e.startdate = sd
                     e.enddate = ed
