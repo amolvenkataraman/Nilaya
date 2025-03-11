@@ -25,6 +25,7 @@ urlpatterns = [
     # path("chat/", include("chat.urls")),
     path("calendar/", include("scheduler.urls")),
     path("photos/", include("photos.urls")),
+    path("map/", include("map.urls")),
     # path("social/", include("socialmedia.urls")),
 
     path('admin/', admin.site.urls),

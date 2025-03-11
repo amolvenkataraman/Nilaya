@@ -61,6 +61,7 @@ INSTALLED_APPS = [
     # Main functionality apps
     'scheduler',
     'photos',
+    'map',
 ]
 
 MIDDLEWARE = [

@@ -1,5 +1,78 @@
 from django.db import models
+from users.models import *
+from django.core.validators import MinValueValidator, MaxValueValidator
+import uuid  # Add import for UUID
 
-# Create your models here.
+
+class LocationGroup(models.Model):
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='location_groups')
+    is_public = models.BooleanField(default=False)
+
+    def __str__(self):
+        return self.name
+
+
 class Location(models.Model):
-    pass
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4(), editable=False, verbose_name='ID')  # Add UUID field
+    CATEGORY_CHOICES = [
+        ('house', 'House'),
+        ('business', 'Business'),
+
+        ('school', 'School'),
+        ('university', 'University'),
+
+        ('restaurant', 'Restaurant'),
+        ('shop', 'Shop'),
+        ('mall', 'Shopping Mall'),
+
+        ('parking', 'Parking'),
+        ('religious', 'Religious'),
+        ('hospital', 'Hospital'),
+        ('transit', 'Transit'),
+
+        ('park', 'Park'),
+        ('nature', 'Nature'),
+
+        ('other', 'Other'),
+    ]
+
+    name = models.CharField(max_length=200)
+    description = models.TextField(blank=True)
+    latitude = models.DecimalField(
+        max_digits=9, 
+        decimal_places=6,
+        validators=[
+            MinValueValidator(-90),
+            MaxValueValidator(90)
+        ]
+    )
+    longitude = models.DecimalField(
+        max_digits=9, 
+        decimal_places=6,
+        validators=[
+            MinValueValidator(-180),
+            MaxValueValidator(180)
+        ]
+    )
+    altitude = models.DecimalField(max_digits=9, decimal_places=6, null=True, blank=True)
+    category = models.CharField(max_length=20, choices=CATEGORY_CHOICES, default='other')
+    address = models.TextField(null=True, blank=True)
+    group = models.ForeignKey(LocationGroup, on_delete=models.CASCADE, related_name='locations')
+    rating = models.PositiveSmallIntegerField(
+        validators=[MinValueValidator(1), MaxValueValidator(5)],
+        null=True,
+        blank=True
+    )
+    notes = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        ordering = ['name']
+        indexes = [
+            models.Index(fields=['latitude', 'longitude']),
+            models.Index(fields=['category']),
+        ]
