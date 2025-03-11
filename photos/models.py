@@ -67,9 +67,13 @@ class Photo(models.Model):
 
     width = models.IntegerField(null=True, blank=True)
     height = models.IntegerField(null=True, blank=True)
+
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     altitude = models.FloatField(null=True, blank=True)
+    location_city = models.CharField(max_length=128, null=True, blank=True)
+    location_country = models.CharField(max_length=32, null=True, blank=True)
+    
     orientation = models.CharField(max_length=32)
     date_taken = models.DateTimeField(auto_now=False, null=True, blank=True)
 
@@ -120,6 +124,8 @@ class Photo(models.Model):
             "height": self.height,
             "lat": self.latitude,
             "lon": self.longitude,
+            "location_city": self.location_city,
+            "location_country": self.location_country,
             "date_taken": str(self.date_taken),
             "thumbnail_hash": self.thumbnail_hash,
             "photo_hash": self.photo_hash,

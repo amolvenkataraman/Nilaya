@@ -16,6 +16,7 @@ import hashlib
 import datetime
 from pathlib import Path
 from PIL import Image, UnidentifiedImageError
+import reverse_geocode as rg
 
 def photo_ingest_for_album(album, user):
     SOURCE_DIR = album.location + "Ingest/**"
@@ -143,6 +144,12 @@ def photo_ingest_for_album(album, user):
                     dt = datetime.datetime.fromtimestamp(os.path.getctime(f))
         try: p.date_taken = dt   
         except: pass
+
+        if p.latitude != 0 and p.longitude != 0:
+            results = rg.get((p.latitude, p.longitude))
+            p.location_city = results['city']
+            p.location_country = results['country']
+
         p.save()
 
         p.gen_thumbnail()

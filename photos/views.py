@@ -1,5 +1,6 @@
 from django.shortcuts import render
 from django.db.models import Q
+from django.db.models import Count
 from django.http import HttpResponse, JsonResponse, FileResponse
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -27,16 +28,28 @@ def photos(request):
         try:
             if (request.GET.get('north') and request.GET.get('south') and request.GET.get('east') and request.GET.get('west')):
                 bounds = {"north": request.GET.get('north'), "south": request.GET.get('south'), "east": request.GET.get('east'), "west": request.GET.get('west')}
-                newest = Photo.objects.filter(album__in=albums, latitude__lte=request.GET.get('north'), latitude__gte=request.GET.get('south'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east')).order_by('date_taken').reverse()[0].date_taken.date() + datetime.timedelta(days=1)
+                photos = Photo.objects.filter(album__in=albums, latitude__lte=request.GET.get('north'), latitude__gte=request.GET.get('south'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east')).order_by('-date_taken')
+                newest = photos[0].date_taken.date() + datetime.timedelta(days=1)
             else:
                 bounds = None
-                newest = Photo.objects.filter(album__in=albums).order_by('-date_taken')[0].date_taken.date() + datetime.timedelta(days=1)
+                photos = Photo.objects.filter(album__in=albums).order_by('-date_taken')
+                newest = photos[0].date_taken.date() + datetime.timedelta(days=1)
         except IndexError: newest = None
     else:
         newest = dateparser.parse(request.GET.get('date')).date()
+        photos = Photo.objects.filter(album__in=albums).order_by('-date_taken')
         bounds = None
 
-    return render(request, 'photos/photos.html', { 'newest': datetime.datetime.strftime(newest, "%Y-%m-%d"), 'forward': request.GET.get('forward') == '1', 'bounds': bounds, "left_sidebar": True, "right_sidebar": True})
+    ntotal = photos.count()
+    nphotos = photos.filter(video=False).count()
+    nvideos = ntotal - nphotos
+    fyear = photos[0].date_taken.year
+    lyear = photos.reverse()[0].date_taken.year
+    print(photos.reverse()[0].getinfo())
+    cities = photos.filter(location_city__isnull=False, location_country__isnull=False).values_list('location_city', 'location_country').distinct().count()
+    cameras = photos.filter(camera_make__isnull=False, camera_model__isnull=False).values_list('camera_make', 'camera_model').distinct().count()
+
+    return render(request, 'photos/photos.html', { 'newest': datetime.datetime.strftime(newest, "%Y-%m-%d"), 'forward': request.GET.get('forward') == '1', 'bounds': bounds, "left_sidebar": True, "right_sidebar": True, "ntotal": ntotal, "nphotos": nphotos, "nvideos": nvideos, "drange": f"{lyear}-{fyear}", "cities": cities, "cameras": cameras})
 
 @login_required
 def map(request):
@@ -176,8 +189,11 @@ def get_photos_for_date(request):
     p1 = photos.filter(date_taken__date=dt)
     print(f"{dateparser.parse(request.GET.get('date')).date()} -> {datetime.datetime.strftime(timezone.localtime(photos[p1.count()].date_taken, pytz.timezone(TIME_ZONE)).date(), '%Y-%m-%d') if photos.count() > p1.count() else 'NONE'}")
 
+    citcount = p1.filter(location_city__isnull=False, location_country__isnull=False).values_list('location_city', 'location_country').annotate(count=Count('id')).order_by('-count')
+
     return JsonResponse({
         'photos': [i.getinfo_zip() for i in p1],
+        'cities': [list(i) for i in citcount],
         'next': datetime.datetime.strftime(timezone.localtime(photos[p1.count()].date_taken, pytz.timezone(TIME_ZONE)).date(), "%Y-%m-%d") if photos.count() > p1.count() else "NONE"
     })
 

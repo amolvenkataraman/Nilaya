@@ -34,6 +34,10 @@
 
         <div class="photo-info-grid">
             <div class="info-item">
+                <span class="info-label">ID</span>
+                <span class="info-value">{{ id }}</span>
+            </div>
+            <div class="info-item">
                 <span class="info-label">Dimensions</span>
                 <span class="info-value">{{ width }}x{{ height }}</span>
             </div>
@@ -41,6 +45,13 @@
                 <span class="info-label">Date Taken</span>
                 <span class="info-value">{{ date_taken }}</span>
             </div>
+
+            {{#if location_city}}
+            <div class="info-item">
+                <span class="info-label">Location</span>
+                <span class="info-value">{{location_city}}{{#if location_country}}, {{location_country}}{{/if}}</span>
+            </div>
+            {{/if}}
         </div>
 
         <div class="photo-actions">
@@ -209,7 +220,22 @@
         if (dates.includes(date1)) { return; }
         dates.push(date1);
 
-        document.querySelector(".photos").innerHTML += `<span class="day-label day-label-${date1}">${date1} - ${moment(date).format('dddd')}</span><div class="day-photos day-photos-${date1}"></div>`
+        document.querySelector(".photos").innerHTML += `
+            <div class="day-header day-header-${date1}">
+                <div class="date-section">
+                    <div class="calendar-icon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    </div>
+                    <div class="date-info">
+                        <span class="date">${date1}</span>
+                        <span class="day">${moment(date).format('dddd')}</span>
+                    </div>
+                </div>
+                <span class="photo-count-${date1}">0 photos</span>
+                <div class="locations locations-${date1}">
+                </div>
+            </div>
+            <div class="day-photos day-photos-${date1}"></div>`;
 
         var r = new XMLHttpRequest();
         {% if not bounds %}
@@ -230,7 +256,27 @@
                     document.querySelector(`.day-photos-${date1}`).innerHTML += photo_in_list({"thumbnail": `/private/${photo['thumbnail_hash']}/photo_cache/thumbnail/${photo['id']}.jpg`, "url": `/photo_cdn/${photo['photo_hash']}/${photo['path']}`, "id": photo['id'], "video": photo["video"]})
                 }
 
-                document.querySelector(`.day-label-${date1}`).innerHTML += ` [${res["photos"].length}]`
+                const photoCount = document.querySelector(`.day-header .photo-count-${date1}`);
+                if (photoCount) {
+                    photoCount.textContent = `${res["photos"].length} photos`;
+                }
+                
+                // Add the first 5 locations, and add a (+n) badge if there are more
+                const locations = document.querySelector(`.day-header .locations-${date1}`);
+                if (locations) {
+                    locations.innerHTML = "";
+
+                    for (i = 0; i < Math.min(res["cities"].length, 5); i++) {
+                        locations.innerHTML += `<span class="location-tag">${res["cities"][i][0]}, ${res["cities"][i][1]}</span>`;
+                    }
+                    if (res["cities"].length > 5) {
+                        locations.innerHTML += `<span class="location-tag">+${res["cities"].length - 5}</span>`;
+                    }
+                }
+            }
+            else {
+                // Delete the day header
+                document.querySelector(`.day-header-${date1}`).remove();
             }
 
             if (next > 0) {
@@ -329,6 +375,63 @@
 {% endblock %}
 
 {% block page_body %}
+<div class="stats-bar">
+    <div class="stats-item">
+        <div class="stats-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+        </div>
+        <div class="stats-text">
+            <span class="stats-count">{{ ntotal }}</span>
+            <span class="stats-label">Total</span>
+        </div>
+    </div>
+    <div class="stats-item">
+        <div class="stats-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>
+        </div>
+        <div class="stats-text">
+            <span class="stats-count">{{ nphotos }}</span>
+            <span class="stats-label">Photos</span>
+        </div>
+    </div>
+    <div class="stats-item">
+        <div class="stats-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+        </div>
+        <div class="stats-text">
+            <span class="stats-count">{{ nvideos }}</span>
+            <span class="stats-label">Videos</span>
+        </div>
+    </div>
+    <div class="stats-item">
+        <div class="stats-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+        </div>
+        <div class="stats-text">
+            <span class="stats-count">{{ drange }}</span>
+            <span class="stats-label">Time Range</span>
+        </div>
+    </div>
+    <div class="stats-item">
+        <div class="stats-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"></path><circle cx="12" cy="9" r="3"></circle></svg>
+        </div>
+        <div class="stats-text">
+            <span class="stats-count">{{ cities }}</span>
+            <span class="stats-label">Cities</span>
+        </div>
+    </div>
+    <div class="stats-item">
+        <div class="stats-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg>
+        </div>
+        <div class="stats-text">
+            <span class="stats-count">{{ cameras }}</span>
+            <span class="stats-label">Cameras</span>
+        </div>
+    </div>
+</div>
+
 <div id="photo-display-area">
     <div id="photo-area">
         <button id="exit-btn" type="button" class="photo-btn btn btn-info" onclick="close_image()">

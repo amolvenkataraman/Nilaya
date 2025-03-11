@@ -195,9 +195,8 @@ body {
 }
 
 .photo-name {
-    font-size: 1.25rem;
+    font-size: 1.15rem;
     color: var(--text-color);
-    margin-bottom: 16px;
 }
 
 .camera-info {
@@ -246,7 +245,7 @@ button:hover {
     display: flex;
     justify-content: space-between;
     align-items: flex-start;
-    margin-bottom: 24px;
+    margin-bottom: 8px;
 }
 
 .photo-actions {
@@ -307,4 +306,121 @@ button:hover {
     background-color: white;
     border-radius: 8px;
     box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+
+.day-header {
+    background: linear-gradient(to right, #f8f9fa, #ffffff);
+    padding: 15px 20px;
+    margin: 20px 0 10px 0;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.day-header .date-section {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.day-header .calendar-icon {
+    background: #fff;
+    padding: 10px;
+    border-radius: 50%;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.day-header .date-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.day-header .date {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.day-header .day {
+    color: #6c757d;
+    font-size: 0.9em;
+}
+
+.day-header .photo-count {
+    background: #e9ecef;
+    padding: 3px 8px;
+    border-radius: 12px;
+    font-size: 0.85em;
+    color: #495057;
+}
+
+.day-header .locations {
+    margin-left: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.day-header .location-tag {
+    background: #fff;
+    padding: 4px 10px;
+    border-radius: 15px;
+    font-size: 0.85em;
+    color: #495057;
+    border: 1px solid #dee2e6;
+}
+
+.day-header .location-tag:hover {
+    background: #f8f9fa;
+}
+
+.stats-bar {
+    background: linear-gradient(to right, #f8f9fa, #ffffff);
+    padding: 12px 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    margin-bottom: -20px;
+    display: flex;
+    align-items: center;
+    gap: 25px;
+}
+
+.stats-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.stats-icon {
+    background: #fff;
+    padding: 8px;
+    border-radius: 50%;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.stats-text {
+    display: flex;
+    flex-direction: column;
+}
+
+.stats-count {
+    font-size: 1.1em;
+    font-weight: bold;
+    color: #2c3e50;
+}
+
+.stats-label {
+    font-size: 0.8em;
+    color: #6c757d;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
 }

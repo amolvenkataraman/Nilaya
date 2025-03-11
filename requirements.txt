@@ -19,3 +19,4 @@ psycopg
 django-import-export
 requests
 crispy-bootstrap4
+reverse_geocode
