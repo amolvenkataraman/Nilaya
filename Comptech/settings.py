@@ -25,6 +25,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'secret.txt')).read().rstrip()
 DB_PASSWORD = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'db_password.txt')).read().rstrip()
+SALT = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'salt.txt')).read().rstrip()
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True # True in development, False in production

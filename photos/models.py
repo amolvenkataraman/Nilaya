@@ -3,6 +3,7 @@ import uuid
 import hashlib
 from django.db import models
 from users.models import *
+from Comptech.settings import SALT
 
 # Create your models here.
 def parse_album_path(instance, filename):
@@ -157,8 +158,8 @@ class Photo(models.Model):
         }
 
     def regen_hashes(self):
-        fp = (self.album.location + self.filepath + "__HASH_SALT_GOES_HERE__").replace("/mnt/data/Photos/", "")
-        fp1 = f"photo_cache/thumbnail/{self.id}.jpg__HASH_SALT_GOES_HERE__"
+        fp = (self.album.location + self.filepath + SALT).replace("/mnt/data/Photos/", "")
+        fp1 = f"photo_cache/thumbnail/{self.id}.jpg{SALT}"
         hash_ = hashlib.md5(fp.encode('utf-8')).hexdigest()
         hash1_ = hashlib.md5(fp1.encode('utf-8')).hexdigest()
 
