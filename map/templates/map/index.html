@@ -729,8 +729,6 @@
             const url = data.id ? `/map/locations/${data.id}/edit/` : '/map/locations/add/';
             const method = 'POST';
 
-            alert(JSON.stringify(data))
-
             fetch(url, {
                 method: method,
                 headers: {

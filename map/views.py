@@ -44,7 +44,7 @@ def locations(request):
                 group.is_public):
             return error_response("Not authorized", 401)
         
-        locations = Location.objects.filter(group=group)
+        locations = Location.objects.filter(group=group).order_by('category', 'name')
         
         return JsonResponse([{
             'id': loc.id,
@@ -91,10 +91,7 @@ def add_location(request):
             notes=data.get('notes', '')
         )
         
-        return JsonResponse({
-            'id': location.id,
-            'message': 'Location added successfully'
-        })
+        return success_response("Location added successfully")
         
     except LocationGroup.DoesNotExist:
         return error_response("Group not found", 404)

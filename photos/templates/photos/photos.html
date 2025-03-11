@@ -15,13 +15,6 @@
 <script src="{% static 'js/jquery/jquery.min.js' %}" type="text/javascript"></script>
 <script src="{% static 'js/handlebars/handlebars.js' %}" type="text/javascript"></script>
 
-<style>
-    .img-selected {
-        outline: 5px solid blue;
-        outline-offset: -5px;
-    }
-</style>
-
 <script id="photo-in-list" type="text/x-handlebars-template">
     {% verbatim %}
     <div class="photo">
@@ -33,36 +26,76 @@
 <script id="photo-description" type="text/x-handlebars-template">
     {% verbatim %}
     <div class="photo-description">
-        {{ id }}
-        <div class="photo-name">
-            <b>{{ filepath }}</b>
-        </div>
-        <br><br>
-        <div class="photo-dims">
-            <b>Dimensions:</b> {{ width }}x{{ height }}
-        </div>
-        <!--<div class="photo-posn">
-            <b>Location</b>: {{ lat }}, {{ lon }}
-        </div>-->
-        <div class="photo-date">
-            {{ date_taken }}
-        </div>
-        <br><br>
-        <div class="camera-info">
-            <span class="camera-info-header">Camera Info</span><br>
-            <b>Camera Make:</b> {{ camera_make }}<br>
-            <b>Camera Model:</b> {{ camera_model }}<br>
-            <b>Exposure:</b> {{ exposure }}<br>
-            <b>F Number:</b> {{ fnumber }}<br>
-            <b>ISO Speed:</b> {{ isospeed }}<br>
-            <b>Shutter Speed:</b> {{ shutterspeed }}<br>
-            <b>Aperture:</b> {{ aperture }}<br>
-            <b>Flash:</b> {{ flash }}<br>
-            <b>Focal Length:</b> {{ focallength }}<br>
+        <div class="photo-header">
+            <div class="photo-name">
+                {{ filepath }}
+            </div>
         </div>
 
-        <button onclick="load_map({{ lat }}, {{ lon }})">Load Map</button>
-        <button onclick="del_photo('{{ id }}')">Delete</button>
+        <div class="photo-info-grid">
+            <div class="info-item">
+                <span class="info-label">Dimensions</span>
+                <span class="info-value">{{ width }}x{{ height }}</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">Date Taken</span>
+                <span class="info-value">{{ date_taken }}</span>
+            </div>
+        </div>
+
+        <div class="photo-actions">
+            <button onclick="load_map({{ lat }}, {{ lon }})" class="action-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-map-pin"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                View Location
+            </button>
+            <button onclick="del_photo('{{ id }}')" class="action-btn delete-btn">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-trash-2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                Delete
+            </button>
+        </div>
+
+        <div class="camera-info">
+            <div class="camera-info-header">Camera Information</div>
+            <div class="camera-info-grid">
+                <div class="info-item">
+                    <span class="info-label">Camera Make</span>
+                    <span class="info-value">{{ camera_make }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Camera Model</span>
+                    <span class="info-value">{{ camera_model }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Exposure</span>
+                    <span class="info-value">{{ exposure }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">F Number</span>
+                    <span class="info-value">{{ fnumber }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">ISO Speed</span>
+                    <span class="info-value">{{ isospeed }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Shutter Speed</span>
+                    <span class="info-value">{{ shutterspeed }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Aperture</span>
+                    <span class="info-value">{{ aperture }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Flash</span>
+                    <span class="info-value">{{ flash }}</span>
+                </div>
+                <div class="info-item">
+                    <span class="info-label">Focal Length</span>
+                    <span class="info-value">{{ focallength }}</span>
+                </div>
+            </div>
+        </div>
+
         <div id="mapid"></div>
     </div>
     {% endverbatim %}
@@ -270,25 +303,25 @@
 <ul class="nav">
     <li class="nav-item nav-item-selected">
         <a class="photo-page-link" href="#">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-home"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-image"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
             Photos
         </a>
     </li>
     <li class="nav-item">
         <a class="photo-page-link" href="#">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-home"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-search"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             Search
         </a>
     </li>
     <li class="nav-item">
         <a class="photo-page-link" href="/photos/map/?alt-=1000" target="_blank">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-home"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path><polyline points="9 22 9 12 15 12 15 22"></polyline></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-map"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
             Map
         </a>
     </li>
     <li class="nav-item">
         <button class="photo-page-link" onclick="ingest_photos()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41m-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9"/><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5 5 0 0 0 8 3M3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9z"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-refresh-cw"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
             Ingest
         </button>
     </li>
@@ -299,18 +332,14 @@
 <div id="photo-display-area">
     <div id="photo-area">
         <button id="exit-btn" type="button" class="photo-btn btn btn-info" onclick="close_image()">
-            x
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
         <button id="previous-btn" type="button" class="photo-btn btn btn-info" onclick="prev_image()">
-            <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-caret-left-fill" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M3.86 8.753l5.482 4.796c.646.566 1.658.106 1.658-.753V3.204a1 1 0 0 0-1.659-.753l-5.48 4.796a1 1 0 0 0 0 1.506z"/>
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-left"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </button>
 
         <button id="next-btn" type="button" class="photo-btn btn btn-info" onclick="next_image()">
-            <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-caret-right-fill" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12.14 8.753l-5.482 4.796c-.646.566-1.658.106-1.658-.753V3.204a1 1 0 0 1 1.659-.753l5.48 4.796a1 1 0 0 1 0 1.506z"/>
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right"><polyline points="9 18 15 12 9 6"></polyline></svg>
         </button>
 
         <div id="photo">
