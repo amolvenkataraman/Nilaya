@@ -14,3 +14,4 @@ salt.txt
 nohup.out
 celerybeat-schedule.db
 data.json
+nginx.conf
