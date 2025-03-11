@@ -71,7 +71,7 @@ def add_location(request):
 
     try:
         data = json.loads(request.body)
-        print(data)
+        # print(data)
         group = LocationGroup.objects.get(id=int(data.get('group_id')))
         
         # Check if user has write access to this group
@@ -105,8 +105,8 @@ def edit_location(request, location_id):
     if request.method != 'POST':
         return error_response("Method not allowed", 405)
 
-    print(location_id)
-    print(request.body)
+    # print(location_id)
+    # print(request.body)
     try:
         location = Location.objects.get(id=location_id)
         

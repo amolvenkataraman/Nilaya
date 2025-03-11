@@ -55,7 +55,7 @@
         }
 
         #sidebar-header {
-            padding: 15px;
+            padding: 8px;
             background: #f8f9fa;
             border-bottom: 1px solid #dee2e6;
             display: flex;
@@ -65,15 +65,18 @@
         }
 
         #sidebar-content {
-            padding: 15px;
+            padding: 8px;
             overflow-y: auto;
             flex-grow: 1;
         }
 
         #sidebar-footer {
-            padding: 15px;
+            padding: 8px;
             background: #f8f9fa;
             border-top: 1px solid #dee2e6;
+        }
+
+        #sidebar-footer .sidebar-group {
             display: flex;
             gap: 10px;
             flex-shrink: 0;
@@ -137,7 +140,6 @@
         .location-marker {
             display: flex;
             align-items: center;
-            padding: 5px;
             margin: 5px 0;
             background: white;
             border-radius: 3px;
@@ -247,25 +249,25 @@
                 <label class="form-label">Category</label>
                 <select class="form-select" name="category" required>
                     <option value="">Select category...</option>
-                    <option value="house" {{#if (eq category "house")}}selected{{/if}}>House</option>
-                    <option value="business" {{#if (eq category "business")}}selected{{/if}}>Business</option>
+                    <option value="house" {{#if (eq category "house")}}selected{{/if}}>🏠 House</option>
+                    <option value="business" {{#if (eq category "business")}}selected{{/if}}>🏢 Business</option>
 
-                    <option value="school" {{#if (eq category "school")}}selected{{/if}}>School</option>
-                    <option value="university" {{#if (eq category "university")}}selected{{/if}}>University</option>
+                    <option value="school" {{#if (eq category "school")}}selected{{/if}}>🏫 School</option>
+                    <option value="university" {{#if (eq category "university")}}selected{{/if}}>🎓 University</option>
 
-                    <option value="restaurant" {{#if (eq category "restaurant")}}selected{{/if}}>Restaurant</option>
-                    <option value="shop" {{#if (eq category "shop")}}selected{{/if}}>Shop</option>
-                    <option value="mall" {{#if (eq category "mall")}}selected{{/if}}>Shopping Mall</option>
+                    <option value="restaurant" {{#if (eq category "restaurant")}}selected{{/if}}>🍽️ Restaurant</option>
+                    <option value="shop" {{#if (eq category "shop")}}selected{{/if}}>🏪 Shop</option>
+                    <option value="mall" {{#if (eq category "mall")}}selected{{/if}}>🛍️ Shopping Mall</option>
 
-                    <option value="parking" {{#if (eq category "parking")}}selected{{/if}}>Parking</option>
-                    <option value="religious" {{#if (eq category "religious")}}selected{{/if}}>Religious</option>
-                    <option value="hospital" {{#if (eq category "hospital")}}selected{{/if}}>Hospital</option>
-                    <option value="transit" {{#if (eq category "transit")}}selected{{/if}}>Transit</option>
+                    <option value="parking" {{#if (eq category "parking")}}selected{{/if}}>🅿️ Parking</option>
+                    <option value="religious" {{#if (eq category "religious")}}selected{{/if}}>⛪ Religious</option>
+                    <option value="hospital" {{#if (eq category "hospital")}}selected{{/if}}>🏥 Hospital</option>
+                    <option value="transit" {{#if (eq category "transit")}}selected{{/if}}>🚉 Transit</option>
 
-                    <option value="park" {{#if (eq category "park")}}selected{{/if}}>Park</option>
-                    <option value="nature" {{#if (eq category "nature")}}selected{{/if}}>Nature</option>
+                    <option value="park" {{#if (eq category "park")}}selected{{/if}}>🌳 Park</option>
+                    <option value="nature" {{#if (eq category "nature")}}selected{{/if}}>🏞️ Nature</option>
 
-                    <option value="other" {{#if (eq category "other")}}selected{{/if}}>Other</option>
+                    <option value="other" {{#if (eq category "other")}}selected{{/if}}>📍 Other</option>
                 </select>
             </div>
             <div class="mb-3">
@@ -336,11 +338,20 @@
                 </div>
             </div>
             <div id="sidebar-footer">
-                <div class="button-group">
-                    <button class="sidebar-button" id="load-heatmap">Heatmap</button>
-                    <button class="sidebar-button" id="customize-heatmap">⚙️</button>
+                <div class="sidebar-group">
+                    <div class="button-group">
+                        <button class="sidebar-button" id="load-heatmap">Heatmap</button>
+                        <button class="sidebar-button" id="customize-heatmap">⚙️</button>
+                    </div>
+                    <button class="sidebar-button" id="view-photos">View Photos</button>
                 </div>
-                <button class="sidebar-button" id="view-photos">View Photos</button>
+
+                <div class="sidebar-group">
+                    <div style="padding: 8px; border-bottom: 1px solid #dee2e6; display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="show-location-lists" style="margin: 0;">
+                        <label for="show-location-lists" style="margin: 0; user-select: none; cursor: pointer;">Show location lists</label>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -495,7 +506,7 @@
             fetch(`/map/locations/?group=${groupId}`)
                 .then(response => response.json())
                 .then(locations => {
-                    // Clear existing markers for this group
+                    // Clear existing markers for this group if they exist
                     if (groupLayers[groupId]) {
                         map.removeLayer(groupLayers[groupId]);
                     }
@@ -514,18 +525,34 @@
                                 ${location.description || ''}<br>
                                 ${location.address || ''}<br>
                                 ${location.rating ? '⭐'.repeat(location.rating) : ''}
+                                <div style="margin-top: 10px; display: flex; justify-content: center; gap: 10px;">
+                                    <button onclick='editLocationFromPopup(${JSON.stringify(location)})' class="btn btn-sm btn-outline-secondary">✏️ Edit</button>
+                                    <button onclick='deleteLocationFromPopup("${location.id}")' class="btn btn-sm btn-outline-danger">🗑️ Delete</button>
+                                </div>
                             </div>
                         `);
                         markers.push(marker);
                     });
 
-                    groupLayers[groupId] = L.layerGroup(markers).addTo(map);
+                    // Only create and add the layer group if there are markers
+                    if (markers.length > 0) {
+                        groupLayers[groupId] = L.layerGroup(markers).addTo(map);
+                    }
+                    
+                    // Update the sidebar display
                     updateGroupLocationsDisplay(groupId, locations);
                 });
         }
 
         function updateGroupLocationsDisplay(groupId, locations) {
             const groupDiv = document.getElementById(`group-${groupId}`);
+            const showLists = document.getElementById('show-location-lists').checked;
+            
+            if (!showLists) {
+                groupDiv.innerHTML = ''; // Don't show location list
+                return;
+            }
+
             groupDiv.innerHTML = locations.map(location => `
                 <div class="location-marker">
                     ${categoryIcons[location.category] || categoryIcons['other']} ${location.name}
@@ -558,9 +585,21 @@
             if (groupLayers[groupId]) {
                 if (visible) {
                     map.addLayer(groupLayers[groupId]);
+                    // Refresh locations from server when showing the group
+                    fetchLocationsForGroup(groupId);
                 } else {
                     map.removeLayer(groupLayers[groupId]);
+                    // Clear locations from sidebar when hiding the group
+                    const groupDiv = document.getElementById(`group-${groupId}`);
+                    if (groupDiv) {
+                        groupDiv.innerHTML = '';
+                    }
+                    // Clear the markers array for this group
+                    delete groupLayers[groupId];
                 }
+            } else if (visible) {
+                // If the layer doesn't exist but we're trying to show it, fetch the locations
+                fetchLocationsForGroup(groupId);
             }
         }
 
@@ -671,8 +710,22 @@
         // Get user's location and center map
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(position => {
-                map.setView([position.coords.latitude, position.coords.longitude], 13);
-                // map.setView([43.6425662, -79.3870568], 10);
+                const userLocation = [position.coords.latitude, position.coords.longitude];
+                map.setView(userLocation, 13);
+                
+                // Add a marker for the user's location with a custom icon
+                const userIcon = L.divIcon({
+                    html: `<div style="font-size: 24px; filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.5));">📍</div>`,
+                    className: 'custom-div-icon',
+                    iconSize: [30, 30],
+                    iconAnchor: [15, 15]
+                });
+
+                L.marker(userLocation, {
+                    icon: userIcon,
+                    title: 'Your Location'
+                })
+                .addTo(map)
             });
         }
 
@@ -773,6 +826,27 @@
                 alert('Error deleting location: ' + error);
             });
         }
+
+        // Add global functions for popup actions
+        window.editLocationFromPopup = function(location) {
+            showLocationModal(location);
+        };
+
+        window.deleteLocationFromPopup = function(locationId) {
+            if (confirm('Are you sure you want to delete this location?')) {
+                deleteLocation(locationId);
+            }
+        };
+
+        // Add event listener for the show location lists checkbox
+        document.getElementById('show-location-lists').addEventListener('change', function() {
+            // Refresh all visible groups to update their location lists
+            Object.keys(groupLayers).forEach(groupId => {
+                if (groupLayers[groupId]) {
+                    fetchLocationsForGroup(groupId);
+                }
+            });
+        });
     </script>
 </body>
 </html> 
