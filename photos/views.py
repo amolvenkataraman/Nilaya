@@ -45,11 +45,9 @@ def photos(request):
     nvideos = ntotal - nphotos
     fyear = photos[0].date_taken.year
     lyear = photos.reverse()[0].date_taken.year
-    print(photos.reverse()[0].getinfo())
-    cities = photos.filter(location_city__isnull=False, location_country__isnull=False).values_list('location_city', 'location_country').distinct().count()
-    cameras = photos.filter(camera_make__isnull=False, camera_model__isnull=False).values_list('camera_make', 'camera_model').distinct().count()
+    countries = photos.filter(Q(location_country__isnull=False) & Q(Q(altitude__isnull=True) | Q(altitude__lte=1000))).values_list('location_country').distinct().count()
 
-    return render(request, 'photos/photos.html', { 'newest': datetime.datetime.strftime(newest, "%Y-%m-%d"), 'forward': request.GET.get('forward') == '1', 'bounds': bounds, "left_sidebar": True, "right_sidebar": True, "ntotal": ntotal, "nphotos": nphotos, "nvideos": nvideos, "drange": f"{lyear}-{fyear}", "cities": cities, "cameras": cameras})
+    return render(request, 'photos/photos.html', { 'newest': datetime.datetime.strftime(newest, "%Y-%m-%d"), 'forward': request.GET.get('forward') == '1', 'bounds': bounds, "left_sidebar": True, "right_sidebar": True, "ntotal": ntotal, "nphotos": nphotos, "nvideos": nvideos, "drange": f"{lyear}-{fyear}", "countries": countries})
 
 @login_required
 def map(request):
