@@ -30,6 +30,38 @@ def location_groups(request):
 
 
 @login_required_api
+def add_group(request):
+    """API endpoint to create a new location group."""
+    if request.method != 'POST':
+        return error_response("Method not allowed", 405)
+
+    try:
+        data = json.loads(request.body)
+        
+        # Create new group
+        group = LocationGroup.objects.create(
+            name=data.get('name'),
+            description=data.get('description', ''),
+            owner=request.user,
+            is_public=data.get('is_public', False)
+        )
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Group created successfully',
+            'group': {
+                'id': group.id,
+                'name': group.name,
+                'description': group.description,
+                'is_public': group.is_public
+            }
+        })
+        
+    except Exception as e:
+        return error_response(str(e), 400)
+
+
+@login_required_api
 def locations(request):
     """API endpoint to get locations for a specific group."""
     group_id = request.GET.get('group')
