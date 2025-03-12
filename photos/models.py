@@ -68,6 +68,9 @@ class Photo(models.Model):
 
     width = models.IntegerField(null=True, blank=True)
     height = models.IntegerField(null=True, blank=True)
+    thumbnail_width = models.IntegerField(null=True, blank=True)
+    thumbnail_height = models.IntegerField(null=True, blank=True)
+    main_color = models.CharField(null=True, blank=True, max_length=7)
 
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
@@ -153,6 +156,9 @@ class Photo(models.Model):
             "date_taken": str(self.date_taken),
             "video": self.video,
             "length": self.length,
+            "thumbnail_width": self.thumbnail_width,
+            "thumbnail_height": self.thumbnail_height,
+            "main_color": self.main_color,
             "thumbnail_hash": self.thumbnail_hash,
             "photo_hash": self.photo_hash,
         }
@@ -167,20 +173,32 @@ class Photo(models.Model):
         self.thumbnail_hash = hash1_
         self.save()
 
-    def gen_thumbnail(self):
+    def gen_thumbnail(self, only_get_dims=False):
         from PIL import Image, ImageOps, UnidentifiedImageError
 
         try:
-            if self.video == False:
-                u = self.album.location + self.filepath
-                img = Image.open(u)               
-                img = ImageOps.exif_transpose(img)
-                img.thumbnail((500, 200))
-                img.save('/www/private/photo_cache/thumbnail/' + str(self.id) + '.jpg', "JPEG")
+            if not only_get_dims:
+                if self.video == False:
+                    u = self.album.location + self.filepath
+                    img = Image.open(u)               
+                    img = ImageOps.exif_transpose(img)
+                    img.thumbnail((500, 200))
+                    img.save('/www/private/photo_cache/thumbnail/' + str(self.id) + '.jpg', "JPEG")
 
-            else:
-                self.width, self.height, self.length = generate_video_thumbnail(self.album.location + self.filepath, '/www/private/photo_cache/thumbnail/', self.id)
-                self.save()
+                else:
+                    self.width, self.height, self.length = generate_video_thumbnail(self.album.location + self.filepath, '/www/private/photo_cache/thumbnail/', self.id)
+
+            # Open the saved thumbnail and get dimensions
+            thumb = Image.open('/www/private/photo_cache/thumbnail/' + str(self.id) + '.jpg')
+            self.thumbnail_width = thumb.size[0]
+            self.thumbnail_height = thumb.size[1]
+            
+            # Get dominant color
+            thumb = thumb.resize((1, 1))  # Resize to 1x1 to get average color
+            dominant_color = thumb.getpixel((0, 0))
+            self.main_color = '#{:02x}{:02x}{:02x}'.format(*dominant_color)
+            
+            self.save()
 
         except (FileNotFoundError, UnidentifiedImageError, OSError):
             print("Error generating thumbnail for: " + str(self.id))

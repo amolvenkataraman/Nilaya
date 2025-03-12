@@ -18,7 +18,7 @@
 <script id="photo-in-list" type="text/x-handlebars-template">
     {% verbatim %}
     <div class="photo">
-        <img src="{{ thumbnail }}" data-id="{{ id }}" data-url="{{ url }}" data-video="{{ video }}" class="list-img" style='display: block; float: left; margin: 2px;' onclick="event.shiftKey ? select_photo(this) : view_image(this)" height="200px">
+        <img src="" data-src="{{ thumbnail }}" data-id="{{ id }}" data-url="{{ url }}" data-video="{{ video }}" class="list-img" style='display: block; float: left; margin: 2px; background-color: {{ main_color }}; width: {{ thumbnail_width }}px; height: {{ thumbnail_height }}px;' onclick="event.shiftKey ? select_photo(this) : view_image(this)">
     </div>
     {% endverbatim %}
 </script>
@@ -121,6 +121,8 @@
     var currimage;
     var imgloaded = false;
     var dates = [];
+    var nowloading = false;
+    origload = false;
 
     function view_image(e) {
         if (e.shiftKey) {
@@ -214,28 +216,14 @@
         r.send();
     }
 
-    function get_photos_for_date(date, next=0) {
+    function get_photos_for_date(date, ndays=0, nphotos=0) {
+        if (nowloading) { return; }
+        nowloading = true;
+
         var date1 = moment(date).format('YYYY-MM-DD')
 
         if (dates.includes(date1)) { return; }
         dates.push(date1);
-
-        document.querySelector(".photos").innerHTML += `
-            <div class="day-header day-header-${date1}">
-                <div class="date-section">
-                    <div class="calendar-icon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                    </div>
-                    <div class="date-info">
-                        <span class="date">${date1}</span>
-                        <span class="day">${moment(date).format('dddd')}</span>
-                    </div>
-                </div>
-                <span class="photo-count-${date1}">0 photos</span>
-                <div class="locations locations-${date1}">
-                </div>
-            </div>
-            <div class="day-photos day-photos-${date1}"></div>`;
 
         var r = new XMLHttpRequest();
         {% if not bounds %}
@@ -244,44 +232,91 @@
         bounds = `&north={{ bounds.north }}&south={{ bounds.south }}&east={{ bounds.east }}&west={{ bounds.west }}`
         {% endif %}
 
-        if (forward) { r.open("GET", `{% url 'get_photos_for_date' %}?date=${date1}&forward=1${bounds}`) }
-        else { r.open("GET", `{% url 'get_photos_for_date' %}?date=${date1}${bounds}`) }
+        if (ndays > 0) { addto = `&ndays=${ndays}`; }
+        else { addto = ""; }
+
+        if (nphotos > 0) { addto += `&nphotos=${nphotos}`; }
+
+        if (forward) { r.open("GET", `{% url 'get_photos_for_date' %}?date=${date1}&forward=1${bounds}${addto}`) }
+        else { r.open("GET", `{% url 'get_photos_for_date' %}?date=${date1}${bounds}${addto}`) }
         r.onload = () => {
             res = JSON.parse(r.responseText)
             currdate = res['next']
+            if (currdate == null) {
+                console.log("No more photos")
+                document.querySelector(".photos").innerHTML += `
+                    <div class="day-header">
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            <span style="font-weight: bold;">No more photos</span>
+                        </div>
+                    </div>`
+                return;
+            }
 
-            if (res["photos"].length != 0) {
-                for (i = 0; i < res["photos"].length; i++) {
-                    photo = res["photos"][i]
-                    document.querySelector(`.day-photos-${date1}`).innerHTML += photo_in_list({"thumbnail": `/private/${photo['thumbnail_hash']}/photo_cache/thumbnail/${photo['id']}.jpg`, "url": `/photo_cdn/${photo['photo_hash']}/${photo['path']}`, "id": photo['id'], "video": photo["video"]})
-                }
+            for (i = 0; i < res["photos"].length; i++) {
 
-                const photoCount = document.querySelector(`.day-header .photo-count-${date1}`);
-                if (photoCount) {
-                    photoCount.textContent = `${res["photos"].length} photos`;
-                }
-                
-                // Add the first 5 locations, and add a (+n) badge if there are more
-                const locations = document.querySelector(`.day-header .locations-${date1}`);
-                if (locations) {
-                    locations.innerHTML = "";
+                console.log(res["photos"][i]["date"])
 
-                    for (i = 0; i < Math.min(res["cities"].length, 5); i++) {
-                        locations.innerHTML += `<span class="location-tag">${res["cities"][i][0]}, ${res["cities"][i][1]}</span>`;
+                if (res["photos"][i]["photos"].length != 0) {
+                    document.querySelector(".photos").innerHTML += `
+                        <div class="day-header day-header-${res["photos"][i]["date"]}">
+                            <div class="date-section">
+                                <div class="calendar-icon">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                </div>
+                                <div class="date-info">
+                                    <span class="date">${res["photos"][i]["date"]}</span>
+                                    <span class="day">${moment(res["photos"][i]["date"]).format('dddd')}</span>
+                                </div>
+                            </div>
+                            <span class="photo-count-${res["photos"][i]["date"]}">0 photos</span>
+                            <div class="locations locations-${res["photos"][i]["date"]}">
+                            </div>
+                        </div>
+                        <div class="day-photos day-photos-${res["photos"][i]["date"]}"></div>`;
+
+
+                    const photoCount = document.querySelector(`.day-header .photo-count-${res["photos"][i]["date"]}`);
+                    if (photoCount) {
+                        photoCount.textContent = `${res["photos"][i]["photos"].length} photos`;
                     }
-                    if (res["cities"].length > 5) {
-                        locations.innerHTML += `<span class="location-tag">+${res["cities"].length - 5}</span>`;
-                    }
-                }
-            }
-            else {
-                // Delete the day header
-                document.querySelector(`.day-header-${date1}`).remove();
-            }
+                    
+                    // Add the first 5 locations, and add a (+n) badge if there are more
+                    const locations = document.querySelector(`.day-header .locations-${res["photos"][i]["date"]}`);
+                    if (locations) {
+                        locations.innerHTML = "";
 
-            if (next > 0) {
-                get_photos_for_date(res['next'], next - 1)
+                        for (j = 0; j < Math.min(res["photos"][i]["cities"].length, 5); j++) {
+                            locations.innerHTML += `<span class="location-tag">${res["photos"][i]["cities"][j][0]}, ${res["photos"][i]["cities"][j][1]}</span>`;
+                        }
+                        if (res["photos"][i]["cities"].length > 5) {
+                            locations.innerHTML += `<span class="location-tag">+${res["photos"][i]["cities"].length - 5}</span>`;
+                        }
+                    }
+
+                    for (j = 0; j < res["photos"][i]["photos"].length; j++) {
+                        photo = res["photos"][i]["photos"][j]
+                        document.querySelector(`.day-photos-${res["photos"][i]["date"]}`).innerHTML += photo_in_list({
+                            "id": photo['id'], 
+                            "url": `/photo_cdn/${photo['photo_hash']}/${photo['path']}`, 
+                            "video": photo["video"],
+                            "thumbnail": `/private/${photo['thumbnail_hash']}/photo_cache/thumbnail/${photo['id']}.jpg`,
+                            "thumbnail_width": photo['thumbnail_width'] || 200,
+                            "thumbnail_height": photo['thumbnail_height'] || 200,
+                            "main_color": photo['main_color'] || '#f0f0f0'
+                        })
+                    }
+
+                    // After adding all placeholders, load the actual images
+                    document.querySelectorAll(`.day-photos-${res["photos"][i]["date"]} img`).forEach(img => {
+                        img.src = img.dataset.src
+                    });
+                }
+
             }
+            nowloading = false;
+            origload = true;
         }
         r.send()
     }
@@ -312,7 +347,7 @@
     }
 
     window.addEventListener('DOMContentLoaded', (event) => {
-        get_photos_for_date(currdate, 4)
+        get_photos_for_date(currdate, 10, 100)
         
         document.onkeydown = function (e) {
             if (e.key == 'Escape') {
@@ -337,8 +372,8 @@
 
         document.querySelector(".main-content").addEventListener('scroll', (event) => {
             el = document.querySelector(".main-content");
-            if (el.scrollHeight - el.scrollTop - el.clientHeight < 1 ) {
-                get_photos_for_date(currdate)
+            if (el.scrollHeight - el.scrollTop - el.clientHeight < 2000 && !nowloading && origload) {
+                get_photos_for_date(currdate, 10, 50)
             }
         })
     })

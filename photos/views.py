@@ -170,29 +170,54 @@ def view_photo(request, photo_id):
 
 @login_required_api
 def get_photos_for_date(request):
+    print("Day photos request")
     album_subs = request.user.album_subscribed.all()
     albums = [i.album for i in album_subs]
 
     photos = Photo.objects.filter(album__in=albums)
 
-    if (request.GET.get('north') and request.GET.get('south') and request.GET.get('east') and request.GET.get('west')):
-        photos = photos.filter(latitude__gte=request.GET.get('south'), latitude__lte=request.GET.get('north'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east'))
+    numdays = int(request.GET.get("ndays")) if request.GET.get("ndays") else None
+    numphotos = int(request.GET.get("nphotos")) if request.GET.get("nphotos") else None
+    donedays = 0
+    donephotos = 0
+    next = None
 
-    dt = dateparser.parse(request.GET.get('date')).date()
-    if request.GET.get('forward') == '1':
-        photos = photos.filter(date_taken__date__gte=dt).order_by('date_taken')
-    else:
-        photos = photos.filter(date_taken__date__lte=dt).order_by('-date_taken')
+    ans = []
 
-    p1 = photos.filter(date_taken__date=dt)
-    print(f"{dateparser.parse(request.GET.get('date')).date()} -> {datetime.datetime.strftime(timezone.localtime(photos[p1.count()].date_taken, pytz.timezone(TIME_ZONE)).date(), '%Y-%m-%d') if photos.count() > p1.count() else 'NONE'}")
+    while (numdays is None and numphotos is None and donedays == 0) or ((numdays is None or donedays < numdays) and (numphotos is None or donephotos < numphotos)):
+        if (request.GET.get('north') and request.GET.get('south') and request.GET.get('east') and request.GET.get('west')):
+            photos = photos.filter(latitude__gte=request.GET.get('south'), latitude__lte=request.GET.get('north'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east'))
 
-    citcount = p1.filter(location_city__isnull=False, location_country__isnull=False).values_list('location_city', 'location_country').annotate(count=Count('id')).order_by('-count')
+        dt = next if next else dateparser.parse(request.GET.get('date')).date()
+
+        if request.GET.get('forward') == '1':
+            photos = photos.filter(date_taken__date__gte=dt).order_by('date_taken')
+        else:
+            photos = photos.filter(date_taken__date__lte=dt).order_by('-date_taken')
+
+        p1 = photos.filter(date_taken__date=dt)
+        print(f"{dateparser.parse(request.GET.get('date')).date()} -> {datetime.datetime.strftime(timezone.localtime(photos[p1.count()].date_taken, pytz.timezone(TIME_ZONE)).date(), '%Y-%m-%d') if photos.count() > p1.count() else 'NONE'}")
+
+        citcount = p1.filter(location_city__isnull=False, location_country__isnull=False).values_list('location_city', 'location_country').annotate(count=Count('id')).order_by('-count')
+
+        ans.append({
+            'date': datetime.datetime.strftime(dt, "%Y-%m-%d"),
+            'photos': [i.getinfo_zip() for i in p1],
+            'cities': [list(i) for i in citcount],
+        })
+
+        next = timezone.localtime(photos[p1.count()].date_taken, pytz.timezone(TIME_ZONE)).date() if photos.count() > p1.count() else None
+
+        donedays += 1
+        donephotos += p1.count()
+
+        if (numdays is None and numphotos is None) or next is None:
+            break
+
 
     return JsonResponse({
-        'photos': [i.getinfo_zip() for i in p1],
-        'cities': [list(i) for i in citcount],
-        'next': datetime.datetime.strftime(timezone.localtime(photos[p1.count()].date_taken, pytz.timezone(TIME_ZONE)).date(), "%Y-%m-%d") if photos.count() > p1.count() else "NONE"
+        "photos": ans,
+        "next": datetime.datetime.strftime(next, "%Y-%m-%d") if next else None
     })
 
 @login_required_api
