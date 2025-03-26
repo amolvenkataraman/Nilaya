@@ -19,7 +19,7 @@ from PIL import Image, UnidentifiedImageError
 
 def photo_ingest_for_album(album, user):
     N = 0
-    filelist = list(glob.glob(f"{album.location}20*/*/*.mp4"))
+    filelist = list(glob.glob(f"{album.location}20*/*/*.*"))
     # filelist = list(glob.glob(f"{album.location}20*/*/*.*")) if str(i).split('.')[-1].lower() in ["jpg", "jpeg", "png", "mp4", "mpg", "m4v", "mov", "mod", "avi", "3gp", "mkv", "gif", "heic"]]
 
     dtn = datetime.datetime.now()
@@ -132,4 +132,4 @@ def photo_ingest_for_album(album, user):
     print(f"Found {N} photos / videos.")
 
 
-# photo_ingest_for_album(Album.objects.filter(id=2)[0], ComptechUser.objects.filter(username="amol")[0])
+photo_ingest_for_album(Album.objects.filter(id=4)[0], ComptechUser.objects.filter(username="bala")[0])

@@ -23,21 +23,26 @@ def photos(request):
     album_subs = request.user.album_subscribed.all()
     albums = [i.album for i in album_subs]
 
+    photos = Photo.objects.filter(album__in=albums).order_by('-date_taken')
+
+    if request.GET.get("video") == "1":
+        photos = photos.filter(video=True)
+        video_only = True
+    else: video_only = False
+
     rd = request.GET.get('date')
     if rd == None:
         try:
             if (request.GET.get('north') and request.GET.get('south') and request.GET.get('east') and request.GET.get('west')):
                 bounds = {"north": request.GET.get('north'), "south": request.GET.get('south'), "east": request.GET.get('east'), "west": request.GET.get('west')}
-                photos = Photo.objects.filter(album__in=albums, latitude__lte=request.GET.get('north'), latitude__gte=request.GET.get('south'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east')).order_by('-date_taken')
+                photos = photos.filter(latitude__lte=request.GET.get('north'), latitude__gte=request.GET.get('south'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east')).order_by('-date_taken')
                 newest = photos[0].date_taken.date() + datetime.timedelta(days=1)
             else:
                 bounds = None
-                photos = Photo.objects.filter(album__in=albums).order_by('-date_taken')
                 newest = photos[0].date_taken.date() + datetime.timedelta(days=1)
         except IndexError: newest = None
     else:
         newest = dateparser.parse(request.GET.get('date')).date()
-        photos = Photo.objects.filter(album__in=albums).order_by('-date_taken')
         bounds = None
 
     ntotal = photos.count()
@@ -47,7 +52,7 @@ def photos(request):
     lyear = photos.reverse()[0].date_taken.year
     countries = photos.filter(Q(location_country__isnull=False) & Q(Q(altitude__isnull=True) | Q(altitude__lte=1000))).values_list('location_country').distinct().count()
 
-    return render(request, 'photos/photos.html', { 'newest': datetime.datetime.strftime(newest, "%Y-%m-%d"), 'forward': request.GET.get('forward') == '1', 'bounds': bounds, "left_sidebar": True, "right_sidebar": True, "ntotal": ntotal, "nphotos": nphotos, "nvideos": nvideos, "drange": f"{lyear}-{fyear}", "countries": countries})
+    return render(request, 'photos/photos.html', { 'newest': datetime.datetime.strftime(newest, "%Y-%m-%d"), 'forward': request.GET.get('forward') == '1', 'bounds': bounds, "left_sidebar": True, "right_sidebar": True, "video": video_only, "ntotal": ntotal, "nphotos": nphotos, "nvideos": nvideos, "drange": f"{lyear}-{fyear}", "countries": countries})
 
 @login_required
 def map(request):
@@ -56,9 +61,12 @@ def map(request):
     alt = request.GET.get('alt-')
     vals = request.GET.get('vals')
     spec = request.GET.get('special')
+    f_album = request.GET.get('album')
 
     album_subs = request.user.album_subscribed.all()
     albums = [i.album for i in album_subs]
+
+    if f_album != None: albums = [f_album]
 
     photos = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False)
 
@@ -101,7 +109,7 @@ def geoguessr_ent(request):
         album_subs = request.user.album_subscribed.all()
         albums = [i.album for i in album_subs]
 
-        oq = Q(video=False)
+        oq = Q()
 
         if request.GET.get('year'):
             oq = oq & Q(date_taken__year=request.GET.get('year'))
@@ -170,11 +178,13 @@ def view_photo(request, photo_id):
 
 @login_required_api
 def get_photos_for_date(request):
-    print("Day photos request")
     album_subs = request.user.album_subscribed.all()
     albums = [i.album for i in album_subs]
 
     photos = Photo.objects.filter(album__in=albums)
+
+    if request.GET.get("video") == "1":
+        photos = photos.filter(video=True)
 
     numdays = int(request.GET.get("ndays")) if request.GET.get("ndays") else None
     numphotos = int(request.GET.get("nphotos")) if request.GET.get("nphotos") else None
@@ -196,7 +206,6 @@ def get_photos_for_date(request):
             photos = photos.filter(date_taken__date__lte=dt).order_by('-date_taken')
 
         p1 = photos.filter(date_taken__date=dt)
-        print(f"{dateparser.parse(request.GET.get('date')).date()} -> {datetime.datetime.strftime(timezone.localtime(photos[p1.count()].date_taken, pytz.timezone(TIME_ZONE)).date(), '%Y-%m-%d') if photos.count() > p1.count() else 'NONE'}")
 
         citcount = p1.filter(location_city__isnull=False, location_country__isnull=False).values_list('location_city', 'location_country').annotate(count=Count('id')).order_by('-count')
 

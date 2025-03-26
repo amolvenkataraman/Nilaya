@@ -237,22 +237,13 @@
 
         if (nphotos > 0) { addto += `&nphotos=${nphotos}`; }
 
+        if ("{{ video }}" == "True") { addto += ((addto == "") ? "?" : "&") + "video=1" }
+
         if (forward) { r.open("GET", `{% url 'get_photos_for_date' %}?date=${date1}&forward=1${bounds}${addto}`) }
         else { r.open("GET", `{% url 'get_photos_for_date' %}?date=${date1}${bounds}${addto}`) }
         r.onload = () => {
             res = JSON.parse(r.responseText)
             currdate = res['next']
-            if (currdate == null) {
-                console.log("No more photos")
-                document.querySelector(".photos").innerHTML += `
-                    <div class="day-header">
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                            <span style="font-weight: bold;">No more photos</span>
-                        </div>
-                    </div>`
-                return;
-            }
 
             for (i = 0; i < res["photos"].length; i++) {
 
@@ -317,6 +308,17 @@
             }
             nowloading = false;
             origload = true;
+
+            if (currdate == null) {
+                console.log("No more photos")
+                document.querySelector(".photos").innerHTML += `
+                    <div class="day-header">
+                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                            <span style="font-weight: bold;">No more photos</span>
+                        </div>
+                    </div>`
+            }
         }
         r.send()
     }

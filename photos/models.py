@@ -4,6 +4,9 @@ import hashlib
 from django.db import models
 from users.models import *
 from Comptech.settings import SALT
+from GPSPhoto import gpsphoto
+import reverse_geocode as rg
+import exiftool
 
 # Create your models here.
 def parse_album_path(instance, filename):
@@ -83,6 +86,12 @@ class Photo(models.Model):
 
     video = models.BooleanField(default=False)
     length = models.IntegerField(null=True, blank=True)
+    framerate = models.IntegerField(null=True, blank=True)
+    mimetype = models.CharField(max_length=32, null=True, blank=True)
+    megapixels = models.FloatField(null=True, blank=True)
+    bitrate = models.IntegerField(null=True, blank=True)
+    size = models.IntegerField(null=True, blank=True)
+    size_total = models.IntegerField(null=True, blank=True)
 
     camera_make = models.CharField(max_length=32, null=True, blank=True)
     camera_model = models.CharField(max_length=32, null=True, blank=True)
@@ -144,6 +153,13 @@ class Photo(models.Model):
             "flash": self.flash,
             "focallength": self.focallength,
 
+            "framerate": self.framerate,
+            "mimetype": self.mimetype,
+            "megapixels": self.megapixels,
+            "bitrate": self.bitrate,
+            "size": self.size,
+            "size_total": self.size_total,
+
             "video": self.video,
             "length": self.length,            
         }
@@ -162,6 +178,80 @@ class Photo(models.Model):
             "thumbnail_hash": self.thumbnail_hash,
             "photo_hash": self.photo_hash,
         }
+
+    def refresh_city_data(self):
+        try:
+            if self.latitude != 0 and self.longitude != 0 and self.latitude != None and self.longitude != None:
+                results = rg.get((self.latitude, self.longitude))
+                self.location_city = results['city']
+                self.location_country = results['country']
+
+                self.save()
+        except: pass
+
+    def refresh_gps_data(self):
+        try:
+            gpsdata = gpsphoto.getGPSData(self.album.location + self.filepath)
+            try:
+                self.latitude = gpsdata['Latitude']
+                self.longitude = gpsdata['Longitude']
+                try:
+                    self.altitude = gpsdata['Altitude']
+                except: pass
+
+                self.refresh_city_data()
+            except: pass
+
+            self.save()
+        except: pass
+
+    def update_info_exiftool(self, orig=False, update_location=True):
+        try:
+            fp = self.album.location + (self.orig_filepath if orig else self.filepath)
+            with exiftool.ExifToolHelper() as et:
+                try:
+                    metadata = et.get_metadata(fp)
+                except exiftool.exceptions.ExifToolExecuteError: return
+                updategps = False
+
+                try:
+                    self.camera_make = metadata[0]["QuickTime:AndroidManufacturer"]
+                except KeyError: pass
+                try:
+                    self.camera_model = metadata[0]["QuickTime:AndroidModel"]
+                except KeyError: pass
+                try:
+                    self.mimetype = metadata[0]["File:MIMEType"]
+                except KeyError: pass
+
+                if update_location:
+                    try:
+                        self.latitude = metadata[0]["Composite:GPSLatitude"]
+                        self.longitude = metadata[0]["Composite:GPSLongitude"]
+                        updategps = True
+                        try:
+                            self.altitude = metadata[0]["Composite:GPSAltitude"]
+                        except KeyError: pass
+                    except KeyError: pass
+
+                try:
+                    self.bitrate = metadata[0]["Composite:AvgBitrate"]
+                except KeyError:
+                    try:
+                        self.bitrate = metadata[0]["MPEG:VideoBitrate"] + metadata[0]["MPEG:AudioBitrate"]
+                    except KeyError: pass
+                
+                try:
+                    self.megapixels = metadata[0]["Composite:Megapixels"]
+                except KeyError: pass
+
+                if updategps: self.refresh_city_data()
+
+            self.save()
+
+            if self.orig_filepath and not orig:
+                self.update_info_exiftool(True, update_location)
+        except FileNotFoundError: pass
 
     def regen_hashes(self):
         fp = (self.album.location + self.filepath + SALT).replace("/mnt/data/Photos/", "")
@@ -186,7 +276,7 @@ class Photo(models.Model):
                     img.save('/www/private/photo_cache/thumbnail/' + str(self.id) + '.jpg', "JPEG")
 
                 else:
-                    self.width, self.height, self.length = generate_video_thumbnail(self.album.location + self.filepath, '/www/private/photo_cache/thumbnail/', self.id)
+                    self.width, self.height, self.length, self.framerate = generate_video_thumbnail(self.album.location + self.filepath, '/www/private/photo_cache/thumbnail/', self.id)
 
             # Open the saved thumbnail and get dimensions
             thumb = Image.open('/www/private/photo_cache/thumbnail/' + str(self.id) + '.jpg')
@@ -277,7 +367,7 @@ def generate_video_thumbnail(video_path, output_path, video_id):
     # Save thumbnail
     img.save(f"{output_path}/{video_id}.jpg", "JPEG")
 
-    return width, height, duration
+    return width, height, duration, fps
 
 def delete_photo(p):
     try:

@@ -26,7 +26,7 @@ def photo_ingest_for_album(album, user):
     dtn = datetime.datetime.now()
 
     for ff in files:
-        print(ff)
+        # print(ff)
         try: dt = datetime.datetime.strptime(Image.open(ff)._getexif()[36867], '%Y:%m:%d %H:%M:%S')
         except (UnidentifiedImageError, AttributeError, KeyError, TypeError) as e:
             try:
@@ -47,16 +47,16 @@ def photo_ingest_for_album(album, user):
         if not os.path.exists(destdir): os.makedirs(destdir)
 
         if os.path.isfile(f"{destdir}{os.path.basename(ff)}"):
-            print(f"IGNORED {ff}")
+            # print(f"IGNORED {ff}")
 
             if (dtn - dt).days >= 30:
-                print(f"DELETE {ff}")
+                # print(f"DELETE {ff}")
                 os.remove(ff)
 
             continue
 
-        shutil.copy(ff, f"{destdir}{os.path.basename(ff)}")
-        print(f"{destdir}{os.path.basename(ff)}")
+        shutil.copy2(ff, f"{destdir}{os.path.basename(ff)}")
+        # print(f"{destdir}{os.path.basename(ff)}")
 
         p = Photo()
         p.owner = user
@@ -64,15 +64,39 @@ def photo_ingest_for_album(album, user):
         p.filepath = f"{destdir1}{os.path.basename(ff)}"
         p.save()
 
-        print(f"Saved photo {p.id}")
+        # print(f"Saved photo {p.id}")
 
         f = p.album.location + p.filepath #; print(p.id)
-        if f.split('.')[-1].lower() in ['mp4', 'mpg', 'm4v', 'mov', "mod", "avi", "3gp", "mkv"]: p.video = True
+
+        try:
+            sz = os.path.getsize(f)
+            p.size = int(sz / 1024)
+            try:
+                if p.orig_filepath: sz += os.path.getsize(p.album.location + p.orig_filepath)
+            except FileNotFoundError: pass
+            try:
+                if p.raw_filepath: sz += os.path.getsize(p.album.location + p.raw_filepath)
+            except FileNotFoundError: pass
+
+            p.size_total = int(sz / 1024)
+        except FileNotFoundError: pass
+
+
+        if f.split('.')[-1].lower() in ['mp4', 'mpg', 'm4v', 'mov', "mod", "avi", "3gp", "mkv"]:
+            p.video = True
+            p.update_info_exiftool()
         else:
             try:
                 img = Image.open(f); p.width = img.size[0]; p.height = img.size[1]
                 try:
-                    gpsdata = gpsphoto.getGPSData(f); p.latitude = gpsdata['Latitude']; p.longitude = gpsdata['Longitude']; p.altitude = gpsdata['Altitude']
+                    gpsdata = gpsphoto.getGPSData(f)
+                    try:
+                        p.latitude = gpsdata['Latitude']
+                        p.longitude = gpsdata['Longitude']
+                        try:
+                            p.altitude = gpsdata['Altitude']
+                        except: pass
+                    except: pass
                 except: pass
                 p.orientation = 1
 
@@ -142,10 +166,13 @@ def photo_ingest_for_album(album, user):
                     dt = datetime.datetime.fromtimestamp(os.path.getmtime(f))
                 except:
                     dt = datetime.datetime.fromtimestamp(os.path.getctime(f))
+
         try: p.date_taken = dt   
         except: pass
 
-        if p.latitude != 0 and p.longitude != 0:
+        # print(p, dt)
+
+        if p.latitude != 0 and p.longitude != 0 and p.latitude != None and p.longitude != None:
             results = rg.get((p.latitude, p.longitude))
             p.location_city = results['city']
             p.location_country = results['country']

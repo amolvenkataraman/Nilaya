@@ -1501,11 +1501,20 @@ function sync_events(btn) {
     if (cal["subscribe_type"] == 0 || cal["subscribe_type"] == 1) {
         $('.modal-body').html(calendar_sync_template())
         
+        firstms = true
         document.querySelectorAll('.month-select').forEach(e => {
             for (i=0; i<months.length; i++) {
                 e.innerHTML += `<option value="${i}">${months[i]}</option>`
             }
-            e.value = new Date().getMonth();
+
+            today = new Date();
+            if (firstms) {
+                e.value = today.getMonth();
+                firstms = false;
+            }
+            else {
+                e.value = (today.getMonth() + 1) % 12;
+            }
         })
         document.querySelectorAll('.year-select').forEach(e => {
             e.innerHTML = generate_year_range(currentYear - 5, currentYear + 5);
@@ -1518,7 +1527,7 @@ function sync_events(btn) {
                 "sy": parseInt($('.calendar-sync-start-year').val()),
                 "sm": parseInt($('.calendar-sync-start-month').val()) + 1,
                 "ey": parseInt($('.calendar-sync-end-year').val()),
-                "em": parseInt($('.calendar-sync-end-month').val()) + 1,
+                "em": parseInt($('.calendar-sync-start-month').val()) + 1,
             }
             st = $('#calendar-sync-token').val();
             if (st != "") {result["token"] = st}

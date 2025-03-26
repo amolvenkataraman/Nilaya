@@ -7,4 +7,4 @@ class PhotoAdmin(admin.ModelAdmin):
 # Register your models here.
 admin.site.register(Photo, PhotoAdmin)
 admin.site.register(Album)
-
+admin.site.register(Album_Subscriber)

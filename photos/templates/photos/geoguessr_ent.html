@@ -32,7 +32,7 @@
             height: 40vh;
         }
 
-        #photo img {
+        #photo img, #photo video {
             height: 100%;
         }
 
@@ -48,7 +48,11 @@
 <body>
     <div class="wrapper">
         <div id="photo">
-            <img src="/photo_cdn/{{ photo.photo_hash }}/{{ photo.path }}/" alt="">
+            {% if photo.video %}
+                <video src="/photo_cdn/{{ photo.photo_hash }}/{{ photo.path }}" controls></video>
+            {% else %}
+                <img src="/photo_cdn/{{ photo.photo_hash }}/{{ photo.path }}" alt="">
+            {% endif %}
         </div>
         <div id="mapid"></div>
 
@@ -59,10 +63,12 @@
             <button class="snap-btn" onclick="map.setView([12.9715987, 77.5945627], 18)">PSN</button>
             <br>
             <button class="snap-btn" onclick="update_latlng(43.6425662, -79.3870568, true)">CC</button>
-            <button class="snap-btn" onclick="update_latlng(43.6425662, -79.3870568, true)">DM</button>
             <button class="snap-btn" onclick="update_latlng(43.4722854, -80.5448576, true)">V1</button>
             <button class="snap-btn" onclick="update_latlng(43.4722854, -80.5448576, true)">LST</button>
             <button class="snap-btn" onclick="update_latlng(43.4722854, -80.5448576, true)">CSC</button>
+            <button class="snap-btn" onclick="update_latlng(12.9715987, 77.5945627, true)">PSN</button>
+            <button class="snap-btn" onclick="update_latlng(17.3850440, 78.4866710, true)">SP</button>
+            <button class="snap-btn" onclick="update_latlng(13.0826802, 80.2707184, true)">MN</button>
             <button class="snap-btn" onclick="update_latlng(null, null, true)">X</button>
             <button class="snap-btn" onclick="location.reload()">O</button>
             <br>

@@ -61,7 +61,8 @@ def geotag_photos(gpx_file):
     start_time, end_time = gpx_points[0]["time"], gpx_points[-1]["time"]
     print("Start and end times:", start_time, end_time)
 
-    photos = Photo.objects.filter(Q(album__id__in=[2, 4], date_taken__gte=start_time, date_taken__lte=end_time) & Q(Q(latitude=None, longitude=None) | Q(latitude=0, longitude=0)))
+    photos = Photo.objects.filter(Q(album__id__in=[3], date_taken__gte=start_time, date_taken__lte=end_time))
+    # photos = Photo.objects.filter(Q(album__id__in=[2, 4], date_taken__gte=start_time, date_taken__lte=end_time) & Q(Q(latitude=None, longitude=None) | Q(latitude=0, longitude=0)))
 
     print("Found", photos.count(), "photos")
 
@@ -89,7 +90,10 @@ def geotag_photos(gpx_file):
 # geotag_photos("/home/user/walk 12.58.gpx")
 
 import glob
-for f in glob.glob("/home/user/GPS/*.gpx"):
+for f in glob.glob("/home/user/GPS/Trip/*.gpx"):
     print(f"Finding locations from file: {f}")
-    geotag_photos(f)
+    try:
+        geotag_photos(f)
+    except gpxpy.gpx.GPXXMLSyntaxException: pass
+
     print("\n\n\n")
