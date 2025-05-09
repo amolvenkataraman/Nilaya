@@ -1,6 +1,5 @@
 from django.shortcuts import render
-from django.db.models import Q
-from django.db.models import Count
+from django.db.models import Q, Count, Sum
 from django.http import HttpResponse, JsonResponse, FileResponse
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
@@ -16,6 +15,7 @@ import datetime
 import dateparser
 import pytz
 import json
+
 
 # Create your views here.
 @login_required
@@ -64,11 +64,12 @@ def map(request):
     f_album = request.GET.get('album')
 
     album_subs = request.user.album_subscribed.all()
-    albums = [i.album for i in album_subs]
+    albums = [i.album.id for i in album_subs]
 
     if f_album != None: albums = [f_album]
 
     photos = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False)
+    print(PhotoLocationCache.objects.filter(album_id__in=albums).count())
 
     if year != None:
         photos = photos.filter(date_taken__year=year)
@@ -86,13 +87,41 @@ def map(request):
 
         photos = photos.filter(qry)
 
-    if request.GET.get('date'):
-        photos = photos.filter(date_taken__date=dateparser.parse(request.GET.get('date')).date())
 
     if vals:
         return JsonResponse({ 'coords': [[i.latitude, i.longitude] for i in photos] })
     else:
         return render(request, 'photos/map.html', { 'coords': [[i.latitude, i.longitude] for i in photos] })
+
+@login_required
+def map_new(request):
+    year = request.GET.get('year')
+    year1 = request.GET.get('year-')
+    op = request.GET.get('op')
+    vals = request.GET.get('vals')
+    f_album = request.GET.get('album')
+
+    album_subs = request.user.album_subscribed.all()
+    albums = [i.album.id for i in album_subs]
+
+    if f_album != None: albums = [f_album]
+
+    locs = PhotoLocationCache.objects.filter(album_id__in=albums)
+
+    if year != None:
+        locs = locs.filter(dt_year=year)
+    elif year1 != None:
+        locs = locs.filter(dt_year__lte=year1)
+
+    if op != '1':
+        locs = locs.filter(Q(on_plane=False) | Q(on_plane=None))
+
+    locs = locs.values('lat', 'lng').annotate(total_cnt=Sum('cnt'))
+
+    if vals:
+        return JsonResponse({ "coords": [[float(i['lat']), float(i['lng']), i['total_cnt']] for i in locs] })
+    else:
+        return render(request, 'photos/map.html', { "coords": [[float(i['lat']), float(i['lng']), i['total_cnt']] for i in locs], "new_format": True })
 
 @login_required
 def geoguessr(request):

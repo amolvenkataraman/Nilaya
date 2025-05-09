@@ -68,6 +68,15 @@
         // var heatmapLayer = new HeatmapOverlay(cfg).addTo(map);
       
 
+        {% if new_format %}
+        let parsedJSON = JSON.parse('{{ coords }}');
+        let pj1 = []
+        for (c of parsedJSON) {
+            if (c[0] != 0 && c[1] != 0) {
+                pj1.push([c[0], c[1], c[2]])
+            }
+        }
+        {% else %}
         let parsedJSON = JSON.parse('{{ coords }}');
         let pj1 = []
         for (c of parsedJSON) {
@@ -76,6 +85,7 @@
                 pj1.push([c[0], c[1], 1])
             }
         }
+        {% endif %}
         // heatmapLayer.setData({'max': 1, 'data': pj1});
 
         var heat = L.heatLayer(

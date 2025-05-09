@@ -1527,7 +1527,7 @@ function sync_events(btn) {
                 "sy": parseInt($('.calendar-sync-start-year').val()),
                 "sm": parseInt($('.calendar-sync-start-month').val()) + 1,
                 "ey": parseInt($('.calendar-sync-end-year').val()),
-                "em": parseInt($('.calendar-sync-start-month').val()) + 1,
+                "em": parseInt($('.calendar-sync-end-month').val()) + 1,
             }
             st = $('#calendar-sync-token').val();
             if (st != "") {result["token"] = st}

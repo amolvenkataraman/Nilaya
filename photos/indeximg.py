@@ -182,3 +182,5 @@ def photo_ingest_for_album(album, user):
         p.gen_thumbnail()
 
         p.regen_hashes()
+
+        refresh_photo_location_cache()

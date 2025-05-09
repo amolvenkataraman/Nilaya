@@ -5,6 +5,7 @@ from . import views
 urlpatterns = [
     path("", views.photos, name='photos'),
     path("map/", views.map, name='photos_map'),
+    path("map_new/", views.map_new, name='photos_map_new'),
     path("geoguessr/", views.geoguessr, name='geoguessr'),
     path("geoguessr_ent/", views.geoguessr_ent, name='geoguessr_ent'),
     path("day/<int:year>/<int:month>/<int:day>/", views.day, name='day_photos'),

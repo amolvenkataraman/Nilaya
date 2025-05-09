@@ -3,6 +3,7 @@ import uuid
 import hashlib
 from django.db import models
 from users.models import *
+from django.db import connection
 from Comptech.settings import SALT
 from GPSPhoto import gpsphoto
 import reverse_geocode as rg
@@ -386,3 +387,21 @@ def delete_photo(p):
     except FileNotFoundError: pass
 
     p.delete()
+
+
+class PhotoLocationCache(models.Model):
+    album_id = models.IntegerField()
+    lat = models.FloatField()
+    lng = models.FloatField()
+    on_plane = models.BooleanField()
+    dt_year = models.IntegerField()
+    cnt = models.IntegerField()
+
+    class Meta:
+        managed = False  # 🔴 VERY IMPORTANT
+        db_table = 'photos_photo_location_cache'
+        unique_together = ['album_id', 'lat', 'lng', 'on_plane', 'dt_year', 'cnt']
+
+def refresh_photo_location_cache():
+    with connection.cursor() as cursor:
+        cursor.execute('REFRESH MATERIALIZED VIEW photos_photo_location_cache;')
