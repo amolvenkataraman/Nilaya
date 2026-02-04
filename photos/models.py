@@ -162,7 +162,7 @@ class Photo(models.Model):
             "size_total": self.size_total,
 
             "video": self.video,
-            "length": self.length,            
+            "length": self.length,
         }
 
     def getinfo_zip(self):
