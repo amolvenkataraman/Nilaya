@@ -311,3 +311,35 @@
 /* .day-list-f, .day-list-f td {
   border: 1px solid black;
 } */
+
+.command-block {
+  display: none;
+  position: fixed;
+  top: 20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  max-width: 90%;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  padding: 16px;
+  z-index: 9999; /* ensure it appears above everything */
+}
+
+.command-block .form-control {
+  width: 100%;
+  padding: 14px 18px;
+  font-size: 16px;
+  border: none;
+  outline: none;
+  border-radius: 8px;
+  background-color: #f5f5f7;
+  color: #333;
+  box-sizing: border-box;
+}
+
+.command-block .form-control:focus {
+  background-color: #fff;
+  box-shadow: 0 0 0 2px #007aff; /* macOS blue glow */
+}

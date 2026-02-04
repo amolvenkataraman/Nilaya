@@ -189,7 +189,11 @@ const calendar_sync_template = Handlebars.compile(`
         <input type="text" class="form-control" id="calendar-sync-token">
     </div>
         <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-        <button class="btn btn-primary calendar-sync-btn">Sync</button>
+        <div>
+            <button class="btn btn-primary calendar-sync-term-btn">T</button>
+            <button class="btn btn-primary calendar-sync-term-full-btn">TF</button>
+            <button class="btn btn-primary calendar-sync-btn">Sync</button>
+        <div>
     </div>
 `);
 
@@ -637,6 +641,9 @@ function tick() {
         }
     }
 
+    setTimeout(tick, 1000);
+    return;
+
     if (moment().format("HH mm ss") == "19 00 00") {
         for (time of [0, 1000, 2000]) {setTimeout(function() {notification.play()}, time)}
         if (ss_available) {speech_synthesis.text = `Tomorrow is ${moment().add(1, 'days').format("dddd, MMMM Do YYYY")}. Your events tomorrow are: `}
@@ -691,7 +698,7 @@ function tick() {
             }
         }
     }
-    setTimeout(tick, 1000)
+    setTimeout(tick, 1000);
 }
 
 function add_edit_event(date, month=m+1, year=y, command="add", edit_event=null) {
@@ -854,6 +861,10 @@ function add_edit_todo( command="add", edit_todo=null) {
         tcd = convertUTCDateToLocalDate(tcd);
         document.querySelector('.todo-date-complete').valueAsDate = tcd;
         document.querySelector('.todo-time-complete').valueAsDate = tcd;
+    }
+    else {
+        document.querySelector('.todo-date-complete').value = new Date().toISOString().split('T')[0];
+        document.querySelector('.todo-time-complete').value = "23:59";
     }
 
     $('.create-todo-btn').click(function () {
@@ -1285,7 +1296,12 @@ function reload_calendar() {
                 if (cd.getMonth() == m && cd.getFullYear() == y) {
                     j = cd.getDate();
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': false, 'calendar': [], 'i': num, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'del': todo["completed"] == true, 'text': `${TASK_ICON}&nbsp${ moment(cd).format('LT').replace(":00", "")} - ${todo.name}`});
+                    if (cd.getHours() == 23 && cd.getMinutes() == 59) {
+                        tdtime = "";
+                    } else {
+                        tdtime = `${ moment(cd).format('LT').replace(":00", "") } - `;
+                    }
+                    var ci = calendar_item({'modal': false, 'calendar': [], 'i': num, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'del': todo["completed"] == true, 'text': `${TASK_ICON}&nbsp${tdtime}${todo.name}`});
                     dp.innerHTML += ci
                 }
             }
@@ -1296,29 +1312,6 @@ function reload_calendar() {
         if (todo["completed"] == false) {
             document.querySelector('.todo-list').innerHTML += todo_item({'id': todo.id, 'name': tn, 'i': num});
         }
-    }
-
-    document.querySelector('.habit-list').innerHTML = "";
-    h = data["habits"]
-    for (let [num, hab] of h.entries()) {
-        document.querySelector('.habit-list').innerHTML += `
-
-            <div class="card mb-1">
-                <div class="card-body" data-habit-id="${hab['id']}" style="padding: 8px;">
-                    <span class="card-title">${hab['name']}</span>
-
-                    <div class="input-group input-group-sm" style="width: 50%;">
-                        <input type="number" id="habitVal-${num}" class="form-control" value="1"/>
-                        <button type="button" class="btn btn-primary" onclick="update_habit('${hab['id']}', this)">o</button>
-                    </div>
-                </div>
-            </div>
-
-        `;
-    }
-
-    for (h1 of data["habit_days"]) {
-
     }
 
     for (i of Object.entries(data["photos"])) { $(`.day-images-btn-${i[0]}`).html(i[1]); }
@@ -1547,6 +1540,50 @@ function sync_events(btn) {
             }
             r.send(JSON.stringify(result))
         })
+
+        $('.calendar-sync-term-btn').click(function() {
+            today = new Date();
+            if ([8, 9, 10, 11].includes(today.getMonth())) {
+                document.querySelector('.calendar-sync-start-month').value = today.getMonth();
+                document.querySelector('.calendar-sync-start-year').value = today.getFullYear();
+                document.querySelector('.calendar-sync-end-month').value = 0;
+                document.querySelector('.calendar-sync-end-year').value = today.getFullYear() + 1;
+            }
+            else if ([0, 1, 2, 3].includes(today.getMonth())) {
+                document.querySelector('.calendar-sync-start-month').value = today.getMonth();
+                document.querySelector('.calendar-sync-start-year').value = today.getFullYear();
+                document.querySelector('.calendar-sync-end-month').value = 4;
+                document.querySelector('.calendar-sync-end-year').value = today.getFullYear();
+            }
+            else {
+                document.querySelector('.calendar-sync-start-month').value = today.getMonth();
+                document.querySelector('.calendar-sync-start-year').value = today.getFullYear();
+                document.querySelector('.calendar-sync-end-month').value = 9;
+                document.querySelector('.calendar-sync-end-year').value = today.getFullYear();
+            }
+        })
+
+        $('.calendar-sync-term-full-btn').click(function() {
+            today = new Date();
+            if ([8, 9, 10, 11].includes(today.getMonth())) {
+                document.querySelector('.calendar-sync-start-month').value = 8;
+                document.querySelector('.calendar-sync-start-year').value = today.getFullYear();
+                document.querySelector('.calendar-sync-end-month').value = 0;
+                document.querySelector('.calendar-sync-end-year').value = today.getFullYear() + 1;
+            }
+            else if ([0, 1, 2, 3].includes(today.getMonth())) {
+                document.querySelector('.calendar-sync-start-month').value = 0;
+                document.querySelector('.calendar-sync-start-year').value = today.getFullYear();
+                document.querySelector('.calendar-sync-end-month').value = 4;
+                document.querySelector('.calendar-sync-end-year').value = today.getFullYear();
+            }
+            else {
+                document.querySelector('.calendar-sync-start-month').value = 4;
+                document.querySelector('.calendar-sync-start-year').value = today.getFullYear();
+                document.querySelector('.calendar-sync-end-month').value = 9;
+                document.querySelector('.calendar-sync-end-year').value = today.getFullYear();
+            }
+        })
     }
     else {
         $('.modal-body').html("Only calendar owners and admins can sync it.")
@@ -1661,23 +1698,6 @@ function duplicate_event(event_no) {
         }
         request.send(JSON.stringify({"id": ev["id"], "days": $('#evDupDays').val()}))
     }
-}
-
-function update_habit(id, el) {
-    val = el.parentElement.querySelector('input').value
-    var request = new XMLHttpRequest()
-    request.open('POST', `/calendar/habit/?habit=${id}`)
-    request.setRequestHeader("X-CSRFToken", CSRF_TOKEN)
-    request.onload = () => {
-        res = JSON.parse(request.responseText);
-        if (res["status"] === "success") {
-            alert("Updated")
-        }
-        else {
-            alert(res["data"])
-        }
-    }
-    request.send(val)
 }
 
 function view_day_images(date) {
@@ -1827,10 +1847,21 @@ document.onkeydown = function (e) {
         }
     }
 
-    if (e.altKey)
-    if (e.key == 'e') {
+    if (e.key == 'Escape' && document.querySelector('.command-block').style.display == 'block') {
         e.preventDefault();
-        localStorage.setItem('calendar_extra', prompt("Enter extra calendar code"));
-        jump_();
+        document.querySelector('.command-block').style.display = 'none';
+    }
+
+    if (e.altKey) {
+        if (e.key == 'e') {
+            e.preventDefault();
+            localStorage.setItem('calendar_extra', prompt("Enter extra calendar code"));
+            jump_();
+        }
+        else if (e.key == 'c') {
+            e.preventDefault();
+            document.querySelector('.command-block').style.display = 'block';
+            document.querySelector('.command-block').querySelector('.form-control').focus();
+        }
     }
 }

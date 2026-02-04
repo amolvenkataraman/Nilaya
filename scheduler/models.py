@@ -126,7 +126,7 @@ class Event(models.Model):
         if full: ans = {**ans, **get_model_attrs(self, ["repeat_every", "repeat_end", "sync_id"])}
 
         return ans
-        
+
     @classmethod
     def get_user_objs(cls, user):
         pass
@@ -161,47 +161,5 @@ class Todo(models.Model):
     def getinfo(self):
         ans = get_model_attrs(self, ["id", "name", "description", "priority", "completed", "complete_by", "completed_on", "percent_complete", "time_spent"])
         ans["user"] = self.user.id
-
-        return ans
-
-class Habit(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
-    user = models.ForeignKey(ComptechUser, on_delete=models.CASCADE)
-    name = models.CharField(max_length=256)
-    frequency = models.PositiveSmallIntegerField(choices=(
-        (1, 'Daily'),
-        (7, 'Weekly'),
-        (30, 'Monthly'),
-    ), default=1)
-    start_day = models.DateField()
-    end_day = models.DateField(null=True, blank=True)
-    description = models.TextField(null=True, blank=True)
-    priority = models.SmallIntegerField(default=10)
-    daily_default = models.SmallIntegerField(default=0)
-    daily_goal = models.SmallIntegerField(default=1)
-    below_goal = models.BooleanField(default=False)
-    custom_info = models.JSONField(default={}, null=True, blank=True)
-
-    def __str__(self):
-        return f"{self.name} for {self.user.username}."
-
-    def getinfo(self):
-        ans = get_model_attrs(self, ["id", "name", "frequency", "description", "priority", "daily_default", "daily_goal"])
-        ans["user"] = self.user.id
-
-        return ans
-
-class Habit_Day(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
-    habit = models.ForeignKey(Habit, on_delete=models.CASCADE)
-    day = models.DateField()
-    value = models.SmallIntegerField(default=0)
-
-    def __str__(self):
-        return f"{self.habit.name} on {self.day} [{self.value}]"
-
-    def getinfo(self):
-        ans = get_model_attrs(self, ["id", "day", "value"])
-        ans["habit"] = self.habit.id
 
         return ans

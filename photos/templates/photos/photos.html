@@ -213,7 +213,12 @@
         document.querySelector(".photo-info").innerHTML = "";
 
         var r = new XMLHttpRequest()
+
+        {% if share_album %}
+        r.open("GET", `/photos/photo/${e.dataset.id}/info/?album={{ share_album }}`)
+        {% else %}
         r.open("GET", `/photos/photo/${e.dataset.id}/info/`)
+        {% endif %}
         r.onload = () => {
             pres = JSON.parse(r.responseText)
             try {
@@ -301,6 +306,18 @@
         else { addto = ""; }
 
         if (nphotos > 0) { addto += `&nphotos=${nphotos}`; }
+
+        {% if cam_make %}
+        addto += `&camera_make={{ cam_make }}`
+        {% endif %}
+
+        {% if country %}
+        addto += `&country={{ country }}`
+        {% endif %}
+
+        {% if share_album %}
+        addto += `&album={{ share_album }}`
+        {% endif %}
 
         if ("{{ video }}" == "True") { addto += ((addto == "") ? "?" : "&") + "video=1" }
 
@@ -435,6 +452,47 @@
                     img.parentElement.remove();
                 })
             }
+
+            else if (e.key == '`') {
+                console.log("Adding selected photos to album");
+                // Query all shared albums and present list
+                r = new XMLHttpRequest();
+                r.open("GET", "{% url 'list_my_albums' %}")
+                r.onload = () => {
+                    res = JSON.parse(r.responseText)['albums'];
+                    console.log(res);
+                    album_list = "Select an album to add selected photos to:\n\n";
+                    for (i = 0; i < res.length; i++) {
+                        album_list += `${i + 1}: ${res[i]['name']} (ID: ${res[i]['id']})\n`;
+                    }
+                    album_list += "\nEnter the number of the album:";
+                    album_index = prompt(album_list);
+                    if (album_index != null && album_index > 0 && album_index <= res.length) {
+                        selected_photos = [];
+                        document.querySelectorAll(".img-selected").forEach(img => {
+                            selected_photos.push(img.dataset.id);
+                        });
+                        // Send POST request to add photos to album
+                        pr = new XMLHttpRequest();
+                        pr.open("POST", "{% url 'add_photo_to_album' %}")
+                        pr.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+                        pr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+                        pr.onload = () => {
+                            pres = JSON.parse(pr.responseText);
+                            if (pres['status'] == 'success') {
+                                alert("Photos added to album successfully.");
+                            } else {
+                                alert("Error adding photos to album: " + pres['data']);
+                            }
+                        }
+                        pr.send(JSON.stringify({
+                            "share_album_id": res[album_index - 1]['id'],
+                            "photo_id": selected_photos
+                        }));
+                    }
+                }
+                r.send();
+            }
         }
 
         document.querySelector(".main-content").addEventListener('scroll', (event) => {
@@ -459,6 +517,12 @@
         <a class="photo-page-link" href="#">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-search"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
             Search
+        </a>
+    </li>
+    <li class="nav-item">
+        <a class="photo-page-link" href="#">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-search"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            Albums
         </a>
     </li>
     <li class="nav-item">

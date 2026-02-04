@@ -22,5 +22,4 @@ urlpatterns = [
     path("api/unsubscribe/", api.unsubscribe, name='unsubscribe'),
     path("api/invite/", api.invite, name='invite'),
     path("block/", api.get_block_status, name='get_block_status'),
-    path("habit/", api.set_habit_val, name="set_habit_val")
 ]

@@ -35,8 +35,6 @@ def get_events(request):
 
     calendars1 = [i.calendar for i in calendars.filter(visible=True)]
 
-    habits = Habit.objects.filter(user=user_)
-
     ans["data"]["calendars"] = [i.getinfo(cal=True) for i in calendars.order_by('calendar__name')]
     ans["data"]["birthdays"] = [i.getinfo_zip() for i in user_.friends.filter(birthday__month=int(month))]
     try:
@@ -49,8 +47,6 @@ def get_events(request):
         Q(Q(startdate__month__lt=int(month), enddate__month__gt=int(month)) & (Q(startdate__year=int(year), enddate__year=int(year)))))
     ).order_by('startdate', '-enddate', 'name').iterator()]
     ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(Q(user=user_) & (Q(completed=False) | (Q(complete_by__month=int(month)) & Q(complete_by__year=int(year))))).order_by('complete_by')]
-    ans["data"]["habits"] = [i.getinfo() for i in habits]
-    ans["data"]["habit_days"] = [i.getinfo() for i in Habit_Day.objects.filter(habit__in=habits)]
 
     pl = [timezone.localtime(i.date_taken, pytz.timezone(TIME_ZONE)).day for i in Photo.objects.filter(album__in=albums, date_taken__month=month, date_taken__year=year)]
     ans["data"]["photos"] = {i: pl.count(i) for i in pl}
@@ -109,23 +105,6 @@ def sync_events(request):
 
     else: return error_response("Server is in offline mode")
 
-@post_request_only
-@login_required_api
-def set_habit_val(request):
-    hab = request.GET.get("habit")
-
-    try:
-        h = Habit.objects.filter(id=hab)[0]
-        if h.user == request.user:
-            hdq = Habit_Day.objects.filter(habit=h, day=datetime.date.today())
-            if hdq.count() > 0: hd = hdq[0]
-            else: hd = Habit_Day(habit=h, day=datetime.date.today())
-            hd.value = int(request.body.decode('utf8'))
-            hd.save()
-            return success_response()
-        else: return error_response("You do not own this habit", 401)
-    except KeyError:
-        return error_response("Invalid habit")
 
 def get_availability(request, username):
     dts = request.GET.get("date")

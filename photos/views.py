@@ -18,17 +18,48 @@ import json
 
 
 # Create your views here.
-@login_required
+# @login_required
 def photos(request):
-    album_subs = request.user.album_subscribed.all()
-    albums = [i.album for i in album_subs]
+    if request.GET.get('album'):
+        album = ShareAlbum.objects.filter(id=request.GET.get('album'))
+        if album.exists():
+            if album[0].public or \
+                request.user.is_authenticated and (
+                    ShareAlbum_Subscriber.objects.filter(album=album[0], user=request.user).exists() \
+                    or album[0].owner == request.user \
+                    or request.user.is_superuser
+                ):
+                sphotos = ShareAlbum_Photo.objects.filter(sharealbum=album[0])
+                photos = Photo.objects.filter(id__in=[i.photo.id for i in sphotos]).order_by('-date_taken')
+            else:
+                return error_response("Not authorized", 401)
+        else:
+            return error_response("Album does not exist", 404)
+    else:
+        if not request.user.is_authenticated:
+            return redirect("/accounts/login/?next=" + request.path)
+        album_subs = request.user.album_subscribed.all()
+        albums = [i.album for i in album_subs]
+        album = None
 
-    photos = Photo.objects.filter(album__in=albums).order_by('-date_taken')
+        photos = Photo.objects.filter(album__in=albums).order_by('-date_taken')
 
     if request.GET.get("video") == "1":
         photos = photos.filter(video=True)
         video_only = True
     else: video_only = False
+
+    if request.GET.get("camera_make"):
+        cam_make = request.GET.get("camera_make")
+        photos = photos.filter(camera_make__icontains=cam_make)
+    else:
+        cam_make = None
+
+    if request.GET.get('country'):
+        country = request.GET.get('country')
+        photos = photos.filter(location_country=country)
+    else:
+        country = None
 
     rd = request.GET.get('date')
     if rd == None:
@@ -46,13 +77,25 @@ def photos(request):
         bounds = None
 
     ntotal = photos.count()
+
+    if ntotal == 0:
+        return HttpResponse("No photos found matching the criteria.")
+
     nphotos = photos.filter(video=False).count()
     nvideos = ntotal - nphotos
     fyear = photos[0].date_taken.year
     lyear = photos.reverse()[0].date_taken.year
     countries = photos.filter(Q(location_country__isnull=False) & Q(Q(altitude__isnull=True) | Q(altitude__lte=1000))).values_list('location_country').distinct().count()
 
-    return render(request, 'photos/photos.html', { 'newest': datetime.datetime.strftime(newest, "%Y-%m-%d"), 'forward': request.GET.get('forward') == '1', 'bounds': bounds, "left_sidebar": True, "right_sidebar": True, "video": video_only, "ntotal": ntotal, "nphotos": nphotos, "nvideos": nvideos, "drange": f"{lyear}-{fyear}", "countries": countries})
+    return render(request, 'photos/photos.html', { 'newest': datetime.datetime.strftime(newest, "%Y-%m-%d"), 'forward': request.GET.get('forward') == '1', 'bounds': bounds, "left_sidebar": True, "right_sidebar": True, "video": video_only, "cam_make": cam_make, "country": country, "share_album": album[0].id if album and album.exists() else None, "ntotal": ntotal, "nphotos": nphotos, "nvideos": nvideos, "drange": f"{lyear}-{fyear}", "countries": countries})
+
+@login_required
+def my_albums_page(request):
+    ses = ShareAlbum_Subscriber.objects.filter(user=request.user)
+    sa = [s.album.getinfo() for s in ses]
+    print(sa)
+
+    return render(request, 'photos/albums.html', { "albums": sa })
 
 @login_required
 def map(request):
@@ -205,12 +248,30 @@ def view_photo(request, photo_id):
             return error_response("Not authorized", 401)
     except IndexError: pass
 
-@login_required_api
 def get_photos_for_date(request):
-    album_subs = request.user.album_subscribed.all()
-    albums = [i.album for i in album_subs]
+    if request.GET.get('album'):
+        album = ShareAlbum.objects.filter(id=request.GET.get('album'))
+        if album.exists():
+            if album[0].public or \
+                request.user.is_authenticated and (
+                    ShareAlbum_Subscriber.objects.filter(album=album[0], user=request.user).exists() \
+                    or album[0].owner == request.user \
+                    or request.user.is_superuser
+                ):
+                sphotos = ShareAlbum_Photo.objects.filter(sharealbum=album[0])
+                photos = Photo.objects.filter(id__in=[i.photo.id for i in sphotos]).order_by('-date_taken')
+            else:
+                return error_response("Not authorized", 401)
+        else:
+            return error_response("Album does not exist", 404)
+    else:
+        if not request.user.is_authenticated:
+            return error_response("Not logged in", 401)
 
-    photos = Photo.objects.filter(album__in=albums)
+        album_subs = request.user.album_subscribed.all()
+        albums = [i.album for i in album_subs]
+
+        photos = Photo.objects.filter(album__in=albums)
 
     if request.GET.get("video") == "1":
         photos = photos.filter(video=True)
@@ -233,6 +294,12 @@ def get_photos_for_date(request):
             photos = photos.filter(date_taken__date__gte=dt).order_by('date_taken')
         else:
             photos = photos.filter(date_taken__date__lte=dt).order_by('-date_taken')
+
+        if request.GET.get('camera_make') != None:
+            photos = photos.filter(camera_make__icontains=request.GET.get('camera_make'))
+
+        if request.GET.get('country') != None:
+            photos = photos.filter(location_country=request.GET.get('country'))
 
         p1 = photos.filter(date_taken__date=dt)
 
@@ -258,46 +325,67 @@ def get_photos_for_date(request):
         "next": datetime.datetime.strftime(next, "%Y-%m-%d") if next else None
     })
 
-@login_required_api
 def get_photo(request, photo_id, ret_type):
-    album_subs = request.user.album_subscribed.all()
-    albums = [i.album for i in album_subs]
+    if request.GET.get('album'):
+        album = ShareAlbum.objects.filter(id=request.GET.get('album'))
 
-    try:
-        photo = Photo.objects.filter(id=photo_id)[0]
-    except:
-        return error_response("Invalid photo")
-
-    if photo.album in albums or request.user.is_superuser:
-        if ret_type == "info":
-            return JsonResponse(photo.getinfo())
-        elif ret_type == "thumbnail":
-            if photo.video:
-                import cv2
-                f = cv2.VideoCapture(photo.album.location + photo.filepath)
-
-                ret, fr = f.read()
-                if ret:
-                    fr = cv2.rectangle(fr, (0, 0), (fr.shape[0], 400), (255, 255, 255), -1)
-                    fr = cv2.cvtColor(fr, cv2.COLOR_BGR2RGB)
-                    fr = cv2.putText(fr, 'Video', (100, 300), cv2.FONT_HERSHEY_SIMPLEX, 10, (255, 0), 10, cv2.LINE_AA)
-
-                    thumb = Image.fromarray(fr)
-                    thumb.thumbnail((500, 200), Image.ANTIALIAS)
-
-                    response = HttpResponse(content_type='image/jpeg')
-                    thumb.save(response, "JPEG")
-                    return response
-
+        if album.exists():
+            if album[0].public or \
+                request.user.is_authenticated and (
+                    ShareAlbum_Subscriber.objects.filter(album=album[0], user=request.user).exists() \
+                    or album[0].owner == request.user \
+                    or request.user.is_superuser
+                ):
+                sp = ShareAlbum_Photo.objects.filter(photo__id=photo_id, sharealbum=album[0])
+                try:
+                    photo = sp[0].photo
+                except IndexError:
+                    return error_response("Invalid photo")
             else:
-                response = HttpResponse(content_type='image/jpeg')
-                response['X-Accel-Redirect'] = f"/media_private/photo_cache/thumbnail/{photo.id}.jpg"
-                response['Content-Disposition'] = f'attachment; filename="{BASE_DIR}media_private/photo_cache/thumbnail/{photo.id}.jpg"'
-                return response
+                return error_response("Not authorized", 401)
         else:
-            return error_response("Invalid return type")
+            return error_response("Album does not exist", 404)
+
     else:
-        return error_response("Not authorized", 401)
+        album_subs = request.user.album_subscribed.all()
+        albums = [i.album for i in album_subs]
+
+        try:
+            photo = Photo.objects.filter(id=photo_id)[0]
+        except:
+            return error_response("Invalid photo")
+
+        if photo.album not in albums and not request.user.is_superuser:
+            return error_response("Not authorized", 401)
+
+
+    if ret_type == "info":
+        return JsonResponse(photo.getinfo())
+    elif ret_type == "thumbnail":
+        if photo.video:
+            import cv2
+            f = cv2.VideoCapture(photo.album.location + photo.filepath)
+
+            ret, fr = f.read()
+            if ret:
+                fr = cv2.rectangle(fr, (0, 0), (fr.shape[0], 400), (255, 255, 255), -1)
+                fr = cv2.cvtColor(fr, cv2.COLOR_BGR2RGB)
+                fr = cv2.putText(fr, 'Video', (100, 300), cv2.FONT_HERSHEY_SIMPLEX, 10, (255, 0), 10, cv2.LINE_AA)
+
+                thumb = Image.fromarray(fr)
+                thumb.thumbnail((500, 200), Image.ANTIALIAS)
+
+                response = HttpResponse(content_type='image/jpeg')
+                thumb.save(response, "JPEG")
+                return response
+
+        else:
+            response = HttpResponse(content_type='image/jpeg')
+            response['X-Accel-Redirect'] = f"/media_private/photo_cache/thumbnail/{photo.id}.jpg"
+            response['Content-Disposition'] = f'attachment; filename="{BASE_DIR}media_private/photo_cache/thumbnail/{photo.id}.jpg"'
+            return response
+    else:
+        return error_response("Invalid return type")
 
 @login_required_api
 def ingest_photos(request):
@@ -320,6 +408,68 @@ def del_photo_req(request, photo_id):
         if p.album in albums or request.user.is_superuser:
             delete_photo(p)
             return success_response()
+        else:
+            return error_response("Not authorized", 401)
+    except IndexError: pass
+
+
+@login_required_api
+def list_my_albums(request):
+    if request.GET.get('all') == '1':
+        ses = ShareAlbum_Subscriber.objects.filter(user=request.user)
+        sa = [s.album.getinfo() for s in ses]
+
+    else:
+        sas = ShareAlbum.objects.filter(owner=request.user)
+        sa = [sa.getinfo() for sa in sas]
+    return JsonResponse({ "albums": sa })
+
+@post_request_only
+@login_required_api
+def add_photo_to_album(request):
+    body = json.loads(request.body.decode('utf8'))
+    try:
+        photo_id = body['photo_id']
+        share_album_id = body['share_album_id']
+    except KeyError:
+        return error_response("Invalid parameters", 400)
+
+    if type(photo_id) == str:
+        photo_id = [photo_id]
+
+    try:
+        for pid in photo_id:
+            p = Photo.objects.filter(id=pid)[0]
+            sa = ShareAlbum.objects.filter(id=share_album_id)[0]
+            if p.album.owner == request.user and (sa.owner == request.user or request.user.is_superuser):
+                if not ShareAlbum_Photo.objects.filter(sharealbum=sa, photo=p).exists():
+                    sap = ShareAlbum_Photo(sharealbum=sa, photo=p)
+                    sap.save()
+                return success_response()
+            else:
+                return error_response("Not authorized", 401)
+    except IndexError: pass
+
+@post_request_only
+@login_required_api
+def remove_photo_from_album(request):
+    body = json.loads(request.body.decode('utf8'))
+    try:
+        photo_id = body['photo_id']
+        share_album_id = body['share_album_id']
+    except KeyError:
+        return error_response("Invalid parameters", 400)
+
+    if type(photo_id) == str:
+        photo_id = [photo_id]
+
+    try:
+        for pid in photo_id:
+            p = Photo.objects.filter(id=pid)[0]
+            sa = ShareAlbum.objects.filter(id=share_album_id)[0]
+            if p.album.owner == request.user and (sa.owner == request.user or request.user.is_superuser):
+                ShareAlbum_Photo.objects.filter(sharealbum=sa, photo=p).delete()
+                return success_response()
         else:
             return error_response("Not authorized", 401)
     except IndexError: pass

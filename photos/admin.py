@@ -8,3 +8,6 @@ class PhotoAdmin(admin.ModelAdmin):
 admin.site.register(Photo, PhotoAdmin)
 admin.site.register(Album)
 admin.site.register(Album_Subscriber)
+
+admin.site.register(ShareAlbum)
+admin.site.register(ShareAlbum_Subscriber)

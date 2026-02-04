@@ -295,6 +295,46 @@ class Photo(models.Model):
             print("Error generating thumbnail for: " + str(self.id))
             pass
 
+class ShareAlbum(models.Model):
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
+    owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='sharealbum_owner')
+    name = models.CharField(max_length=64)
+    description = models.TextField(null=True, blank=True)
+    public = models.BooleanField(default=False)
+
+    def __str__(self):
+        return f"ShareAlbum {self.name} [{self.owner.username}]"
+
+    def getinfo(self):
+        return {
+            "id": str(self.id),
+            "owner": self.owner.id,
+            "name": self.name,
+            "description": self.description,
+            "public": self.public,
+        }
+
+class ShareAlbum_Photo(models.Model):
+    sharealbum = models.ForeignKey(ShareAlbum, on_delete=models.CASCADE, related_name='sharealbum_photos')
+    photo = models.ForeignKey(Photo, on_delete=models.CASCADE, related_name='photo_in_sharealbum')
+
+    def __str__(self):
+        return f"Photo {self.photo.id} in ShareAlbum {self.sharealbum.name}"
+
+class ShareAlbum_Subscriber(models.Model):
+    album = models.ForeignKey(ShareAlbum, on_delete=models.CASCADE, related_name='sharealbum_users_subscribed')
+    user = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='sharealbum_subscribed')
+    subscribe_type = models.PositiveSmallIntegerField(choices=(
+        (0, 'Owner'),
+        (1, 'Editor'),
+        (2, 'Viewer'),
+    ), default=2)
+    visible = models.BooleanField(default=True)
+
+    def __str__(self):
+        return f"{self.user.username} subscribed to {self.album.name}"
+
+
 def generate_video_thumbnail(video_path, output_path, video_id):
     import cv2
     import numpy as np
