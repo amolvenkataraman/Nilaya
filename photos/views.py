@@ -7,6 +7,7 @@ from wsgiref.util import FileWrapper
 from .models import *
 from .indeximg import photo_ingest_for_album
 from .tasks import ingest_all_photos
+from .AI.objects import NAME_TO_ID_MAPPING
 from scheduler.models import *
 from Comptech.settings import BASE_DIR, TIME_ZONE
 
@@ -62,12 +63,42 @@ def photos(request):
     else:
         country = None
 
+    if request.GET.get('city'):
+        city = request.GET.get('city')
+        photos = photos.filter(location_city=city)
+    else:
+        city = None
+
+    if request.GET.get('objects'):
+        raw_objects = request.GET.get('objects').strip().lower().split(",")
+        
+        object_ids = [
+            NAME_TO_ID_MAPPING[obj.strip()] 
+            for obj in raw_objects 
+            if obj.strip() in NAME_TO_ID_MAPPING
+        ]
+
+        if object_ids:
+            photos = photos.filter(ai_index_info__objects__contains=object_ids)
+        else:
+            photos = photos.none() 
+        
+        objects_ = object_ids
+    else:
+        objects_ = None
+
+
     rd = request.GET.get('date')
     if rd == None:
         try:
             if (request.GET.get('north') and request.GET.get('south') and request.GET.get('east') and request.GET.get('west')):
                 bounds = {"north": request.GET.get('north'), "south": request.GET.get('south'), "east": request.GET.get('east'), "west": request.GET.get('west')}
-                photos = photos.filter(latitude__lte=request.GET.get('north'), latitude__gte=request.GET.get('south'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east')).order_by('-date_taken')
+                photos = photos.filter(
+                    latitude__lte=request.GET.get('north'),
+                    latitude__gte=request.GET.get('south'),
+                    longitude__gte=request.GET.get('west'),
+                    longitude__lte=request.GET.get('east')
+                ).order_by('-date_taken')
                 newest = photos[0].date_taken.date() + datetime.timedelta(days=1)
             else:
                 bounds = None
@@ -88,7 +119,24 @@ def photos(request):
     lyear = photos.reverse()[0].date_taken.year
     countries = photos.filter(Q(location_country__isnull=False) & Q(Q(altitude__isnull=True) | Q(altitude__lte=1000))).values_list('location_country').distinct().count()
 
-    return render(request, 'photos/photos.html', { 'newest': datetime.datetime.strftime(newest, "%Y-%m-%d"), 'forward': request.GET.get('forward') == '1', 'bounds': bounds, "left_sidebar": True, "right_sidebar": True, "video": video_only, "cam_make": cam_make, "country": country, "share_album": album[0].id if album and album.exists() else None, "ntotal": ntotal, "nphotos": nphotos, "nvideos": nvideos, "drange": f"{lyear}-{fyear}", "countries": countries})
+    return render(request, 'photos/photos.html', {
+        'newest': datetime.datetime.strftime(newest, "%Y-%m-%d"),
+        'forward': request.GET.get('forward') == '1',
+        'bounds': bounds,
+        "left_sidebar": True,
+        "right_sidebar": True,
+        "video": video_only,
+        "cam_make": cam_make,
+        "country": country,
+        "city": city,
+        "objects": ",".join([f"{i}" for i in objects_]) if objects_ else None,
+        "share_album": album[0].id if album and album.exists() else None,
+        "ntotal": ntotal,
+        "nphotos": nphotos,
+        "nvideos": nvideos,
+        "drange": f"{lyear}-{fyear}",
+        "countries": countries
+    })
 
 @login_required
 def my_albums_page(request):
@@ -301,6 +349,16 @@ def get_photos_for_date(request):
 
         if request.GET.get('country') != None:
             photos = photos.filter(location_country=request.GET.get('country'))
+
+        if request.GET.get('city') != None:
+            photos = photos.filter(location_city=request.GET.get('city'))
+
+        if request.GET.get('objects') != None:
+            try:
+                object_ids = [int(x.strip()) for x in request.GET.get('objects').split(',') if x.strip()]
+                photos = photos.filter(ai_index_info__objects__contains=object_ids)
+            except ValueError:
+                photos = photos.none()
 
         p1 = photos.filter(date_taken__date=dt)
 

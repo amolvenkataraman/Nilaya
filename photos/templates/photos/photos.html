@@ -315,6 +315,14 @@
         addto += `&country={{ country }}`
         {% endif %}
 
+        {% if city %}
+        addto += `&city={{ city }}`
+        {% endif %}
+
+        {% if objects %}
+        addto += `&objects={{ objects }}`
+        {% endif %}
+
         {% if share_album %}
         addto += `&album={{ share_album }}`
         {% endif %}

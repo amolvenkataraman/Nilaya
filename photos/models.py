@@ -1,9 +1,9 @@
 import os
 import uuid
 import hashlib
-from django.db import models
+from django.db import models, connection
+from django.contrib.postgres.indexes import GinIndex
 from users.models import *
-from django.db import connection
 from Comptech.settings import SALT
 from GPSPhoto import gpsphoto
 import reverse_geocode as rg
@@ -104,9 +104,16 @@ class Photo(models.Model):
     flash = models.CharField(max_length=32, null=True, blank=True)
     focallength = models.CharField(max_length=32, null=True, blank=True)
 
+    # last_ai_processed = models.DateTimeField(auto_now=False, null=True, blank=True)
     metadata = models.JSONField(default={}, null=True, blank=True)
     ai_index_info = models.JSONField(default={}, null=True, blank=True)
     file_not_available = models.BooleanField(default=False)
+
+    class Meta:
+        indexes = [
+            # Specifically indexes the 'objects' key inside the JSON
+            GinIndex(fields=['ai_index_info__objects'], name='idx_objects_gin'),
+        ]
 
     def __str__(self):
         return f"{self.id}, taken on {str(self.date_taken)}"
