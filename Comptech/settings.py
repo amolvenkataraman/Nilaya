@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'channels',
     'crispy_forms',
     'crispy_bootstrap4',
+    'django_celery_beat',
 
     # Important apps (necessary for others)
     'users',
@@ -120,14 +121,14 @@ DATABASES = {
 
 # DATABASE_ROUTERS = ['chat.routers.ChatRouter']
 
-# CHANNEL_LAYERS = {
-#     'default': {
-#         'BACKEND': 'channels_redis.core.RedisChannelLayer',
-#         'CONFIG': {
-#             "hosts": [('127.0.0.1', 6379)],
-#         },
-#     },
-# }
+CHANNEL_LAYERS = {
+    'default': {
+        'BACKEND': 'channels_redis.core.RedisChannelLayer',
+        'CONFIG': {
+            "hosts": [('127.0.0.1', 6379)],
+        },
+    },
+}
 
 
 # Password validation
@@ -150,7 +151,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTH_USER_MODEL = 'users.ComptechUser'
 
-CSRF_TRUSTED_ORIGINS = ['https://192.168.50.11', 'https://app.example.com']
+CSRF_TRUSTED_ORIGINS = ['http://192.168.50.11', 'https://192.168.50.11', 'http://app.home.lan', 'https://app.home.lan', 'https://app.example.com']
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/
@@ -193,18 +194,15 @@ MEDIA_ROOT = '/www/media'
 MEDIA_URL = '/media/'
 
 # Celery settings
-CELERY_BROKER_URL = "redis://localhost:6379"
-CELERY_RESULT_BACKEND = "redis://localhost:6379"
+CELERY_TASK_DEFAULT_QUEUE = "Comptech"
+CELERY_BROKER_URL = "redis://localhost:6379/1"
+CELERY_RESULT_BACKEND = "redis://localhost:6379/1"
 CELERY_TIMEZONE = TIME_ZONE
-CELERY_ACCEPT_CONTENT = ['application/json']
+CELERY_ACCEPT_CONTENT = ['json', 'application/x-python-serialize']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 
-CELERY_BEAT_SCHEDULE = {
-    "autosync_calendars": {
-        "task": "scheduler.tasks.autosync_calendars",
-        "schedule": crontab(minute=0, hour=16),
-    },
-}
+CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

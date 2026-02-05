@@ -16,6 +16,7 @@ opencv-python
 celery
 daphne
 psycopg
+django_celery_beat
 django-import-export
 requests
 crispy-bootstrap4

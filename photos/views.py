@@ -5,8 +5,9 @@ from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from wsgiref.util import FileWrapper
 from .models import *
-from scheduler.models import *
 from .indeximg import photo_ingest_for_album
+from .tasks import ingest_all_photos
+from scheduler.models import *
 from Comptech.settings import BASE_DIR, TIME_ZONE
 
 from PIL import Image, ExifTags, ImageOps
@@ -390,10 +391,9 @@ def get_photo(request, photo_id, ret_type):
 @login_required_api
 def ingest_photos(request):
     try:
-        for album in Album.objects.filter(owner=request.user).order_by('id'):
-            photo_ingest_for_album(album, request.user)
+        ingest_all_photos.delay(user_id=request.user.id)
         
-        return success_response("Ingested")
+        return success_response("Ingest started")
     except Exception as ex:
         return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
 

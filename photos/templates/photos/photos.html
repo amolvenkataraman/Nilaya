@@ -411,7 +411,8 @@
         r.onload = () => {
             res = JSON.parse(r.responseText);
             if (res['status'] == 'success') {
-                location.reload();
+                // location.reload();
+                alert("Ingest started. Please wait a while and refresh the page to see new photos.");
             }
             else {
                 alert(res['data']);
