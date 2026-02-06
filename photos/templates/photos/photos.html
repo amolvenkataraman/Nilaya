@@ -1,20 +1,10 @@
-{% extends "base.html" %}
+{% extends "photos/photos_base.html" %}
 
 {% load static %}
 
 {% block page_title %} Photos {% endblock %}
 
-{% block page_styles %}
-<link href="{% static 'photo/styles.css' %}" rel="stylesheet" media="all"/>
-<link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">
-{% endblock page_styles %}
-
-{% block page_script %}
-<script src="{% static 'js/moment/moment.min.js' %}" type="text/javascript"></script>
-<script src="{% static 'js/leaflet/leaflet.js' %}" type="text/javascript"></script>
-<script src="{% static 'js/jquery/jquery.min.js' %}" type="text/javascript"></script>
-<script src="{% static 'js/handlebars/handlebars.js' %}" type="text/javascript"></script>
-
+{% block extra_scripts %}
 <script id="photo-in-list" type="text/x-handlebars-template">
     {% verbatim %}
     <div class="photo">
@@ -167,7 +157,7 @@
         format = 0;
         while (size > 1024 && format < 3) {
             size /= 1024;
-            format ++;
+            format++;
         }
 
         return [size.toFixed(2), formats[format]];
@@ -235,7 +225,7 @@
                 pres["duration"] = get_duration_in_format(pres["length"])
                 document.querySelector(".photo-info").innerHTML = photo_description(pres);
             }
-            catch {}
+            catch { }
         }
         r.send();
     }
@@ -247,7 +237,7 @@
     function load_map(lat, lng) {
         var map = L.map('mapid').setView([lat, lng], 12);
 
-        L.tileLayer( 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 28,
             tileSize: 256,
         }).addTo(map);
@@ -282,11 +272,11 @@
         var r = new XMLHttpRequest()
         r.open("POST", `/photos/delete/${p}/`)
         r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-        r.onload = () => {}
+        r.onload = () => { }
         r.send();
     }
 
-    function get_photos_for_date(date, ndays=0, nphotos=0) {
+    function get_photos_for_date(date, ndays = 0, nphotos = 0) {
         if (nowloading) { return; }
         nowloading = true;
 
@@ -362,7 +352,7 @@
                     if (photoCount) {
                         photoCount.textContent = `${res["photos"][i]["photos"].length} photos`;
                     }
-                    
+
                     // Add the first 5 locations, and add a (+n) badge if there are more
                     const locations = document.querySelector(`.day-header .locations-${res["photos"][i]["date"]}`);
                     if (locations) {
@@ -379,8 +369,8 @@
                     for (j = 0; j < res["photos"][i]["photos"].length; j++) {
                         photo = res["photos"][i]["photos"][j]
                         document.querySelector(`.day-photos-${res["photos"][i]["date"]}`).innerHTML += photo_in_list({
-                            "id": photo['id'], 
-                            "url": `/photo_cdn/${photo['photo_hash']}/${photo['path']}`, 
+                            "id": photo['id'],
+                            "url": `/photo_cdn/${photo['photo_hash']}/${photo['path']}`,
                             "video": photo["video"],
                             "thumbnail": `/private/${photo['thumbnail_hash']}/photo_cache/thumbnail/${photo['id']}.jpg`,
                             "thumbnail_width": photo['thumbnail_width'] || 200,
@@ -440,17 +430,19 @@
     }
 
     window.addEventListener('DOMContentLoaded', (event) => {
+        {% if not no_photos %}
         get_photos_for_date(currdate, 10, 100)
-        
+        {% endif %}
+
         document.onkeydown = function (e) {
             if (e.key == 'Escape') {
                 close_image();
             }
-            
+
             else if (e.key == 'ArrowLeft') {
                 prev_image();
             }
-            
+
             else if (e.key == 'ArrowRight') {
                 next_image();
             }
@@ -514,46 +506,16 @@
 </script>
 {% endblock %}
 
-{% block left_sidebar %}
-<ul class="nav">
-    <li class="nav-item nav-item-selected">
-        <a class="photo-page-link" href="#">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-image"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-            Photos
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="photo-page-link" href="#">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-search"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            Search
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="photo-page-link" href="#">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-search"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-            Albums
-        </a>
-    </li>
-    <li class="nav-item">
-        <a class="photo-page-link" href="/photos/map_new/" target="_blank">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-map"><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6"></polygon><line x1="8" y1="2" x2="8" y2="18"></line><line x1="16" y1="6" x2="16" y2="22"></line></svg>
-            Map
-        </a>
-    </li>
-    <li class="nav-item">
-        <button class="photo-page-link" onclick="ingest_photos()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-refresh-cw"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
-            Ingest
-        </button>
-    </li>
-</ul>
-{% endblock %}
-
 {% block page_body %}
 <div class="stats-bar">
     <div class="stats-item">
         <div class="stats-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
         </div>
         <div class="stats-text">
             <span class="stats-count">{{ ntotal }}</span>
@@ -562,7 +524,17 @@
     </div>
     <div class="stats-item">
         <div class="stats-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect><line x1="7" y1="2" x2="7" y2="22"></line><line x1="17" y1="2" x2="17" y2="22"></line><line x1="2" y1="12" x2="22" y2="12"></line><line x1="2" y1="7" x2="7" y2="7"></line><line x1="2" y1="17" x2="7" y2="17"></line><line x1="17" y1="17" x2="22" y2="17"></line><line x1="17" y1="7" x2="22" y2="7"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
+                <line x1="7" y1="2" x2="7" y2="22"></line>
+                <line x1="17" y1="2" x2="17" y2="22"></line>
+                <line x1="2" y1="12" x2="22" y2="12"></line>
+                <line x1="2" y1="7" x2="7" y2="7"></line>
+                <line x1="2" y1="17" x2="7" y2="17"></line>
+                <line x1="17" y1="17" x2="22" y2="17"></line>
+                <line x1="17" y1="7" x2="22" y2="7"></line>
+            </svg>
         </div>
         <div class="stats-text">
             <span class="stats-count">{{ nphotos }}</span>
@@ -571,7 +543,11 @@
     </div>
     <div class="stats-item">
         <div class="stats-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polygon points="23 7 16 12 23 17 23 7"></polygon>
+                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
+            </svg>
         </div>
         <div class="stats-text">
             <span class="stats-count">{{ nvideos }}</span>
@@ -580,7 +556,11 @@
     </div>
     <div class="stats-item">
         <div class="stats-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
         </div>
         <div class="stats-text">
             <span class="stats-count">{{ drange }}</span>
@@ -589,7 +569,11 @@
     </div>
     <div class="stats-item">
         <div class="stats-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"></path><circle cx="12" cy="9" r="3"></circle></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"></path>
+                <circle cx="12" cy="9" r="3"></circle>
+            </svg>
         </div>
         <div class="stats-text">
             <span class="stats-count">{{ countries }}</span>
@@ -601,14 +585,27 @@
 <div id="photo-display-area">
     <div id="photo-area">
         <button id="exit-btn" type="button" class="photo-btn btn btn-info" onclick="close_image()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-x"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="feather feather-x">
+                <line x1="18" y1="6" x2="6" y2="18"></line>
+                <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
         </button>
         <button id="previous-btn" type="button" class="photo-btn btn btn-info" onclick="prev_image()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-left"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="feather feather-chevron-left">
+                <polyline points="15 18 9 12 15 6"></polyline>
+            </svg>
         </button>
 
         <button id="next-btn" type="button" class="photo-btn btn btn-info" onclick="next_image()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-chevron-right"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="feather feather-chevron-right">
+                <polyline points="9 18 15 12 9 6"></polyline>
+            </svg>
         </button>
 
         <div id="photo">
@@ -623,7 +620,230 @@
 
 <div id="main-body">
     <div class="photos">
-
+        {% if no_photos %}
+        <div
+            style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; text-align: center;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
+                style="color: #95a5a6; margin-bottom: 24px;">
+                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                <polyline points="21 15 16 10 5 21"></polyline>
+            </svg>
+            <h2 style="color: #2c3e50; margin-bottom: 12px; font-size: 24px; font-weight: 600;">No Photos Found</h2>
+            <p style="color: #7f8c8d; font-size: 16px; max-width: 500px; line-height: 1.6;">
+                No photos match your current search criteria. Try adjusting your filters or browse all photos.
+            </p>
+        </div>
+        {% endif %}
     </div>
 </div>
+{% endblock %}
+
+{% block right_sidebar %}
+<div class="filters-panel">
+    <h3 class="filters-title">Filters</h3>
+
+    <!-- Active Filters Display -->
+    <div class="active-filters" id="active-filters">
+        <div class="active-filters-header">Active Filters:</div>
+        <div class="active-filters-list" id="active-filters-list">
+            {% if video %}
+            <span class="filter-tag" data-filter="video">Video Only <button class="remove-filter"
+                    onclick="removeFilter('video')">&times;</button></span>
+            {% endif %}
+            {% if date_filter %}
+            <span class="filter-tag" data-filter="date">Date: {{ date_filter }} <button class="remove-filter"
+                    onclick="removeFilter('date')">&times;</button></span>
+            {% endif %}
+            {% if forward %}
+            <span class="filter-tag" data-filter="forward">Direction: Newer → <button class="remove-filter"
+                    onclick="removeFilter('forward')">&times;</button></span>
+            {% endif %}
+            {% if cam_make %}
+            <span class="filter-tag" data-filter="camera_make">Camera: {{ cam_make }} <button class="remove-filter"
+                    onclick="removeFilter('camera_make')">&times;</button></span>
+            {% endif %}
+            {% if country %}
+            <span class="filter-tag" data-filter="country">Country: {{ country }} <button class="remove-filter"
+                    onclick="removeFilter('country')">&times;</button></span>
+            {% endif %}
+            {% if city %}
+            <span class="filter-tag" data-filter="city">City: {{ city }} <button class="remove-filter"
+                    onclick="removeFilter('city')">&times;</button></span>
+            {% endif %}
+            {% if objects %}
+            <span class="filter-tag" data-filter="objects">Objects: {{ objects }} <button class="remove-filter"
+                    onclick="removeFilter('objects')">&times;</button></span>
+            {% endif %}
+            {% if not video and not date_filter and not forward and not cam_make and not country and not city %}
+            {% if not objects %}
+            <span class="no-filters">No filters applied</span>
+            {% endif %}
+            {% endif %}
+        </div>
+        {% if video or date_filter or forward or cam_make or country or city or objects %}
+        <button class="clear-all-btn" onclick="clearAllFilters()">Clear All</button>
+        {% endif %}
+    </div>
+
+    <!-- Filter Controls -->
+    <div class="filter-controls">
+        <div class="filter-group">
+            <label class="filter-label">
+                <input type="checkbox" id="filter-video" {% if video %}checked{% endif %}>
+                <span>Video Only</span>
+            </label>
+        </div>
+
+        <div class="filter-section-divider"></div>
+        <div class="filter-section-title">Date Range</div>
+
+        <div class="filter-group">
+            <label class="filter-label">Start Date</label>
+            <input type="date" class="filter-input" id="filter-date" value="{{ newest|default:'' }}">
+            <div class="filter-hint">Starting point for browsing photos</div>
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Direction</label>
+            <div class="radio-group">
+                <label class="radio-label">
+                    <input type="radio" name="direction" value="backward" {% if not forward %}checked{% endif %}>
+                    <span>← Backward (Older)</span>
+                </label>
+                <label class="radio-label">
+                    <input type="radio" name="direction" value="forward" {% if forward %}checked{% endif %}>
+                    <span>Forward (Newer) →</span>
+                </label>
+            </div>
+        </div>
+
+        <div class="filter-section-divider"></div>
+        <div class="filter-section-title">Location & Equipment</div>
+
+        <div class="filter-group">
+            <label class="filter-label">Camera Make</label>
+            <input type="text" class="filter-input" id="filter-camera-make" placeholder="e.g., Canon, Nikon"
+                value="{{ cam_make|default:'' }}">
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Country</label>
+            <input type="text" class="filter-input" id="filter-country" placeholder="e.g., USA, France"
+                value="{{ country|default:'' }}">
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">City</label>
+            <input type="text" class="filter-input" id="filter-city" placeholder="e.g., Paris, Tokyo"
+                value="{{ city|default:'' }}">
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">Objects</label>
+            <input type="text" class="filter-input" id="filter-objects" placeholder="e.g., cat, dog"
+                value="{{ objects|default:'' }}">
+            <div class="filter-hint">Comma-separated object names</div>
+        </div>
+
+        <button class="apply-filters-btn" onclick="applyFilters()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            Search
+        </button>
+    </div>
+</div>
+
+<script>
+    function applyFilters() {
+        const params = new URLSearchParams(window.location.search);
+
+        // Keep album parameter if it exists
+        const album = params.get('album');
+        params.delete('album');
+
+        // Clear all filter params
+        params.delete('video');
+        params.delete('camera_make');
+        params.delete('country');
+        params.delete('city');
+        params.delete('objects');
+        params.delete('date');
+        params.delete('forward');
+
+        // Re-add album if it existed
+        if (album) params.set('album', album);
+
+        // Add new filters
+        if (document.getElementById('filter-video').checked) {
+            params.set('video', '1');
+        }
+
+        const date = document.getElementById('filter-date').value.trim();
+        if (date) {
+            params.set('date', date);
+        }
+
+        const direction = document.querySelector('input[name="direction"]:checked').value;
+        if (direction === 'forward') {
+            params.set('forward', '1');
+        }
+
+        const cameraMake = document.getElementById('filter-camera-make').value.trim();
+        if (cameraMake) {
+            params.set('camera_make', cameraMake);
+        }
+
+        const country = document.getElementById('filter-country').value.trim();
+        if (country) {
+            params.set('country', country);
+        }
+
+        const city = document.getElementById('filter-city').value.trim();
+        if (city) {
+            params.set('city', city);
+        }
+
+        const objects = document.getElementById('filter-objects').value.trim();
+        if (objects) {
+            params.set('objects', objects);
+        }
+
+        // Reload with new parameters
+        window.location.search = params.toString();
+    }
+
+    function removeFilter(filterName) {
+        const params = new URLSearchParams(window.location.search);
+        params.delete(filterName);
+        window.location.search = params.toString();
+    }
+
+    function clearAllFilters() {
+        const params = new URLSearchParams(window.location.search);
+        const album = params.get('album');
+
+        // Clear all params except album
+        const newParams = new URLSearchParams();
+        if (album) newParams.set('album', album);
+
+        window.location.search = newParams.toString();
+    }
+
+    // Allow Enter key to trigger search
+    document.addEventListener('DOMContentLoaded', function () {
+        const inputs = document.querySelectorAll('.filter-input');
+        inputs.forEach(input => {
+            input.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    applyFilters();
+                }
+            });
+        });
+    });
+</script>
 {% endblock %}

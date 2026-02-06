@@ -4,7 +4,7 @@ from . import views
 # URL patterns for photos app
 urlpatterns = [
     path("", views.photos, name='photos'),
-    path("my-albums/", views.my_albums_page, name='my_albums_page'),
+    path("albums/", views.my_albums_page, name='my_albums_page'),
     path("map/", views.map, name='photos_map'),
     path("map_new/", views.map_new, name='photos_map_new'),
     path("geoguessr/", views.geoguessr, name='geoguessr'),

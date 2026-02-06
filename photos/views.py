@@ -104,23 +104,33 @@ def photos(request):
                 bounds = None
                 newest = photos[0].date_taken.date() + datetime.timedelta(days=1)
         except IndexError: newest = None
+        date_filter = None  # Not explicitly provided
     else:
         newest = dateparser.parse(request.GET.get('date')).date()
         bounds = None
+        date_filter = datetime.datetime.strftime(newest, "%Y-%m-%d")  # Explicitly provided
 
     ntotal = photos.count()
 
+    # Set defaults when no photos are found
     if ntotal == 0:
-        return HttpResponse("No photos found matching the criteria.")
-
-    nphotos = photos.filter(video=False).count()
-    nvideos = ntotal - nphotos
-    fyear = photos[0].date_taken.year
-    lyear = photos.reverse()[0].date_taken.year
-    countries = photos.filter(Q(location_country__isnull=False) & Q(Q(altitude__isnull=True) | Q(altitude__lte=1000))).values_list('location_country').distinct().count()
+        nphotos = 0
+        nvideos = 0
+        fyear = None
+        lyear = None
+        countries = 0
+        no_photos = True
+    else:
+        nphotos = photos.filter(video=False).count()
+        nvideos = ntotal - nphotos
+        fyear = photos[0].date_taken.year
+        lyear = photos.reverse()[0].date_taken.year
+        countries = photos.filter(Q(location_country__isnull=False) & Q(Q(altitude__isnull=True) | Q(altitude__lte=1000))).values_list('location_country').distinct().count()
+        no_photos = False
 
     return render(request, 'photos/photos.html', {
-        'newest': datetime.datetime.strftime(newest, "%Y-%m-%d"),
+        'newest': datetime.datetime.strftime(newest, "%Y-%m-%d") if newest else None,
+        'date_filter': date_filter,  # Only set when explicitly provided
         'forward': request.GET.get('forward') == '1',
         'bounds': bounds,
         "left_sidebar": True,
@@ -134,8 +144,10 @@ def photos(request):
         "ntotal": ntotal,
         "nphotos": nphotos,
         "nvideos": nvideos,
-        "drange": f"{lyear}-{fyear}",
-        "countries": countries
+        "drange": f"{lyear}-{fyear}" if fyear and lyear else "N/A",
+        "countries": countries,
+        "no_photos": no_photos,
+        "active_page": "photos"
     })
 
 @login_required
@@ -144,7 +156,12 @@ def my_albums_page(request):
     sa = [s.album.getinfo() for s in ses]
     print(sa)
 
-    return render(request, 'photos/albums.html', { "albums": sa })
+    return render(request, 'photos/albums.html', {
+        "albums": sa,
+        "left_sidebar": True,
+        "right_sidebar": False,
+        "active_page": "albums"
+    })
 
 @login_required
 def map(request):
