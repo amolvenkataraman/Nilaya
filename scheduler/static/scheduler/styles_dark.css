@@ -1,40 +1,43 @@
-.table-calendar td, .table-calendar th {
+.table-calendar td,
+.table-calendar th {
     border: 1px solid #4d4d4d;
 }
 
-.add-on-day-btn, .day-images-btn {
-    color: var(--bs-white)!important;
+.add-on-day-btn,
+.day-images-btn {
+    color: var(--bs-white) !important;
 }
 
 .card {
-    border: 1px solid #444444!important;
+    border: 1px solid #444444 !important;
 }
 
 .card-body {
-    background-color: #343434!important;
+    background-color: #343434 !important;
 }
 
 .todos .active {
-    color: #fff!important;
-    background-color: #495057!important;
+    color: #fff !important;
+    background-color: #495057 !important;
 }
 
 .refresh-info-btn {
-    color: #fff!important
+    color: #fff !important
 }
 
 .modal-content {
     background: var(--bs-dark);
 }
 
-.form-control, .form-select {
-    background: var(--bs-dark)!important;
-    color: var(--bs-white)!important;
-    border: 1px solid #444444!important;
+.form-control,
+.form-select {
+    background: var(--bs-dark) !important;
+    color: var(--bs-white) !important;
+    border: 1px solid #444444 !important;
 }
 
 .calendar-options-btn {
-    color: #fff!important;
+    color: #fff !important;
 }
 
 /* width */
@@ -55,4 +58,67 @@
 /* Handle on hover */
 ::-webkit-scrollbar-thumb:hover {
     background: #555;
+}
+
+/* === Day/Week View Dark Mode === */
+.cv-container {
+    color: #e8eaed;
+}
+
+.cv-allday {
+    border-bottom-color: #5f6368;
+}
+
+.cv-allday-label {
+    color: #9aa0a6;
+    border-right-color: #5f6368;
+}
+
+.cv-allday-column {
+    border-right-color: #5f6368;
+}
+
+.cv-week-header {
+    border-bottom-color: #5f6368;
+}
+
+.cv-week-header-gutter {
+    border-right-color: #5f6368;
+}
+
+.cv-week-header-day {
+    color: #9aa0a6;
+    border-right-color: #5f6368;
+}
+
+.cv-week-header-day-num {
+    color: #e8eaed;
+}
+
+.cv-gutter {
+    border-right-color: #5f6368;
+}
+
+.cv-gutter-label {
+    color: #9aa0a6;
+}
+
+.cv-day-col {
+    border-right-color: #3c4043;
+}
+
+.cv-hour-line {
+    border-top-color: #5f6368;
+}
+
+.cv-half-hour-line {
+    border-top-color: #3c4043;
+}
+
+.cv-event {
+    border-left-color: rgba(255, 255, 255, 0.2);
+}
+
+.cv-slot:hover {
+    background: rgba(138, 180, 248, 0.08);
 }

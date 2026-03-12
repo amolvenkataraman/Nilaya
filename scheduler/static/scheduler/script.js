@@ -454,7 +454,7 @@ document.addEventListener('DOMContentLoaded', () => {
 function generate_year_range(start, end) {
     var years = "";
     for (var year = start; year <= end; year++) {
-            years += "<option value='" + year + "'>" + year + "</option>";
+        years += "<option value='" + year + "'>" + year + "</option>";
     }
     return years;
 }
@@ -509,12 +509,12 @@ function jump() {
 
 function showCalendar(month, year) {
 
-    var firstDay = ( new Date( year, month ) ).getDay();
+    var firstDay = (new Date(year, month)).getDay();
 
     tbl = document.getElementById("calendar-body");
-    
+
     tbl.innerHTML = "";
-    
+
     monthAndYear.innerHTML = months[month] + " " + year;
     selectYear.value = year;
     selectMonth.value = month;
@@ -528,7 +528,7 @@ function showCalendar(month, year) {
 
         for (var j = 0; j < 7; j++) {
             if (i === 0 && j < firstDay) {
-                cell = document.createElement( "td" );
+                cell = document.createElement("td");
                 cellText = document.createTextNode("");
                 cell.appendChild(cellText);
                 cell.className = `date-picker-dead`;
@@ -536,7 +536,7 @@ function showCalendar(month, year) {
             }
             else if (date > daysInMonth(month, year)) {
                 if (row.innerHTML != "") {
-                    cell = document.createElement( "td" );
+                    cell = document.createElement("td");
                     cellText = document.createTextNode("");
                     cell.appendChild(cellText);
                     cell.className = `date-picker-dead`;
@@ -559,7 +559,7 @@ function showCalendar(month, year) {
                     <span class="badge day-images-btn day-images-btn-${date}" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="view_day_images(${date})">-</span>
                 `
 
-                if ( date === today.getDate() && year === today.getFullYear() && month === today.getMonth() ) {
+                if (date === today.getDate() && year === today.getFullYear() && month === today.getMonth()) {
                     cell.className = `date-picker selected date-picker-${date}`;
                 }
                 row.appendChild(cell);
@@ -645,18 +645,17 @@ function tick() {
     return;
 
     if (moment().format("HH mm ss") == "19 00 00") {
-        for (time of [0, 1000, 2000]) {setTimeout(function() {notification.play()}, time)}
-        if (ss_available) {speech_synthesis.text = `Tomorrow is ${moment().add(1, 'days').format("dddd, MMMM Do YYYY")}. Your events tomorrow are: `}
-        if (today.getDate != daysInMonth(m, y))
-        {
+        for (time of [0, 1000, 2000]) { setTimeout(function () { notification.play() }, time) }
+        if (ss_available) { speech_synthesis.text = `Tomorrow is ${moment().add(1, 'days').format("dddd, MMMM Do YYYY")}. Your events tomorrow are: ` }
+        if (today.getDate != daysInMonth(m, y)) {
             is_ev = false;
             for (ev of events["allday"][parseInt(moment().add(1, 'days').format("DD"))]) {
                 if (ss_available) { speech_synthesis.text += `${ev['name']} all day, `; }
                 is_ev = true;
             }
             for (ev of events["events"][parseInt(moment().add(1, 'days').format("DD"))]) {
-                if (ev['enddate'] == "None") {sst = `${ev['name']} at ${moment(ev['startdate']).format('LT')}, `}
-                else {sst = `${ev['name']} from ${moment(ev['startdate']).format('LT')} to ${moment(ev['enddate']).format('LT')}, `}
+                if (ev['enddate'] == "None") { sst = `${ev['name']} at ${moment(ev['startdate']).format('LT')}, ` }
+                else { sst = `${ev['name']} from ${moment(ev['startdate']).format('LT')} to ${moment(ev['enddate']).format('LT')}, ` }
                 if (ss_available) { speech_synthesis.text += sst; }
                 is_ev = true;
             }
@@ -666,7 +665,7 @@ function tick() {
             }
         }
 
-        if (ss_available) {setTimeout(function() {window.speechSynthesis.speak(speech_synthesis);}, 3000)}
+        if (ss_available) { setTimeout(function () { window.speechSynthesis.speak(speech_synthesis); }, 3000) }
     }
     if (moment().format("ss") == "00") {
         is_ev = false;
@@ -688,38 +687,38 @@ function tick() {
                     }
                 }
             }
-            catch {}
+            catch { }
         }
 
         if (is_ev) {
             notification.play();
             if (ss_available) {
-                setTimeout(function() { window.speechSynthesis.speak(speech_synthesis); }, 500);
+                setTimeout(function () { window.speechSynthesis.speak(speech_synthesis); }, 500);
             }
         }
     }
     setTimeout(tick, 1000);
 }
 
-function add_edit_event(date, month=m+1, year=y, command="add", edit_event=null) {
+function add_edit_event(date, month = m + 1, year = y, command = "add", edit_event = null) {
     var curreventtype = null;
-    if (command=="add") {$('.modal-title').html("Create New Event")}
-    else if (command=="edit") {
+    if (command == "add") { $('.modal-title').html("Create New Event") }
+    else if (command == "edit") {
         $('.modal-title').html(`Edit ${edit_event['name']}`)
-        if (edit_event['allday'] == true) {curreventtype="ade"}
-        else if (edit_event['enddate'] == "None") {curreventtype="assignment"}
-        else {curreventtype="event"}
+        if (edit_event['allday'] == true) { curreventtype = "ade" }
+        else if (edit_event['enddate'] == "None") { curreventtype = "assignment" }
+        else { curreventtype = "event" }
     }
-    $('.big-modal-body').html(event_create_template({'i': '1'}));
-    $('.event-datetime').css({'display': 'none'});
-    $('.event-type-btn').click(function() {
-        $('.event-datetime').css({'display': 'none'});
-        $(`.event-datetime-${jQuery(this).data('event-type')}`).css({'display': 'block'});
+    $('.big-modal-body').html(event_create_template({ 'i': '1' }));
+    $('.event-datetime').css({ 'display': 'none' });
+    $('.event-type-btn').click(function () {
+        $('.event-datetime').css({ 'display': 'none' });
+        $(`.event-datetime-${jQuery(this).data('event-type')}`).css({ 'display': 'block' });
         curreventtype = jQuery(this).data('event-type');
     });
 
     i = 0;
-    for (cat of ['Uncategorized', 'Meeting', 'Focus Time', 'Break Time', 'Study', 'Work', 'Personal', 'Tech Break', 'Test / Exam', 'Lecture',  'Other']) {
+    for (cat of ['Uncategorized', 'Meeting', 'Focus Time', 'Break Time', 'Study', 'Work', 'Personal', 'Tech Break', 'Test / Exam', 'Lecture', 'Other']) {
         option = document.createElement('option');
         option.text = cat;
         option.value = i;
@@ -730,46 +729,46 @@ function add_edit_event(date, month=m+1, year=y, command="add", edit_event=null)
         i++;
     }
 
-    if (command =="add") {
+    if (command == "add") {
         document.querySelector('.event-type-btn-ade').click();
-        document.querySelectorAll('.event-date-start').forEach(function(e) {
+        document.querySelectorAll('.event-date-start').forEach(function (e) {
             e.valueAsDate = new Date(`${year}-${month}-${date}`);
         });
-        document.querySelectorAll('.event-date-end-ade').forEach(function(e) {
+        document.querySelectorAll('.event-date-end-ade').forEach(function (e) {
             e.valueAsDate = new Date(moment(new Date(`${year}-${month}-${date}`)).add(1, "days"));
         });
-        document.querySelectorAll('.event-time-start').forEach(function(e) {
+        document.querySelectorAll('.event-time-start').forEach(function (e) {
             e.value = `${moment(new Date()).add(1, "hours").format("hh")}:00:00`;
         });
-        document.querySelectorAll('.event-date-end-event').forEach(function(e) {
+        document.querySelectorAll('.event-date-end-event').forEach(function (e) {
             e.valueAsDate = new Date(moment(new Date(`${year}-${month}-${date} ${moment(new Date()).add(1, "hours").format("hh")}:00:00`)).add(2, "hours"));
         });
-        document.querySelectorAll('.event-time-end-event').forEach(function(e) {
+        document.querySelectorAll('.event-time-end-event').forEach(function (e) {
             e.value = `${moment(new Date()).add(2, "hours").format("hh")}:00:00`;
         });
     }
-    else if (command =="edit") {
+    else if (command == "edit") {
         $('.create-event-btn').html('Edit')
 
         esdate = new Date(edit_event['startdate']);
-        if (curreventtype=="assignment") {eedate = new Date(moment(esdate).add(1, "days").add(1, "hours"));}
-        else {eedate = new Date(edit_event['enddate']);}
+        if (curreventtype == "assignment") { eedate = new Date(moment(esdate).add(1, "days").add(1, "hours")); }
+        else { eedate = new Date(edit_event['enddate']); }
         esdate = convertUTCDateToLocalDate(esdate);
         eedate = convertUTCDateToLocalDate(eedate);
         document.querySelector(`.event-type-btn-${curreventtype}`).click();
-        document.querySelectorAll('.event-date-start').forEach(function(e) {
+        document.querySelectorAll('.event-date-start').forEach(function (e) {
             e.valueAsDate = esdate;
         });
-        document.querySelectorAll('.event-date-end-ade').forEach(function(e) {
+        document.querySelectorAll('.event-date-end-ade').forEach(function (e) {
             e.valueAsDate = eedate;
         });
-        document.querySelectorAll('.event-time-start').forEach(function(e) {
+        document.querySelectorAll('.event-time-start').forEach(function (e) {
             e.valueAsDate = esdate;
         });
-        document.querySelectorAll('.event-date-end-event').forEach(function(e) {
+        document.querySelectorAll('.event-date-end-event').forEach(function (e) {
             e.valueAsDate = eedate;
         });
-        document.querySelectorAll('.event-time-end-event').forEach(function(e) {
+        document.querySelectorAll('.event-time-end-event').forEach(function (e) {
             e.valueAsDate = eedate;
         });
 
@@ -846,9 +845,9 @@ function add_edit_event(date, month=m+1, year=y, command="add", edit_event=null)
     });
 }
 
-function add_edit_todo( command="add", edit_todo=null) {
+function add_edit_todo(command = "add", edit_todo = null) {
     $('.modal-title').html("Create New Todo")
-    $('.modal-body').html(todo_create_template({'i': '1'}))
+    $('.modal-body').html(todo_create_template({ 'i': '1' }))
 
     if (command == "edit") {
         et = data["todos"][edit_todo];
@@ -912,7 +911,7 @@ function delete_todo(todo_num) {
             alert(res['data']);
         }
     }
-    r.send(JSON.stringify({'id': todo["id"]}));
+    r.send(JSON.stringify({ 'id': todo["id"] }));
 }
 
 function make_holidays_red() {
@@ -972,7 +971,7 @@ function create_calendar() {
                     $('.calendar-warn').text(res["data"]);
                 }
             }
-            r.send(JSON.stringify({"name": $('.calendar-name').val(), "color": $('.calendar-color').val()}));
+            r.send(JSON.stringify({ "name": $('.calendar-name').val(), "color": $('.calendar-color').val() }));
         }
     });
 
@@ -993,7 +992,7 @@ function create_calendar() {
                     $('.subscribe-warn').html(res["data"])
                 }
                 else {
-                    $('.modal-body').html(subscribe_confirm({"name": res["datasubscribename"], "owner": `${res["data"]["owner"]["first_name"]} ${res["data"]["owner"]["last_name"]}`}))
+                    $('.modal-body').html(subscribe_confirm({ "name": res["datasubscribename"], "owner": `${res["data"]["owner"]["first_name"]} ${res["data"]["owner"]["last_name"]}` }))
                     document.querySelector('.subscribe-confirm-btn').onclick = () => {
                         r = new XMLHttpRequest()
                         r.open("POST", `${URLS['subscribe']}?code=` + subscribeCode)
@@ -1008,7 +1007,7 @@ function create_calendar() {
                                     <p class="text-success subscribe-warn" style="font-size: 15px;">You are subscribed to this calendar.</p>
                                     <p>This page will automatically refresh. Please wait...</p>
                                 `)
-                                setTimeout(function() {
+                                setTimeout(function () {
                                     populate_calendar(m, y, true);
                                     $('.modal').modal('close');
                                 }, 1000)
@@ -1023,118 +1022,600 @@ function create_calendar() {
     }
 }
 
+// =============================================================================================================
+// CalendarDayView — reusable day-view component (Outlook / Thunderbird style)
+// =============================================================================================================
+class CalendarDayView {
+    /**
+     * @param {HTMLElement} container - Element to render into
+     * @param {Object} options
+     * @param {number} [options.hourHeight=60] - Pixels per hour
+     * @param {number} [options.startHour=0]
+     * @param {number} [options.endHour=24]
+     * @param {Function} [options.onEventClick] - (eventObj, index) => void
+     * @param {Function} [options.onSlotClick] - (date, hour, minute) => void
+     * @param {boolean} [options.showHeader=false] - show day name header (used by week view)
+     */
+    constructor(container, options = {}) {
+        this.container = container;
+        this.hourHeight = options.hourHeight || 60;
+        this.startHour = options.startHour || 0;
+        this.endHour = options.endHour || 24;
+        this.onEventClick = options.onEventClick || null;
+        this.onSlotClick = options.onSlotClick || null;
+        this.showHeader = options.showHeader || false;
+        this._nowTimer = null;
+    }
+
+    /**
+     * Render day view for a single day.
+     * @param {Date} date
+     * @param {Array} timedEvents - [{name, startdate, enddate, calendar, id, ...}, ...]
+     * @param {Array} allDayEvents
+     * @param {Object} calendarMap - {calendarId: {colour, calendar: {name}}}
+     */
+    render(date, timedEvents, allDayEvents, calendarMap) {
+        this.date = date;
+        this.calendarMap = calendarMap;
+        this.container.innerHTML = '';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'cv-container';
+
+        // All-day section
+        wrapper.appendChild(this._buildAllDay(allDayEvents));
+
+        // Scrollable time grid
+        const scroll = document.createElement('div');
+        scroll.className = 'cv-scroll';
+
+        const grid = document.createElement('div');
+        grid.className = 'cv-grid';
+        grid.style.minHeight = (this.endHour - this.startHour) * this.hourHeight + 'px';
+
+        // Gutter (time labels)
+        grid.appendChild(this._buildGutter());
+
+        // Single day column
+        const col = this._buildDayColumn(date, timedEvents);
+        const columns = document.createElement('div');
+        columns.className = 'cv-columns';
+        columns.appendChild(col);
+        grid.appendChild(columns);
+
+        scroll.appendChild(grid);
+        wrapper.appendChild(scroll);
+        this.container.appendChild(wrapper);
+
+        // Scroll to ~current hour or 8 AM
+        this._autoScroll(scroll, date);
+
+        // Now indicator
+        this._startNowIndicator(col, date);
+    }
+
+    /** Build the all-day events bar */
+    _buildAllDay(allDayEvents) {
+        const bar = document.createElement('div');
+        bar.className = 'cv-allday';
+
+        const label = document.createElement('div');
+        label.className = 'cv-allday-label';
+        label.textContent = 'all-day';
+        bar.appendChild(label);
+
+        const content = document.createElement('div');
+        content.className = 'cv-allday-content';
+        const col = document.createElement('div');
+        col.className = 'cv-allday-column';
+
+        if (allDayEvents && allDayEvents.length) {
+            allDayEvents.forEach(ev => {
+                const chip = document.createElement('div');
+                chip.className = 'cv-allday-event';
+                const cal = this.calendarMap[ev.calendar];
+                chip.style.backgroundColor = cal ? cal.colour : '#039be5';
+                chip.textContent = ev.name;
+                if (this.onEventClick) {
+                    chip.addEventListener('click', () => this.onEventClick(ev));
+                }
+                col.appendChild(chip);
+            });
+        }
+
+        content.appendChild(col);
+        bar.appendChild(content);
+        return bar;
+    }
+
+    /** Build the left-side time gutter */
+    _buildGutter() {
+        const gutter = document.createElement('div');
+        gutter.className = 'cv-gutter';
+
+        for (let h = this.startHour; h < this.endHour; h++) {
+            if (h === 0) continue; // don't label midnight at top
+            const lbl = document.createElement('div');
+            lbl.className = 'cv-gutter-label';
+            lbl.style.top = (h - this.startHour) * this.hourHeight + 'px';
+            lbl.textContent = this._formatHour(h);
+            gutter.appendChild(lbl);
+        }
+
+        return gutter;
+    }
+
+    /** Build a single day column with hour lines, slots, and events */
+    _buildDayColumn(date, timedEvents) {
+        const col = document.createElement('div');
+        col.className = 'cv-day-col';
+
+        // Hour and half-hour lines
+        for (let h = this.startHour; h < this.endHour; h++) {
+            const line = document.createElement('div');
+            line.className = 'cv-hour-line';
+            line.style.top = (h - this.startHour) * this.hourHeight + 'px';
+            col.appendChild(line);
+
+            const halfLine = document.createElement('div');
+            halfLine.className = 'cv-half-hour-line';
+            halfLine.style.top = (h - this.startHour) * this.hourHeight + this.hourHeight / 2 + 'px';
+            col.appendChild(halfLine);
+        }
+        // Bottom line
+        const bottomLine = document.createElement('div');
+        bottomLine.className = 'cv-hour-line';
+        bottomLine.style.top = (this.endHour - this.startHour) * this.hourHeight + 'px';
+        col.appendChild(bottomLine);
+
+        // Clickable slot overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'cv-slot-overlay';
+        for (let h = this.startHour; h < this.endHour; h++) {
+            for (let m = 0; m < 60; m += 30) {
+                const slot = document.createElement('div');
+                slot.className = 'cv-slot';
+                slot.style.top = (h - this.startHour) * this.hourHeight + (m / 60) * this.hourHeight + 'px';
+                slot.style.height = this.hourHeight / 2 + 'px';
+                if (this.onSlotClick) {
+                    const hh = h, mm = m;
+                    slot.addEventListener('click', () => this.onSlotClick(date, hh, mm));
+                }
+                overlay.appendChild(slot);
+            }
+        }
+        col.appendChild(overlay);
+
+        // Position events
+        this._layoutEvents(col, date, timedEvents);
+
+        return col;
+    }
+
+    /** Layout timed events with overlap handling */
+    _layoutEvents(col, date, timedEvents) {
+        if (!timedEvents || !timedEvents.length) return;
+
+        // Normalise events to day-local pixel coordinates
+        const dayStart = new Date(date);
+        dayStart.setHours(0, 0, 0, 0);
+        const dayEnd = new Date(dayStart);
+        dayEnd.setDate(dayEnd.getDate() + 1);
+
+        const items = timedEvents.map((ev, idx) => {
+            let s = new Date(ev.startdate);
+            let e = ev.enddate && ev.enddate !== 'None' ? new Date(ev.enddate) : new Date(s.getTime() + 30 * 60000); // default 30 min
+
+            // Clamp to this day
+            if (s < dayStart) s = dayStart;
+            if (e > dayEnd) e = dayEnd;
+            if (e <= s) e = new Date(s.getTime() + 15 * 60000);
+
+            const topMin = (s.getHours() * 60 + s.getMinutes());
+            const botMin = (e.getHours() * 60 + e.getMinutes()) || 1440;
+
+            return {
+                ev, idx,
+                top: (topMin / 60) * this.hourHeight,
+                height: Math.max(((botMin - topMin) / 60) * this.hourHeight, 15),
+                start: topMin,
+                end: botMin
+            };
+        });
+
+        // Sort by start time then by longest first
+        items.sort((a, b) => a.start - b.start || b.end - a.end);
+
+        // Greedy column assignment for overlaps
+        const columns = [];
+        for (const item of items) {
+            let placed = false;
+            for (let c = 0; c < columns.length; c++) {
+                const lastInCol = columns[c][columns[c].length - 1];
+                if (item.start >= lastInCol.end) {
+                    columns[c].push(item);
+                    item.col = c;
+                    placed = true;
+                    break;
+                }
+            }
+            if (!placed) {
+                item.col = columns.length;
+                columns.push([item]);
+            }
+        }
+
+        const totalCols = columns.length;
+
+        // Render each event
+        for (const item of items) {
+            const el = document.createElement('div');
+            el.className = 'cv-event';
+            const cal = this.calendarMap[item.ev.calendar];
+            const bgColor = cal ? cal.colour : '#039be5';
+            el.style.backgroundColor = bgColor;
+            el.style.color = this._contrastColor(bgColor);
+            el.style.top = item.top + 'px';
+            el.style.height = item.height + 'px';
+
+            // Width and left based on column
+            const widthPct = 100 / totalCols;
+            el.style.left = (item.col * widthPct) + '%';
+            el.style.width = 'calc(' + widthPct + '% - 2px)';
+
+            // Content
+            const title = document.createElement('div');
+            title.className = 'cv-event-title';
+            title.textContent = item.ev.name;
+            el.appendChild(title);
+
+            if (item.height >= 30) {
+                const time = document.createElement('div');
+                time.className = 'cv-event-time';
+                const sDate = new Date(item.ev.startdate);
+                let timeStr = moment(sDate).format('h:mm A');
+                if (item.ev.enddate && item.ev.enddate !== 'None') {
+                    timeStr += ' – ' + moment(new Date(item.ev.enddate)).format('h:mm A');
+                }
+                time.textContent = timeStr;
+                el.appendChild(time);
+            }
+
+            if (this.onEventClick) {
+                const evRef = item.ev;
+                const idxRef = item.idx;
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    this.onEventClick(evRef, idxRef);
+                });
+            }
+
+            col.appendChild(el);
+        }
+    }
+
+    /** Auto-scroll to current hour or 8 AM */
+    _autoScroll(scrollEl, date) {
+        const now = new Date();
+        let scrollToHour;
+        if (date.toDateString() === now.toDateString()) {
+            scrollToHour = Math.max(now.getHours() - 1, 0);
+        } else {
+            scrollToHour = 8;
+        }
+        requestAnimationFrame(() => {
+            scrollEl.scrollTop = scrollToHour * this.hourHeight;
+        });
+    }
+
+    /** Add and maintain the current-time red line */
+    _startNowIndicator(col, date) {
+        this._stopNowIndicator();
+
+        const update = () => {
+            const now = new Date();
+            if (date.toDateString() !== now.toDateString()) {
+                const existing = col.querySelector('.cv-now-line');
+                if (existing) existing.remove();
+                return;
+            }
+            let indicator = col.querySelector('.cv-now-line');
+            if (!indicator) {
+                indicator = document.createElement('div');
+                indicator.className = 'cv-now-line';
+                const dot = document.createElement('div');
+                dot.className = 'cv-now-dot';
+                indicator.appendChild(dot);
+                col.appendChild(indicator);
+            }
+            const mins = now.getHours() * 60 + now.getMinutes();
+            indicator.style.top = (mins / 60) * this.hourHeight + 'px';
+        };
+
+        update();
+        this._nowTimer = setInterval(update, 60000);
+    }
+
+    _stopNowIndicator() {
+        if (this._nowTimer) {
+            clearInterval(this._nowTimer);
+            this._nowTimer = null;
+        }
+    }
+
+    _formatHour(h) {
+        if (h === 0 || h === 24) return '12 AM';
+        if (h === 12) return '12 PM';
+        if (h < 12) return h + ' AM';
+        return (h - 12) + ' PM';
+    }
+
+    _contrastColor(hex) {
+        if (!hex) return '#fff';
+        hex = hex.replace('#', '');
+        if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+        const r = parseInt(hex.substr(0, 2), 16);
+        const g = parseInt(hex.substr(2, 2), 16);
+        const b = parseInt(hex.substr(4, 2), 16);
+        const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+        return luminance > 0.5 ? '#1f1f1f' : '#ffffff';
+    }
+
+    destroy() {
+        this._stopNowIndicator();
+        this.container.innerHTML = '';
+    }
+}
+
+
+// =============================================================================================================
+// CalendarWeekView — reusable week-view component (composes day columns)
+// =============================================================================================================
+class CalendarWeekView {
+    /**
+     * @param {HTMLElement} container
+     * @param {Object} options
+     * @param {number} [options.hourHeight=60]
+     * @param {Function} [options.onEventClick]
+     * @param {Function} [options.onSlotClick]
+     */
+    constructor(container, options = {}) {
+        this.container = container;
+        this.hourHeight = options.hourHeight || 60;
+        this.startHour = options.startHour || 0;
+        this.endHour = options.endHour || 24;
+        this.onEventClick = options.onEventClick || null;
+        this.onSlotClick = options.onSlotClick || null;
+        this._nowTimer = null;
+        this._dayHelper = new CalendarDayView(document.createElement('div'), {
+            hourHeight: this.hourHeight,
+            startHour: this.startHour,
+            endHour: this.endHour,
+        });
+    }
+
+    /**
+     * @param {Date} weekStartDate - the Sunday (or Monday) that starts the week
+     * @param {Object} eventsByDay - { 0: {timed: [], allDay: []}, 1: {...}, ... 6: {...} }
+     *    keys 0-6 for Sun-Sat (or the 7 days starting from weekStartDate)
+     * @param {Object} calendarMap
+     */
+    render(weekStartDate, eventsByDay, calendarMap) {
+        this.weekStartDate = weekStartDate;
+        this.calendarMap = calendarMap;
+        this.container.innerHTML = '';
+
+        const wrapper = document.createElement('div');
+        wrapper.className = 'cv-container';
+
+        const dayNames = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
+        const dates = [];
+        for (let i = 0; i < 7; i++) {
+            const d = new Date(weekStartDate);
+            d.setDate(d.getDate() + i);
+            dates.push(d);
+        }
+        const today = new Date();
+
+        // Week header
+        const header = document.createElement('div');
+        header.className = 'cv-week-header';
+        const gutterH = document.createElement('div');
+        gutterH.className = 'cv-week-header-gutter';
+        header.appendChild(gutterH);
+
+        dates.forEach(d => {
+            const dh = document.createElement('div');
+            dh.className = 'cv-week-header-day';
+            if (d.toDateString() === today.toDateString()) dh.classList.add('cv-today');
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'cv-week-header-day-name';
+            nameSpan.textContent = dayNames[d.getDay()];
+            const numSpan = document.createElement('span');
+            numSpan.className = 'cv-week-header-day-num';
+            numSpan.textContent = d.getDate();
+            dh.appendChild(nameSpan);
+            dh.appendChild(numSpan);
+            header.appendChild(dh);
+        });
+        wrapper.appendChild(header);
+
+        // All-day section
+        wrapper.appendChild(this._buildAllDayWeek(dates, eventsByDay, calendarMap));
+
+        // Scrollable grid
+        const scroll = document.createElement('div');
+        scroll.className = 'cv-scroll';
+        const grid = document.createElement('div');
+        grid.className = 'cv-grid';
+        grid.style.minHeight = (this.endHour - this.startHour) * this.hourHeight + 'px';
+
+        // Gutter
+        grid.appendChild(this._dayHelper._buildGutter());
+
+        // 7 day columns
+        const columns = document.createElement('div');
+        columns.className = 'cv-columns';
+        this._dayCols = [];
+
+        // Set handlers before building columns
+        this._dayHelper.onEventClick = this.onEventClick;
+        this._dayHelper.onSlotClick = this.onSlotClick;
+        this._dayHelper.calendarMap = calendarMap;
+
+        dates.forEach((d, i) => {
+            const dayEvents = eventsByDay[i] ? eventsByDay[i].timed || [] : [];
+            const col = this._dayHelper._buildDayColumn(d, dayEvents);
+            columns.appendChild(col);
+            this._dayCols.push({ col, date: d });
+        });
+
+        grid.appendChild(columns);
+        scroll.appendChild(grid);
+        wrapper.appendChild(scroll);
+        this.container.appendChild(wrapper);
+
+        // Auto-scroll
+        this._dayHelper._autoScroll(scroll, today);
+
+        // Now indicators for today's column
+        this._startNowIndicators();
+    }
+
+    _buildAllDayWeek(dates, eventsByDay, calendarMap) {
+        const bar = document.createElement('div');
+        bar.className = 'cv-allday';
+
+        const label = document.createElement('div');
+        label.className = 'cv-allday-label';
+        label.textContent = 'all-day';
+        bar.appendChild(label);
+
+        const content = document.createElement('div');
+        content.className = 'cv-allday-content';
+
+        dates.forEach((d, i) => {
+            const col = document.createElement('div');
+            col.className = 'cv-allday-column';
+            const allDayEvts = eventsByDay[i] ? eventsByDay[i].allDay || [] : [];
+            allDayEvts.forEach(ev => {
+                const chip = document.createElement('div');
+                chip.className = 'cv-allday-event';
+                const cal = calendarMap[ev.calendar];
+                chip.style.backgroundColor = cal ? cal.colour : '#039be5';
+                chip.textContent = ev.name;
+                if (this.onEventClick) {
+                    chip.addEventListener('click', () => this.onEventClick(ev));
+                }
+                col.appendChild(chip);
+            });
+            content.appendChild(col);
+        });
+
+        bar.appendChild(content);
+        return bar;
+    }
+
+    _startNowIndicators() {
+        this._stopNowIndicators();
+        const today = new Date();
+
+        const update = () => {
+            const now = new Date();
+            for (const { col, date } of this._dayCols) {
+                const existing = col.querySelector('.cv-now-line');
+                if (existing) existing.remove();
+                if (date.toDateString() === now.toDateString()) {
+                    const indicator = document.createElement('div');
+                    indicator.className = 'cv-now-line';
+                    const dot = document.createElement('div');
+                    dot.className = 'cv-now-dot';
+                    indicator.appendChild(dot);
+                    const mins = now.getHours() * 60 + now.getMinutes();
+                    indicator.style.top = (mins / 60) * this.hourHeight + 'px';
+                    col.appendChild(indicator);
+                }
+            }
+        };
+
+        update();
+        this._nowTimer = setInterval(update, 60000);
+    }
+
+    _stopNowIndicators() {
+        if (this._nowTimer) {
+            clearInterval(this._nowTimer);
+            this._nowTimer = null;
+        }
+    }
+
+    destroy() {
+        this._stopNowIndicators();
+        this.container.innerHTML = '';
+    }
+}
+
+
+// =============================================================================================================
+// display_day_info — refactored to use CalendarDayView
+// =============================================================================================================
+var _activeDayView = null;
+
 function display_day_info(ds) {
     ds.onclick = () => {
-        setTimeout(function() {
-            dp = ds.parentElement;
-            dpd = dp.dataset.date
+        setTimeout(function () {
+            const dp = ds.parentElement;
+            const dpd = parseInt(dp.dataset.date);
+            const dpMonth = parseInt(dp.dataset.month);
+            const dpYear = parseInt(dp.dataset.year);
 
-            $('.big-modal-title').html(dpd + " " + months[m]);
+            const viewDate = new Date(dpYear, dpMonth - 1, dpd);
 
-            $('.big-modal-body').html(`
-                <table class="day-list">
-                    <tbody class="day-list-tb">
+            $('.big-modal-title').html(
+                moment(viewDate).format('dddd, MMMM D, YYYY')
+            );
 
-                    </tbody>
-                </table>
+            $('.big-modal-body').html('');
+            const container = document.querySelector('.big-modal-body');
 
-                <style>
-                    .day-list .day-list-f {
-                        border: 1px solid #e2e2e2;
+            // Gather timed events for this day
+            const timedEvents = events['events'][dpd] || [];
+            // Gather all-day events for this day
+            const allDayEvents = events['allday'][dpd] || [];
+
+            // Clean up previous view
+            if (_activeDayView) { _activeDayView.destroy(); }
+
+            _activeDayView = new CalendarDayView(container, {
+                hourHeight: 60,
+                onEventClick: function (ev) {
+                    // Find the index in data.events
+                    const idx = data['events'].indexOf(ev);
+                    if (idx !== -1) {
+                        // Close big modal, open small modal
+                        $('#big-modal').modal('hide');
+                        $('#modal').modal('show');
+                        // Simulate the event info display
+                        const fakeBtn = document.createElement('div');
+                        fakeBtn.dataset.no = idx;
+                        fakeBtn.dataset.type = 'event';
+                        fakeBtn.dataset.calendar = ev.calendar;
+                        display_info(fakeBtn);
                     }
-
-                    .day-list-f td {
-                        border-right: 1px solid #e2e2e2;
-                    }
-
-                    .day-list-f {
-                        height: 20px;
-                    }
-
-                    .day-list-events {
-                        width: 15%;
-                    }
-
-                    .day-list-time {
-                        width: 10%;
-                    }
-                </style>
-            `);
-
-            cols = {};
-
-            for(i = 0; i < 96; i++) {
-                d__ = moment(new Date(`${dp.dataset.year} ${dp.dataset.month} ${dpd}`)).add(15 * i, "m").toDate()
-                if (d__.getMinutes() == 0) { lbl = moment(d__).format('LT'); }
-                else { lbl = ""; }
-
-                $('.day-list-tb').append(`
-                    <tr class="day-list-f day-list-${d__.getHours()}-${(String(d__.getMinutes())).padStart(2, "0")}">
-                        <td class="day-list-time">
-                            ${lbl}
-                        </td>
-                        <td class="day-list-events day-list-events-1">
-                            
-                        </td>
-                        <td class="day-list-events day-list-events-2">
-                            
-                        </td>
-                        <td class="day-list-events day-list-events-3">
-                            
-                        </td>
-                        <td class="day-list-events day-list-events-4">
-                            
-                        </td>
-                        <td class="day-list-events day-list-events-5">
-                            
-                        </td>
-                    </tr>
-                    <br>
-                `)
-
-                cols[`${d__.getHours()}-${(String(d__.getMinutes())).padStart(2, "0")}`] = [0, 0, 0, 0, 0]
-            }
-
-            for (ev of events["events"][dpd]) {
-                evd = roundDate(new Date(ev["startdate"]), 15);
-                evt = `${evd.getHours()}-${String(evd.getMinutes()).padStart(2, "0")}`
-                cr = document.querySelector(`.day-list-${evt}`);
-
-                col = 5;
-                for (c = 0; c < 5; c++) {
-                    if (cols[evt][c] == 0) {
-                        col = c + 1;
-                        cols[evt][c] = 1;
-                        break;
-                    }
+                },
+                onSlotClick: function (date, hour, minute) {
+                    // Open event creation at this time
+                    $('#big-modal').modal('hide');
+                    setTimeout(() => {
+                        add_edit_event(date.getDate(), date.getMonth() + 1, date.getFullYear());
+                        $('#big-modal').modal('show');
+                    }, 300);
                 }
+            });
 
-                cr.querySelector(`.day-list-events-${col}`).innerHTML += ev["name"] + "<br>";
-                cr.querySelector(`.day-list-events-${col}`).style.backgroundColor = calendars[ev["calendar"]]["colour"];
-                document.querySelector(`.day-list-${evt}`).style.borderBottom = "0";
-
-                if (ev["enddate"] != "None")
-                {
-                    evd1 = roundDate(new Date(ev["enddate"]), 15);
-                    for (i = evd.valueOf(); i < evd1.valueOf(); i += 1000 * 60 * 15) {
-                        evd2 = new Date(i);
-                        evt1 = `${evd2.getHours()}-${String(evd2.getMinutes()).padStart(2, "0")}`
-                        cr = document.querySelector(`.day-list-${evt1}`);
-                        cc = cr.querySelector(`.day-list-events-${col}`);
-                        cc.style.backgroundColor = calendars[ev["calendar"]]["colour"]
-                        cr.style.borderTop = "0";
-                        cr.style.borderBottom = "0";
-                        
-                        cols[evt1][col - 1] = 1;
-                    }
-
-                    try {
-                        cc.style.borderBottom = "1px solid #e2e2e2";
-                    } catch {}
-                }
-            }
-        }, 100)
-    }
+            _activeDayView.render(viewDate, timedEvents, allDayEvents, calendars);
+        }, 100);
+    };
 }
 
 function reload_calendar() {
@@ -1155,9 +1636,9 @@ function reload_calendar() {
         }
     })
 
-    for (i=0; i<daysInMonth(m, y); i++) {
-        events["events"][i+1] = [];
-        events["allday"][i+1] = [];
+    for (i = 0; i < daysInMonth(m, y); i++) {
+        events["events"][i + 1] = [];
+        events["allday"][i + 1] = [];
     }
 
     c = data["calendars"]
@@ -1171,7 +1652,7 @@ function reload_calendar() {
 
         if (c[i]['active'] == 'False') { opacity = 0.6; }
         else { opacity = 1; }
-        cal_name = calendar_name({"id": c[i]["calendar"]["id"], "name": c[i]["calendar"]["name"], "calendar": i, "calendar-type": c[i]["calendar"]["calendar_type"], "checked": checked, "colour": c[i]['colour'], "owner": c[i]["subscribe_type"] == 0, "opacity": opacity, "admin": c[i]["subscribe_type"] == 1, "sync": c[i]["calendar"]["calendar_type"] != "0", "c_owner": c[i]["calendar"]["owner"] == USER_ID});
+        cal_name = calendar_name({ "id": c[i]["calendar"]["id"], "name": c[i]["calendar"]["name"], "calendar": i, "calendar-type": c[i]["calendar"]["calendar_type"], "checked": checked, "colour": c[i]['colour'], "owner": c[i]["subscribe_type"] == 0, "opacity": opacity, "admin": c[i]["subscribe_type"] == 1, "sync": c[i]["calendar"]["calendar_type"] != "0", "c_owner": c[i]["calendar"]["owner"] == USER_ID });
 
         if (c[i]["subscribe_type"] == 0) {
             document.querySelector('.calendarlist-mine').innerHTML += cal_name;
@@ -1183,18 +1664,16 @@ function reload_calendar() {
 
     if (localStorage.getItem('calendar_show_birthdays') == 1) {
         b = data["birthdays"]
-        for (i = 0; i < b.length; i++)
-        {
+        for (i = 0; i < b.length; i++) {
             date_ = new Date(b[i]["birthday"]).getUTCDate()
             dp = document.querySelector(`.day-events-${date_}`)
-            var ci = calendar_item({'modal': false, 'calendar': "", 'i': i, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'text': `<span style="font-weight: normal;">🎂</span> ${b[i]['username']}'s Birthday`})
+            var ci = calendar_item({ 'modal': false, 'calendar': "", 'i': i, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'text': `<span style="font-weight: normal;">🎂</span> ${b[i]['username']}'s Birthday` })
             dp.innerHTML += ci
         }
     }
 
     e = data["events"]
-    for (i = 0; i < e.length; i++)
-    {
+    for (i = 0; i < e.length; i++) {
         sd = new Date(e[i]['startdate'])
         ed = new Date(e[i]['enddate'])
 
@@ -1207,18 +1686,16 @@ function reload_calendar() {
 
         if (e[i]['enddate'] == null) {
             dp = document.querySelector(`.reg-events-${sd.getDate()}`)
-            var ci = calendar_item({'modal': true, 'del': e[i]['completed'] == true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'color': calendars[e[i]['calendar']]['colour'], 'icon': icon, 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name'], 'del': e[i]['completed'] == true})
+            var ci = calendar_item({ 'modal': true, 'del': e[i]['completed'] == true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'color': calendars[e[i]['calendar']]['colour'], 'icon': icon, 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name'], 'del': e[i]['completed'] == true })
             dp.innerHTML += ci
 
             events["events"][sd.getDate()].push(e[i]);
         }
-        else if (sd.getMonth() == m && ed.getMonth() == m)
-        {
-            for (j = sd.getDate(); j <= ed.getDate(); j++)
-            {
+        else if (sd.getMonth() == m && ed.getMonth() == m) {
+            for (j = sd.getDate(); j <= ed.getDate(); j++) {
                 if (sd.getDate() == ed.getDate()) {
                     dp = document.querySelector(`.reg-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'color': calendars[e[i]['calendar']]['colour'], 'icon': icon, 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name'], 'del': e[i]['completed'] == true})
+                    var ci = calendar_item({ 'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'color': calendars[e[i]['calendar']]['colour'], 'icon': icon, 'text': moment(sd).format('LT').replace(":00", "") + " - " + e[i]['name'], 'del': e[i]['completed'] == true })
                     dp.innerHTML += ci
 
                     events["events"][j].push(e[i]);
@@ -1226,56 +1703,53 @@ function reload_calendar() {
                 else if (e[i]['allday'] == true) {
                     if (j != ed.getDate()) {
                         dp = document.querySelector(`.day-events-${j}`)
-                        var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == true})
+                        var ci = calendar_item({ 'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == true })
                         dp.innerHTML += ci
 
                         events["allday"][j].push(e[i]);
                     }
                 }
                 else {
-                    if (j == sd.getDate()) {prepend = moment(sd).format('LT').replace(":00", "") + " - "; events["events"][j].push(e[i]);}
-                    else {prepend = ""}
+                    if (j == sd.getDate()) { prepend = moment(sd).format('LT').replace(":00", "") + " - "; events["events"][j].push(e[i]); }
+                    else { prepend = "" }
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': prepend + e[i]['name'], 'del': e[i]['completed'] == true})
+                    var ci = calendar_item({ 'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': prepend + e[i]['name'], 'del': e[i]['completed'] == true })
                     dp.innerHTML += ci
                 }
             }
         }
         else if (sd.getMonth() == m) {
-            for (j = sd.getDate(); j <= daysInMonth(m, y); j++)
-            {
+            for (j = sd.getDate(); j <= daysInMonth(m, y); j++) {
                 if (e[i]['allday'] == true) {
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == true})
+                    var ci = calendar_item({ 'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == true })
                     dp.innerHTML += ci
 
                     events["allday"][j].push(e[i]);
                 }
                 else {
-                    if (j == sd.getDate()) {prepend = moment(sd).format('LT').replace(":00", "") + " - "; events["events"][j].push(e[i]);}
-                    else {prepend = ""}
+                    if (j == sd.getDate()) { prepend = moment(sd).format('LT').replace(":00", "") + " - "; events["events"][j].push(e[i]); }
+                    else { prepend = "" }
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': prepend + e[i]['name'], 'del': e[i]['completed'] == true})
+                    var ci = calendar_item({ 'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': prepend + e[i]['name'], 'del': e[i]['completed'] == true })
                     dp.innerHTML += ci
                 }
             }
         }
         else if (ed.getMonth() == m) {
-            for (j = 1; j <= ed.getDate(); j++)
-            {
-                if (e[i]["allday"] == true && j == ed.getDate()) {}
+            for (j = 1; j <= ed.getDate(); j++) {
+                if (e[i]["allday"] == true && j == ed.getDate()) { }
                 else {
                     dp = document.querySelector(`.day-events-${j}`)
-                    var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == true})
+                    var ci = calendar_item({ 'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == true })
                     dp.innerHTML += ci
                 }
             }
         }
         else {
-            for (j = 1; j <= daysInMonth(m, y); j++)
-            {
+            for (j = 1; j <= daysInMonth(m, y); j++) {
                 dp = document.querySelector(`.day-events-${j}`)
-                var ci = calendar_item({'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == true})
+                var ci = calendar_item({ 'modal': true, 'calendar': calendars[e[i]['calendar']], 'i': i, 'type': "event", 'bg_color': calendars[e[i]['calendar']]['colour'], 'color': '#f0f0f0', 'bo_radius': '3px', 'icon': icon, 'text': e[i]['name'], 'del': e[i]['completed'] == true })
                 dp.innerHTML += ci
             }
         }
@@ -1283,7 +1757,7 @@ function reload_calendar() {
 
     t = data["todos"]
     for (let [num, todo] of t.entries()) {
-        if (todo["complete_by"] == null) { tn = `<span class="text-muted">${todo.name}</span>`}
+        if (todo["complete_by"] == null) { tn = `<span class="text-muted">${todo.name}</span>` }
         else {
             cd = new Date(todo["complete_by"]);
             dc = cd.getTime() - new Date().getTime()
@@ -1299,18 +1773,19 @@ function reload_calendar() {
                     if (cd.getHours() == 23 && cd.getMinutes() == 59) {
                         tdtime = "";
                     } else {
-                        tdtime = `${ moment(cd).format('LT').replace(":00", "") } - `;
+                        tdtime = `${moment(cd).format('LT').replace(":00", "")} - `;
                     }
-                    var ci = calendar_item({'modal': false, 'calendar': [], 'i': num, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'del': todo["completed"] == true, 'text': `${TASK_ICON}&nbsp${tdtime}${todo.name}`});
+                    var ci = calendar_item({ 'modal': false, 'calendar': [], 'i': num, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'del': todo["completed"] == true, 'text': `${TASK_ICON}&nbsp${tdtime}${todo.name}` });
                     dp.innerHTML += ci
                 }
             }
-        if (overdue == "5") { tn = `<span class="text-danger">⚠ ${todo.name}</span>` }
-        else if (overdue == "2") { tn = `<span class="text-warning">${todo.name}</span>` }
-        else if (overdue == "1") { tn = `<span class="text-info">${todo.name}</span>` }
-        else { tn = `${todo.name}` } }
+            if (overdue == "5") { tn = `<span class="text-danger">⚠ ${todo.name}</span>` }
+            else if (overdue == "2") { tn = `<span class="text-warning">${todo.name}</span>` }
+            else if (overdue == "1") { tn = `<span class="text-info">${todo.name}</span>` }
+            else { tn = `${todo.name}` }
+        }
         if (todo["completed"] == false) {
-            document.querySelector('.todo-list').innerHTML += todo_item({'id': todo.id, 'name': tn, 'i': num});
+            document.querySelector('.todo-list').innerHTML += todo_item({ 'id': todo.id, 'name': tn, 'i': num });
         }
     }
 
@@ -1321,12 +1796,12 @@ function reload_calendar() {
     hide_loading();
 }
 
-function populate_calendar(m, y, jumponload=false) {
+function populate_calendar(m, y, jumponload = false) {
     r = new XMLHttpRequest();
-    r.open("GET", `${URLS['get_events']}?month=${m+1}&year=${y}&show_all=${localStorage.getItem('calendar_show_all')}&extra=${localStorage.getItem('calendar_extra')}`);
+    r.open("GET", `${URLS['get_events']}?month=${m + 1}&year=${y}&show_all=${localStorage.getItem('calendar_show_all')}&extra=${localStorage.getItem('calendar_extra')}`);
     r.onload = () => {
-        data = JSON.parse(r.responseText.replace(/&#x27;/g,'"'))["data"];
-        
+        data = JSON.parse(r.responseText.replace(/&#x27;/g, '"'))["data"];
+
         // Session Expired
         if (data == "Not logged in") {
             window.location.reload();
@@ -1334,7 +1809,7 @@ function populate_calendar(m, y, jumponload=false) {
 
         document.querySelector('.page-alert').style.display = "none";
 
-        if (jumponload) {reload()};
+        if (jumponload) { reload() };
         reload_calendar();
         lastrefresh = new Date();
         $('#last-refresh').html(moment(lastrefresh).format('LTS'));
@@ -1361,39 +1836,41 @@ function complete_todo(todo_id) {
             alert(res['data']);
         }
     }
-    r.send(JSON.stringify({'id': todo["id"], 'completion': true}));
+    r.send(JSON.stringify({ 'id': todo["id"], 'completion': true }));
 }
 
 function display_info(button) {
-    setTimeout(function() {
+    setTimeout(function () {
         event_ = data["events"][button.dataset.no]
 
         sd = new Date(event_["startdate"])
         ed = new Date(event_["enddate"])
-        if (event_['sync_id'] != null) { title = `${event_['name']} <span class="text-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16">
+        if (event_['sync_id'] != null) {
+            title = `${event_['name']} <span class="text-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16">
                 <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
                 <path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
             </svg></span>` }
         else { title = event_['name'] }
         $('.modal-title').html(title)
 
-        if (event_["enddate"] == "None") {date_ = moment(sd).format('LLLL')}
+        if (event_["enddate"] == "None") { date_ = moment(sd).format('LLLL') }
         else if (event_["allday"] == true) {
             sd1 = moment(sd)
             ed1 = moment(ed).subtract(1, 'days')
-            if (sd1.calendar() == ed1.calendar()) {date_ = moment(sd).format('LL')}
-            else {date_ = moment(sd).format('LL') + " - " + moment(ed).format('LL')}
+            if (sd1.calendar() == ed1.calendar()) { date_ = moment(sd).format('LL') }
+            else { date_ = moment(sd).format('LL') + " - " + moment(ed).format('LL') }
         }
         else {
-            if (sd.getDate() == ed.getDate()) {date_ = moment(sd).format('LLL') + " - " + moment(ed).format('LT')}
-            else {date_ = moment(sd).format('LLL') + " - " + moment(ed).format('LLL')}}
-        if (localStorage.getItem('debug') == 1) {dev_info = `<br><i>Id: ${event_["id"]}</i>`}
-        else {dev_info = ""}
-        if (event_["description"] == "" || event_["description"] == null) {show_desc = false; desc = null}
-        else {show_desc = true; desc = parse_message(event_["description"]);}
+            if (sd.getDate() == ed.getDate()) { date_ = moment(sd).format('LLL') + " - " + moment(ed).format('LT') }
+            else { date_ = moment(sd).format('LLL') + " - " + moment(ed).format('LLL') }
+        }
+        if (localStorage.getItem('debug') == 1) { dev_info = `<br><i>Id: ${event_["id"]}</i>` }
+        else { dev_info = "" }
+        if (event_["description"] == "" || event_["description"] == null) { show_desc = false; desc = null }
+        else { show_desc = true; desc = parse_message(event_["description"]); }
 
-        if (event_["enddate"] == "None") {countdown = `<a href="/calendar/countdown/${event_["id"]}/start/">Countdown to Start</a>`}
-        else {countdown = `<a href="/calendar/countdown/${event_["id"]}/start/">Countdown to Start</a> <a href="/calendar/countdown/${event_["id"]}/end/">Countdown to End</a>`}
+        if (event_["enddate"] == "None") { countdown = `<a href="/calendar/countdown/${event_["id"]}/start/">Countdown to Start</a>` }
+        else { countdown = `<a href="/calendar/countdown/${event_["id"]}/start/">Countdown to Start</a> <a href="/calendar/countdown/${event_["id"]}/end/">Countdown to End</a>` }
 
         $('.modal-body').html(event_info_template({
             "date": date_,
@@ -1425,7 +1902,7 @@ function display_calendar_info(btn) {
         r = new XMLHttpRequest();
 
         r.open('GET', `${URLS['calendar']}?id=${cal["calendar"]["id"]}`);
-        r.onload = function() {
+        r.onload = function () {
             calendar_ = JSON.parse(r.responseText);
 
             $('.big-modal-title').html(`${calendar_["name"]}`);
@@ -1449,12 +1926,12 @@ function display_calendar_info(btn) {
                 temp = "";
                 if (inv["active"] == true) { temp = "checked"; }
                 no_invites++;
-                document.querySelector('.invite-list').innerHTML += calendar_invite({"invite_no": no_invites, "invite": inv["id"], "calendar_id": calendar_["id"], "checked": temp, "invite_name": inv["code"]});
+                document.querySelector('.invite-list').innerHTML += calendar_invite({ "invite_no": no_invites, "invite": inv["id"], "calendar_id": calendar_["id"], "checked": temp, "invite_name": inv["code"] });
             }
 
-            document.querySelector('.random-invite').onclick = function() { document.querySelector('.invite-text').value = randomText(8); }
+            document.querySelector('.random-invite').onclick = function () { document.querySelector('.invite-text').value = randomText(8); }
 
-            document.querySelector('.create-invite').onclick = function() {
+            document.querySelector('.create-invite').onclick = function () {
                 inv = document.querySelector('.invite-text').value;
                 if (inv == "") { $('.invite-warn').html("Please enter an invite code"); }
                 else {
@@ -1489,14 +1966,14 @@ function display_calendar_info(btn) {
 
 function sync_events(btn) {
     cal = data["calendars"][btn.parentElement.parentElement.dataset.calendar]
-    
+
     $('.modal-title').html(`Sync Events for ${cal["calendar"]["name"]}`)
     if (cal["subscribe_type"] == 0 || cal["subscribe_type"] == 1) {
         $('.modal-body').html(calendar_sync_template())
-        
+
         firstms = true
         document.querySelectorAll('.month-select').forEach(e => {
-            for (i=0; i<months.length; i++) {
+            for (i = 0; i < months.length; i++) {
                 e.innerHTML += `<option value="${i}">${months[i]}</option>`
             }
 
@@ -1513,8 +1990,8 @@ function sync_events(btn) {
             e.innerHTML = generate_year_range(currentYear - 5, currentYear + 5);
             e.value = new Date().getFullYear();
         })
-        
-        $('.calendar-sync-btn').click(function() {
+
+        $('.calendar-sync-btn').click(function () {
             result = {
                 "calendar": cal["calendar"]["id"],
                 "sy": parseInt($('.calendar-sync-start-year').val()),
@@ -1523,8 +2000,8 @@ function sync_events(btn) {
                 "em": parseInt($('.calendar-sync-end-month').val()) + 1,
             }
             st = $('#calendar-sync-token').val();
-            if (st != "") {result["token"] = st}
-            
+            if (st != "") { result["token"] = st }
+
             var r = new XMLHttpRequest()
             r.open('POST', URLS['sync_events'])
             r.setRequestHeader("X-CSRFToken", CSRF_TOKEN)
@@ -1541,7 +2018,7 @@ function sync_events(btn) {
             r.send(JSON.stringify(result))
         })
 
-        $('.calendar-sync-term-btn').click(function() {
+        $('.calendar-sync-term-btn').click(function () {
             today = new Date();
             if ([8, 9, 10, 11].includes(today.getMonth())) {
                 document.querySelector('.calendar-sync-start-month').value = today.getMonth();
@@ -1563,7 +2040,7 @@ function sync_events(btn) {
             }
         })
 
-        $('.calendar-sync-term-full-btn').click(function() {
+        $('.calendar-sync-term-full-btn').click(function () {
             today = new Date();
             if ([8, 9, 10, 11].includes(today.getMonth())) {
                 document.querySelector('.calendar-sync-start-month').value = 8;
@@ -1614,10 +2091,9 @@ function create_invite(c) {
     r.onload = () => {
         res = JSON.parse(r.responseText);
         if (res["status"] === "error") { $('.invite-warn').html(res["data"]); }
-        else
-        {
+        else {
             no_invites++;
-            document.querySelector('.invite-list').innerHTML += calendar_invite({"invite_no": no_invites, "invite": res["data"]["id"], "calendar_id": c["id"], "checked": "checked", "invite_name": res["data"]["code"]});
+            document.querySelector('.invite-list').innerHTML += calendar_invite({ "invite_no": no_invites, "invite": res["data"]["id"], "calendar_id": c["id"], "checked": "checked", "invite_name": res["data"]["code"] });
             document.querySelector('.invite-text').value = "";
         }
     }
@@ -1631,16 +2107,11 @@ function toggle_invite(cb) {
     r.onload = () => {
         res = JSON.parse(r.responseText)
         if (res["status"] === "error") { alert("Something went wrong on the server-side. Please try again.") }
-        else
-        {
-            for (i=0; i<data["calendars"][cb.dataset.class]["invites"].length; i++)
-            {
-                if (data["calendars"][cb.dataset.class]["invites"][i]["id"] == cb.dataset.invite)
-                {
-                    if (data["calendars"][cb.dataset.class]["invites"][i]["active"] == true)
-                    { data["calendars"][cb.dataset.class]["invites"][i]["active"] = false }
-                    else
-                    { data["calendars"][cb.dataset.class]["invites"][i]["active"] = true }
+        else {
+            for (i = 0; i < data["calendars"][cb.dataset.class]["invites"].length; i++) {
+                if (data["calendars"][cb.dataset.class]["invites"][i]["id"] == cb.dataset.invite) {
+                    if (data["calendars"][cb.dataset.class]["invites"][i]["active"] == true) { data["calendars"][cb.dataset.class]["invites"][i]["active"] = false }
+                    else { data["calendars"][cb.dataset.class]["invites"][i]["active"] = true }
                 }
             }
             cb.disabled = false
@@ -1696,13 +2167,13 @@ function duplicate_event(event_no) {
                 alert(res["data"])
             }
         }
-        request.send(JSON.stringify({"id": ev["id"], "days": $('#evDupDays').val()}))
+        request.send(JSON.stringify({ "id": ev["id"], "days": $('#evDupDays').val() }))
     }
 }
 
 function view_day_images(date) {
-    $('.modal-title').html(`Images for ${date}-${m+1}-${y}`)
-    $('.modal-body').html(`<iframe src="${window.origin}/photos/day/${y}/${m+1}/${date}/" style="width: 100%; height: 65vh;">`)
+    $('.modal-title').html(`Images for ${date}-${m + 1}-${y}`)
+    $('.modal-body').html(`<iframe src="${window.origin}/photos/day/${y}/${m + 1}/${date}/" style="width: 100%; height: 65vh;">`)
 }
 
 function view_event_images(evt) {
@@ -1711,10 +2182,10 @@ function view_event_images(evt) {
 }
 
 function randomText(length) {
-    var result           = '';
-    var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+    var result = '';
+    var characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
     var charactersLength = characters.length;
-    for ( var i = 0; i < length; i++ ) {
+    for (var i = 0; i < length; i++) {
         result += characters.charAt(Math.floor(Math.random() * charactersLength));
     }
     return result;
@@ -1734,8 +2205,8 @@ function roundDate(date = new Date(), mins) {
 function parse_message(text) {
     text = text.replace("\n", "<br>")
     var urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.replace(urlRegex, function(url) {
-      return '<a href="' + url + '" target="blank">' + url + '</a>';
+    return text.replace(urlRegex, function (url) {
+        return '<a href="' + url + '" target="blank">' + url + '</a>';
     })
 }
 
@@ -1801,7 +2272,7 @@ function today_() {
     d = new Date();
     mm = parseInt(d.getMonth())
     yy = parseInt(d.getFullYear())
-    if (m == mm && y == yy) {}
+    if (m == mm && y == yy) { }
     else {
         $('#month').val(mm);
         $('#year').val(yy);

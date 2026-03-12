@@ -6,7 +6,7 @@
 }
 
 .c-container {
-  float: left!important;
+  float: left !important;
   height: 100%;
 }
 
@@ -22,8 +22,10 @@
 }
 
 .sidebar {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none;
+  /* IE and Edge */
+  scrollbar-width: none;
+  /* Firefox */
 }
 
 .sidebar-footer {
@@ -120,10 +122,11 @@
   padding: 6px 8px;
   font: 14px/16px Arial, Helvetica, sans-serif;
   background: white;
-  background: rgba(255,255,255,0.8);
-  box-shadow: 0 0 15px rgba(0,0,0,0.2);
+  background: rgba(255, 255, 255, 0.8);
+  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
   border-radius: 5px;
 }
+
 .info h4 {
   margin: 0 0 5px;
   color: #777;
@@ -138,7 +141,7 @@
   right: 5px;
   bottom: 5px;
   cursor: pointer;
-  border-bottom: 0px!important;
+  border-bottom: 0px !important;
 }
 
 .day-images-btn {
@@ -146,7 +149,7 @@
   left: 5px;
   bottom: 5px;
   cursor: pointer;
-  border-bottom: 0px!important;
+  border-bottom: 0px !important;
   color: black;
 }
 
@@ -199,13 +202,16 @@
   grid-auto-rows: 1fr;
 }
 
-.table-calendar td, .table-calendar th {
+.table-calendar td,
+.table-calendar th {
   padding: 3px;
   text-align: center;
   vertical-align: top;
 }
 
-.date-picker, .table-calendar tr, .table-calendar td{
+.date-picker,
+.table-calendar tr,
+.table-calendar td {
   table-layout: fixed;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -215,7 +221,9 @@
   width: 100%;
 }
 
-.date-picker div, .date-picker button, .date-picker font {
+.date-picker div,
+.date-picker button,
+.date-picker font {
   overflow: hidden;
 }
 
@@ -230,7 +238,7 @@
 
 .date-span {
   cursor: pointer;
-  
+
 }
 
 .event-button {
@@ -324,7 +332,8 @@
   border-radius: 12px;
   box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
   padding: 16px;
-  z-index: 9999; /* ensure it appears above everything */
+  z-index: 9999;
+  /* ensure it appears above everything */
 }
 
 .command-block .form-control {
@@ -341,5 +350,273 @@
 
 .command-block .form-control:focus {
   background-color: #fff;
-  box-shadow: 0 0 0 2px #007aff; /* macOS blue glow */
+  box-shadow: 0 0 0 2px #007aff;
+  /* macOS blue glow */
+}
+
+
+/* ===== Day / Week View Component ===== */
+
+.cv-container {
+  display: flex;
+  flex-direction: column;
+  height: 70vh;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-size: 13px;
+  user-select: none;
+}
+
+/* --- All-Day Section --- */
+.cv-allday {
+  flex-shrink: 0;
+  display: flex;
+  border-bottom: 2px solid #dadce0;
+  min-height: 28px;
+  max-height: 100px;
+  overflow-y: auto;
+}
+
+.cv-allday-label {
+  width: 58px;
+  min-width: 58px;
+  padding: 4px 8px 4px 0;
+  text-align: right;
+  font-size: 11px;
+  color: #70757a;
+  border-right: 1px solid #dadce0;
+  box-sizing: border-box;
+}
+
+.cv-allday-content {
+  flex: 1;
+  display: flex;
+  position: relative;
+  min-height: 26px;
+}
+
+.cv-allday-column {
+  flex: 1;
+  position: relative;
+  padding: 2px;
+  border-right: 1px solid #dadce0;
+  min-height: 26px;
+}
+
+.cv-allday-column:last-child {
+  border-right: none;
+}
+
+.cv-allday-event {
+  display: block;
+  padding: 2px 6px;
+  margin-bottom: 1px;
+  border-radius: 3px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  transition: opacity 0.15s;
+}
+
+.cv-allday-event:hover {
+  opacity: 0.85;
+}
+
+/* --- Week Header --- */
+.cv-week-header {
+  display: flex;
+  flex-shrink: 0;
+  border-bottom: 1px solid #dadce0;
+}
+
+.cv-week-header-gutter {
+  width: 58px;
+  min-width: 58px;
+  border-right: 1px solid #dadce0;
+}
+
+.cv-week-header-day {
+  flex: 1;
+  text-align: center;
+  padding: 6px 0;
+  font-size: 11px;
+  text-transform: uppercase;
+  color: #70757a;
+  border-right: 1px solid #dadce0;
+}
+
+.cv-week-header-day:last-child {
+  border-right: none;
+}
+
+.cv-week-header-day-name {
+  display: block;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+}
+
+.cv-week-header-day-num {
+  display: block;
+  font-size: 22px;
+  font-weight: 400;
+  color: #3c4043;
+  line-height: 1.3;
+}
+
+.cv-week-header-day.cv-today .cv-week-header-day-num {
+  background: #1a73e8;
+  color: #fff;
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  line-height: 36px;
+  margin: 0 auto;
+  font-size: 18px;
+}
+
+/* --- Scrollable Grid --- */
+.cv-scroll {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.cv-grid {
+  display: flex;
+  position: relative;
+  min-height: 1440px;
+  /* 24h * 60px */
+}
+
+/* --- Time Gutter --- */
+.cv-gutter {
+  width: 58px;
+  min-width: 58px;
+  position: relative;
+  border-right: 1px solid #dadce0;
+  box-sizing: border-box;
+}
+
+.cv-gutter-label {
+  position: absolute;
+  right: 8px;
+  font-size: 10px;
+  color: #70757a;
+  transform: translateY(-50%);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* --- Day Columns --- */
+.cv-columns {
+  flex: 1;
+  display: flex;
+  position: relative;
+}
+
+.cv-day-col {
+  flex: 1;
+  position: relative;
+  border-right: 1px solid #ececec;
+}
+
+.cv-day-col:last-child {
+  border-right: none;
+}
+
+/* Hour lines */
+.cv-hour-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px solid #dadce0;
+}
+
+.cv-half-hour-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 1px dashed #ececec;
+}
+
+/* --- Event Blocks --- */
+.cv-event {
+  position: absolute;
+  border-radius: 4px;
+  padding: 3px 6px;
+  font-size: 11px;
+  line-height: 1.3;
+  overflow: hidden;
+  cursor: pointer;
+  z-index: 1;
+  box-sizing: border-box;
+  border-left: 3px solid rgba(0, 0, 0, 0.15);
+  transition: box-shadow 0.15s, opacity 0.15s;
+  min-height: 15px;
+}
+
+.cv-event:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  z-index: 5;
+}
+
+.cv-event-title {
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cv-event-time {
+  font-size: 10px;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+/* --- Now Indicator --- */
+.cv-now-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 0;
+  border-top: 2px solid #ea4335;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.cv-now-dot {
+  position: absolute;
+  left: -5px;
+  top: -5px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ea4335;
+}
+
+/* --- Clickable time slots --- */
+.cv-slot-overlay {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  z-index: 0;
+}
+
+.cv-slot {
+  position: absolute;
+  left: 0;
+  right: 0;
+  cursor: pointer;
+}
+
+.cv-slot:hover {
+  background: rgba(26, 115, 232, 0.06);
 }
