@@ -154,7 +154,6 @@ def photos(request):
 def my_albums_page(request):
     ses = ShareAlbum_Subscriber.objects.filter(user=request.user)
     sa = [s.album.getinfo() for s in ses]
-    print(sa)
 
     return render(request, 'photos/albums.html', {
         "albums": sa,

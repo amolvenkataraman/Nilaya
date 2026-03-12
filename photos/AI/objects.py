@@ -103,29 +103,34 @@ def run(images, force_reindex=False, delay=0):
             print(f"Photo {img.id} is a video, skipping.")
             continue
 
-        results = model(img.get_filepath())
+        try:
+            results = model(img.get_filepath())
 
-        object_numbers = []
+            object_numbers = []
 
-        for result in results:
-            for box in result.boxes:
-                conf = box.conf.item()  # convert tensor → float
-                if conf < CONFIDENCE_THRESHOLD:
-                    continue
-                cls_num = int(box.cls)
-                object_numbers.append(cls_num)
+            for result in results:
+                for box in result.boxes:
+                    conf = box.conf.item()  # convert tensor → float
+                    if conf < CONFIDENCE_THRESHOLD:
+                        continue
+                    cls_num = int(box.cls)
+                    object_numbers.append(cls_num)
 
-        # Remove duplicates (optional)
-        object_numbers = list(set(object_numbers))
+            # Remove duplicates (optional)
+            object_numbers = list(set(object_numbers))
 
-        # Store in ai_index_info
-        if not hasattr(img, "ai_index_info") or img.ai_index_info is None:
-            img.ai_index_info = {}
+            # Store in ai_index_info
+            if not hasattr(img, "ai_index_info") or img.ai_index_info is None:
+                img.ai_index_info = {}
 
-        img.ai_index_info = {**img.ai_index_info, "objects": object_numbers}
-        img.save(update_fields=["ai_index_info"])
+            img.ai_index_info = {**img.ai_index_info, "objects": object_numbers}
+            img.save(update_fields=["ai_index_info"])
 
-        print(f"Photo {img.id} indexed with objects: {object_numbers}")
+            print(f"Photo {img.id} indexed with objects: {object_numbers}")
 
-        if delay > 0:
-            time.sleep(delay)
+            if delay > 0:
+                time.sleep(delay)
+
+        except Exception as e:
+            print(f"Photo {img.id} failed to index: {e}")
+            continue

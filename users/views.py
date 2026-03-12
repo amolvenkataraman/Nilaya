@@ -11,6 +11,7 @@ from PIL import Image
 import base64
 import json
 import io
+import os
 import bleach
 
 # Views for login and logout
@@ -110,6 +111,7 @@ def profile_picture(request):
             return FileResponse(open('media/profile_picture.png', 'rb'))
 
     elif request.method == 'POST':
+        os.makedirs(f"{MEDIA_ROOT}/users/profile_pictures", exist_ok=True)
         filename = f"users/profile_pictures/{random_characters()}.jpg"
         with open(f"{MEDIA_ROOT}/{filename}", "wb") as f:
             f.write(base64.b64decode(str(request.body).split(';')[1].split(',')[1]))
