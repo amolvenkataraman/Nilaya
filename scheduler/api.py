@@ -28,12 +28,15 @@ def get_events(request):
     calendars = user_.calendar_subscribed.all()
     albums = [i.album for i in user_.album_subscribed.all()]
 
-    if request.GET.get("show_all") == "0":
-        calendars = user_.calendar_subscribed.filter(calendar__active=True)
-    else:
+    if request.GET.get("show_all") == "1":
         calendars = user_.calendar_subscribed.all()
+    else:
+        calendars = user_.calendar_subscribed.filter(calendar__active=True)
 
-    calendars1 = [i.calendar for i in calendars.filter(visible=True)]
+    if request.GET.get("show_invisible") == "1":
+        calendars1 = [i.calendar for i in calendars]
+    else:
+        calendars1 = [i.calendar for i in calendars.filter(visible=True)]
 
     ans["data"]["calendars"] = [i.getinfo(cal=True) for i in calendars.order_by('calendar__name')]
     ans["data"]["birthdays"] = [i.getinfo_zip() for i in user_.friends.filter(birthday__month=int(month))]

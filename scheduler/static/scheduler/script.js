@@ -960,31 +960,20 @@ function toggle_calendar_visibility(e, only) {
     const calId = calendarInfo["calendar"]["id"];
     const isNowHidden = !e.checked;
 
-    // Instant local UI update for HIDING (not "display this only")
-    if (isNowHidden && !only) {
-        // data["events"] is a flat array — filter out events belonging to this calendar
-        data["events"] = data["events"].filter(evt => evt.calendar !== calId);
+    // Flip visibility locally
+    calendarInfo["visible"] = !isNowHidden;
 
-        // Mark the calendar as not visible locally so reload_calendar renders the checkbox unchecked
-        calendarInfo["visible"] = false;
+    // Instant re-render from the full (unfiltered) data — reload_calendar skips hidden calendars
+    reload_calendar();
+    _afterDataLoad();
+    switch_view(currentView);
 
-        // Rebuild the entire month view + sidebar from the now-filtered data
-        reload_calendar();
-        _afterDataLoad();
-        switch_view(currentView);
-    }
-
-    // Send the background request to persist the toggle
+    // Send the background request to persist the toggle on the server
     const r = new XMLHttpRequest();
     r.open("GET", `${URLS['toggle_visibility']}?calendar=${calId}`);
     r.onload = () => {
         const res = JSON.parse(r.responseText);
-        if (res['status'] == 'success') {
-            // Only re-fetch from server when SHOWING (we need the events back)
-            if (!isNowHidden || only) {
-                populate_calendar(m, y, true);
-            }
-        } else {
+        if (res['status'] !== 'success') {
             alert(res['data']);
             // Revert on error
             populate_calendar(m, y, true);
@@ -1796,6 +1785,9 @@ function reload_calendar() {
 
     e = data["events"]
     for (i = 0; i < e.length; i++) {
+        // Skip events from hidden calendars
+        if (calendars[e[i]['calendar']] && calendars[e[i]['calendar']]['visible'] === false) continue;
+
         sd = new Date(e[i]['startdate'])
         ed = new Date(e[i]['enddate'])
 
@@ -1920,7 +1912,7 @@ function reload_calendar() {
 
 function populate_calendar(m, y, jumponload = false) {
     r = new XMLHttpRequest();
-    r.open("GET", `${URLS['get_events']}?month=${m + 1}&year=${y}&show_all=${localStorage.getItem('calendar_show_all')}&extra=${localStorage.getItem('calendar_extra')}`);
+    r.open("GET", `${URLS['get_events']}?month=${m + 1}&year=${y}&show_all=${localStorage.getItem('calendar_show_all')}&extra=${localStorage.getItem('calendar_extra')}&show_invisible=1`);
     r.onload = () => {
         data = JSON.parse(r.responseText.replace(/&#x27;/g, '"'))["data"];
 
@@ -2639,6 +2631,58 @@ document.onkeydown = function (e) {
                     $('#big-modal').modal('show');
                 }
             }
+        }
+    }
+
+    // ===== Plain-key shortcuts (no modifier, no modal, no text input focused) =====
+    const tag = document.activeElement ? document.activeElement.tagName : '';
+    const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement.isContentEditable;
+    const modalOpen = document.getElementById('modal').classList.contains('show') || document.getElementById('big-modal').classList.contains('show');
+
+    if (!e.ctrlKey && !e.altKey && !e.metaKey && !isTyping && !modalOpen) {
+        const k = e.key.toLowerCase();
+
+        if (k === 'd') { e.preventDefault(); switch_view('day'); document.getElementById('calViewSelect').value = 'day'; }
+        else if (k === 'w') { e.preventDefault(); switch_view('week'); document.getElementById('calViewSelect').value = 'week'; }
+        else if (k === 'm') { e.preventDefault(); switch_view('month'); document.getElementById('calViewSelect').value = 'month'; }
+        else if (k === 't') { e.preventDefault(); today_(); }
+        else if (k === 'a') {
+            // All-day event for current day
+            e.preventDefault();
+            const now = new Date();
+            add_edit_event(now.getDate(), now.getMonth() + 1, now.getFullYear());
+            $('#big-modal').modal('show');
+            // Auto-click the all-day-event type button after the form renders
+            setTimeout(() => { document.querySelector('[data-event-type="ade"]')?.click(); }, 100);
+        }
+        else if (k === 'c') {
+            // Timed event starting at next 15-min mark, 1 hour duration
+            e.preventDefault();
+            const now = new Date();
+            add_edit_event(now.getDate(), now.getMonth() + 1, now.getFullYear());
+            $('#big-modal').modal('show');
+            setTimeout(() => {
+                // Click the "event" type button
+                document.querySelector('[data-event-type="event"]')?.click();
+                // Compute next 15-min mark
+                const mins = now.getMinutes();
+                const next15 = Math.ceil((mins + 1) / 15) * 15;
+                const startH = now.getHours() + Math.floor(next15 / 60);
+                const startM = next15 % 60;
+                const endH = startH + 1;
+                // Pre-fill time inputs if they exist
+                const startTime = document.getElementById('event-start-time');
+                const endTime = document.getElementById('event-end-time');
+                if (startTime) startTime.value = `${String(startH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`;
+                if (endTime) endTime.value = `${String(endH).padStart(2, '0')}:${String(startM).padStart(2, '0')}`;
+            }, 100);
+        }
+        else if (k === '.' || k === 'n') { e.preventDefault(); go_next(); }
+        else if (k === ',' || k === 'p') { e.preventDefault(); go_prev(); }
+        else if (k === 's') {
+            e.preventDefault();
+            create_calendar();
+            $('#modal').modal('show');
         }
     }
 
