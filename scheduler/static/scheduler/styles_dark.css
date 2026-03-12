@@ -122,3 +122,42 @@
 .cv-slot:hover {
     background: rgba(138, 180, 248, 0.08);
 }
+
+.cv-drag-preview {
+    background: rgba(138, 180, 248, 0.15);
+    border-color: #8ab4f8;
+}
+
+.ei-desc-block {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.ei-actions {
+    border-top-color: #5f6368;
+}
+
+.cv-day-header {
+    color: #e8eaed;
+}
+
+.table-calendar td,
+.table-calendar th {
+    border-color: #3c4043;
+}
+
+.table-calendar th {
+    border-bottom-color: #5f6368;
+}
+
+.calendar-name-div:hover {
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.calendarlist-mine-header span,
+.calendarlist-other-header span {
+    opacity: 0.5;
+}
+
+.cv-photo-badge {
+    color: #9aa0a6;
+}

@@ -198,54 +198,53 @@ const calendar_sync_template = Handlebars.compile(`
 `);
 
 const event_info_template = Handlebars.compile(`
-    <div class="ei-date-info">
-        {{ date }}
-    </div>
-    <div class="ei-calendar-info">
-        {{ calendar }}
-    </div>
-    {{#if show_desc}}
-    <div class="ei-description">
-        {{{ description }}}
-    </div>
-    <div class="ei-location">
-        Location: {{{ location }}}
-    </div>
-    {{/if}}
-    <div class="ei-countdown">
-        {{{ countdown }}}
-    </div>
-    <div class="ei-dev-info">
+    <div class="ei-card">
+        <div class="ei-header" style="margin-bottom: 8px;">
+            <div class="ei-color-dot" style="background:{{ cal_color }};"></div>
+            <div style="font-size: 13px; font-weight: 600; color: #5f6368;">{{ calendar }}</div>
+        </div>
+        <div class="ei-meta">
+            <div class="ei-meta-row">
+                <div class="ei-meta-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>
+                </div>
+                <div class="ei-meta-text">{{ date }}</div>
+            </div>
+            {{#if show_location}}
+            <div class="ei-meta-row">
+                <div class="ei-meta-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
+                </div>
+                <div class="ei-meta-text">{{ location }}</div>
+            </div>
+            {{/if}}
+        </div>
+        {{#if show_desc}}
+        <div class="ei-desc-block">{{{ description }}}</div>
+        {{/if}}
+        <div class="ei-countdown">{{{ countdown }}}</div>
         {{{ dev_info }}}
-    </div>
-    {{#if owner}}
-    <div class="ei-controls">
-        <div class="btn-group mb-2" role="group" aria-label="Event controls">
-            <button type="button" class="btn btn-warning" onclick="$('#modal').modal('hide'); $('#big-modal').modal('show'); add_edit_event(1, m+1, y, command='edit', edit_event=data['events']['{{ event_no }}'])">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">
-                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
-                </svg>
+        {{#if owner}}
+        <div class="ei-actions">
+            <button type="button" class="btn btn-outline-warning btn-sm" onclick="$('#modal').modal('hide'); $('#big-modal').modal('show'); add_edit_event(1, m+1, y, command='edit', edit_event=data['events']['{{ event_no }}'])">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10z"/></svg>
+                Edit
             </button>
-            <button type="button" class="btn btn-danger" onclick="delete_event('{{ event_no }}')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
-                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                </svg>
+            <button type="button" class="btn btn-outline-danger btn-sm" onclick="delete_event('{{ event_no }}')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
+                Delete
             </button>
-            <button type="button" class="btn btn-primary" onclick="$('#modal').modal('hide'); $('#big-modal').modal('show'); view_event_images(data['events']['{{ event_no }}'])">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-camera" viewBox="0 0 16 16">
-                    <path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1v6zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2z"/>
-                    <path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/>
-                </svg>
+            <button type="button" class="btn btn-outline-primary btn-sm" onclick="$('#modal').modal('hide'); $('#big-modal').modal('show'); view_event_images(data['events']['{{ event_no }}'])">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1v6zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2z"/><path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/></svg>
+                Photos
             </button>
+            <div class="input-group input-group-sm" style="width: auto; flex: 0 0 auto;">
+                <input type="number" id="evDupDays" class="form-control" value="1" style="width:50px;"/>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="duplicate_event('{{ event_no }}')">Dup</button>
+            </div>
         </div>
-        <div class="input-group input-group-sm" style="width: 50%;">
-            <input type="number" id="evDupDays" class="form-control" value="1"/>
-            <label class="input-group-text" for="evDupDays">Days</label>
-            <button type="button" class="btn btn-primary" onclick="duplicate_event('{{ event_no }}')">Duplicate</button>
-        </div>
+        {{/if}}
     </div>
-    {{/if}}
 `);
 
 const event_create_template = Handlebars.compile(`
@@ -386,6 +385,13 @@ var ss_available = false;
 var timediff1 = 1000 * 60 * 60 * 12;
 var timediff2 = 1000 * 60 * 60 * 24 * 2;
 
+// View state
+var currentView = localStorage.getItem('calendar_view') || 'month';
+var currentDayDate = new Date(); // for day view navigation
+var currentWeekStart = null;     // for week view navigation
+var _mainDayView = null;
+var _mainWeekView = null;
+
 var ICONS = [
     "",
     `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-projector" viewBox="0 0 16 16">
@@ -442,6 +448,15 @@ document.addEventListener('DOMContentLoaded', () => {
     set_localstorage();
 
     set_display();
+
+    // Restore sidebar tab from localStorage
+    const savedTab = localStorage.getItem('calendar_sidebar_tab') || '.sb-todos';
+    show_in_sidebar(savedTab);
+
+    // Restore view mode from localStorage
+    const savedView = localStorage.getItem('calendar_view') || 'month';
+    document.getElementById('calViewSelect').value = savedView;
+    currentView = savedView;
 
     populate_calendar(m, y);
 
@@ -552,12 +567,22 @@ function showCalendar(month, year) {
                 cell.setAttribute("data-day", j);
                 cell.className = `date-picker date-picker-${date}`;
                 cell.innerHTML = `
-                    <div class='date-span' data-bs-toggle='modal' data-bs-target='#big-modal' onclick="display_day_info(this)"><span data-bs-toggle='modal' data-bs-target='#big-modal' onclick="display_day_info(this.parentElement)">${date}</span></div>
+                    <div class='date-span' data-bs-toggle='modal' data-bs-target='#big-modal' onclick="event.stopPropagation(); display_day_info(this)"><span onclick="event.stopPropagation(); display_day_info(this.parentElement)">${date}</span></div>
                     <div class='day-events day-events-${date}'></div>
                     <div class='reg-events reg-events-${date}'></div>
-                    <span class="badge add-on-day-btn" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="add_edit_event(${date})">+</span>
-                    <span class="badge day-images-btn day-images-btn-${date}" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="view_day_images(${date})">-</span>
-                `
+                    <span class="badge add-on-day-btn" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="event.stopPropagation(); add_edit_event(${date})">+</span>
+                    <span class="badge day-images-btn day-images-btn-${date}" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="event.stopPropagation(); view_day_images(${date})">-</span>
+                `;
+                // Click empty cell space → open create form
+                const cellDate = date;
+                cell.style.cursor = 'pointer';
+                cell.addEventListener('click', function (e) {
+                    // Only fire if click is on the cell itself (not on children like events)
+                    if (e.target === this || e.target.classList.contains('day-events') || e.target.classList.contains('reg-events')) {
+                        add_edit_event(cellDate);
+                        $('#big-modal').modal('show');
+                    }
+                });
 
                 if (date === today.getDate() && year === today.getFullYear() && month === today.getMonth()) {
                     cell.className = `date-picker selected date-picker-${date}`;
@@ -931,17 +956,38 @@ function change_height() {
 }
 
 function toggle_calendar_visibility(e, only) {
-    calendar_ = data["calendars"][e.parentElement.dataset.calendar]
+    const calendarInfo = data["calendars"][e.parentElement.dataset.calendar];
+    const calId = calendarInfo["calendar"]["id"];
+    const isNowHidden = !e.checked;
 
-    r = new XMLHttpRequest();
-    r.open("GET", `${URLS['toggle_visibility']}?calendar=${calendar_["calendar"]["id"]}`);
+    // Instant local UI update for HIDING (not "display this only")
+    if (isNowHidden && !only) {
+        // data["events"] is a flat array — filter out events belonging to this calendar
+        data["events"] = data["events"].filter(evt => evt.calendar !== calId);
+
+        // Mark the calendar as not visible locally so reload_calendar renders the checkbox unchecked
+        calendarInfo["visible"] = false;
+
+        // Rebuild the entire month view + sidebar from the now-filtered data
+        reload_calendar();
+        _afterDataLoad();
+        switch_view(currentView);
+    }
+
+    // Send the background request to persist the toggle
+    const r = new XMLHttpRequest();
+    r.open("GET", `${URLS['toggle_visibility']}?calendar=${calId}`);
     r.onload = () => {
-        res = JSON.parse(r.responseText)
+        const res = JSON.parse(r.responseText);
         if (res['status'] == 'success') {
-            populate_calendar(m, y, true);
-        }
-        else {
+            // Only re-fetch from server when SHOWING (we need the events back)
+            if (!isNowHidden || only) {
+                populate_calendar(m, y, true);
+            }
+        } else {
             alert(res['data']);
+            // Revert on error
+            populate_calendar(m, y, true);
         }
     }
     r.send();
@@ -1043,6 +1089,7 @@ class CalendarDayView {
         this.endHour = options.endHour || 24;
         this.onEventClick = options.onEventClick || null;
         this.onSlotClick = options.onSlotClick || null;
+        this.onDragCreate = options.onDragCreate || null;
         this.showHeader = options.showHeader || false;
         this._nowTimer = null;
     }
@@ -1061,6 +1108,14 @@ class CalendarDayView {
 
         const wrapper = document.createElement('div');
         wrapper.className = 'cv-container';
+
+        // Day header (shows which day this is)
+        if (this.showHeader !== 'none') {
+            const header = document.createElement('div');
+            header.className = 'cv-day-header';
+            header.textContent = moment(date).format('dddd, MMMM D, YYYY');
+            wrapper.appendChild(header);
+        }
 
         // All-day section
         wrapper.appendChild(this._buildAllDay(allDayEvents));
@@ -1168,22 +1223,87 @@ class CalendarDayView {
         bottomLine.style.top = (this.endHour - this.startHour) * this.hourHeight + 'px';
         col.appendChild(bottomLine);
 
-        // Clickable slot overlay
+        // Clickable slot overlay with drag-to-create
         const overlay = document.createElement('div');
         overlay.className = 'cv-slot-overlay';
-        for (let h = this.startHour; h < this.endHour; h++) {
-            for (let m = 0; m < 60; m += 30) {
-                const slot = document.createElement('div');
-                slot.className = 'cv-slot';
-                slot.style.top = (h - this.startHour) * this.hourHeight + (m / 60) * this.hourHeight + 'px';
-                slot.style.height = this.hourHeight / 2 + 'px';
-                if (this.onSlotClick) {
-                    const hh = h, mm = m;
-                    slot.addEventListener('click', () => this.onSlotClick(date, hh, mm));
-                }
-                overlay.appendChild(slot);
+
+        // Drag state
+        let dragging = false;
+        let dragStartY = 0;
+        let dragPreview = null;
+        const self = this;
+        const totalHeight = (this.endHour - this.startHour) * this.hourHeight;
+
+        const _yToTime = (y) => {
+            const totalMins = (y / self.hourHeight) * 60 + self.startHour * 60;
+            // Snap to 15 min
+            const snapped = Math.round(totalMins / 15) * 15;
+            const h = Math.floor(snapped / 60);
+            const m = snapped % 60;
+            return { h: Math.max(0, Math.min(23, h)), m: Math.max(0, Math.min(45, m)) };
+        };
+
+        overlay.addEventListener('mousedown', (e) => {
+            if (e.button !== 0) return;
+            const rect = overlay.getBoundingClientRect();
+            dragStartY = e.clientY - rect.top;
+            dragging = true;
+
+            // Create preview
+            dragPreview = document.createElement('div');
+            dragPreview.className = 'cv-drag-preview';
+            dragPreview.style.top = dragStartY + 'px';
+            dragPreview.style.height = '0px';
+            col.appendChild(dragPreview);
+
+            e.preventDefault();
+        });
+
+        overlay.addEventListener('mousemove', (e) => {
+            if (!dragging || !dragPreview) return;
+            const rect = overlay.getBoundingClientRect();
+            const curY = Math.max(0, Math.min(totalHeight, e.clientY - rect.top));
+            const top = Math.min(dragStartY, curY);
+            const height = Math.abs(curY - dragStartY);
+            dragPreview.style.top = top + 'px';
+            dragPreview.style.height = height + 'px';
+        });
+
+        const _endDrag = (e) => {
+            if (!dragging) return;
+            dragging = false;
+            if (dragPreview) {
+                dragPreview.remove();
+                dragPreview = null;
             }
-        }
+            const rect = overlay.getBoundingClientRect();
+            const endY = Math.max(0, Math.min(totalHeight, e.clientY - rect.top));
+            const minY = Math.min(dragStartY, endY);
+            const maxY = Math.max(dragStartY, endY);
+
+            // Only trigger if dragged at least ~10px (not a simple click)
+            if (maxY - minY < 10) {
+                // Treat as click
+                if (self.onSlotClick) {
+                    const t = _yToTime(minY);
+                    self.onSlotClick(date, t.h, t.m);
+                }
+                return;
+            }
+
+            const startT = _yToTime(minY);
+            const endT = _yToTime(maxY);
+
+            if (self.onDragCreate) {
+                self.onDragCreate(date, startT.h, startT.m, endT.h, endT.m);
+            }
+        };
+
+        overlay.addEventListener('mouseup', _endDrag);
+        overlay.addEventListener('mouseleave', (e) => {
+            if (dragging) _endDrag(e);
+        });
+
         col.appendChild(overlay);
 
         // Position events
@@ -1386,6 +1506,7 @@ class CalendarWeekView {
         this.endHour = options.endHour || 24;
         this.onEventClick = options.onEventClick || null;
         this.onSlotClick = options.onSlotClick || null;
+        this.onDragCreate = options.onDragCreate || null;
         this._nowTimer = null;
         this._dayHelper = new CalendarDayView(document.createElement('div'), {
             hourHeight: this.hourHeight,
@@ -1461,6 +1582,7 @@ class CalendarWeekView {
         // Set handlers before building columns
         this._dayHelper.onEventClick = this.onEventClick;
         this._dayHelper.onSlotClick = this.onSlotClick;
+        this._dayHelper.onDragCreate = this.onDragCreate;
         this._dayHelper.calendarMap = calendarMap;
 
         dates.forEach((d, i) => {
@@ -1813,6 +1935,12 @@ function populate_calendar(m, y, jumponload = false) {
         reload_calendar();
         lastrefresh = new Date();
         $('#last-refresh').html(moment(lastrefresh).format('LTS'));
+
+        // Re-render day/week views if active
+        _afterDataLoad();
+
+        // Show correct view pane
+        switch_view(currentView);
     }
     r.onerror = () => {
         document.querySelector('.page-alert').style.display = "block";
@@ -1846,10 +1974,8 @@ function display_info(button) {
         sd = new Date(event_["startdate"])
         ed = new Date(event_["enddate"])
         if (event_['sync_id'] != null) {
-            title = `${event_['name']} <span class="text-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16">
-                <path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/>
-                <path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/>
-            </svg></span>` }
+            title = `${event_['name']} <span class="text-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/></svg></span>`
+        }
         else { title = event_['name'] }
         $('.modal-title').html(title)
 
@@ -1858,28 +1984,42 @@ function display_info(button) {
             sd1 = moment(sd)
             ed1 = moment(ed).subtract(1, 'days')
             if (sd1.calendar() == ed1.calendar()) { date_ = moment(sd).format('LL') }
-            else { date_ = moment(sd).format('LL') + " - " + moment(ed).format('LL') }
+            else { date_ = moment(sd).format('LL') + " – " + moment(ed).format('LL') }
         }
         else {
-            if (sd.getDate() == ed.getDate()) { date_ = moment(sd).format('LLL') + " - " + moment(ed).format('LT') }
-            else { date_ = moment(sd).format('LLL') + " - " + moment(ed).format('LLL') }
+            if (sd.getDate() == ed.getDate()) { date_ = moment(sd).format('LLL') + " – " + moment(ed).format('LT') }
+            else { date_ = moment(sd).format('LLL') + " – " + moment(ed).format('LLL') }
         }
         if (localStorage.getItem('debug') == 1) { dev_info = `<br><i>Id: ${event_["id"]}</i>` }
         else { dev_info = "" }
         if (event_["description"] == "" || event_["description"] == null) { show_desc = false; desc = null }
         else { show_desc = true; desc = parse_message(event_["description"]); }
 
-        if (event_["enddate"] == "None") { countdown = `<a href="/calendar/countdown/${event_["id"]}/start/">Countdown to Start</a>` }
-        else { countdown = `<a href="/calendar/countdown/${event_["id"]}/start/">Countdown to Start</a> <a href="/calendar/countdown/${event_["id"]}/end/">Countdown to End</a>` }
+        const loc = value_or_empty(event_["location"]);
+
+        const clockIcon = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 3.5a.5.5 0 0 0-1 0V8a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 7.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>';
+        if (event_["enddate"] == "None") {
+            countdown = `<a href="/calendar/countdown/${event_["id"]}/start/" class="btn btn-outline-secondary btn-sm" target="_blank">${clockIcon} Start</a>`;
+        } else {
+            countdown = `<a href="/calendar/countdown/${event_["id"]}/start/" class="btn btn-outline-secondary btn-sm" target="_blank">${clockIcon} Start</a> <a href="/calendar/countdown/${event_["id"]}/end/" class="btn btn-outline-secondary btn-sm" target="_blank">${clockIcon} End</a>`;
+        }
+
+        const cal = calendars[event_["calendar"]];
+        const calColor = cal ? cal.colour : '#039be5';
 
         $('.modal-body').html(event_info_template({
+            "title": title,
+            "cal_color": calColor,
             "date": date_,
-            "calendar": `${calendars[event_["calendar"]]["calendar"]["name"]} [${event_["category"]}]`,
-            "show_desc": show_desc, "description": desc, "location": value_or_empty(event_["location"]),
+            "calendar": `${cal ? cal.calendar.name : 'Unknown'} [${event_["category"]}]`,
+            "show_desc": show_desc,
+            "description": desc,
+            "show_location": loc !== "",
+            "location": loc,
             "countdown": countdown,
             "dev_info": dev_info,
             "event_no": button.dataset.no,
-            "owner": calendars[event_["calendar"]]["subscribe_type"] == 0 || calendars[event_["calendar"]]["subscribe_type"] == 1,
+            "owner": cal && (cal.subscribe_type == 0 || cal.subscribe_type == 1),
         }))
     }, 100)
 }
@@ -2221,35 +2361,215 @@ function show_in_sidebar(opt) {
     document.querySelectorAll('.sidebar-info').forEach((el) => {
         el.style.display = "none";
     });
-    document.querySelector(opt).style.display = "block";
+    const target = document.querySelector(opt);
+    if (target) target.style.display = "block";
+
+    // Highlight active tab
+    document.querySelectorAll('#sidebar-tabs .nav-link').forEach(link => {
+        link.classList.remove('active');
+        if (link.dataset.sidebarTab === opt) {
+            link.classList.add('active');
+        }
+    });
+
+    // Persist
+    localStorage.setItem('calendar_sidebar_tab', opt);
 }
 
 function hide_loading() {
     document.querySelector('.loading-screen').style.display = "none";
 }
 
-function go_prev() {
-    m -= 1
-    if (m == -1) {
-        m = 11
-        y -= 1
+// ===== View Switching =====
+function switch_view(view) {
+    currentView = view;
+    localStorage.setItem('calendar_view', view);
+
+    document.querySelector('.view-month').style.display = view === 'month' ? '' : 'none';
+    document.querySelector('.view-week').style.display = view === 'week' ? '' : 'none';
+    document.querySelector('.view-day').style.display = view === 'day' ? '' : 'none';
+
+    if (view === 'month') {
+        // Already populated by month
+    } else if (view === 'week') {
+        renderWeekView();
+    } else if (view === 'day') {
+        renderDayView();
+    }
+}
+
+function renderDayView() {
+    if (!data) return;
+    const container = document.querySelector('.view-day');
+    if (_mainDayView) _mainDayView.destroy();
+
+    _mainDayView = new CalendarDayView(container, {
+        hourHeight: 60,
+        onEventClick: _handleMainEventClick,
+        onSlotClick: _handleMainSlotClick,
+        onDragCreate: _handleDragCreate,
+    });
+
+    const dayNum = currentDayDate.getDate();
+    const timedEvts = events['events'][dayNum] || [];
+    const allDayEvts = events['allday'][dayNum] || [];
+    _mainDayView.render(currentDayDate, timedEvts, allDayEvts, calendars);
+
+    // Photo count badge
+    _addPhotoBadge(container, dayNum);
+}
+
+function renderWeekView() {
+    if (!data) return;
+    const container = document.querySelector('.view-week');
+    if (_mainWeekView) _mainWeekView.destroy();
+
+    // Compute week start (Sunday) from currentDayDate
+    const ws = new Date(currentDayDate);
+    ws.setDate(ws.getDate() - ws.getDay());
+    ws.setHours(0, 0, 0, 0);
+    currentWeekStart = ws;
+
+    _mainWeekView = new CalendarWeekView(container, {
+        hourHeight: 60,
+        onEventClick: _handleMainEventClick,
+        onSlotClick: _handleMainSlotClick,
+        onDragCreate: _handleDragCreate,
+    });
+
+    // Build eventsByDay for the 7 days
+    const eventsByDay = {};
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(ws);
+        d.setDate(d.getDate() + i);
+        const dayNum = d.getDate();
+        // Only include events from the current loaded month
+        if (d.getMonth() === m && d.getFullYear() === y) {
+            eventsByDay[i] = {
+                timed: events['events'][dayNum] || [],
+                allDay: events['allday'][dayNum] || [],
+            };
+        } else {
+            eventsByDay[i] = { timed: [], allDay: [] };
+        }
     }
 
-    previous()
-    make_holidays_red()
-    populate_calendar(m, y)
+    _mainWeekView.render(ws, eventsByDay, calendars);
+
+    // Photo count badges for week view
+    const cols = container.querySelectorAll('.cv-day-col');
+    for (let i = 0; i < 7; i++) {
+        const d = new Date(ws);
+        d.setDate(d.getDate() + i);
+        if (d.getMonth() === m && d.getFullYear() === y && cols[i]) {
+            _addPhotoBadgeToCol(cols[i], d.getDate());
+        }
+    }
+}
+
+function _addPhotoBadge(container, dayNum) {
+    if (!data || !data.photos) return;
+    const count = data.photos[dayNum];
+    if (!count || count === '-' || count === 0) return;
+    const col = container.querySelector('.cv-day-col');
+    if (col) _addPhotoBadgeToCol(col, dayNum);
+}
+
+function _addPhotoBadgeToCol(col, dayNum) {
+    if (!data || !data.photos) return;
+    const count = data.photos[dayNum];
+    if (!count || count === '-' || count === 0) return;
+    const badge = document.createElement('div');
+    badge.className = 'cv-photo-badge';
+    badge.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16"><path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1v6z"/><path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>${count}`;
+    col.appendChild(badge);
+}
+
+function _handleMainEventClick(ev) {
+    const idx = data['events'].indexOf(ev);
+    if (idx !== -1) {
+        $('#modal').modal('show');
+        const fakeBtn = document.createElement('div');
+        fakeBtn.dataset.no = idx;
+        fakeBtn.dataset.type = 'event';
+        fakeBtn.dataset.calendar = ev.calendar;
+        display_info(fakeBtn);
+    }
+}
+
+function _handleMainSlotClick(date, hour, minute) {
+    add_edit_event(date.getDate(), date.getMonth() + 1, date.getFullYear());
+    $('#big-modal').modal('show');
+}
+
+function _handleDragCreate(date, startHour, startMin, endHour, endMin) {
+    add_edit_event(date.getDate(), date.getMonth() + 1, date.getFullYear());
+    $('#big-modal').modal('show');
+    // Pre-fill time fields after modal renders
+    setTimeout(() => {
+        const sTime = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}`;
+        const eTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
+        // Switch to timed event type
+        const evtBtn = document.querySelector('.event-type-btn-event');
+        if (evtBtn) evtBtn.click();
+        document.querySelectorAll('.event-time-start').forEach(e => e.value = sTime);
+        document.querySelectorAll('.event-time-end-event').forEach(e => e.value = eTime);
+    }, 200);
+}
+
+// After data loads, re-render current view
+function _afterDataLoad() {
+    if (currentView === 'week') renderWeekView();
+    else if (currentView === 'day') renderDayView();
+}
+
+function go_prev() {
+    if (currentView === 'month') {
+        m -= 1;
+        if (m == -1) { m = 11; y -= 1; }
+        previous();
+        make_holidays_red();
+        populate_calendar(m, y);
+    } else if (currentView === 'week') {
+        currentDayDate.setDate(currentDayDate.getDate() - 7);
+        _syncMonthFromDate(currentDayDate);
+    } else if (currentView === 'day') {
+        currentDayDate.setDate(currentDayDate.getDate() - 1);
+        _syncMonthFromDate(currentDayDate);
+    }
 }
 
 function go_next() {
-    m += 1
-    if (m == 12) {
-        m = 0
-        y += 1
+    if (currentView === 'month') {
+        m += 1;
+        if (m == 12) { m = 0; y += 1; }
+        next();
+        make_holidays_red();
+        populate_calendar(m, y);
+    } else if (currentView === 'week') {
+        currentDayDate.setDate(currentDayDate.getDate() + 7);
+        _syncMonthFromDate(currentDayDate);
+    } else if (currentView === 'day') {
+        currentDayDate.setDate(currentDayDate.getDate() + 1);
+        _syncMonthFromDate(currentDayDate);
     }
+}
 
-    next()
-    make_holidays_red()
-    populate_calendar(m, y)
+function _syncMonthFromDate(date) {
+    const newM = date.getMonth();
+    const newY = date.getFullYear();
+    if (newM !== m || newY !== y) {
+        m = newM;
+        y = newY;
+        $('#month').val(m);
+        $('#year').val(y);
+        showCalendar(m, y);
+        make_holidays_red();
+        populate_calendar(m, y);
+    } else {
+        if (currentView === 'week') renderWeekView();
+        else if (currentView === 'day') renderDayView();
+    }
 }
 
 function jump_() {
@@ -2269,14 +2589,18 @@ function reload() {
 }
 
 function today_() {
-    d = new Date();
-    mm = parseInt(d.getMonth())
-    yy = parseInt(d.getFullYear())
-    if (m == mm && y == yy) { }
-    else {
+    const d = new Date();
+    currentDayDate = new Date();
+    const mm = d.getMonth();
+    const yy = d.getFullYear();
+    if (m !== mm || y !== yy) {
+        m = mm; y = yy;
         $('#month').val(mm);
         $('#year').val(yy);
         jump_();
+    } else {
+        if (currentView === 'week') renderWeekView();
+        else if (currentView === 'day') renderDayView();
     }
 }
 
