@@ -5,6 +5,8 @@ from django.db.models import Q
 from .models import Location, LocationGroup
 from Comptech.utils import error_response, success_response, login_required_api
 import json
+import urllib.request
+import urllib.parse
 
 @login_required
 def index(request):
@@ -164,6 +166,29 @@ def edit_location(request, location_id):
         return error_response("Location not found", 404)
     except Exception as e:
         return error_response(str(e), 400)
+
+
+@login_required_api
+def nominatim_search(request):
+    """Server-side proxy for Nominatim geocoding to include proper User-Agent."""
+    query = request.GET.get('q', '')
+    if not query:
+        return error_response("Query parameter 'q' is required", 400)
+
+    params = urllib.parse.urlencode({'format': 'json', 'q': query})
+    url = f'https://nominatim.openstreetmap.org/search?{params}'
+
+    req = urllib.request.Request(url, headers={
+        'User-Agent': 'AmolVenkataraman/example.com',
+        'Referer': 'https://example.com',
+    })
+
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:
+            data = json.loads(response.read().decode('utf-8'))
+        return JsonResponse(data, safe=False)
+    except Exception as e:
+        return error_response(str(e), 502)
 
 
 @login_required_api
