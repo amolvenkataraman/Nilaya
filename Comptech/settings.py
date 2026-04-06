@@ -206,3 +206,6 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Allow cross-origin requests to include the Referer header (required by OSM tile servers)
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
