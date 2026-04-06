@@ -12,4 +12,5 @@ urlpatterns = [
     path('locations/add/', views.add_location, name='add_location'),
     path('locations/<slug:location_id>/edit/', views.edit_location, name='edit_location'),
     path('locations/<slug:location_id>/delete/', views.delete_location, name='delete_location'),
+    path('nominatim/search/', views.nominatim_search, name='nominatim_search'),
 ]
