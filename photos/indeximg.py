@@ -174,9 +174,7 @@ def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
         # print(p, dt)
 
         if p.latitude != 0 and p.longitude != 0 and p.latitude != None and p.longitude != None:
-            results = rg.get((p.latitude, p.longitude), min_population=100000)
-            p.location_city = results['city']
-            p.location_country = results['country']
+            p.location_city, p.location_country = _reverse_geocode_city(p.latitude, p.longitude)
 
         p.save()
 

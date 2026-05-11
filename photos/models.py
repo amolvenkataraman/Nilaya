@@ -6,8 +6,39 @@ from django.contrib.postgres.indexes import GinIndex
 from users.models import *
 from Comptech.settings import SALT
 from GPSPhoto import gpsphoto
+import math
 import reverse_geocode as rg
 import exiftool
+
+
+def _haversine_km(lat1, lon1, lat2, lon2):
+    R = 6371
+    dlat = math.radians(lat2 - lat1)
+    dlon = math.radians(lon2 - lon1)
+    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+    return R * 2 * math.asin(math.sqrt(a))
+
+
+def _reverse_geocode_city(lat, lon):
+    """Return (city, country), using the most specific populated place that is actually nearby."""
+    # (min_population, max acceptable distance in km)
+    # Each tier is tried in order; the first one whose nearest match is close enough wins.
+    tiers = [
+        (100000, 50),   # major city within 50 km
+        (10000,  25),   # town within 25 km
+        (1000,   10),   # village within 10 km
+        (0,       0),   # nearest place, no distance filter
+    ]
+    result = None
+    for min_pop, max_dist_km in tiers:
+        result = rg.get((lat, lon), min_population=min_pop)
+        if max_dist_km == 0:
+            break
+        dist = _haversine_km(lat, lon, result['latitude'], result['longitude'])
+        if dist <= max_dist_km:
+            break
+    return result['city'], result['country']
+
 
 # Create your models here.
 def parse_album_path(instance, filename):
@@ -190,9 +221,7 @@ class Photo(models.Model):
     def refresh_city_data(self):
         try:
             if self.latitude != 0 and self.longitude != 0 and self.latitude != None and self.longitude != None:
-                results = rg.get((self.latitude, self.longitude), min_population=100000)
-                self.location_city = results['city']
-                self.location_country = results['country']
+                self.location_city, self.location_country = _reverse_geocode_city(self.latitude, self.longitude)
 
                 self.save()
         except: pass
