@@ -207,5 +207,8 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
+# Photos settings
+PHOTOS_AI_INDEX_ON_INGEST = True  # Set to False to disable automatic AI object detection during photo ingest
+
 # Allow cross-origin requests to include the Referer header (required by OSM tile servers)
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
