@@ -83,22 +83,24 @@ NAME_TO_ID_MAPPING = {
     "curling": 363, "table_tennis": 364
 }
 
-CONFIDENCE_THRESHOLD = 0.5
+CONFIDENCE_THRESHOLD = 0.3
+
+MAX_FRAMES = 60
 
 
 def _frame_interval_seconds(duration_seconds):
     """Returns the sampling interval in seconds based on video duration."""
     if duration_seconds < 15:
-        return 1
+        return 0.5
     elif duration_seconds < 300:   # up to 5 minutes
-        return 5
+        return 2
     elif duration_seconds < 1800:  # up to 30 minutes
-        return 15
+        return 10
     else:
-        return 60
+        return 30
 
 
-def _extract_video_frames(filepath, duration_seconds):
+def _extract_video_frames(filepath, duration_seconds=None):
     """Extract evenly-spaced frames from a video. Returns list of PIL Images (RGB)."""
     import cv2
     from PIL import Image
@@ -114,17 +116,22 @@ def _extract_video_frames(filepath, duration_seconds):
         cap.release()
         return []
 
+    if duration_seconds is None or duration_seconds <= 0:
+        duration_seconds = total_frames / fps
+
     interval_sec = _frame_interval_seconds(duration_seconds)
     frame_step = max(1, int(fps * interval_sec))
 
+    # Skip the very first frame (often black/loading) by starting at frame_step // 2
+    start = min(frame_step // 2, total_frames - 1)
+
     frames = []
-    pos = 0
-    while pos < total_frames:
+    pos = start
+    while pos < total_frames and len(frames) < MAX_FRAMES:
         cap.set(cv2.CAP_PROP_POS_FRAMES, pos)
         ret, frame = cap.read()
         if not ret:
             break
-        # Wrap as a PIL Image (RGB) — identical to how YOLO loads image files internally
         frames.append(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
         pos += frame_step
 
@@ -162,11 +169,7 @@ def run(images, force_reindex=False, delay=0):
 
         try:
             if img.video:
-                duration = img.length
-                if duration is None:
-                    print(f"Photo {img.id} is a video with unknown duration, skipping.")
-                    continue
-
+                duration = img.length or None
                 frames = _extract_video_frames(img.get_filepath(), duration)
                 if not frames:
                     print(f"Photo {img.id} could not extract frames, skipping.")

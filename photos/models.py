@@ -190,7 +190,7 @@ class Photo(models.Model):
     def refresh_city_data(self):
         try:
             if self.latitude != 0 and self.longitude != 0 and self.latitude != None and self.longitude != None:
-                results = rg.get((self.latitude, self.longitude))
+                results = rg.get((self.latitude, self.longitude), min_population=100000)
                 self.location_city = results['city']
                 self.location_country = results['country']
 
