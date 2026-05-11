@@ -99,8 +99,9 @@ def _frame_interval_seconds(duration_seconds):
 
 
 def _extract_video_frames(filepath, duration_seconds):
-    """Extract evenly-spaced frames from a video using cv2. Returns list of RGB numpy arrays."""
+    """Extract evenly-spaced frames from a video. Returns list of PIL Images (RGB)."""
     import cv2
+    from PIL import Image
 
     cap = cv2.VideoCapture(filepath)
     if not cap.isOpened():
@@ -123,8 +124,8 @@ def _extract_video_frames(filepath, duration_seconds):
         ret, frame = cap.read()
         if not ret:
             break
-        # cv2 reads BGR; convert to RGB to match how YOLO processes image files via PIL
-        frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+        # Wrap as a PIL Image (RGB) — identical to how YOLO loads image files internally
+        frames.append(Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)))
         pos += frame_step
 
     cap.release()
@@ -150,7 +151,12 @@ def run(images, force_reindex=False, delay=0):
 
     for img in images:
 
-        if hasattr(img, "ai_index_info") and img.ai_index_info is not None and "objects" in img.ai_index_info and not force_reindex:
+        already_indexed = (
+            hasattr(img, "ai_index_info") and
+            img.ai_index_info is not None and
+            img.ai_index_info.get("objects")  # non-empty list only
+        )
+        if already_indexed and not force_reindex:
             print(f"Photo {img.id} already indexed, skipping.")
             continue
 
