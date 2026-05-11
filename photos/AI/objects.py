@@ -99,7 +99,7 @@ def _frame_interval_seconds(duration_seconds):
 
 
 def _extract_video_frames(filepath, duration_seconds):
-    """Extract evenly-spaced frames from a video using cv2. Returns list of BGR numpy arrays."""
+    """Extract evenly-spaced frames from a video using cv2. Returns list of RGB numpy arrays."""
     import cv2
 
     cap = cv2.VideoCapture(filepath)
@@ -123,7 +123,8 @@ def _extract_video_frames(filepath, duration_seconds):
         ret, frame = cap.read()
         if not ret:
             break
-        frames.append(frame)
+        # cv2 reads BGR; convert to RGB to match how YOLO processes image files via PIL
+        frames.append(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
         pos += frame_step
 
     cap.release()
