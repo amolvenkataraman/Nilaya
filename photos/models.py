@@ -6,38 +6,40 @@ from django.contrib.postgres.indexes import GinIndex
 from users.models import *
 from Comptech.settings import SALT
 from GPSPhoto import gpsphoto
-import math
 import reverse_geocode as rg
 import exiftool
 
 
-def _haversine_km(lat1, lon1, lat2, lon2):
-    R = 6371
-    dlat = math.radians(lat2 - lat1)
-    dlon = math.radians(lon2 - lon1)
-    a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
-    return R * 2 * math.asin(math.sqrt(a))
-
 
 def _reverse_geocode_city(lat, lon):
-    """Return (city, country), using the most specific populated place that is actually nearby."""
-    # (min_population, max acceptable distance in km)
-    # Each tier is tried in order; the first one whose nearest match is close enough wins.
-    tiers = [
-        (100000, 50),   # major city within 50 km
-        (10000,  25),   # town within 25 km
-        (1000,   10),   # village within 10 km
-        (0,       0),   # nearest place, no distance filter
-    ]
-    result = None
-    for min_pop, max_dist_km in tiers:
-        result = rg.get((lat, lon), min_population=min_pop)
-        if max_dist_km == 0:
-            break
-        dist = _haversine_km(lat, lon, result['latitude'], result['longitude'])
-        if dist <= max_dist_km:
-            break
-    return result['city'], result['country']
+    """Return (city, country) for the most populous place within ~50 km.
+
+    Uses a radius search (0.5 degrees Euclidean ≈ 50 km) so that all entries
+    within that window are considered, then picks the highest-population one.
+    A neighbourhood (low pop, close) therefore loses to the enclosing city
+    (high pop, slightly farther), while a rural photo falls back to the
+    nearest point if nothing is found in the window.
+    """
+    from reverse_geocode import GeocodeData
+
+    data = GeocodeData()
+    nearby = data._tree.query_ball_point([(lat, lon)], r=0.5)[0]
+
+    best = None
+    best_pop = -1
+    for idx in nearby:
+        loc = data._locations[idx]
+        pop = loc.get('population', 0)
+        if pop > best_pop:
+            best_pop = pop
+            best = loc
+
+    if best is None:
+        _, indices = data._tree.query([(lat, lon)], k=1)
+        best = data._locations[indices[0][0]]
+
+    country = data._countries.get(best['country_code'], '')
+    return best['city'], country
 
 
 # Create your models here.
