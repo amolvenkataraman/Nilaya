@@ -9,6 +9,48 @@ from GPSPhoto import gpsphoto
 import reverse_geocode as rg
 import exiftool
 
+
+
+def _reverse_geocode_city(lat, lon):
+    """Return (city, country) using a population/distance score.
+
+    All GeoNames entries within ~50 km (0.5° Euclidean) are scored as
+    population / (dist_km + 1). This means a city (high population, slightly
+    farther) naturally beats a neighbourhood (low population, very close), while
+    two same-sized adjacent cities are decided by proximity rather than raw
+    population. Falls back to the nearest point when nothing is found in range.
+    """
+    import math
+    from reverse_geocode import GeocodeData
+
+    def _haversine_km(lat1, lon1, lat2, lon2):
+        R = 6371
+        dlat = math.radians(lat2 - lat1)
+        dlon = math.radians(lon2 - lon1)
+        a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
+        return R * 2 * math.asin(math.sqrt(a))
+
+    data = GeocodeData()
+    nearby = data._tree.query_ball_point([(lat, lon)], r=0.5)[0]
+
+    best = None
+    best_score = -1
+    for idx in nearby:
+        loc = data._locations[idx]
+        dist_km = _haversine_km(lat, lon, loc['latitude'], loc['longitude'])
+        score = loc.get('population', 0) / (dist_km + 1)
+        if score > best_score:
+            best_score = score
+            best = loc
+
+    if best is None:
+        _, indices = data._tree.query([(lat, lon)], k=1)
+        best = data._locations[indices[0]]
+
+    country = data._countries.get(best['country_code'], '')
+    return best['city'], country
+
+
 # Create your models here.
 def parse_album_path(instance, filename):
     return f"photos/album/{instance.id}/{filename}"
@@ -190,9 +232,7 @@ class Photo(models.Model):
     def refresh_city_data(self):
         try:
             if self.latitude != 0 and self.longitude != 0 and self.latitude != None and self.longitude != None:
-                results = rg.get((self.latitude, self.longitude))
-                self.location_city = results['city']
-                self.location_country = results['country']
+                self.location_city, self.location_country = _reverse_geocode_city(self.latitude, self.longitude)
 
                 self.save()
         except: pass
