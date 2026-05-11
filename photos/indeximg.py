@@ -18,12 +18,13 @@ from pathlib import Path
 from PIL import Image, UnidentifiedImageError
 import reverse_geocode as rg
 
-def photo_ingest_for_album(album, user, refresh_matviews=True):
+def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
     SOURCE_DIR = album.location + "Ingest/**"
     DEST_DIR = album.location
     files = [i for i in glob.glob(f"{SOURCE_DIR}/*.*") if str(i).split('.')[-1].lower() in ["jpg", "jpeg", "png", "mp4", "mpg", "m4v", "mov", "mod", "avi", "3gp", "mkv", "gif", "heic"]]
 
     dtn = datetime.datetime.now()
+    new_photos = []
 
     for ff in files:
         # print(ff)
@@ -183,5 +184,9 @@ def photo_ingest_for_album(album, user, refresh_matviews=True):
 
         p.regen_hashes()
 
+        new_photos.append(p)
+
     if refresh_matviews:
         refresh_photo_location_cache()
+
+    return new_photos

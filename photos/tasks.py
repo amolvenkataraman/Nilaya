@@ -1,5 +1,6 @@
 from celery import shared_task
 from celery.utils.log import get_task_logger
+from django.conf import settings
 
 from photos.models import *
 from users.models import ComptechUser
@@ -20,13 +21,28 @@ def ingest_all_photos(user_id=None):
     else:
         albums = list(Album.objects.all())
 
+    all_new_photos = []
     for album in albums:
         logger.info(f"Ingesting photos for album {album.name} (ID: {album.id})")
         task_user = user if user_id else album.owner
-        photo_ingest_for_album(album, task_user, False)
-
+        new_photos = photo_ingest_for_album(album, task_user, False)
+        all_new_photos.extend(new_photos)
 
     logger.info("Refreshing photo location cache materialized view")
     refresh_photo_location_cache()
 
+    if getattr(settings, 'PHOTOS_AI_INDEX_ON_INGEST', False) and all_new_photos:
+        new_photo_ids = [str(p.id) for p in all_new_photos]
+        logger.info(f"Triggering AI indexing for {len(new_photo_ids)} newly ingested photos")
+        ai_index_photos.delay(new_photo_ids)
+
     logger.info("Photo ingestion and location cache refresh complete.")
+
+
+@shared_task
+def ai_index_photos(photo_ids):
+    from photos.AI import objects as ai_objects
+    photos = list(Photo.objects.filter(id__in=photo_ids))
+    logger.info(f"Running AI indexing on {len(photos)} photos")
+    ai_objects.run(photos)
+    logger.info("AI indexing complete.")
