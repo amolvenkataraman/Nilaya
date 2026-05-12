@@ -38,7 +38,7 @@ def _reverse_geocode_city(lat, lon):
     for idx in nearby:
         loc = data._locations[idx]
         dist_km = _haversine_km(lat, lon, loc['latitude'], loc['longitude'])
-        score = loc.get('population', 0) / (dist_km + 1)
+        score = math.log10(max(loc.get('population', 0), 1)) - (dist_km / 5)
         if score > best_score:
             best_score = score
             best = loc
@@ -229,10 +229,12 @@ class Photo(models.Model):
             "photo_hash": self.photo_hash,
         }
 
-    def refresh_city_data(self):
+    def refresh_city_data(self, print_=False):
         try:
             if self.latitude != 0 and self.longitude != 0 and self.latitude != None and self.longitude != None:
                 self.location_city, self.location_country = _reverse_geocode_city(self.latitude, self.longitude)
+                if print_:
+                    print(self.location_city, self.location_country)
 
                 self.save()
         except: pass
