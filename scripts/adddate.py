@@ -96,10 +96,5 @@ for p in Photo.objects.filter(date_taken=None):
     p.save()
 
     try:
-        if p.video == False:
-            u = p.album.location + p.filepath 
-            img = Image.open(u)               
-            img = ImageOps.exif_transpose(img)
-            img.thumbnail((500, 200), Image.ANTIALIAS)
-            img.save('/opt/Comptech/photo_cache/thumbnail/' + str(p.id) + '.jpg', "JPEG")
+        p.gen_thumbnail()
     except: pass

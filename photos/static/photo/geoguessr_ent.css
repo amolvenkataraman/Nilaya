@@ -1,0 +1,206 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
+:root {
+    --bg-glass: rgba(255, 255, 255, 0.85);
+    --border-glass: rgba(0, 0, 0, 0.08);
+    --text-primary: #1e293b;
+    --text-secondary: #64748b;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-light: rgba(37, 99, 235, 0.1);
+    --success: #10b981;
+    --danger: #ef4444;
+    --shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.1), 0 5px 15px -5px rgba(0, 0, 0, 0.04);
+    --border-radius: 16px;
+    --border-radius-sm: 8px;
+    --font-stack: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+    --transition: all 0.2s ease;
+}
+
+@media (prefers-color-scheme: dark) {
+    :root {
+        --bg-glass: rgba(30, 41, 59, 0.8);
+        --border-glass: rgba(255, 255, 255, 0.08);
+        --text-primary: #f8fafc;
+        --text-secondary: #94a3b8;
+        --accent: #3b82f6;
+        --accent-hover: #2563eb;
+        --accent-light: rgba(59, 130, 246, 0.15);
+        --shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3), 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+}
+
+.geoguessr-ent-container {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 100px);
+    padding: 20px;
+    font-family: var(--font-stack);
+    box-sizing: border-box;
+}
+
+.game-header {
+    margin-bottom: 16px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.game-header h2 {
+    font-size: 1.5rem;
+    font-weight: 700;
+    margin: 0;
+    color: var(--text-primary);
+}
+
+.game-header p {
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    margin: 0;
+}
+
+.game-panels {
+    display: flex;
+    gap: 20px;
+    flex: 1;
+    overflow: hidden;
+    position: relative;
+}
+
+/* Photo and Map Split */
+.photo-panel {
+    flex: 1.2;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    padding: 10px;
+}
+
+.photo-panel img, .photo-panel video {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.map-panel {
+    flex: 1;
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--border-radius);
+    overflow: hidden;
+    box-shadow: var(--shadow);
+    position: relative;
+}
+
+#mapid {
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+/* Float Sidebar Panel */
+.control-sidebar {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 260px;
+    max-height: calc(100% - 40px);
+    background: var(--bg-glass);
+    border: 1px solid var(--border-glass);
+    box-shadow: var(--shadow);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-radius: var(--border-radius);
+    z-index: 1000;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    overflow-y: auto;
+}
+
+.control-section {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.control-section h4 {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    margin: 0 0 4px 0;
+}
+
+.btn-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+}
+
+.btn-grid-3 {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 6px;
+}
+
+.sidebar-btn {
+    padding: 8px 12px;
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid var(--border-glass);
+    border-radius: var(--border-radius-sm);
+    color: var(--text-primary);
+    font-family: var(--font-stack);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: var(--transition);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+}
+
+.sidebar-btn:hover {
+    background: var(--accent-light);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.sidebar-btn.btn-action {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}
+
+.sidebar-btn.btn-action:hover {
+    background: var(--accent-hover);
+    color: white;
+}
+
+.sidebar-btn.btn-danger {
+    color: var(--danger);
+    background: rgba(239, 68, 68, 0.05);
+    border-color: rgba(239, 68, 68, 0.15);
+}
+
+.sidebar-btn.btn-danger:hover {
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+}
+
+.sidebar-btn.active {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+}

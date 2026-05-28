@@ -19,4 +19,7 @@ urlpatterns = [
     path("albums/json-list/", views.list_my_albums, name='list_my_albums'),
     path("albums/add/", views.add_photo_to_album, name='add_photo_to_album'),
     path("albums/remove/", views.remove_photo_from_album, name='remove_photo_from_album'),
+    path("albums/create/", views.create_share_album, name='create_share_album'),
+    path("albums/<slug:album_id>/edit/", views.edit_share_album, name='edit_share_album'),
+    path("albums/<slug:album_id>/subscribers/", views.manage_subscribers, name='manage_subscribers'),
 ]

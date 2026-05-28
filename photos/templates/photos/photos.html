@@ -4,11 +4,29 @@
 
 {% block page_title %} Photos {% endblock %}
 
+{% block page_styles %}
+{{ block.super }}
+<link href="{% static 'photo/photos_addon.css' %}" rel="stylesheet" />
+{% endblock %}
+
 {% block extra_scripts %}
 <script id="photo-in-list" type="text/x-handlebars-template">
     {% verbatim %}
-    <div class="photo">
-        <img src="" data-src="{{ thumbnail }}" data-id="{{ id }}" data-url="{{ url }}" data-video="{{ video }}" class="list-img" style='display: block; float: left; margin: 2px; background-color: {{ main_color }}; width: {{ thumbnail_width }}px; height: {{ thumbnail_height }}px;' onclick="event.shiftKey ? select_photo(this) : view_image(this)">
+    <div class="photo-item" style="width: {{ thumbnail_width }}px; height: {{ thumbnail_height }}px; background-color: {{ main_color }};" onclick="handle_photo_click(event, this)">
+        <img src="" data-src="{{ thumbnail }}" data-id="{{ id }}" data-url="{{ url }}" data-video="{{ video }}" class="list-img" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        {{#if video}}
+        <div class="play-btn-center">
+            <svg viewBox="0 0 24 24">
+                <path d="M8 5v14l11-7z"/>
+            </svg>
+        </div>
+        {{#if duration_text}}
+        <div class="video-duration-tag">{{ duration_text }}</div>
+        {{/if}}
+        {{/if}}
+        <div class="select-checkbox" onclick="event.stopPropagation(); toggle_selection(this.closest('.photo-item'))">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="check-icon"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </div>
     </div>
     {% endverbatim %}
 </script>
@@ -170,10 +188,6 @@
     }
 
     function view_image(e) {
-        if (e.shiftKey) {
-            alert("test");
-        }
-
         imgloaded = true;
         currimage = e;
         document.getElementById("photo-display-area").style.visibility = "visible";
@@ -230,8 +244,64 @@
         r.send();
     }
 
-    function select_photo(e) {
-        e.classList.toggle("img-selected");
+    let lastSelectedPhoto = null;
+
+    function toggle_selection(el) {
+        el.classList.toggle("selected");
+        if (el.classList.contains("selected")) {
+            lastSelectedPhoto = el;
+        } else if (lastSelectedPhoto === el) {
+            lastSelectedPhoto = null;
+        }
+        update_selection_bar();
+    }
+
+    function handle_photo_click(event, el) {
+        const img = el.querySelector('img');
+        const selectedCount = document.querySelectorAll('.photo-item.selected').length;
+        
+        if (event.shiftKey) {
+            if (lastSelectedPhoto && lastSelectedPhoto !== el) {
+                const allPhotos = Array.from(document.querySelectorAll('.photo-item'));
+                const startIdx = allPhotos.indexOf(lastSelectedPhoto);
+                const endIdx = allPhotos.indexOf(el);
+                if (startIdx !== -1 && endIdx !== -1) {
+                    const min = Math.min(startIdx, endIdx);
+                    const max = Math.max(startIdx, endIdx);
+                    for (let i = min; i <= max; i++) {
+                        allPhotos[i].classList.add("selected");
+                    }
+                    update_selection_bar();
+                    lastSelectedPhoto = el;
+                    return;
+                }
+            }
+            toggle_selection(el);
+        } else if (selectedCount > 0) {
+            toggle_selection(el);
+        } else {
+            view_image(img);
+        }
+    }
+
+    function update_selection_bar() {
+        const selected = document.querySelectorAll('.photo-item.selected');
+        const bar = document.getElementById('selection-action-bar');
+        const countEl = document.getElementById('selected-count-number');
+        
+        if (selected.length > 0) {
+            countEl.textContent = selected.length;
+            bar.classList.add('active');
+        } else {
+            bar.classList.remove('active');
+        }
+    }
+
+    function clear_selection() {
+        document.querySelectorAll('.photo-item.selected').forEach(el => {
+            el.classList.remove('selected');
+        });
+        update_selection_bar();
     }
 
     function load_map(lat, lng) {
@@ -373,10 +443,11 @@
                             "id": photo['id'],
                             "url": `/photo_cdn/${photo['photo_hash']}/${photo['path']}`,
                             "video": photo["video"],
-                            "thumbnail": `/private/${photo['thumbnail_hash']}/photo_cache/thumbnail/${photo['id']}.jpg`,
+                            "thumbnail": `/private/${photo['thumbnail_hash']}/photo_cache/thumbnail/${photo['id']}.webp`,
                             "thumbnail_width": photo['thumbnail_width'] || 200,
                             "thumbnail_height": photo['thumbnail_height'] || 200,
-                            "main_color": photo['main_color'] || '#f0f0f0'
+                            "main_color": photo['main_color'] || '#f0f0f0',
+                            "duration_text": photo['duration_text']
                         })
                     }
 
@@ -410,7 +481,6 @@
         r.onload = () => {
             res = JSON.parse(r.responseText);
             if (res['status'] == 'success') {
-                // location.reload();
                 alert("Ingest started. Please wait a while and refresh the page to see new photos.");
             }
             else {
@@ -449,51 +519,17 @@
             }
 
             else if (e.key == 'Delete') {
-                document.querySelectorAll(".img-selected").forEach(img => {
-                    del_photo(img.dataset.id);
-                    img.parentElement.remove();
-                })
-            }
-
-            else if (e.key == '`') {
-                console.log("Adding selected photos to album");
-                // Query all shared albums and present list
-                r = new XMLHttpRequest();
-                r.open("GET", "{% url 'list_my_albums' %}")
-                r.onload = () => {
-                    res = JSON.parse(r.responseText)['albums'];
-                    console.log(res);
-                    album_list = "Select an album to add selected photos to:\n\n";
-                    for (i = 0; i < res.length; i++) {
-                        album_list += `${i + 1}: ${res[i]['name']} (ID: ${res[i]['id']})\n`;
-                    }
-                    album_list += "\nEnter the number of the album:";
-                    album_index = prompt(album_list);
-                    if (album_index != null && album_index > 0 && album_index <= res.length) {
-                        selected_photos = [];
-                        document.querySelectorAll(".img-selected").forEach(img => {
-                            selected_photos.push(img.dataset.id);
+                const selected = document.querySelectorAll(".photo-item.selected");
+                if (selected.length > 0) {
+                    if (confirm(`Are you sure you want to delete these ${selected.length} photos?`)) {
+                        selected.forEach(el => {
+                            const img = el.querySelector('img');
+                            del_photo(img.dataset.id);
+                            el.remove();
                         });
-                        // Send POST request to add photos to album
-                        pr = new XMLHttpRequest();
-                        pr.open("POST", "{% url 'add_photo_to_album' %}")
-                        pr.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-                        pr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-                        pr.onload = () => {
-                            pres = JSON.parse(pr.responseText);
-                            if (pres['status'] == 'success') {
-                                alert("Photos added to album successfully.");
-                            } else {
-                                alert("Error adding photos to album: " + pres['data']);
-                            }
-                        }
-                        pr.send(JSON.stringify({
-                            "share_album_id": res[album_index - 1]['id'],
-                            "photo_id": selected_photos
-                        }));
+                        clear_selection();
                     }
                 }
-                r.send();
             }
         }
 
@@ -508,6 +544,34 @@
 {% endblock %}
 
 {% block page_body %}
+{% if album_obj %}
+<div class="album-banner">
+    <div class="album-banner-info">
+        <div class="album-banner-title">
+            <h2>📖 {{ album_obj.name }}</h2>
+            {% if album_obj.public %}
+            <span class="badge badge-public">🌍 Public</span>
+            {% else %}
+            <span class="badge badge-private">🔒 Private</span>
+            {% endif %}
+            {% if is_owner %}
+            <span class="badge badge-owner">Owner</span>
+            {% endif %}
+        </div>
+        {% if album_obj.description %}
+        <p class="album-banner-desc">{{ album_obj.description }}</p>
+        {% endif %}
+        <p class="album-banner-owner">Created by <strong>@{{ album_obj.owner.username }}</strong></p>
+    </div>
+    {% if is_owner %}
+    <div class="album-banner-actions">
+        <button id="edit-album-btn" class="album-banner-btn" data-bs-toggle="modal" data-bs-target="#editAlbumModal">✏️ Edit Album</button>
+        <button id="share-album-btn" class="album-banner-btn btn-secondary" data-bs-toggle="modal" data-bs-target="#shareAlbumModal">🔗 Share Album</button>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 <div class="stats-bar">
     <div class="stats-item">
         <div class="stats-icon">
@@ -639,6 +703,152 @@
         {% endif %}
     </div>
 </div>
+
+<!-- Floating Action Bar for Selected Photos -->
+<div id="selection-action-bar" class="selection-action-bar">
+    <div class="selection-count"><span id="selected-count-number">0</span> selected</div>
+    <div class="selection-actions">
+        <!-- Direct Quick Actions for larger viewports -->
+        <button id="action-add-to-album" class="action-bar-btn d-none d-md-inline-flex" title="Add to Album">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+            Add to Album
+        </button>
+        <button id="action-delete-selected" class="action-bar-btn btn-danger d-none d-md-inline-flex" title="Delete Selected">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+            Delete
+        </button>
+        
+        <!-- 3-Dot Context Menu (always visible/collapsible on small screens) -->
+        <div class="dropdown">
+            <button class="action-bar-btn dropdown-toggle" type="button" id="selectionMenuButton" data-bs-toggle="dropdown" aria-expanded="false" title="Selection Commands">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="5" r="2"></circle>
+                    <circle cx="12" cy="12" r="2"></circle>
+                    <circle cx="12" cy="19" r="2"></circle>
+                </svg>
+            </button>
+            <ul class="dropdown-menu dropdown-menu-end shadow glassmorphic-dropdown" aria-labelledby="selectionMenuButton">
+                <li>
+                    <button class="dropdown-item d-flex align-items-center gap-2" id="dropdown-action-add-to-album">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+                        Add to Album...
+                    </button>
+                </li>
+                <li>
+                    <button class="dropdown-item d-flex align-items-center gap-2 text-danger" id="dropdown-action-delete">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                        Delete Selected
+                    </button>
+                </li>
+                <li><hr class="dropdown-divider"></li>
+                <li>
+                    <button class="dropdown-item d-flex align-items-center gap-2" id="dropdown-action-clear">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        Clear Selection
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <button id="action-clear-selection" class="action-bar-btn btn-secondary" title="Clear Selection">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            Clear
+        </button>
+    </div>
+</div>
+
+<!-- Add to Album Modal -->
+<div class="modal fade" id="addToAlbumModal" tabindex="-1" aria-labelledby="addToAlbumModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="addToAlbumModalLabel">Add to Album</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label for="select-album-dropdown" class="form-label">Select Shared Album</label>
+                    <select class="form-select" id="select-album-dropdown" required>
+                        <option value="">Select an album...</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="submitAddToAlbumBtn">Add to Album</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if album_obj and is_owner %}
+<!-- Edit Album Modal -->
+<div class="modal fade" id="editAlbumModal" tabindex="-1" aria-labelledby="editAlbumModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="editAlbumModalLabel">Edit Album Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-album-form">
+                    <div class="mb-3">
+                        <label for="edit-album-name" class="form-label">Album Name</label>
+                        <input type="text" class="form-control" id="edit-album-name" required value="{{ album_obj.name }}">
+                    </div>
+                    <div class="mb-3">
+                        <label for="edit-album-desc" class="form-label">Description</label>
+                        <textarea class="form-control" id="edit-album-desc" rows="3">{{ album_obj.description|default:'' }}</textarea>
+                    </div>
+                    <div class="form-check mb-2">
+                        <input type="checkbox" class="form-check-input" id="edit-album-public" {% if album_obj.public %}checked{% endif %}>
+                        <label class="form-check-label" for="edit-album-public" style="user-select: none; cursor: pointer;">Make this album public</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary" id="saveEditAlbumBtn">Save Changes</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Share Album Modal -->
+<div class="modal fade" id="shareAlbumModal" tabindex="-1" aria-labelledby="shareAlbumModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="shareAlbumModalLabel">🔗 Share Album: {{ album_obj.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Add Subscriber Form -->
+                <form id="add-subscriber-form" class="mb-4">
+                    <h6>Add new subscriber</h6>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="new-sub-username" required placeholder="Enter username...">
+                        <select class="form-select" id="new-sub-role" style="max-width: 120px;">
+                            <option value="2">Viewer</option>
+                            <option value="1">Editor</option>
+                        </select>
+                        <button type="button" class="btn btn-primary" id="addSubBtn">Add</button>
+                    </div>
+                </form>
+
+                <!-- Current Subscribers List -->
+                <h6>Current Subscribers</h6>
+                <div class="list-group" id="subscribers-list-container" style="max-height: 200px; overflow-y: auto;">
+                    <div class="text-muted text-center py-3">Loading subscribers...</div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block right_sidebar %}
@@ -845,6 +1055,215 @@
                 }
             });
         });
+
+        // Add to Album Action logic
+        const selectAlbumModal = new bootstrap.Modal(document.getElementById('addToAlbumModal'));
+
+        document.getElementById('action-add-to-album').addEventListener('click', () => {
+            const dropdown = document.getElementById('select-album-dropdown');
+            dropdown.innerHTML = '<option value="">Loading albums...</option>';
+            
+            const r = new XMLHttpRequest();
+            r.open("GET", "{% url 'list_my_albums' %}");
+            r.onload = () => {
+                const res = JSON.parse(r.responseText)['albums'];
+                dropdown.innerHTML = '<option value="">Select an album...</option>';
+                res.forEach(album => {
+                    dropdown.innerHTML += `<option value="${album.id}">${album.name}</option>`;
+                });
+                selectAlbumModal.show();
+            };
+            r.send();
+        });
+
+        document.getElementById('submitAddToAlbumBtn').addEventListener('click', () => {
+            const albumId = document.getElementById('select-album-dropdown').value;
+            if (!albumId) {
+                alert('Please select an album');
+                return;
+            }
+
+            const selectedIds = Array.from(document.querySelectorAll('.photo-item.selected img')).map(img => img.dataset.id);
+            
+            const pr = new XMLHttpRequest();
+            pr.open("POST", "{% url 'add_photo_to_album' %}");
+            pr.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+            pr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            pr.onload = () => {
+                const pres = JSON.parse(pr.responseText);
+                if (pres.status === 'success') {
+                    alert('Photos added to album successfully.');
+                    selectAlbumModal.hide();
+                    clear_selection();
+                    location.reload();
+                } else {
+                    alert('Error adding photos to album: ' + (pres.data || pres.message || 'unknown error'));
+                }
+            };
+            pr.send(JSON.stringify({
+                "share_album_id": albumId,
+                "photo_id": selectedIds
+            }));
+        });
+
+        // Delete Selected Action logic
+        document.getElementById('action-delete-selected').addEventListener('click', () => {
+            const selectedItems = Array.from(document.querySelectorAll('.photo-item.selected'));
+            if (selectedItems.length === 0) return;
+
+            if (!confirm(`Are you sure you want to delete these ${selectedItems.length} photos? This cannot be undone.`)) {
+                return;
+            }
+
+            let completed = 0;
+            selectedItems.forEach(el => {
+                const img = el.querySelector('img');
+                const photoId = img.dataset.id;
+                
+                const r = new XMLHttpRequest();
+                r.open("POST", `/photos/delete/${photoId}/`);
+                r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+                r.onload = () => {
+                    el.remove();
+                    completed++;
+                    if (completed === selectedItems.length) {
+                        clear_selection();
+                        alert('Photos deleted successfully.');
+                        location.reload();
+                    }
+                };
+                r.send();
+            });
+        });
+
+        // Clear Selection logic
+        document.getElementById('action-clear-selection').addEventListener('click', clear_selection);
+
+        // Dropdown Actions mapping
+        document.getElementById('dropdown-action-add-to-album').addEventListener('click', () => {
+            document.getElementById('action-add-to-album').click();
+        });
+        document.getElementById('dropdown-action-delete').addEventListener('click', () => {
+            document.getElementById('action-delete-selected').click();
+        });
+        document.getElementById('dropdown-action-clear').addEventListener('click', clear_selection);
+
+        // Edit/Share modals logic for loaded album context
+        {% if album_obj and is_owner %}
+        document.getElementById('saveEditAlbumBtn').addEventListener('click', () => {
+            const name = document.getElementById('edit-album-name').value.trim();
+            const desc = document.getElementById('edit-album-desc').value.trim();
+            const publicStatus = document.getElementById('edit-album-public').checked;
+
+            if (!name) {
+                alert('Album name is required');
+                return;
+            }
+
+            const r = new XMLHttpRequest();
+            r.open("POST", "{% url 'edit_share_album' album_obj.id|default:'00000000-0000-0000-0000-000000000000' %}");
+            r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+            r.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            r.onload = () => {
+                const res = JSON.parse(r.responseText);
+                if (res.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Error editing album: ' + (res.message || 'unknown error'));
+                }
+            };
+            r.send(JSON.stringify({
+                name: name,
+                description: desc,
+                public: publicStatus
+            }));
+        });
+
+        const shareModal = document.getElementById('shareAlbumModal');
+        shareModal.addEventListener('show.bs.modal', loadSubscribers);
+
+        function loadSubscribers() {
+            const container = document.getElementById('subscribers-list-container');
+            container.innerHTML = '<div class="text-muted text-center py-3">Loading subscribers...</div>';
+
+            const r = new XMLHttpRequest();
+            r.open("GET", "{% url 'manage_subscribers' album_obj.id|default:'00000000-0000-0000-0000-000000000000' %}");
+            r.onload = () => {
+                const res = JSON.parse(r.responseText);
+                if (res.status === 'success') {
+                    container.innerHTML = '';
+                    if (res.subscribers.length === 0) {
+                        container.innerHTML = '<div class="text-muted text-center py-3">Not shared with anyone yet.</div>';
+                        return;
+                    }
+                    res.subscribers.forEach(sub => {
+                        const role = sub.subscribe_type === 1 ? 'Editor' : 'Viewer';
+                        container.innerHTML += `
+                            <div class="list-group-item d-flex justify-content-between align-items-center">
+                                <div>
+                                    <strong>@${sub.username}</strong>
+                                    <span class="badge bg-secondary ms-2">${role}</span>
+                                </div>
+                                <button class="btn btn-sm btn-outline-danger" onclick="removeSubscriber(${sub.id})">Remove</button>
+                            </div>
+                        `;
+                    });
+                } else {
+                    container.innerHTML = '<div class="text-danger text-center py-3">Failed to load subscribers.</div>';
+                }
+            };
+            r.send();
+        }
+
+        window.removeSubscriber = function(subId) {
+            if (!confirm('Are you sure you want to remove this subscriber?')) return;
+            const r = new XMLHttpRequest();
+            r.open("POST", "{% url 'manage_subscribers' album_obj.id|default:'00000000-0000-0000-0000-000000000000' %}");
+            r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+            r.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            r.onload = () => {
+                const res = JSON.parse(r.responseText);
+                if (res.status === 'success') {
+                    loadSubscribers();
+                } else {
+                    alert('Error removing subscriber: ' + (res.message || 'unknown error'));
+                }
+            };
+            r.send(JSON.stringify({
+                action: 'remove',
+                subscriber_id: subId
+            }));
+        }
+
+        document.getElementById('addSubBtn').addEventListener('click', () => {
+            const username = document.getElementById('new-sub-username').value.trim();
+            const role = parseInt(document.getElementById('new-sub-role').value, 10);
+
+            if (!username) {
+                alert('Username is required');
+                return;
+            }
+
+            const r = new XMLHttpRequest();
+            r.open("POST", "{% url 'manage_subscribers' album_obj.id|default:'00000000-0000-0000-0000-000000000000' %}");
+            r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+            r.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            r.onload = () => {
+                const res = JSON.parse(r.responseText);
+                if (res.status === 'success') {
+                    document.getElementById('new-sub-username').value = '';
+                    loadSubscribers();
+                } else {
+                    alert('Error adding subscriber: ' + (res.message || 'unknown error'));
+                }
+            };
+            r.send(JSON.stringify({
+                action: 'add',
+                username: username,
+                subscribe_type: role
+            }));
+        });
+        {% endif %}
     });
 </script>
 {% endblock %}

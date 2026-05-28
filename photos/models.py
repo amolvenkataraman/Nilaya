@@ -179,6 +179,11 @@ class Photo(models.Model):
         }
 
     def getinfo(self):
+        duration_text = ""
+        if self.video and self.length:
+            minutes, seconds = divmod(self.length, 60)
+            duration_text = f"{minutes:02}:{seconds:02}"
+
         return {
             "id": str(self.id),
             "path": self.get_path(),
@@ -212,9 +217,15 @@ class Photo(models.Model):
 
             "video": self.video,
             "length": self.length,
+            "duration_text": duration_text,
         }
 
     def getinfo_zip(self):
+        duration_text = ""
+        if self.video and self.length:
+            minutes, seconds = divmod(self.length, 60)
+            duration_text = f"{minutes:02}:{seconds:02}"
+
         return {
             "id": str(self.id),
             "path": self.get_path(),
@@ -222,6 +233,7 @@ class Photo(models.Model):
             "date_taken": str(self.date_taken),
             "video": self.video,
             "length": self.length,
+            "duration_text": duration_text,
             "thumbnail_width": self.thumbnail_width,
             "thumbnail_height": self.thumbnail_height,
             "main_color": self.main_color,
@@ -305,7 +317,7 @@ class Photo(models.Model):
 
     def regen_hashes(self):
         fp = (self.album.location + self.filepath + SALT).replace("/mnt/data/Photos/", "")
-        fp1 = f"photo_cache/thumbnail/{self.id}.jpg{SALT}"
+        fp1 = f"photo_cache/thumbnail/{self.id}.webp{SALT}"
         hash_ = hashlib.md5(fp.encode('utf-8')).hexdigest()
         hash1_ = hashlib.md5(fp1.encode('utf-8')).hexdigest()
 
@@ -322,14 +334,14 @@ class Photo(models.Model):
                     u = self.album.location + self.filepath
                     img = Image.open(u)               
                     img = ImageOps.exif_transpose(img)
-                    img.thumbnail((500, 200))
-                    img.save('/www/private/photo_cache/thumbnail/' + str(self.id) + '.jpg', "JPEG")
+                    img.thumbnail((500, 200), Image.Resampling.LANCZOS)
+                    img.save('/www/private/photo_cache/thumbnail/' + str(self.id) + '.webp', "WEBP", quality=85)
 
                 else:
                     self.width, self.height, self.length, self.framerate = generate_video_thumbnail(self.album.location + self.filepath, '/www/private/photo_cache/thumbnail/', self.id)
 
             # Open the saved thumbnail and get dimensions
-            thumb = Image.open('/www/private/photo_cache/thumbnail/' + str(self.id) + '.jpg')
+            thumb = Image.open('/www/private/photo_cache/thumbnail/' + str(self.id) + '.webp')
             self.thumbnail_width = thumb.size[0]
             self.thumbnail_height = thumb.size[1]
             
@@ -339,6 +351,7 @@ class Photo(models.Model):
             self.main_color = '#{:02x}{:02x}{:02x}'.format(*dominant_color)
             
             self.save()
+            self.regen_hashes()
 
         except (FileNotFoundError, UnidentifiedImageError, OSError):
             print("Error generating thumbnail for: " + str(self.id))
@@ -387,7 +400,7 @@ class ShareAlbum_Subscriber(models.Model):
 def generate_video_thumbnail(video_path, output_path, video_id):
     import cv2
     import numpy as np
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image
 
     # Open video file
     cap = cv2.VideoCapture(video_path)
@@ -405,7 +418,6 @@ def generate_video_thumbnail(video_path, output_path, video_id):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     rotation = int(cap.get(cv2.CAP_PROP_ORIENTATION_META))
     duration = int(frame_count / fps) if fps > 0 else 0
-    minutes, seconds = divmod(duration, 60)
 
     cap.release()
 
@@ -426,42 +438,14 @@ def generate_video_thumbnail(video_path, output_path, video_id):
     # Resize for thumbnail
     img.thumbnail((500, 200), Image.Resampling.LANCZOS)
 
-    # Create drawing context
-    draw = ImageDraw.Draw(img)
-
-    # Draw play button (white triangle)
-    w, h = img.size
-    triangle_size = min(w, h) // 8
-    triangle = [
-        (w // 2 - triangle_size, h // 2 - triangle_size),
-        (w // 2 - triangle_size, h // 2 + triangle_size),
-        (w // 2 + triangle_size, h // 2)
-    ]
-    draw.polygon(triangle, fill="white")
-
-    # Draw video duration (MM:SS) in top-right
-    font_size = max(20, w // 16)  # Scales with image size
-    try:
-        font = ImageFont.truetype("/usr/share/fonts/truetype/dejavu/DejaVuSerif-Bold.ttf", font_size)
-    except:
-        font = ImageFont.load_default()
-
-    time_text = f"{minutes:02}:{seconds:02}"
-    text_bbox = draw.textbbox((0, 0), time_text, font=font)  # Get text bounding box
-    text_width = text_bbox[2] - text_bbox[0]
-    text_height = text_bbox[3] - text_bbox[1]
-    
-    text_position = (w - text_width - 10, 10)  # Top-right corner
-    draw.text(text_position, time_text, fill="white", font=font)
-
     # Save thumbnail
-    img.save(f"{output_path}/{video_id}.jpg", "JPEG")
+    img.save(f"{output_path}/{video_id}.webp", "WEBP", quality=85)
 
     return width, height, duration, fps
 
 def delete_photo(p):
     try:
-        os.remove('/www/private/photo_cache/thumbnail/' + str(p.id) + '.jpg')
+        os.remove('/www/private/photo_cache/thumbnail/' + str(p.id) + '.webp')
     except FileNotFoundError: pass
 
     try:

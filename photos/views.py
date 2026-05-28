@@ -22,16 +22,20 @@ import json
 # Create your views here.
 # @login_required
 def photos(request):
+    album_obj = None
+    is_owner = False
     if request.GET.get('album'):
         album = ShareAlbum.objects.filter(id=request.GET.get('album'))
         if album.exists():
-            if album[0].public or \
+            album_obj = album[0]
+            is_owner = request.user.is_authenticated and (album_obj.owner == request.user or request.user.is_superuser)
+            if album_obj.public or \
                 request.user.is_authenticated and (
-                    ShareAlbum_Subscriber.objects.filter(album=album[0], user=request.user).exists() \
-                    or album[0].owner == request.user \
+                    ShareAlbum_Subscriber.objects.filter(album=album_obj, user=request.user).exists() \
+                    or album_obj.owner == request.user \
                     or request.user.is_superuser
                 ):
-                sphotos = ShareAlbum_Photo.objects.filter(sharealbum=album[0])
+                sphotos = ShareAlbum_Photo.objects.filter(sharealbum=album_obj)
                 photos = Photo.objects.filter(id__in=[i.photo.id for i in sphotos]).order_by('-date_taken')
             else:
                 return error_response("Not authorized", 401)
@@ -140,7 +144,9 @@ def photos(request):
         "country": country,
         "city": city,
         "objects": ",".join([f"{i}" for i in objects_]) if objects_ else None,
-        "share_album": album[0].id if album and album.exists() else None,
+        "share_album": album_obj.id if album_obj else None,
+        "album_obj": album_obj,
+        "is_owner": is_owner,
         "ntotal": ntotal,
         "nphotos": nphotos,
         "nvideos": nvideos,
@@ -448,16 +454,16 @@ def get_photo(request, photo_id, ret_type):
                 fr = cv2.putText(fr, 'Video', (100, 300), cv2.FONT_HERSHEY_SIMPLEX, 10, (255, 0), 10, cv2.LINE_AA)
 
                 thumb = Image.fromarray(fr)
-                thumb.thumbnail((500, 200), Image.ANTIALIAS)
+                thumb.thumbnail((500, 200), Image.Resampling.LANCZOS)
 
-                response = HttpResponse(content_type='image/jpeg')
-                thumb.save(response, "JPEG")
+                response = HttpResponse(content_type='image/webp')
+                thumb.save(response, "WEBP", quality=85)
                 return response
 
         else:
-            response = HttpResponse(content_type='image/jpeg')
-            response['X-Accel-Redirect'] = f"/media_private/photo_cache/thumbnail/{photo.id}.jpg"
-            response['Content-Disposition'] = f'attachment; filename="{BASE_DIR}media_private/photo_cache/thumbnail/{photo.id}.jpg"'
+            response = HttpResponse(content_type='image/webp')
+            response['X-Accel-Redirect'] = f"/media_private/photo_cache/thumbnail/{photo.id}.webp"
+            response['Content-Disposition'] = f'attachment; filename="{BASE_DIR}media_private/photo_cache/thumbnail/{photo.id}.webp"'
             return response
     else:
         return error_response("Invalid return type")
@@ -495,7 +501,7 @@ def list_my_albums(request):
 
     else:
         sas = ShareAlbum.objects.filter(owner=request.user)
-        sa = [sa.getinfo() for sa in sas]
+        sa = [album.getinfo() for album in sas]
     return JsonResponse({ "albums": sa })
 
 @post_request_only
@@ -512,17 +518,38 @@ def add_photo_to_album(request):
         photo_id = [photo_id]
 
     try:
-        for pid in photo_id:
-            p = Photo.objects.filter(id=pid)[0]
-            sa = ShareAlbum.objects.filter(id=share_album_id)[0]
-            if p.album.owner == request.user and (sa.owner == request.user or request.user.is_superuser):
-                if not ShareAlbum_Photo.objects.filter(sharealbum=sa, photo=p).exists():
-                    sap = ShareAlbum_Photo(sharealbum=sa, photo=p)
-                    sap.save()
-                return success_response()
-            else:
-                return error_response("Not authorized", 401)
-    except IndexError: pass
+        sa = ShareAlbum.objects.get(id=share_album_id)
+    except ShareAlbum.DoesNotExist:
+        return error_response("Target album does not exist", 404)
+
+    # Check write access to target ShareAlbum sa (owner, editor, or superuser)
+    has_album_write_access = (
+        sa.owner == request.user or 
+        request.user.is_superuser or 
+        ShareAlbum_Subscriber.objects.filter(album=sa, user=request.user, subscribe_type__in=[0, 1]).exists()
+    )
+    if not has_album_write_access:
+        return error_response("Not authorized to modify this album", 401)
+
+    for pid in photo_id:
+        try:
+            p = Photo.objects.get(id=pid)
+        except Photo.DoesNotExist:
+            continue
+        
+        # Check read access to photo p (owner, subscriber to physical album, or superuser)
+        has_photo_access = (
+            request.user.is_superuser or
+            p.owner == request.user or
+            p.album.owner == request.user or
+            p.album.users_subscribed.filter(user=request.user).exists()
+        )
+        if has_photo_access:
+            if not ShareAlbum_Photo.objects.filter(sharealbum=sa, photo=p).exists():
+                sap = ShareAlbum_Photo(sharealbum=sa, photo=p)
+                sap.save()
+
+    return success_response()
 
 @post_request_only
 @login_required_api
@@ -538,12 +565,126 @@ def remove_photo_from_album(request):
         photo_id = [photo_id]
 
     try:
-        for pid in photo_id:
-            p = Photo.objects.filter(id=pid)[0]
-            sa = ShareAlbum.objects.filter(id=share_album_id)[0]
-            if p.album.owner == request.user and (sa.owner == request.user or request.user.is_superuser):
-                ShareAlbum_Photo.objects.filter(sharealbum=sa, photo=p).delete()
+        sa = ShareAlbum.objects.get(id=share_album_id)
+    except ShareAlbum.DoesNotExist:
+        return error_response("Target album does not exist", 404)
+
+    # Check write access to target ShareAlbum sa (owner, editor, or superuser)
+    has_album_write_access = (
+        sa.owner == request.user or 
+        request.user.is_superuser or 
+        ShareAlbum_Subscriber.objects.filter(album=sa, user=request.user, subscribe_type__in=[0, 1]).exists()
+    )
+    if not has_album_write_access:
+        return error_response("Not authorized to modify this album", 401)
+
+    for pid in photo_id:
+        try:
+            p = Photo.objects.get(id=pid)
+        except Photo.DoesNotExist:
+            continue
+        ShareAlbum_Photo.objects.filter(sharealbum=sa, photo=p).delete()
+
+    return success_response()
+
+@post_request_only
+@login_required_api
+def create_share_album(request):
+    body = json.loads(request.body.decode('utf8'))
+    name = body.get('name')
+    description = body.get('description', '')
+    public = body.get('public', False)
+    if not name:
+        return error_response("Name is required", 400)
+    
+    album = ShareAlbum(owner=request.user, name=name, description=description, public=public)
+    album.save()
+    
+    sub = ShareAlbum_Subscriber(album=album, user=request.user, subscribe_type=0)
+    sub.save()
+    
+    return JsonResponse({"status": "success", "album": album.getinfo()})
+
+@post_request_only
+@login_required_api
+def edit_share_album(request, album_id):
+    try:
+        album = ShareAlbum.objects.get(id=album_id)
+    except ShareAlbum.DoesNotExist:
+        return error_response("Album does not exist", 404)
+    
+    if album.owner != request.user and not request.user.is_superuser:
+        return error_response("Not authorized", 401)
+    
+    body = json.loads(request.body.decode('utf8'))
+    name = body.get('name')
+    description = body.get('description', '')
+    public = body.get('public', False)
+    if not name:
+        return error_response("Name is required", 400)
+    
+    album.name = name
+    album.description = description
+    album.public = public
+    album.save()
+    
+    return JsonResponse({"status": "success", "album": album.getinfo()})
+
+@login_required_api
+def manage_subscribers(request, album_id):
+    try:
+        album = ShareAlbum.objects.get(id=album_id)
+    except ShareAlbum.DoesNotExist:
+        return error_response("Album does not exist", 404)
+    
+    if album.owner != request.user and not request.user.is_superuser:
+        return error_response("Not authorized", 401)
+    
+    if request.method == "GET":
+        subs = ShareAlbum_Subscriber.objects.filter(album=album).exclude(subscribe_type=0)
+        subscribers_list = []
+        for s in subs:
+            subscribers_list.append({
+                "id": s.id,
+                "username": s.user.username,
+                "subscribe_type": s.subscribe_type
+            })
+        return JsonResponse({"status": "success", "subscribers": subscribers_list})
+    
+    elif request.method == "POST":
+        body = json.loads(request.body.decode('utf8'))
+        action = body.get('action')
+        
+        if action == "add":
+            username = body.get('username')
+            sub_type = body.get('subscribe_type', 2) # Default to Viewer (2)
+            
+            if not username:
+                return error_response("Username is required", 400)
+                
+            try:
+                target_user = ComptechUser.objects.get(username=username)
+            except ComptechUser.DoesNotExist:
+                return error_response("User not found", 404)
+                
+            if ShareAlbum_Subscriber.objects.filter(album=album, user=target_user).exists():
+                return error_response("User is already subscribed", 400)
+                
+            sub = ShareAlbum_Subscriber(album=album, user=target_user, subscribe_type=sub_type)
+            sub.save()
+            return success_response()
+            
+        elif action == "remove":
+            sub_id = body.get('subscriber_id')
+            if not sub_id:
+                return error_response("Subscriber ID is required", 400)
+                
+            try:
+                sub = ShareAlbum_Subscriber.objects.get(id=sub_id, album=album)
+                sub.delete()
                 return success_response()
+            except ShareAlbum_Subscriber.DoesNotExist:
+                return error_response("Subscriber not found", 404)
+                
         else:
-            return error_response("Not authorized", 401)
-    except IndexError: pass
+            return error_response("Invalid action", 400)
