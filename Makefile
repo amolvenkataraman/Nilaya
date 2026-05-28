@@ -5,7 +5,7 @@ sh:
 	python3 manage.py shell
 
 cs:
-	python3 manage.py collectstatic
+	python3 manage.py collectstatic --noinput
 
 mm:
 	python3 manage.py makemigrations
