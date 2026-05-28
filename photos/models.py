@@ -77,6 +77,9 @@ class Album_Subscriber(models.Model):
     ), default=2)
     visible = models.BooleanField(default=True)
 
+    class Meta:
+        ordering = ['album_id']
+
     def __str__(self):
         return f"{self.user.username} subscribed to {self.album.name}"
 

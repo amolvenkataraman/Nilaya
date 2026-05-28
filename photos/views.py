@@ -44,7 +44,7 @@ def photos(request):
     else:
         if not request.user.is_authenticated:
             return redirect("/accounts/login/?next=" + request.path)
-        album_subs = request.user.album_subscribed.all()
+        album_subs = request.user.album_subscribed.filter(visible=True)
         albums = [i.album for i in album_subs]
         album = None
 
@@ -215,7 +215,7 @@ def map_new(request):
     vals = request.GET.get('vals')
     f_album = request.GET.get('album')
 
-    album_subs = request.user.album_subscribed.all()
+    album_subs = request.user.album_subscribed.filter(visible=True)
     albums = [i.album.id for i in album_subs]
 
     if f_album != None: albums = [f_album]
@@ -239,7 +239,7 @@ def map_new(request):
 
 @login_required
 def geoguessr(request):
-    album_subs = request.user.album_subscribed.all()
+    album_subs = request.user.album_subscribed.filter(visible=True)
     albums = [i.album for i in album_subs]
 
     photo = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False).exclude(latitude=0, longitude=0).order_by("?").first()
@@ -249,7 +249,7 @@ def geoguessr(request):
 @login_required
 def geoguessr_ent(request):
     if request.method == "GET":
-        album_subs = request.user.album_subscribed.all()
+        album_subs = request.user.album_subscribed.filter(visible=True)
         albums = [i.album for i in album_subs]
 
         oq = Q()
@@ -285,7 +285,7 @@ def geoguessr_ent(request):
 
 @login_required
 def day(request, year, month, day):
-    album_subs = request.user.album_subscribed.all()
+    album_subs = request.user.album_subscribed.filter(visible=True)
     albums = [i.album for i in album_subs]
 
     context = {'photos':
@@ -295,7 +295,7 @@ def day(request, year, month, day):
 
 @login_required
 def event(request, event_id):
-    album_subs = request.user.album_subscribed.all()
+    album_subs = request.user.album_subscribed.filter(visible=True)
     albums = [i.album for i in album_subs]
 
     try:
@@ -339,7 +339,7 @@ def get_photos_for_date(request):
         if not request.user.is_authenticated:
             return error_response("Not logged in", 401)
 
-        album_subs = request.user.album_subscribed.all()
+        album_subs = request.user.album_subscribed.filter(visible=True)
         albums = [i.album for i in album_subs]
 
         photos = Photo.objects.filter(album__in=albums)
@@ -688,3 +688,25 @@ def manage_subscribers(request, album_id):
                 
         else:
             return error_response("Invalid action", 400)
+
+
+@login_required_api
+def toggle_album_visibility(request, album_id):
+    try:
+        sub = request.user.album_subscribed.get(album_id=album_id)
+        sub.visible = not sub.visible
+        sub.save()
+        return success_response({"visible": sub.visible})
+    except Album_Subscriber.DoesNotExist:
+        return error_response("Album subscription not found", 404)
+
+@login_required_api
+def display_only_album(request, album_id):
+    try:
+        target_sub = request.user.album_subscribed.get(album_id=album_id)
+        request.user.album_subscribed.exclude(album_id=album_id).update(visible=False)
+        target_sub.visible = True
+        target_sub.save()
+        return success_response("Success")
+    except Album_Subscriber.DoesNotExist:
+        return error_response("Album subscription not found", 404)

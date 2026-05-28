@@ -569,4 +569,145 @@
     color: white !important;
 }
 
+.left-sidebar-content {
+    display: flex !important;
+    flex-direction: column !important;
+    height: 100% !important;
+    position: relative !important;
+}
+
+/* Sidebar Album List toggler styles */
+.sidebar-album-list {
+    margin-top: auto !important;
+    max-height: 50% !important;
+    padding: 16px 16px 24px 16px;
+    font-family: var(--font-stack);
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    box-sizing: border-box;
+}
+
+.album-list-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--border-glass);
+    padding-bottom: 6px;
+    flex-shrink: 0;
+}
+
+.album-list-header span {
+    font-size: 0.75rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-secondary);
+}
+
+.album-list-items {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+    overflow-y: auto !important;
+    overflow-x: hidden !important;
+    flex-grow: 1 !important;
+}
+
+.album-list-items::-webkit-scrollbar {
+    width: 4px;
+}
+.album-list-items::-webkit-scrollbar-track {
+    background: transparent;
+}
+.album-list-items::-webkit-scrollbar-thumb {
+    background: rgba(0, 0, 0, 0.15);
+    border-radius: 2px;
+}
+.album-list-items::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 0, 0, 0.25);
+}
+@media (prefers-color-scheme: dark) {
+    .album-list-items::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.15);
+    }
+    .album-list-items::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.25);
+    }
+}
+
+
+.album-toggle-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: relative;
+    padding: 4px 6px;
+    border-radius: var(--border-radius-sm);
+    transition: var(--transition);
+}
+
+.album-toggle-item:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+@media (prefers-color-scheme: dark) {
+    .album-toggle-item:hover {
+        background: rgba(255, 255, 255, 0.03);
+    }
+}
+
+.album-toggle-checkbox {
+    cursor: pointer;
+    width: 14px;
+    height: 14px;
+    margin: 0;
+}
+
+.album-toggle-label {
+    margin: 0;
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.album-checkbox-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-grow: 1;
+    overflow: hidden;
+}
+
+.album-options-btn {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    height: 20px;
+    width: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--text-secondary);
+    opacity: 0;
+    transition: opacity 0.15s;
+    cursor: pointer;
+}
+
+.album-toggle-item:hover .album-options-btn {
+    opacity: 0.7;
+}
+
+.album-options-btn:hover {
+    opacity: 1 !important;
+    color: var(--text-primary);
+}
+
+
+
 

@@ -4,6 +4,7 @@
 
 {% block page_styles %}
 <link href="{% static 'photo/styles.css' %}" rel="stylesheet" media="all" />
+<link href="{% static 'photo/photos_addon.css' %}" rel="stylesheet" />
 <link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">
 {% endblock page_styles %}
 
@@ -76,6 +77,36 @@
     </li>
 </ul>
 
+<div class="sidebar-album-list">
+    <div class="album-list-header">
+        <span>My Albums</span>
+    </div>
+    <div class="album-list-items">
+        {% for sub in request.user.album_subscribed.all %}
+        <div class="album-toggle-item" data-album-id="{{ sub.album.id }}">
+            <div class="album-checkbox-wrapper">
+                <input type="checkbox" class="form-check-input album-toggle-checkbox" id="album-{{ sub.album.id }}" {% if sub.visible %}checked{% endif %} onchange="toggleAlbumVisibility('{{ sub.album.id }}', this)">
+                <label class="album-toggle-label" for="album-{{ sub.album.id }}" title="{{ sub.album.name }}">{{ sub.album.name }}</label>
+            </div>
+            <div class="dropdown">
+                <button class="btn btn-white album-options-btn"
+                    type="button" id="albumDropdownMenu{{ sub.album.id }}" data-bs-toggle="dropdown"
+                    aria-haspopup="true" aria-expanded="false" aria-label="Album options">
+                    <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-three-dots-vertical" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd" d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                    </svg>
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="albumDropdownMenu{{ sub.album.id }}" style="opacity: 1; z-index: 1050;">
+                    <li><a class="dropdown-item" href="#!" onclick="displayOnlyAlbum('{{ sub.album.id }}')">Display only this</a></li>
+                </ul>
+            </div>
+        </div>
+        {% empty %}
+        <div class="text-muted" style="font-size: 0.85rem; padding: 0 6px;">No subscribed albums</div>
+        {% endfor %}
+    </div>
+</div>
+
 <script>
     function ingest_photos() {
         var r = new XMLHttpRequest();
@@ -89,6 +120,44 @@
                 alert(res['data']);
             }
         }
+        r.send();
+    }
+
+    function toggleAlbumVisibility(albumId, checkbox) {
+        var r = new XMLHttpRequest();
+        var url = `/photos/albums/toggle-visibility/${albumId}/`;
+        r.open("GET", url);
+        r.onload = () => {
+            var res = JSON.parse(r.responseText);
+            if (res['status'] === 'success') {
+                location.reload();
+            } else {
+                alert(res['data'] || 'Failed to toggle album visibility.');
+                checkbox.checked = !checkbox.checked;
+            }
+        };
+        r.onerror = () => {
+            alert('Failed to connect to the server.');
+            checkbox.checked = !checkbox.checked;
+        };
+        r.send();
+    }
+
+    function displayOnlyAlbum(albumId) {
+        var r = new XMLHttpRequest();
+        var url = `/photos/albums/display-only/${albumId}/`;
+        r.open("GET", url);
+        r.onload = () => {
+            var res = JSON.parse(r.responseText);
+            if (res['status'] === 'success') {
+                location.reload();
+            } else {
+                alert(res['data'] || 'Failed to display only this album.');
+            }
+        };
+        r.onerror = () => {
+            alert('Failed to connect to the server.');
+        };
         r.send();
     }
 </script>
