@@ -757,19 +757,22 @@ function add_edit_event(date, month = m + 1, year = y, command = "add", edit_eve
     if (command == "add") {
         document.querySelector('.event-type-btn-ade').click();
         document.querySelectorAll('.event-date-start').forEach(function (e) {
-            e.valueAsDate = new Date(`${year}-${month}-${date}`);
+            e.valueAsDate = new Date(Date.UTC(year, month - 1, date));
         });
         document.querySelectorAll('.event-date-end-ade').forEach(function (e) {
-            e.valueAsDate = new Date(moment(new Date(`${year}-${month}-${date}`)).add(1, "days"));
-        });
-        document.querySelectorAll('.event-time-start').forEach(function (e) {
-            e.value = `${moment(new Date()).add(1, "hours").format("hh")}:00:00`;
+            e.valueAsDate = new Date(Date.UTC(year, month - 1, date + 1));
         });
         document.querySelectorAll('.event-date-end-event').forEach(function (e) {
-            e.valueAsDate = new Date(moment(new Date(`${year}-${month}-${date} ${moment(new Date()).add(1, "hours").format("hh")}:00:00`)).add(2, "hours"));
+            e.valueAsDate = new Date(Date.UTC(year, month - 1, date));
+        });
+
+        const defaultStartTime = moment().add(1, "hours").format("HH:00");
+        const defaultEndTime = moment().add(3, "hours").format("HH:00");
+        document.querySelectorAll('.event-time-start').forEach(function (e) {
+            e.value = defaultStartTime;
         });
         document.querySelectorAll('.event-time-end-event').forEach(function (e) {
-            e.value = `${moment(new Date()).add(2, "hours").format("hh")}:00:00`;
+            e.value = defaultEndTime;
         });
     }
     else if (command == "edit") {
@@ -778,8 +781,18 @@ function add_edit_event(date, month = m + 1, year = y, command = "add", edit_eve
         esdate = new Date(edit_event['startdate']);
         if (curreventtype == "assignment") { eedate = new Date(moment(esdate).add(1, "days").add(1, "hours")); }
         else { eedate = new Date(edit_event['enddate']); }
-        esdate = convertUTCDateToLocalDate(esdate);
-        eedate = convertUTCDateToLocalDate(eedate);
+
+        if (curreventtype == "ade") {
+            const sParts = getEasternDateParts(esdate);
+            esdate = new Date(Date.UTC(sParts.year, sParts.month - 1, sParts.day));
+            if (edit_event['enddate'] && edit_event['enddate'] !== 'None') {
+                const eParts = getEasternDateParts(eedate);
+                eedate = new Date(Date.UTC(eParts.year, eParts.month - 1, eParts.day));
+            }
+        } else {
+            esdate = convertUTCDateToLocalDate(esdate);
+            eedate = convertUTCDateToLocalDate(eedate);
+        }
         document.querySelector(`.event-type-btn-${curreventtype}`).click();
         document.querySelectorAll('.event-date-start').forEach(function (e) {
             e.valueAsDate = esdate;
@@ -849,7 +862,7 @@ function add_edit_event(date, month = m + 1, year = y, command = "add", edit_eve
         if (curreventtype != "ade") {
             result['start'] = new Date(result['start'])
         }
-        if (curreventtype == "assignment") {
+        if (curreventtype == "event") {
             result['end'] = new Date(result['end'])
         }
 
@@ -1790,6 +1803,14 @@ function reload_calendar() {
 
         sd = new Date(e[i]['startdate'])
         ed = new Date(e[i]['enddate'])
+        if (e[i]['allday'] == true) {
+            const sParts = getEasternDateParts(sd);
+            sd = new Date(sParts.year, sParts.month - 1, sParts.day);
+            if (e[i]['enddate'] && e[i]['enddate'] !== 'None') {
+                const eParts = getEasternDateParts(ed);
+                ed = new Date(eParts.year, eParts.month - 1, eParts.day);
+            }
+        }
 
         if (e[i]['category'] == 100) {
             icon = "";
@@ -1965,6 +1986,14 @@ function display_info(button) {
 
         sd = new Date(event_["startdate"])
         ed = new Date(event_["enddate"])
+        if (event_["allday"] == true) {
+            const sParts = getEasternDateParts(sd);
+            sd = new Date(sParts.year, sParts.month - 1, sParts.day);
+            if (event_["enddate"] && event_["enddate"] !== 'None') {
+                const eParts = getEasternDateParts(ed);
+                ed = new Date(eParts.year, eParts.month - 1, eParts.day);
+            }
+        }
         if (event_['sync_id'] != null) {
             title = `${event_['name']} <span class="text-muted"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat" viewBox="0 0 16 16"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/></svg></span>`
         }
@@ -2326,6 +2355,21 @@ function randomText(length) {
 function convertUTCDateToLocalDate(date) {
     date.setMinutes(date.getMinutes() - date.getTimezoneOffset());
     return date;
+}
+
+function getEasternDateParts(date) {
+    const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: 'Canada/Eastern',
+        year: 'numeric',
+        month: 'numeric',
+        day: 'numeric'
+    });
+    const parts = formatter.formatToParts(date);
+    const result = {};
+    for (const part of parts) {
+        result[part.type] = parseInt(part.value, 10);
+    }
+    return result;
 }
 
 function roundDate(date = new Date(), mins) {
