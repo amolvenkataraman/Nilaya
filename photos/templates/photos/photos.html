@@ -34,125 +34,124 @@
 <script id="photo-description" type="text/x-handlebars-template">
     {% verbatim %}
     <div class="photo-description">
-        <div class="photo-header">
-            <div class="photo-name">
-                {{ filepath }}
+        <div class="sidebar-section">
+            <div class="photo-header">
+                <span class="file-icon-badge">
+                    {{#if video}}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
+                    {{else}}
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    {{/if}}
+                </span>
+                <div class="photo-name" title="{{ filepath }}">{{ filepath }}</div>
             </div>
         </div>
 
-        <div class="photo-info-grid">
-            <div class="info-item">
-                <span class="info-label">ID</span>
-                <span class="info-value">{{ id }}</span>
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">File Details</div>
+            <div class="metadata-row">
+                <span class="metadata-label">ID</span>
+                <span class="metadata-value">{{ id }}</span>
             </div>
-            <div class="info-item">
-                <span class="info-label">Dimensions</span>
-                <span class="info-value">{{ width }}x{{ height }} [{{ megapixels }} MP]</span>
+            <div class="metadata-row">
+                <span class="metadata-label">Dimensions</span>
+                <span class="metadata-value">{{ width }} &times; {{ height }} <span class="mp-badge">{{ megapixels }} MP</span></span>
             </div>
-            <div class="info-item">
-                <span class="info-label">Date Taken</span>
-                <span class="info-value">{{ date_taken }}</span>
+            <div class="metadata-row">
+                <span class="metadata-label">Date Taken</span>
+                <span class="metadata-value">{{ date_taken }}</span>
             </div>
-            <div class="info-item">
-                <span class="info-label">Size</span>
-                <span class="info-value">{{ size }} {{ size_unit }} / {{ size_total }} {{ st_unit }}</span>
+            <div class="metadata-row">
+                <span class="metadata-label">File Size</span>
+                <span class="metadata-value" title="Optimized: {{ size }} {{ size_unit }} / Original: {{ size_total }} {{ st_unit }}">{{ size }} {{ size_unit }} <span class="original-size-badge">/ {{ size_total }} {{ st_unit }}</span></span>
             </div>
+        </div>
 
-            {{#if location_city}}
-            <div class="info-item">
-                <span class="info-label">Location</span>
-                <span class="info-value">{{location_city}}{{#if location_country}}, {{location_country}}{{/if}}</span>
+        {{#if location_city}}
+        <div class="sidebar-section">
+            <div class="sidebar-section-title">Location</div>
+            <div class="metadata-row">
+                <span class="metadata-label">Place</span>
+                <span class="metadata-value">{{location_city}}{{#if location_country}}, {{location_country}}{{/if}}</span>
+            </div>
+            {{#if lat}}
+            <div class="location-actions">
+                <button onclick="load_map({{ lat }}, {{ lon }})" class="action-btn map-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                    View Map Preview
+                </button>
+            </div>
+            {{/if}}
+            <div id="mapid"></div>
+        </div>
+        {{/if}}
+
+        <div class="sidebar-section">
+            {{#if video}}
+            <div class="sidebar-section-title">Video Properties</div>
+            <div class="metadata-row">
+                <span class="metadata-label">Camera Make</span>
+                <span class="metadata-value">{{#if camera_make}}{{ camera_make }}{{else}}—{{/if}}</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Camera Model</span>
+                <span class="metadata-value">{{#if camera_model}}{{ camera_model }}{{else}}—{{/if}}</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Original MIME</span>
+                <span class="metadata-value">{{ mimetype }}</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Frame Rate</span>
+                <span class="metadata-value">{{ framerate }} FPS</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Duration</span>
+                <span class="metadata-value">{{ duration }}</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Bitrate</span>
+                <span class="metadata-value">{{ bitrate }} {{ br_unit }}</span>
+            </div>
+            {{else}}
+            <div class="sidebar-section-title">Camera Info (EXIF)</div>
+            <div class="metadata-row">
+                <span class="metadata-label">Camera</span>
+                <span class="metadata-value">{{#if camera_make}}{{ camera_make }}{{else}}—{{/if}} {{#if camera_model}}{{ camera_model }}{{/if}}</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Exposure</span>
+                <span class="metadata-value">{{#if exposure}}{{ exposure }}{{else}}—{{/if}}</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Aperture</span>
+                <span class="metadata-value">{{#if aperture}}{{ aperture }}{{else}}{{#if fnumber}}f/{{ fnumber }}{{else}}—{{/if}}{{/if}}</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">ISO Speed</span>
+                <span class="metadata-value">{{#if isospeed}}{{ isospeed }}{{else}}—{{/if}}</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Shutter Speed</span>
+                <span class="metadata-value">{{#if shutterspeed}}{{ shutterspeed }}{{else}}—{{/if}}</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Flash</span>
+                <span class="metadata-value">{{#if flash}}{{ flash }}{{else}}—{{/if}}</span>
+            </div>
+            <div class="metadata-row">
+                <span class="metadata-label">Focal Length</span>
+                <span class="metadata-value">{{#if focallength}}{{ focallength }}{{else}}—{{/if}}</span>
             </div>
             {{/if}}
         </div>
 
-        <div class="photo-actions">
-            <button onclick="load_map({{ lat }}, {{ lon }})" class="action-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-map-pin"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                View Location
-            </button>
+        <div class="sidebar-actions-section">
             <button onclick="del_photo('{{ id }}')" class="action-btn delete-btn">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="feather feather-trash-2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                Delete
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                Delete Asset
             </button>
         </div>
-
-        {{#if video}}
-        <div class="camera-info">
-            <div class="camera-info-header">Video Information</div>
-            <div class="camera-info-grid">
-                <div class="info-item">
-                    <span class="info-label">Camera Make</span>
-                    <span class="info-value">{{ camera_make }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Camera Model</span>
-                    <span class="info-value">{{ camera_model }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">MIME Type (Original)</span>
-                    <span class="info-value">{{ mimetype }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Frame Rate</span>
-                    <span class="info-value">{{ framerate }} FPS</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Duration</span>
-                    <span class="info-value">{{ duration }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Bitrate</span>
-                    <span class="info-value">{{ bitrate }} {{ br_unit }}</span>
-                </div>
-                
-            </div>
-        </div>
-        {{else}}
-        <div class="camera-info">
-            <div class="camera-info-header">Photo Information</div>
-            <div class="camera-info-grid">
-                <div class="info-item">
-                    <span class="info-label">Camera Make</span>
-                    <span class="info-value">{{ camera_make }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Camera Model</span>
-                    <span class="info-value">{{ camera_model }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Exposure</span>
-                    <span class="info-value">{{ exposure }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">F Number</span>
-                    <span class="info-value">{{ fnumber }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">ISO Speed</span>
-                    <span class="info-value">{{ isospeed }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Shutter Speed</span>
-                    <span class="info-value">{{ shutterspeed }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Aperture</span>
-                    <span class="info-value">{{ aperture }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Flash</span>
-                    <span class="info-value">{{ flash }}</span>
-                </div>
-                <div class="info-item">
-                    <span class="info-label">Focal Length</span>
-                    <span class="info-value">{{ focallength }}</span>
-                </div>
-            </div>
-        </div>
-        {{/if}}
-
-        <div id="mapid"></div>
     </div>
     {% endverbatim %}
 </script>
@@ -304,19 +303,36 @@
         update_selection_bar();
     }
 
+    var sidebarMap = null;
     function load_map(lat, lng) {
-        var map = L.map('mapid').setView([lat, lng], 12);
+        if (sidebarMap !== null) {
+            try {
+                sidebarMap.remove();
+            } catch (e) {
+                console.error("Error removing map instance:", e);
+            }
+        }
+        document.getElementById('mapid').style.display = 'block';
+        document.getElementById('mapid').style.height = '180px';
+        
+        sidebarMap = L.map('mapid').setView([lat, lng], 12);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 28,
             tileSize: 256,
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        }).addTo(map);
-        L.marker([lat, lng]).addTo(map)
+        }).addTo(sidebarMap);
+        L.marker([lat, lng]).addTo(sidebarMap);
     }
 
     function close_image() {
         imgloaded = false;
+        if (sidebarMap !== null) {
+            try {
+                sidebarMap.remove();
+            } catch (e) {}
+            sidebarMap = null;
+        }
         document.getElementById("photo-display-area").style.visibility = "hidden";
         document.getElementById("photo").innerHTML = "";
     }
