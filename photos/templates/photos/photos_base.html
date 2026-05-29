@@ -30,8 +30,8 @@
             Photos
         </a>
     </li>
-    <li class="nav-item">
-        <a class="photo-page-link" href="#" onclick="alert('Search feature coming soon!'); return false;">
+    <li class="nav-item {% if active_page == 'search' %}nav-item-selected{% endif %}">
+        <a class="photo-page-link" href="{% url 'search_page' %}">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                 class="feather feather-search">

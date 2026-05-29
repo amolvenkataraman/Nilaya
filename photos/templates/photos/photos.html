@@ -897,6 +897,10 @@
             <span class="filter-tag" data-filter="camera_make">Camera: {{ cam_make }} <button class="remove-filter"
                     onclick="removeFilter('camera_make')">&times;</button></span>
             {% endif %}
+            {% if cam_model %}
+            <span class="filter-tag" data-filter="camera_model">Model: {{ cam_model }} <button class="remove-filter"
+                    onclick="removeFilter('camera_model')">&times;</button></span>
+            {% endif %}
             {% if country %}
             <span class="filter-tag" data-filter="country">Country: {{ country }} <button class="remove-filter"
                     onclick="removeFilter('country')">&times;</button></span>
@@ -1002,6 +1006,7 @@
         // Clear all filter params
         params.delete('video');
         params.delete('camera_make');
+        params.delete('camera_model');
         params.delete('country');
         params.delete('city');
         params.delete('objects');

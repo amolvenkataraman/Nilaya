@@ -61,6 +61,12 @@ def photos(request):
     else:
         cam_make = None
 
+    if request.GET.get("camera_model"):
+        cam_model = request.GET.get("camera_model")
+        photos = photos.filter(camera_model=cam_model)
+    else:
+        cam_model = None
+
     if request.GET.get('country'):
         country = request.GET.get('country')
         photos = photos.filter(location_country=country)
@@ -141,6 +147,7 @@ def photos(request):
         "right_sidebar": True,
         "video": video_only,
         "cam_make": cam_make,
+        "cam_model": cam_model,
         "country": country,
         "city": city,
         "objects": ",".join([f"{i}" for i in objects_]) if objects_ else None,
@@ -1158,5 +1165,142 @@ def storage_page(request):
         "month_storage": month_storage,
     }
     return render(request, 'photos/storage.html', context)
+
+
+# --- Search Features ---
+
+ID_TO_NAME_MAPPING = {}
+for name, idx in NAME_TO_ID_MAPPING.items():
+    if idx not in ID_TO_NAME_MAPPING:
+        ID_TO_NAME_MAPPING[idx] = []
+    ID_TO_NAME_MAPPING[idx].append(name)
+
+
+def search_page(request):
+    if not request.user.is_authenticated:
+        return redirect("/accounts/login/?next=" + request.path)
+
+    context = {
+        "active_page": "search",
+        "left_sidebar": True,
+        "right_sidebar": False,
+    }
+    return render(request, "photos/search.html", context)
+
+
+def search_category(request, category):
+    if not request.user.is_authenticated:
+        return redirect("/accounts/login/?next=" + request.path)
+
+    from django.db import connection
+
+    album_subs = request.user.album_subscribed.filter(visible=True)
+    albums = [i.album for i in album_subs]
+    user_photos = Photo.objects.filter(album__in=albums)
+
+    items = []
+    category_name = ""
+
+    if category == "objects":
+        category_name = "Objects"
+        album_ids = list(user_photos.values_list('album_id', flat=True).distinct())
+        if album_ids:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT elem::int AS object_id, COUNT(*) AS count
+                    FROM photos_photo,
+                         jsonb_array_elements_text(COALESCE(ai_index_info->'objects', '[]'::jsonb)) AS elem
+                    WHERE album_id = ANY(%s)
+                    GROUP BY object_id
+                """, [album_ids])
+                rows = cursor.fetchall()
+
+            for object_id, count in rows:
+                names = ID_TO_NAME_MAPPING.get(object_id, [])
+                if names:
+                    display_names = [n.replace("_", " ").title() for n in names]
+                    display_name = " / ".join(display_names)
+                    filter_val = ",".join(names)
+                    items.append({
+                        "display": display_name,
+                        "filter_val": filter_val,
+                        "count": count,
+                    })
+        items.sort(key=lambda x: x["count"], reverse=True)
+
+    elif category == "cameras":
+        category_name = "Camera Models"
+        counts = (
+            user_photos.exclude(camera_model__isnull=True)
+            .exclude(camera_model="")
+            .values("camera_make", "camera_model")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        for item in counts:
+            make = item["camera_make"]
+            model = item["camera_model"]
+            if make and model:
+                if model.lower().startswith(make.lower()):
+                    display_name = model
+                else:
+                    display_name = f"{model} ({make})"
+            elif model:
+                display_name = model
+            else:
+                display_name = make or "Unknown"
+
+            items.append({
+                "display": display_name,
+                "filter_val": model,
+                "count": item["count"],
+            })
+
+    elif category == "countries":
+        category_name = "Countries"
+        counts = (
+            user_photos.exclude(altitude__gte=1000)
+            .exclude(location_country__isnull=True)
+            .exclude(location_country="")
+            .values("location_country")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        for item in counts:
+            items.append({
+                "display": item["location_country"],
+                "filter_val": item["location_country"],
+                "count": item["count"],
+            })
+
+    elif category == "cities":
+        category_name = "Cities"
+        counts = (
+            user_photos.exclude(altitude__gte=1000)
+            .exclude(location_city__isnull=True)
+            .exclude(location_city="")
+            .values("location_city", "location_country")
+            .annotate(count=Count("id"))
+            .order_by("-count")
+        )
+        for item in counts:
+            display_name = f"{item['location_city']}, {item['location_country']}" if item['location_country'] else item['location_city']
+            items.append({
+                "display": display_name,
+                "filter_val": item["location_city"],
+                "count": item["count"],
+            })
+    else:
+        return redirect("search_page")
+
+    context = {
+        "active_page": "search",
+        "left_sidebar": True,
+        "right_sidebar": False,
+        "category": category,
+        "category_name": category_name,
+        "items": items,
+    }
+    return render(request, "photos/search_category.html", context)
 
 
