@@ -975,32 +975,42 @@ def storage_page(request):
     for album in albums_list:
         album_qs = Photo.objects.filter(album=album)
         bd_album = get_storage_breakdown(album_qs)
+        tot = bd_album['all']['tot']
+        opt_photo = bd_album['photo']['opt']
+        raw_photo = bd_album['photo']['overhead']
+        opt_video = bd_album['video']['opt']
+        orig_video = bd_album['video']['overhead']
         album_storage.append({
             'name': album.name,
             # ALL
             'count_all': bd_album['all']['cnt'],
             'opt_size_mb_all': bd_album['all']['opt'] / 1024,
-            'tot_size_mb_all': bd_album['all']['tot'] / 1024,
+            'tot_size_mb_all': tot / 1024,
             'overhead_mb_all': bd_album['all']['overhead'] / 1024,
             'opt_size_str_all': get_size_str(bd_album['all']['opt']),
-            'tot_size_str_all': get_size_str(bd_album['all']['tot']),
+            'tot_size_str_all': get_size_str(tot),
             'overhead_str_all': get_size_str(bd_album['all']['overhead']),
             # PHOTO
             'count_photo': bd_album['photo']['cnt'],
-            'opt_size_mb_photo': bd_album['photo']['opt'] / 1024,
+            'opt_size_mb_photo': opt_photo / 1024,
             'tot_size_mb_photo': bd_album['photo']['tot'] / 1024,
-            'overhead_mb_photo': bd_album['photo']['overhead'] / 1024,
-            'opt_size_str_photo': get_size_str(bd_album['photo']['opt']),
+            'overhead_mb_photo': raw_photo / 1024,
+            'opt_size_str_photo': get_size_str(opt_photo),
             'tot_size_str_photo': get_size_str(bd_album['photo']['tot']),
-            'overhead_str_photo': get_size_str(bd_album['photo']['overhead']),
+            'overhead_str_photo': get_size_str(raw_photo),
             # VIDEO
             'count_video': bd_album['video']['cnt'],
-            'opt_size_mb_video': bd_album['video']['opt'] / 1024,
+            'opt_size_mb_video': opt_video / 1024,
             'tot_size_mb_video': bd_album['video']['tot'] / 1024,
-            'overhead_mb_video': bd_album['video']['overhead'] / 1024,
-            'opt_size_str_video': get_size_str(bd_album['video']['opt']),
+            'overhead_mb_video': orig_video / 1024,
+            'opt_size_str_video': get_size_str(opt_video),
             'tot_size_str_video': get_size_str(bd_album['video']['tot']),
-            'overhead_str_video': get_size_str(bd_album['video']['overhead']),
+            'overhead_str_video': get_size_str(orig_video),
+            # PERCENTAGES
+            'pct_photo_opt': (opt_photo / tot * 100) if tot > 0 else 0,
+            'pct_photo_raw': (raw_photo / tot * 100) if tot > 0 else 0,
+            'pct_video_opt': (opt_video / tot * 100) if tot > 0 else 0,
+            'pct_video_orig': (orig_video / tot * 100) if tot > 0 else 0,
         })
     album_storage.sort(key=lambda x: x['tot_size_mb_all'], reverse=True)
 
@@ -1030,23 +1040,33 @@ def storage_page(request):
         all_oh = vals['all_tot'] - vals['all_opt']
         photo_oh = vals['photo_tot'] - vals['photo_opt']
         video_oh = vals['video_tot'] - vals['video_opt']
+        tot = vals['all_tot']
+        opt_photo = vals['photo_opt']
+        raw_photo = photo_oh
+        opt_video = vals['video_opt']
+        orig_video = video_oh
         year_storage.append({
             'year': yr,
             # ALL
             'count_all': vals['all_cnt'],
             'opt_size_str_all': get_size_str(vals['all_opt']),
-            'tot_size_str_all': get_size_str(vals['all_tot']),
+            'tot_size_str_all': get_size_str(tot),
             'overhead_str_all': get_size_str(all_oh),
             # PHOTO
             'count_photo': vals['photo_cnt'],
-            'opt_size_str_photo': get_size_str(vals['photo_opt']),
+            'opt_size_str_photo': get_size_str(opt_photo),
             'tot_size_str_photo': get_size_str(vals['photo_tot']),
-            'overhead_str_photo': get_size_str(photo_oh),
+            'overhead_str_photo': get_size_str(raw_photo),
             # VIDEO
             'count_video': vals['video_cnt'],
-            'opt_size_str_video': get_size_str(vals['video_opt']),
+            'opt_size_str_video': get_size_str(opt_video),
             'tot_size_str_video': get_size_str(vals['video_tot']),
-            'overhead_str_video': get_size_str(video_oh),
+            'overhead_str_video': get_size_str(orig_video),
+            # PERCENTAGES
+            'pct_photo_opt': (opt_photo / tot * 100) if tot > 0 else 0,
+            'pct_photo_raw': (raw_photo / tot * 100) if tot > 0 else 0,
+            'pct_video_opt': (opt_video / tot * 100) if tot > 0 else 0,
+            'pct_video_orig': (orig_video / tot * 100) if tot > 0 else 0,
         })
 
     # Group by Month
@@ -1084,32 +1104,42 @@ def storage_page(request):
         all_oh = vals['all_tot'] - vals['all_opt']
         photo_oh = vals['photo_tot'] - vals['photo_opt']
         video_oh = vals['video_tot'] - vals['video_opt']
+        tot = vals['all_tot']
+        opt_photo = vals['photo_opt']
+        raw_photo = photo_oh
+        opt_video = vals['video_opt']
+        orig_video = video_oh
         month_storage.append({
             'month': m_str,
             # ALL
             'count_all': vals['all_cnt'],
             'opt_size_mb_all': vals['all_opt'] / 1024,
-            'tot_size_mb_all': vals['all_tot'] / 1024,
+            'tot_size_mb_all': tot / 1024,
             'overhead_mb_all': all_oh / 1024,
             'opt_size_str_all': get_size_str(vals['all_opt']),
-            'tot_size_str_all': get_size_str(vals['all_tot']),
+            'tot_size_str_all': get_size_str(tot),
             'overhead_str_all': get_size_str(all_oh),
             # PHOTO
             'count_photo': vals['photo_cnt'],
-            'opt_size_mb_photo': vals['photo_opt'] / 1024,
+            'opt_size_mb_photo': opt_photo / 1024,
             'tot_size_mb_photo': vals['photo_tot'] / 1024,
-            'overhead_mb_photo': photo_oh / 1024,
-            'opt_size_str_photo': get_size_str(vals['photo_opt']),
+            'overhead_mb_photo': raw_photo / 1024,
+            'opt_size_str_photo': get_size_str(opt_photo),
             'tot_size_str_photo': get_size_str(vals['photo_tot']),
-            'overhead_str_photo': get_size_str(photo_oh),
+            'overhead_str_photo': get_size_str(raw_photo),
             # VIDEO
             'count_video': vals['video_cnt'],
-            'opt_size_mb_video': vals['video_opt'] / 1024,
+            'opt_size_mb_video': opt_video / 1024,
             'tot_size_mb_video': vals['video_tot'] / 1024,
             'overhead_mb_video': video_oh / 1024,
-            'opt_size_str_video': get_size_str(vals['video_opt']),
+            'opt_size_str_video': get_size_str(opt_video),
             'tot_size_str_video': get_size_str(vals['video_tot']),
             'overhead_str_video': get_size_str(video_oh),
+            # PERCENTAGES
+            'pct_photo_opt': (opt_photo / tot * 100) if tot > 0 else 0,
+            'pct_photo_raw': (raw_photo / tot * 100) if tot > 0 else 0,
+            'pct_video_opt': (opt_video / tot * 100) if tot > 0 else 0,
+            'pct_video_orig': (orig_video / tot * 100) if tot > 0 else 0,
         })
 
     context = {

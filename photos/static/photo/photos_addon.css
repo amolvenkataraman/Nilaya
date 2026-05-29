@@ -876,6 +876,27 @@
     background: #f59e0b; /* Orange-yellow warning color for RAW overhead */
 }
 
+.storage-bar-photo-opt {
+    height: 100%;
+    background: #10b981; /* Photos Optimized */
+}
+
+.storage-bar-photo-raw {
+    height: 100%;
+    background: #34d399; /* Photos RAW */
+}
+
+.storage-bar-video-opt {
+    height: 100%;
+    background: #3b82f6; /* Videos Optimized */
+}
+
+.storage-bar-video-orig {
+    height: 100%;
+    background: #f59e0b; /* Videos Original */
+}
+
+
 /* Tabs */
 .ct-tabs {
     display: flex;
