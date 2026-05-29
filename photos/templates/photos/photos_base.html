@@ -76,7 +76,8 @@
         </a>
     </li>
     <li class="nav-item {% if active_page == 'storage' %}nav-item-selected{% endif %}">
-        <a class="photo-page-link" href="{% url 'photos_storage' %}{% if request.GET.admin == '1' %}?admin=1{% endif %}">
+        <a class="photo-page-link"
+            href="{% url 'photos_storage' %}{% if request.GET.admin == '1' %}?admin=1{% endif %}">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                 class="feather feather-hard-drive">
@@ -114,21 +115,30 @@
                 <label class="album-toggle-label" for="album-{{ sub.album.id }}" title="{{ sub.album.name }}">{{ sub.album.name }}</label>
             </div>
             <div class="dropdown">
-                <button class="btn btn-white album-options-btn"
-                    type="button" id="albumDropdownMenu{{ sub.album.id }}" data-bs-toggle="dropdown"
-                    aria-haspopup="true" aria-expanded="false" aria-label="Album options">
-                    <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-three-dots-vertical" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                        <path fill-rule="evenodd" d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                <button class="btn btn-white album-options-btn" type="button" id="albumDropdownMenu{{ sub.album.id }}"
+                    data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false" aria-label="Album options">
+                    <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-three-dots-vertical"
+                        fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                        <path fill-rule="evenodd"
+                            d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z" />
                     </svg>
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="albumDropdownMenu{{ sub.album.id }}" style="opacity: 1; z-index: 1050;">
-                    <li><a class="dropdown-item" href="#!" onclick="displayOnlyAlbum('{{ sub.album.id }}')">Display only this</a></li>
+                <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="albumDropdownMenu{{ sub.album.id }}"
+                    style="opacity: 1; z-index: 1050;">
+                    <li><a class="dropdown-item" href="#!" onclick="displayOnlyAlbum('{{ sub.album.id }}')">Display only
+                            this</a></li>
                 </ul>
             </div>
         </div>
         {% empty %}
         <div class="text-muted" style="font-size: 0.85rem; padding: 0 6px;">No subscribed albums</div>
         {% endfor %}
+    </div>
+    <div class="album-list-actions" style="margin-top: 12px; flex-shrink: 0; padding: 0 4px;">
+        <button id="apply-album-changes-btn" class="btn btn-sm btn-primary w-100"
+            style="font-size: 0.8rem; font-weight: 600;" disabled onclick="applyAlbumChanges()">
+            Reload
+        </button>
     </div>
 </div>
 
@@ -148,42 +158,77 @@
         r.send();
     }
 
+    // Keep track of original states from database
+    const originalStates = {
+        {% for sub in request.user.album_subscribed.all %}
+        "{{ sub.album.id }}": {{ sub.visible|yesno:"true,false" }},
+        {% endfor %}
+    };
+
+    let currentStates = { ...originalStates };
+
+    function updateApplyButtonState() {
+        const changedAlbumIds = Object.keys(originalStates).filter(id => originalStates[id] !== currentStates[id]);
+        const applyBtn = document.getElementById('apply-album-changes-btn');
+        if (applyBtn) {
+            applyBtn.disabled = (changedAlbumIds.length === 0);
+        }
+    }
+
     function toggleAlbumVisibility(albumId, checkbox) {
-        var r = new XMLHttpRequest();
-        var url = `/photos/albums/toggle-visibility/${albumId}/`;
-        r.open("GET", url);
-        r.onload = () => {
-            var res = JSON.parse(r.responseText);
-            if (res['status'] === 'success') {
-                location.reload();
-            } else {
-                alert(res['data'] || 'Failed to toggle album visibility.');
-                checkbox.checked = !checkbox.checked;
-            }
-        };
-        r.onerror = () => {
-            alert('Failed to connect to the server.');
-            checkbox.checked = !checkbox.checked;
-        };
-        r.send();
+        currentStates[albumId] = checkbox.checked;
+        updateApplyButtonState();
     }
 
     function displayOnlyAlbum(albumId) {
-        var r = new XMLHttpRequest();
-        var url = `/photos/albums/display-only/${albumId}/`;
-        r.open("GET", url);
-        r.onload = () => {
-            var res = JSON.parse(r.responseText);
-            if (res['status'] === 'success') {
-                location.reload();
-            } else {
-                alert(res['data'] || 'Failed to display only this album.');
+        Object.keys(currentStates).forEach(id => {
+            currentStates[id] = (id == albumId);
+            const cb = document.getElementById('album-' + id);
+            if (cb) {
+                cb.checked = currentStates[id];
             }
-        };
-        r.onerror = () => {
-            alert('Failed to connect to the server.');
-        };
-        r.send();
+        });
+        updateApplyButtonState();
+    }
+
+    function applyAlbumChanges() {
+        const changedAlbumIds = Object.keys(originalStates).filter(id => originalStates[id] !== currentStates[id]);
+        if (changedAlbumIds.length === 0) return;
+
+        const applyBtn = document.getElementById('apply-album-changes-btn');
+        applyBtn.disabled = true;
+        applyBtn.textContent = 'Applying...';
+
+        let completed = 0;
+        const total = changedAlbumIds.length;
+        let hasError = false;
+
+        changedAlbumIds.forEach(id => {
+            const r = new XMLHttpRequest();
+            const url = `/photos/albums/toggle-visibility/${id}/`;
+            r.open("GET", url);
+            r.onload = () => {
+                completed++;
+                var res = JSON.parse(r.responseText);
+                if (res['status'] !== 'success') {
+                    hasError = true;
+                }
+                if (completed === total) {
+                    if (hasError) {
+                        alert("Some visibility updates failed to apply.");
+                    }
+                    location.reload();
+                }
+            };
+            r.onerror = () => {
+                completed++;
+                hasError = true;
+                if (completed === total) {
+                    location.reload();
+                }
+            };
+            r.send();
+        });
     }
 </script>
 {% endblock %}
