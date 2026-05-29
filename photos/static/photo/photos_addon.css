@@ -928,6 +928,39 @@
     background: var(--accent);
 }
 
+/* Thumbnail Raw and Original Indicators */
+.photo-indicators {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    display: flex;
+    gap: 4px;
+    z-index: 9;
+    pointer-events: none;
+}
+
+.indicator-badge {
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    color: #f8fafc;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    font-family: var(--font-stack);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.badge-raw {
+    color: #34d399; /* Light Green for RAW */
+}
+
+.badge-orig {
+    color: #f59e0b; /* Orange for Original */
+}
+
+
 
 
 

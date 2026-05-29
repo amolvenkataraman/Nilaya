@@ -163,6 +163,24 @@ class Photo(models.Model):
     def __str__(self):
         return f"{self.id}, taken on {str(self.date_taken)}"
 
+    @property
+    def has_raw(self):
+        if self.raw_filepath and self.album and self.album.location:
+            try:
+                return os.path.exists(os.path.join(self.album.location, self.raw_filepath))
+            except Exception:
+                pass
+        return False
+
+    @property
+    def has_orig(self):
+        if self.orig_filepath and self.album and self.album.location:
+            try:
+                return os.path.exists(os.path.join(self.album.location, self.orig_filepath))
+            except Exception:
+                pass
+        return False
+
     def get_path(self):
         return str(self.album.location.replace("/mnt/data/Photos/", "") + self.filepath)
 
@@ -221,6 +239,8 @@ class Photo(models.Model):
             "video": self.video,
             "length": self.length,
             "duration_text": duration_text,
+            "has_raw": self.has_raw,
+            "has_orig": self.has_orig,
         }
 
     def getinfo_zip(self):
@@ -242,6 +262,8 @@ class Photo(models.Model):
             "main_color": self.main_color,
             "thumbnail_hash": self.thumbnail_hash,
             "photo_hash": self.photo_hash,
+            "has_raw": self.has_raw,
+            "has_orig": self.has_orig,
         }
 
     def refresh_city_data(self, print_=False):

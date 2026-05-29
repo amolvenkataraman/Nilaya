@@ -288,8 +288,10 @@ def day(request, year, month, day):
     album_subs = request.user.album_subscribed.filter(visible=True)
     albums = [i.album for i in album_subs]
 
-    context = {'photos':
-        [i.getinfo_zip() for i in Photo.objects.filter(album__in=albums, date_taken__date=datetime.datetime.strptime(f"{year}-{month}-{day}", "%Y-%m-%d").date()).order_by('date_taken')]
+    date_str = f"{year}-{month}-{day}"
+    context = {
+        'title': f"Photos from {date_str}",
+        'photos': [i.getinfo_zip() for i in Photo.objects.filter(album__in=albums, date_taken__date=datetime.datetime.strptime(date_str, "%Y-%m-%d").date()).order_by('date_taken')]
     }
     return render(request, 'photos/day.html', context)
 
@@ -302,7 +304,10 @@ def event(request, event_id):
         e = Event.objects.filter(id=event_id)[0]
 
         if e.enddate == None: return error_response("Event is not bounded on the end time.")
-        context = { 'photos': [i.getinfo_zip() for i in Photo.objects.filter(album__in=albums, date_taken__gte=e.startdate, date_taken__lte=e.enddate).order_by('date_taken')] }
+        context = {
+            'title': f"Photos from Event: {e.name}",
+            'photos': [i.getinfo_zip() for i in Photo.objects.filter(album__in=albums, date_taken__gte=e.startdate, date_taken__lte=e.enddate).order_by('date_taken')]
+        }
         return render(request, 'photos/day.html', context)
     except IndexError: return error_response("Invalid event")
 

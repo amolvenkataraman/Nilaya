@@ -10,6 +10,14 @@
     {% verbatim %}
     <div class="photo-item" style="width: {{ thumbnail_width }}px; height: {{ thumbnail_height }}px; background-color: {{ main_color }};" onclick="handle_photo_click(event, this)">
         <img src="" data-src="{{ thumbnail }}" data-id="{{ id }}" data-url="{{ url }}" data-video="{{ video }}" class="list-img" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+        <div class="photo-indicators">
+            {{#if has_raw}}
+            <span class="indicator-badge badge-raw" title="RAW file present">RAW</span>
+            {{/if}}
+            {{#if has_orig}}
+            <span class="indicator-badge badge-orig" title="Original file present">ORIG</span>
+            {{/if}}
+        </div>
         {{#if video}}
         <div class="play-btn-center">
             <svg viewBox="0 0 24 24">
@@ -459,7 +467,9 @@
                             "thumbnail_width": photo['thumbnail_width'] || 200,
                             "thumbnail_height": photo['thumbnail_height'] || 200,
                             "main_color": photo['main_color'] || '#f0f0f0',
-                            "duration_text": photo['duration_text']
+                            "duration_text": photo['duration_text'],
+                            "has_raw": photo['has_raw'],
+                            "has_orig": photo['has_orig']
                         })
                     }
 
