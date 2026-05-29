@@ -5,10 +5,10 @@
 {% block page_body %}
 <div class="storage-container" style="padding: 30px;">
     <div class="dashboard-title" style="margin-bottom: 24px;">{{ title }}</div>
-    <div style="display: flow-root;">
+    <div class="day-photos">
         {% for photo in photos %}
-        <div class="photo-item" style="display: block; float: left; margin: 2px; position: relative; height: 200px;" onclick="window.open('/photos/view-photo/{{ photo.id }}/', '_blank')">
-            <img src="/private/{{ photo.thumbnail_hash }}/photo_cache/thumbnail/{{ photo.id }}.webp" style='display: block; height: 200px; cursor: pointer;'>
+        <div class="photo-item" style="flex: {{ photo.aspect_ratio }} {{ photo.aspect_ratio }} calc(180px * {{ photo.aspect_ratio }}); height: 180px;" onclick="window.open('/photos/view-photo/{{ photo.id }}/', '_blank')">
+            <img src="/private/{{ photo.thumbnail_hash }}/photo_cache/thumbnail/{{ photo.id }}.webp" class="list-img" style="cursor: pointer;">
             <div class="photo-indicators">
                 {% if photo.has_raw %}
                 <span class="indicator-badge badge-raw" title="RAW file present">RAW</span>
@@ -31,6 +31,7 @@
         {% empty %}
         <p class="text-muted">No photos found for this query.</p>
         {% endfor %}
+        <div class="last-row-spacer"></div>
     </div>
 </div>
 {% endblock %}

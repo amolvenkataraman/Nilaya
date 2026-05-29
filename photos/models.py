@@ -205,6 +205,10 @@ class Photo(models.Model):
             minutes, seconds = divmod(self.length, 60)
             duration_text = f"{minutes:02}:{seconds:02}"
 
+        w = self.thumbnail_width or 200
+        h = self.thumbnail_height or 200
+        aspect_ratio = round(w / h, 4)
+
         return {
             "id": str(self.id),
             "path": self.get_path(),
@@ -241,6 +245,7 @@ class Photo(models.Model):
             "duration_text": duration_text,
             "has_raw": self.has_raw,
             "has_orig": self.has_orig,
+            "aspect_ratio": aspect_ratio,
         }
 
     def getinfo_zip(self):
@@ -248,6 +253,10 @@ class Photo(models.Model):
         if self.video and self.length:
             minutes, seconds = divmod(self.length, 60)
             duration_text = f"{minutes:02}:{seconds:02}"
+
+        w = self.thumbnail_width or 200
+        h = self.thumbnail_height or 200
+        aspect_ratio = round(w / h, 4)
 
         return {
             "id": str(self.id),
@@ -264,6 +273,7 @@ class Photo(models.Model):
             "photo_hash": self.photo_hash,
             "has_raw": self.has_raw,
             "has_orig": self.has_orig,
+            "aspect_ratio": aspect_ratio,
         }
 
     def refresh_city_data(self, print_=False):
