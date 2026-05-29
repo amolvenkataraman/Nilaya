@@ -710,3 +710,418 @@ def display_only_album(request, album_id):
         return success_response("Success")
     except Album_Subscriber.DoesNotExist:
         return error_response("Album subscription not found", 404)
+
+
+@login_required
+def stats_page(request):
+    from django.db.models import Avg, Count, Sum
+    is_admin = request.user.is_superuser or request.user.is_staff
+    admin_override = False
+
+    if request.GET.get('admin') == '1':
+        if is_admin:
+            admin_override = True
+            albums = Album.objects.all()
+        else:
+            from django.shortcuts import redirect
+            return redirect(request.path)
+    else:
+        album_subs = request.user.album_subscribed.filter(visible=True)
+        albums = [i.album for i in album_subs]
+
+    # Base queryset for photos in visible albums
+    qs = Photo.objects.filter(album__in=albums)
+
+    total_count = qs.count()
+    video_count = qs.filter(video=True).count()
+    photo_count = total_count - video_count
+    video_pct = round(video_count / total_count * 100, 1) if total_count > 0 else 0
+
+    # Recent counts
+    now = timezone.now()
+    one_week_ago = now - datetime.timedelta(days=7)
+    one_month_ago = now - datetime.timedelta(days=30)
+    ytd_start = timezone.make_aware(datetime.datetime(now.year, 1, 1))
+    one_year_ago = now - datetime.timedelta(days=365)
+
+    taken_week = qs.filter(date_taken__gte=one_week_ago).count()
+    taken_month = qs.filter(date_taken__gte=one_month_ago).count()
+    taken_ytd = qs.filter(date_taken__gte=ytd_start).count()
+    taken_year = qs.filter(date_taken__gte=one_year_ago).count()
+
+    # Camera makes/models
+    cameras = qs.exclude(camera_model__isnull=True).exclude(camera_model='').values('camera_make', 'camera_model').annotate(count=Count('id')).order_by('-count')[:5]
+
+    # Average Megapixels
+    avg_mp = qs.filter(video=False, megapixels__isnull=False).aggregate(Avg('megapixels'))['megapixels__avg'] or 0
+    avg_mp = round(avg_mp, 1)
+
+    # Collect monthly and hourly data
+    dates_and_types = qs.filter(date_taken__isnull=False).values_list('date_taken', 'video')
+
+    from collections import defaultdict
+    month_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
+    year_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
+    hour_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
+
+    for dt, is_video in dates_and_types:
+        month_str = dt.strftime('%Y-%m')
+        year_str = dt.strftime('%Y')
+        hr = dt.hour
+        key = 'video' if is_video else 'photo'
+
+        month_histogram[month_str]['all'] += 1
+        month_histogram[month_str][key] += 1
+
+        year_histogram[year_str]['all'] += 1
+        year_histogram[year_str][key] += 1
+
+        hour_histogram[hr]['all'] += 1
+        hour_histogram[hr][key] += 1
+
+    # Hourly histogram (0 to 23)
+    hours_labels = [f"{h:02d}:00" for h in range(24)]
+    hours_data_all = [hour_histogram[h]['all'] for h in range(24)]
+    hours_data_photo = [hour_histogram[h]['photo'] for h in range(24)]
+    hours_data_video = [hour_histogram[h]['video'] for h in range(24)]
+
+    # Generate labels chronologically going back 60 months (5 years)
+    months_60_labels = []
+    curr = now
+    for _ in range(60):
+        months_60_labels.append(curr.strftime('%Y-%m'))
+        first = curr.replace(day=1)
+        prev = first - datetime.timedelta(days=1)
+        curr = prev
+    months_60_labels.reverse()
+
+    months_60_all = [month_histogram[m]['all'] for m in months_60_labels]
+    months_60_photo = [month_histogram[m]['photo'] for m in months_60_labels]
+    months_60_video = [month_histogram[m]['video'] for m in months_60_labels]
+
+    # Past 24 months
+    months_24_labels = months_60_labels[-24:]
+    months_24_all = months_60_all[-24:]
+    months_24_photo = months_60_photo[-24:]
+    months_24_video = months_60_video[-24:]
+
+    # Past 12 months
+    months_12_labels = months_60_labels[-12:]
+    months_12_all = months_60_all[-12:]
+    months_12_photo = months_60_photo[-12:]
+    months_12_video = months_60_video[-12:]
+
+    # 10 years yearly
+    this_year = now.year
+    years_10_labels = [str(y) for y in range(this_year - 9, this_year + 1)]
+    years_10_all = [year_histogram[y]['all'] for y in years_10_labels]
+    years_10_photo = [year_histogram[y]['photo'] for y in years_10_labels]
+    years_10_video = [year_histogram[y]['video'] for y in years_10_labels]
+
+    # All years yearly
+    sorted_all_years = sorted(year_histogram.keys())
+    if not sorted_all_years:
+        sorted_all_years = [str(this_year)]
+    else:
+        min_yr = int(sorted_all_years[0])
+        max_yr = int(sorted_all_years[-1])
+        sorted_all_years = [str(y) for y in range(min_yr, max_yr + 1)]
+    all_years_all = [year_histogram[y]['all'] for y in sorted_all_years]
+    all_years_photo = [year_histogram[y]['photo'] for y in sorted_all_years]
+    all_years_video = [year_histogram[y]['video'] for y in sorted_all_years]
+
+    context = {
+        "active_page": "stats",
+        "left_sidebar": True,
+        "right_sidebar": False,
+        "admin_override": admin_override,
+        "total_count": total_count,
+        "photo_count": photo_count,
+        "video_count": video_count,
+        "video_pct": video_pct,
+        "taken_week": taken_week,
+        "taken_month": taken_month,
+        "taken_ytd": taken_ytd,
+        "taken_year": taken_year,
+        "cameras": list(cameras),
+        "avg_mp": avg_mp,
+        "hours_labels": hours_labels,
+        "hours_data_all": hours_data_all,
+        "hours_data_photo": hours_data_photo,
+        "hours_data_video": hours_data_video,
+        "months_12_labels": months_12_labels,
+        "months_12_data_all": months_12_all,
+        "months_12_data_photo": months_12_photo,
+        "months_12_data_video": months_12_video,
+        "months_24_labels": months_24_labels,
+        "months_24_data_all": months_24_all,
+        "months_24_data_photo": months_24_photo,
+        "months_24_data_video": months_24_video,
+        "months_60_labels": months_60_labels,
+        "months_60_data_all": months_60_all,
+        "months_60_data_photo": months_60_photo,
+        "months_60_data_video": months_60_video,
+        "years_10_labels": years_10_labels,
+        "years_10_data_all": years_10_all,
+        "years_10_data_photo": years_10_photo,
+        "years_10_data_video": years_10_video,
+        "all_years_labels": sorted_all_years,
+        "all_years_data_all": all_years_all,
+        "all_years_data_photo": all_years_photo,
+        "all_years_data_video": all_years_video,
+    }
+    return render(request, 'photos/stats.html', context)
+
+
+def get_size_str(kb):
+    if not kb:
+        return "0.0 MB"
+    mb = kb / 1024.0
+    if mb >= 1024.0 * 1024.0: # 1 TB
+        return f"{mb / (1024.0 * 1024.0):.2f} TB"
+    elif mb >= 1024.0: # 1 GB
+        return f"{mb / 1024.0:.2f} GB"
+    else:
+        return f"{mb:.1f} MB"
+
+
+def get_storage_breakdown(qs):
+    from django.db.models import Sum, Count, Q
+    totals = qs.aggregate(
+        all_opt=Sum('size'),
+        all_tot=Sum('size_total'),
+        all_cnt=Count('id'),
+        photo_opt=Sum('size', filter=Q(video=False)),
+        photo_tot=Sum('size_total', filter=Q(video=False)),
+        photo_cnt=Count('id', filter=Q(video=False)),
+        video_opt=Sum('size', filter=Q(video=True)),
+        video_tot=Sum('size_total', filter=Q(video=True)),
+        video_cnt=Count('id', filter=Q(video=True)),
+    )
+    all_opt = totals['all_opt'] or 0
+    all_tot = totals['all_tot'] or 0
+    all_cnt = totals['all_cnt'] or 0
+
+    photo_opt = totals['photo_opt'] or 0
+    photo_tot = totals['photo_tot'] or 0
+    photo_cnt = totals['photo_cnt'] or 0
+
+    video_opt = totals['video_opt'] or 0
+    video_tot = totals['video_tot'] or 0
+    video_cnt = totals['video_cnt'] or 0
+
+    return {
+        'all': {'opt': all_opt, 'tot': all_tot, 'cnt': all_cnt, 'overhead': all_tot - all_opt},
+        'photo': {'opt': photo_opt, 'tot': photo_tot, 'cnt': photo_cnt, 'overhead': photo_tot - photo_opt},
+        'video': {'opt': video_opt, 'tot': video_tot, 'cnt': video_cnt, 'overhead': video_tot - video_opt},
+    }
+
+
+@login_required
+def storage_page(request):
+    is_admin = request.user.is_superuser or request.user.is_staff
+    admin_override = False
+
+    if request.GET.get('admin') == '1':
+        if is_admin:
+            admin_override = True
+            albums_list = Album.objects.all()
+            albums = albums_list
+        else:
+            from django.shortcuts import redirect
+            return redirect(request.path)
+    else:
+        album_subs = request.user.album_subscribed.filter(visible=True)
+        albums_list = [sub.album for sub in album_subs]
+        albums = albums_list
+
+    # Base queryset for photos in visible/admin albums
+    qs = Photo.objects.filter(album__in=albums)
+
+    # Overall totals
+    bd = get_storage_breakdown(qs)
+    overall_stats = {
+        'all': {
+            'count': bd['all']['cnt'],
+            'opt_size_gb': round(bd['all']['opt'] / 1024 / 1024, 2),
+            'tot_size_gb': round(bd['all']['tot'] / 1024 / 1024, 2),
+            'overhead_gb': round(bd['all']['overhead'] / 1024 / 1024, 2),
+            'opt_size_str': get_size_str(bd['all']['opt']),
+            'tot_size_str': get_size_str(bd['all']['tot']),
+            'overhead_str': get_size_str(bd['all']['overhead']),
+        },
+        'photo': {
+            'count': bd['photo']['cnt'],
+            'opt_size_gb': round(bd['photo']['opt'] / 1024 / 1024, 2),
+            'tot_size_gb': round(bd['photo']['tot'] / 1024 / 1024, 2),
+            'overhead_gb': round(bd['photo']['overhead'] / 1024 / 1024, 2),
+            'opt_size_str': get_size_str(bd['photo']['opt']),
+            'tot_size_str': get_size_str(bd['photo']['tot']),
+            'overhead_str': get_size_str(bd['photo']['overhead']),
+        },
+        'video': {
+            'count': bd['video']['cnt'],
+            'opt_size_gb': round(bd['video']['opt'] / 1024 / 1024, 2),
+            'tot_size_gb': round(bd['video']['tot'] / 1024 / 1024, 2),
+            'overhead_gb': round(bd['video']['overhead'] / 1024 / 1024, 2),
+            'opt_size_str': get_size_str(bd['video']['opt']),
+            'tot_size_str': get_size_str(bd['video']['tot']),
+            'overhead_str': get_size_str(bd['video']['overhead']),
+        },
+    }
+
+    # Group by Album
+    album_storage = []
+    for album in albums_list:
+        album_qs = Photo.objects.filter(album=album)
+        bd_album = get_storage_breakdown(album_qs)
+        album_storage.append({
+            'name': album.name,
+            # ALL
+            'count_all': bd_album['all']['cnt'],
+            'opt_size_mb_all': bd_album['all']['opt'] / 1024,
+            'tot_size_mb_all': bd_album['all']['tot'] / 1024,
+            'overhead_mb_all': bd_album['all']['overhead'] / 1024,
+            'opt_size_str_all': get_size_str(bd_album['all']['opt']),
+            'tot_size_str_all': get_size_str(bd_album['all']['tot']),
+            'overhead_str_all': get_size_str(bd_album['all']['overhead']),
+            # PHOTO
+            'count_photo': bd_album['photo']['cnt'],
+            'opt_size_mb_photo': bd_album['photo']['opt'] / 1024,
+            'tot_size_mb_photo': bd_album['photo']['tot'] / 1024,
+            'overhead_mb_photo': bd_album['photo']['overhead'] / 1024,
+            'opt_size_str_photo': get_size_str(bd_album['photo']['opt']),
+            'tot_size_str_photo': get_size_str(bd_album['photo']['tot']),
+            'overhead_str_photo': get_size_str(bd_album['photo']['overhead']),
+            # VIDEO
+            'count_video': bd_album['video']['cnt'],
+            'opt_size_mb_video': bd_album['video']['opt'] / 1024,
+            'tot_size_mb_video': bd_album['video']['tot'] / 1024,
+            'overhead_mb_video': bd_album['video']['overhead'] / 1024,
+            'opt_size_str_video': get_size_str(bd_album['video']['opt']),
+            'tot_size_str_video': get_size_str(bd_album['video']['tot']),
+            'overhead_str_video': get_size_str(bd_album['video']['overhead']),
+        })
+    album_storage.sort(key=lambda x: x['tot_size_mb_all'], reverse=True)
+
+    # Group by Year
+    from collections import defaultdict
+    year_stats = defaultdict(lambda: {'all_opt': 0, 'all_tot': 0, 'all_cnt': 0,
+                                      'photo_opt': 0, 'photo_tot': 0, 'photo_cnt': 0,
+                                      'video_opt': 0, 'video_tot': 0, 'video_cnt': 0})
+    for dt, opt, tot, is_video in qs.filter(date_taken__isnull=False).values_list('date_taken', 'size', 'size_total', 'video'):
+        yr = dt.year
+        opt_val = opt or 0
+        tot_val = tot or 0
+        year_stats[yr]['all_opt'] += opt_val
+        year_stats[yr]['all_tot'] += tot_val
+        year_stats[yr]['all_cnt'] += 1
+        if is_video:
+            year_stats[yr]['video_opt'] += opt_val
+            year_stats[yr]['video_tot'] += tot_val
+            year_stats[yr]['video_cnt'] += 1
+        else:
+            year_stats[yr]['photo_opt'] += opt_val
+            year_stats[yr]['photo_tot'] += tot_val
+            year_stats[yr]['photo_cnt'] += 1
+
+    year_storage = []
+    for yr, vals in sorted(year_stats.items(), reverse=True):
+        all_oh = vals['all_tot'] - vals['all_opt']
+        photo_oh = vals['photo_tot'] - vals['photo_opt']
+        video_oh = vals['video_tot'] - vals['video_opt']
+        year_storage.append({
+            'year': yr,
+            # ALL
+            'count_all': vals['all_cnt'],
+            'opt_size_str_all': get_size_str(vals['all_opt']),
+            'tot_size_str_all': get_size_str(vals['all_tot']),
+            'overhead_str_all': get_size_str(all_oh),
+            # PHOTO
+            'count_photo': vals['photo_cnt'],
+            'opt_size_str_photo': get_size_str(vals['photo_opt']),
+            'tot_size_str_photo': get_size_str(vals['photo_tot']),
+            'overhead_str_photo': get_size_str(photo_oh),
+            # VIDEO
+            'count_video': vals['video_cnt'],
+            'opt_size_str_video': get_size_str(vals['video_opt']),
+            'tot_size_str_video': get_size_str(vals['video_tot']),
+            'overhead_str_video': get_size_str(video_oh),
+        })
+
+    # Group by Month
+    month_stats = defaultdict(lambda: {'all_opt': 0, 'all_tot': 0, 'all_cnt': 0,
+                                       'photo_opt': 0, 'photo_tot': 0, 'photo_cnt': 0,
+                                       'video_opt': 0, 'video_tot': 0, 'video_cnt': 0})
+    for dt, opt, tot, is_video in qs.filter(date_taken__isnull=False).values_list('date_taken', 'size', 'size_total', 'video'):
+        m_str = dt.strftime('%Y-%m')
+        opt_val = opt or 0
+        tot_val = tot or 0
+        month_stats[m_str]['all_opt'] += opt_val
+        month_stats[m_str]['all_tot'] += tot_val
+        month_stats[m_str]['all_cnt'] += 1
+        if is_video:
+            month_stats[m_str]['video_opt'] += opt_val
+            month_stats[m_str]['video_tot'] += tot_val
+            month_stats[m_str]['video_cnt'] += 1
+        else:
+            month_stats[m_str]['photo_opt'] += opt_val
+            month_stats[m_str]['photo_tot'] += tot_val
+            month_stats[m_str]['photo_cnt'] += 1
+
+    now = datetime.datetime.now()
+    months_list = []
+    curr = now
+    for _ in range(60):
+        months_list.append(curr.strftime('%Y-%m'))
+        first = curr.replace(day=1)
+        prev = first - datetime.timedelta(days=1)
+        curr = prev
+
+    month_storage = []
+    for m_str in months_list:
+        vals = month_stats[m_str]
+        all_oh = vals['all_tot'] - vals['all_opt']
+        photo_oh = vals['photo_tot'] - vals['photo_opt']
+        video_oh = vals['video_tot'] - vals['video_opt']
+        month_storage.append({
+            'month': m_str,
+            # ALL
+            'count_all': vals['all_cnt'],
+            'opt_size_mb_all': vals['all_opt'] / 1024,
+            'tot_size_mb_all': vals['all_tot'] / 1024,
+            'overhead_mb_all': all_oh / 1024,
+            'opt_size_str_all': get_size_str(vals['all_opt']),
+            'tot_size_str_all': get_size_str(vals['all_tot']),
+            'overhead_str_all': get_size_str(all_oh),
+            # PHOTO
+            'count_photo': vals['photo_cnt'],
+            'opt_size_mb_photo': vals['photo_opt'] / 1024,
+            'tot_size_mb_photo': vals['photo_tot'] / 1024,
+            'overhead_mb_photo': photo_oh / 1024,
+            'opt_size_str_photo': get_size_str(vals['photo_opt']),
+            'tot_size_str_photo': get_size_str(vals['photo_tot']),
+            'overhead_str_photo': get_size_str(photo_oh),
+            # VIDEO
+            'count_video': vals['video_cnt'],
+            'opt_size_mb_video': vals['video_opt'] / 1024,
+            'tot_size_mb_video': vals['video_tot'] / 1024,
+            'overhead_mb_video': video_oh / 1024,
+            'opt_size_str_video': get_size_str(vals['video_opt']),
+            'tot_size_str_video': get_size_str(vals['video_tot']),
+            'overhead_str_video': get_size_str(video_oh),
+        })
+
+    context = {
+        "active_page": "storage",
+        "left_sidebar": True,
+        "right_sidebar": False,
+        "admin_override": admin_override,
+        "overall": overall_stats,
+        "album_storage": album_storage,
+        "year_storage": year_storage,
+        "month_storage": month_storage,
+    }
+    return render(request, 'photos/storage.html', context)
+
+

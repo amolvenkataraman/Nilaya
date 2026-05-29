@@ -30,8 +30,7 @@
     --transition-speed: 0.25s;
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
+.dark-mode {
         --bg-glass: rgba(22, 28, 38, 0.85);
         --border-glass: rgba(255, 255, 255, 0.08);
         --text-primary: #f3f4f6;
@@ -57,10 +56,9 @@
     }
     
     /* Make Leaflet Tiles slightly darker for dark mode */
-    .leaflet-tile-container {
+    .dark-mode .leaflet-tile-container {
         filter: brightness(0.85) contrast(1.1) invert(0.9) hue-rotate(180deg);
     }
-}
 
 /* Base Body Styles */
 html, body {

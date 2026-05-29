@@ -24,4 +24,6 @@ urlpatterns = [
     path("albums/<slug:album_id>/subscribers/", views.manage_subscribers, name='manage_subscribers'),
     path("albums/toggle-visibility/<int:album_id>/", views.toggle_album_visibility, name='toggle_album_visibility'),
     path("albums/display-only/<int:album_id>/", views.display_only_album, name='display_only_album'),
+    path("stats/", views.stats_page, name='photos_stats'),
+    path("storage/", views.storage_page, name='photos_storage'),
 ]

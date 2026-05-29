@@ -14,17 +14,15 @@
     --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg-glass: rgba(30, 41, 59, 0.7);
-        --border-glass: rgba(255, 255, 255, 0.08);
-        --text-primary: #f8fafc;
-        --text-secondary: #94a3b8;
-        --bg-item-hover: rgba(255, 255, 255, 0.03);
-        --accent: #3b82f6;
-        --accent-light: rgba(59, 130, 246, 0.15);
-        --shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.3), 0 2px 5px rgba(0, 0, 0, 0.1);
-    }
+.dark-mode {
+    --bg-glass: rgba(30, 41, 59, 0.7);
+    --border-glass: rgba(255, 255, 255, 0.08);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --bg-item-hover: rgba(255, 255, 255, 0.03);
+    --accent: #3b82f6;
+    --accent-light: rgba(59, 130, 246, 0.15);
+    --shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.35), 0 2px 5px rgba(0, 0, 0, 0.1);
 }
 
 .albums-container {

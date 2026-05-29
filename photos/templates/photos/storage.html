@@ -1,0 +1,231 @@
+{% extends "photos/photos_base.html" %}
+
+{% block page_title %} Storage {% endblock %}
+
+{% block page_body %}
+<div class="storage-container">
+    {% if admin_override %}
+    <div class="alert alert-warning d-flex align-items-center justify-content-between mb-4" role="alert" style="border-radius: var(--border-radius-sm); border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.08); color: #d97706; padding: 12px 20px;">
+        <div class="d-flex align-items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16" style="flex-shrink: 0; margin-right: 8px;">
+                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+            </svg>
+            <span><strong>Admin Override Mode Active:</strong> Displaying data for all albums across the entire system.</span>
+        </div>
+        <a href="{{ request.path }}" class="btn btn-sm btn-outline-warning" style="font-size: 0.8rem; font-weight: 600;">Exit Admin Mode</a>
+    </div>
+    {% endif %}
+
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+        <div class="dashboard-title" style="margin-bottom: 0;">💾 Library Storage</div>
+        <select class="form-select" id="storageFilterSelect" style="width: auto; font-size: 0.9rem; padding: 6px 12px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-glass);">
+            <option value="all">All Media</option>
+            <option value="photo">Photos Only</option>
+            <option value="video">Videos Only</option>
+        </select>
+    </div>
+
+    <!-- Storage Overview Cards -->
+    <div class="stats-grid">
+        <div class="stats-card">
+            <span class="stats-card-label">Total Storage</span>
+            <span class="stats-card-value" id="card-tot" data-all="{{ overall.all.tot_size_str }}" data-photo="{{ overall.photo.tot_size_str }}" data-video="{{ overall.video.tot_size_str }}" style="color: var(--accent);">{{ overall.all.tot_size_str }}</span>
+            <span class="stats-card-desc">Combined library size</span>
+        </div>
+        <div class="stats-card">
+            <span class="stats-card-label">Optimized Media</span>
+            <span class="stats-card-value" id="card-opt" data-all="{{ overall.all.opt_size_str }}" data-photo="{{ overall.photo.opt_size_str }}" data-video="{{ overall.video.opt_size_str }}">{{ overall.all.opt_size_str }}</span>
+            <span class="stats-card-desc">Standard files & transcodes</span>
+        </div>
+        <div class="stats-card">
+            <span class="stats-card-label">Originals & RAW</span>
+            <span class="stats-card-value" id="card-overhead" data-all="{{ overall.all.overhead_str }}" data-photo="{{ overall.photo.overhead_str }}" data-video="{{ overall.video.overhead_str }}" style="color: #f59e0b;">{{ overall.all.overhead_str }}</span>
+            <span class="stats-card-desc">Transcode sources / DSLR raw</span>
+        </div>
+        <div class="stats-card">
+            <span class="stats-card-label">Total Items</span>
+            <span class="stats-card-value" id="card-count" data-all="{{ overall.all.count }}" data-photo="{{ overall.photo.count }}" data-video="{{ overall.video.count }}">{{ overall.all.count }}</span>
+            <span class="stats-card-desc">Photos & videos</span>
+        </div>
+    </div>
+
+    <!-- Tabs for groupings -->
+    <div class="ct-tabs">
+        <button class="ct-tab-btn active" data-target="#tab-album">Group by Album</button>
+        <button class="ct-tab-btn" data-target="#tab-year">Group by Year</button>
+        <button class="ct-tab-btn" data-target="#tab-month">Group by Month</button>
+    </div>
+
+    <!-- Group by Album Pane -->
+    <div id="tab-album" class="storage-tab-pane">
+        <div class="ct-table-container">
+            <table class="ct-table">
+                <thead>
+                    <tr>
+                        <th>Album Name</th>
+                        <th style="text-align: right;">Media Count</th>
+                        <th style="text-align: right;">Optimized</th>
+                        <th style="text-align: right;">Originals/RAW</th>
+                        <th style="text-align: right;">Total Space</th>
+                        <th style="width: 30%;">Usage Proportion</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in album_storage %}
+                    <tr class="storage-row">
+                        <td style="font-weight: 600;">{{ item.name }}</td>
+                        <td style="text-align: right;" class="cell-count" data-all="{{ item.count_all }}" data-photo="{{ item.count_photo }}" data-video="{{ item.count_video }}">{{ item.count_all }}</td>
+                        <td style="text-align: right;" class="cell-opt" data-all="{{ item.opt_size_str_all }}" data-photo="{{ item.opt_size_str_photo }}" data-video="{{ item.opt_size_str_video }}">{{ item.opt_size_str_all }}</td>
+                        <td style="text-align: right; color: #f59e0b;" class="cell-overhead" data-all="{{ item.overhead_str_all }}" data-photo="{{ item.overhead_str_photo }}" data-video="{{ item.overhead_str_video }}">{{ item.overhead_str_all }}</td>
+                        <td style="text-align: right; font-weight: 600;" class="cell-tot" data-all="{{ item.tot_size_str_all }}" data-photo="{{ item.tot_size_str_photo }}" data-video="{{ item.tot_size_str_video }}">{{ item.tot_size_str_all }}</td>
+                        <td>
+                            <div class="storage-bar-container"
+                                 data-all-opt="{{ item.opt_size_mb_all }}" data-all-tot="{{ item.tot_size_mb_all }}" data-all-oh="{{ item.overhead_mb_all }}"
+                                 data-photo-opt="{{ item.opt_size_mb_photo }}" data-photo-tot="{{ item.tot_size_mb_photo }}" data-photo-oh="{{ item.overhead_mb_photo }}"
+                                 data-video-opt="{{ item.opt_size_mb_video }}" data-video-tot="{{ item.tot_size_mb_video }}" data-video-oh="{{ item.overhead_mb_video }}">
+                                <div class="storage-bar-used" style="width: 0%;"></div>
+                                <div class="storage-bar-overhead" style="width: 0%;"></div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No albums found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Group by Year Pane -->
+    <div id="tab-year" class="storage-tab-pane" style="display: none;">
+        <div class="ct-table-container">
+            <table class="ct-table">
+                <thead>
+                    <tr>
+                        <th>Year</th>
+                        <th style="text-align: right;">Media Count</th>
+                        <th style="text-align: right;">Optimized</th>
+                        <th style="text-align: right;">Originals/RAW</th>
+                        <th style="text-align: right;">Total Space</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in year_storage %}
+                    <tr class="storage-row">
+                        <td style="font-weight: 600;">{{ item.year }}</td>
+                        <td style="text-align: right;" class="cell-count" data-all="{{ item.count_all }}" data-photo="{{ item.count_photo }}" data-video="{{ item.count_video }}">{{ item.count_all }}</td>
+                        <td style="text-align: right;" class="cell-opt" data-all="{{ item.opt_size_str_all }}" data-photo="{{ item.opt_size_str_photo }}" data-video="{{ item.opt_size_str_video }}">{{ item.opt_size_str_all }}</td>
+                        <td style="text-align: right; color: #f59e0b;" class="cell-overhead" data-all="{{ item.overhead_str_all }}" data-photo="{{ item.overhead_str_photo }}" data-video="{{ item.overhead_str_video }}">{{ item.overhead_str_all }}</td>
+                        <td style="text-align: right; font-weight: 600;" class="cell-tot" data-all="{{ item.tot_size_str_all }}" data-photo="{{ item.tot_size_str_photo }}" data-video="{{ item.tot_size_str_video }}">{{ item.tot_size_str_all }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center text-muted">No stats by year available.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Group by Month Pane (goes back 5 years / 60 months) -->
+    <div id="tab-month" class="storage-tab-pane" style="display: none;">
+        <div class="ct-table-container">
+            <table class="ct-table">
+                <thead>
+                    <tr>
+                        <th>Month</th>
+                        <th style="text-align: right;">Media Count</th>
+                        <th style="text-align: right;">Optimized</th>
+                        <th style="text-align: right;">Originals/RAW</th>
+                        <th style="text-align: right;">Total Space</th>
+                        <th style="width: 30%;">Usage Proportion</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in month_storage %}
+                    <tr class="storage-row">
+                        <td style="font-weight: 600;">{{ item.month }}</td>
+                        <td style="text-align: right;" class="cell-count" data-all="{{ item.count_all }}" data-photo="{{ item.count_photo }}" data-video="{{ item.count_video }}">{{ item.count_all }}</td>
+                        <td style="text-align: right;" class="cell-opt" data-all="{{ item.opt_size_str_all }}" data-photo="{{ item.opt_size_str_photo }}" data-video="{{ item.opt_size_str_video }}">{{ item.opt_size_str_all }}</td>
+                        <td style="text-align: right; color: #f59e0b;" class="cell-overhead" data-all="{{ item.overhead_str_all }}" data-photo="{{ item.overhead_str_photo }}" data-video="{{ item.overhead_str_video }}">{{ item.overhead_str_all }}</td>
+                        <td style="text-align: right; font-weight: 600;" class="cell-tot" data-all="{{ item.tot_size_str_all }}" data-photo="{{ item.tot_size_str_photo }}" data-video="{{ item.tot_size_str_video }}">{{ item.tot_size_str_all }}</td>
+                        <td>
+                            <div class="storage-bar-container"
+                                 data-all-opt="{{ item.opt_size_mb_all }}" data-all-tot="{{ item.tot_size_mb_all }}" data-all-oh="{{ item.overhead_mb_all }}"
+                                 data-photo-opt="{{ item.opt_size_mb_photo }}" data-photo-tot="{{ item.tot_size_mb_photo }}" data-photo-oh="{{ item.overhead_mb_photo }}"
+                                 data-video-opt="{{ item.opt_size_mb_video }}" data-video-tot="{{ item.tot_size_mb_video }}" data-video-oh="{{ item.overhead_mb_video }}">
+                                <div class="storage-bar-used" style="width: 0%;"></div>
+                                <div class="storage-bar-overhead" style="width: 0%;"></div>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" class="text-center text-muted">No stats by month available.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Tab switching
+        $('.ct-tab-btn').on('click', function() {
+            var target = $(this).data('target');
+            $('.ct-tab-btn').removeClass('active');
+            $(this).addClass('active');
+            $('.storage-tab-pane').hide();
+            $(target).show();
+        });
+
+        // Filter by media type
+        function updateStorageView() {
+            const mediaType = $('#storageFilterSelect').val();
+
+            // 1. Update Cards
+            $('#card-tot').text($('#card-tot').data(mediaType));
+            $('#card-opt').text($('#card-opt').data(mediaType));
+            $('#card-overhead').text($('#card-overhead').data(mediaType));
+            $('#card-count').text($('#card-count').data(mediaType));
+
+            // 2. Update Table Text Cells
+            $('.cell-count').each(function() { $(this).text($(this).data(mediaType)); });
+            $('.cell-opt').each(function() { $(this).text($(this).data(mediaType)); });
+            $('.cell-overhead').each(function() { $(this).text($(this).data(mediaType)); });
+            $('.cell-tot').each(function() { $(this).text($(this).data(mediaType)); });
+
+            // 3. Update Progress Bars
+            $('.storage-bar-container').each(function() {
+                const opt = parseFloat($(this).data(mediaType + '-opt')) || 0;
+                const tot = parseFloat($(this).data(mediaType + '-tot')) || 0;
+                const oh = parseFloat($(this).data(mediaType + '-oh')) || 0;
+
+                const usedBar = $(this).find('.storage-bar-used');
+                const ohBar = $(this).find('.storage-bar-overhead');
+
+                if (tot > 0) {
+                    const usedPct = (opt / tot) * 100;
+                    const ohPct = (oh / tot) * 100;
+                    usedBar.css('width', usedPct + '%');
+                    ohBar.css('width', ohPct + '%');
+                    $(this).parent().parent().show(); // Ensure row is visible
+                } else {
+                    usedBar.css('width', '0%');
+                    ohBar.css('width', '0%');
+                }
+            });
+        }
+
+        $('#storageFilterSelect').on('change', updateStorageView);
+        updateStorageView(); // Init view on load
+    });
+</script>
+{% endblock %}

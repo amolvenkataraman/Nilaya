@@ -17,17 +17,15 @@
     --transition: all 0.2s ease;
 }
 
-@media (prefers-color-scheme: dark) {
-    :root {
-        --bg-glass: rgba(30, 41, 59, 0.8);
-        --border-glass: rgba(255, 255, 255, 0.08);
-        --text-primary: #f8fafc;
-        --text-secondary: #94a3b8;
-        --accent: #3b82f6;
-        --accent-hover: #2563eb;
-        --accent-light: rgba(59, 130, 246, 0.15);
-        --shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3), 0 5px 15px rgba(0, 0, 0, 0.1);
-    }
+.dark-mode {
+    --bg-glass: rgba(30, 41, 59, 0.8);
+    --border-glass: rgba(255, 255, 255, 0.08);
+    --text-primary: #f8fafc;
+    --text-secondary: #94a3b8;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --accent-light: rgba(59, 130, 246, 0.15);
+    --shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3), 0 5px 15px rgba(0, 0, 0, 0.1);
 }
 
 .geoguessr-ent-container {
