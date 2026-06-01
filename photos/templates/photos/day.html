@@ -1,10 +1,25 @@
-{% extends "photos/photos_base.html" %}
-
-{% block page_title %} {{ title }} {% endblock %}
-
-{% block page_body %}
-<div class="storage-container" style="padding: 30px;">
-    <div class="dashboard-title" style="margin-bottom: 24px;">{{ title }}</div>
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>{{ title }}</title>
+    <link href="{% static 'photo/styles.css' %}" rel="stylesheet" media="all" />
+    <link href="{% static 'photo/photos_addon.css' %}" rel="stylesheet" />
+    <style>
+        body {
+            background: transparent !important;
+            margin: 0;
+            padding: 0;
+            overflow-x: hidden;
+        }
+        .day-photos {
+            margin-bottom: 0 !important;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
     <div class="day-photos">
         {% for photo in photos %}
         <div class="photo-item" style="flex: {{ photo.aspect_ratio }} {{ photo.aspect_ratio }} calc(180px * {{ photo.aspect_ratio }}); height: 180px;" onclick="window.open('/photos/view-photo/{{ photo.id }}/', '_blank')">
@@ -28,10 +43,8 @@
             {% endif %}
             {% endif %}
         </div>
-        {% empty %}
-        <p class="text-muted">No photos found for this query.</p>
         {% endfor %}
         <div class="last-row-spacer"></div>
     </div>
-</div>
-{% endblock %}
+</body>
+</html>
