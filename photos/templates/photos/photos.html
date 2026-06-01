@@ -18,6 +18,9 @@
             <span class="indicator-badge badge-orig" title="Original file present">ORIG</span>
             {{/if}}
         </div>
+        {{#if time_taken}}
+        <div class="time-taken-tag">{{ time_taken }}</div>
+        {{/if}}
         {{#if video}}
         <div class="play-btn-center">
             <svg viewBox="0 0 24 24">
@@ -470,7 +473,8 @@
                             "main_color": photo['main_color'] || '#f0f0f0',
                             "duration_text": photo['duration_text'],
                             "has_raw": photo['has_raw'],
-                            "has_orig": photo['has_orig']
+                            "has_orig": photo['has_orig'],
+                            "time_taken": photo['date_taken'] ? new Date(photo['date_taken']).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : null
                         })
                     }
                     document.querySelector(`.day-photos-${res["photos"][i]["date"]}`).innerHTML += `<div class="last-row-spacer"></div>`;
@@ -525,6 +529,24 @@
     }
 
     window.addEventListener('DOMContentLoaded', (event) => {
+        // Setup Show Time Taken setting
+        const showTimeCheckbox = document.getElementById('show-time-taken');
+        const showTimeTaken = localStorage.getItem('showTimeTaken') === 'true';
+        showTimeCheckbox.checked = showTimeTaken;
+        if (showTimeTaken) {
+            document.body.classList.add('show-photo-times');
+        }
+
+        showTimeCheckbox.addEventListener('change', function () {
+            if (this.checked) {
+                document.body.classList.add('show-photo-times');
+                localStorage.setItem('showTimeTaken', 'true');
+            } else {
+                document.body.classList.remove('show-photo-times');
+                localStorage.setItem('showTimeTaken', 'false');
+            }
+        });
+
         {% if not no_photos %}
         get_photos_for_date(currdate, 10, 100)
         {% endif %}
@@ -932,6 +954,13 @@
             <label class="filter-label">
                 <input type="checkbox" id="filter-video" {% if video %}checked{% endif %}>
                 <span>Video Only</span>
+            </label>
+        </div>
+
+        <div class="filter-group">
+            <label class="filter-label">
+                <input type="checkbox" id="show-time-taken">
+                <span>Show Time Taken</span>
             </label>
         </div>
 

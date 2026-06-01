@@ -1244,6 +1244,29 @@
     pointer-events: none;
 }
 
+/* Photo time-taken overlay in bottom left corner */
+.photo-item .time-taken-tag {
+    display: none;
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: rgba(15, 23, 42, 0.75);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    color: #f8fafc;
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    pointer-events: none;
+    font-family: var(--font-stack);
+    z-index: 9;
+}
+
+body.show-photo-times .photo-item .time-taken-tag {
+    display: block;
+}
+
 
 
 
