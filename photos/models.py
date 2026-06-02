@@ -235,7 +235,7 @@ class Photo(models.Model):
 
             "framerate": self.framerate,
             "mimetype": self.mimetype,
-            "megapixels": self.megapixels,
+            "megapixels": self.megapixels if self.megapixels is not None else self.calculate_megapixels(),
             "bitrate": self.bitrate,
             "size": self.size,
             "size_total": self.size_total,
@@ -275,6 +275,11 @@ class Photo(models.Model):
             "has_orig": self.has_orig,
             "aspect_ratio": aspect_ratio,
         }
+
+    def calculate_megapixels(self):
+        if not self.video and self.width and self.height:
+            self.megapixels = round((self.width * self.height) / 1000000.0, 2)
+        return self.megapixels
 
     def refresh_city_data(self, print_=False):
         try:

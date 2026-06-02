@@ -761,25 +761,62 @@ def stats_page(request):
     taken_ytd = qs.filter(date_taken__gte=ytd_start).count()
     taken_year = qs.filter(date_taken__gte=one_year_ago).count()
 
+    # Prior periods for comparison
+    two_weeks_ago = now - datetime.timedelta(days=14)
+    two_months_ago = now - datetime.timedelta(days=60)
+    two_years_ago = now - datetime.timedelta(days=730)
+    try:
+        ytd_prior_end = now.replace(year=now.year - 1)
+    except ValueError:
+        ytd_prior_end = now - datetime.timedelta(days=365)
+    ytd_prior_start = timezone.make_aware(datetime.datetime(now.year - 1, 1, 1))
+
+    taken_week_prior = qs.filter(date_taken__gte=two_weeks_ago, date_taken__lt=one_week_ago).count()
+    taken_month_prior = qs.filter(date_taken__gte=two_months_ago, date_taken__lt=one_month_ago).count()
+    taken_ytd_prior = qs.filter(date_taken__gte=ytd_prior_start, date_taken__lt=ytd_prior_end).count()
+    taken_year_prior = qs.filter(date_taken__gte=two_years_ago, date_taken__lt=one_year_ago).count()
+
+    def get_pct_change(current, prior):
+        if prior == 0:
+            if current > 0:
+                return "+100.0", "green"
+            return "0.0", "gray"
+        diff = current - prior
+        pct = (diff / prior) * 100
+        if pct > 0:
+            return f"+{pct:.1f}", "green"
+        elif pct < 0:
+            return f"{pct:.1f}", "red"
+        return "0.0", "gray"
+
+    week_pct, week_color = get_pct_change(taken_week, taken_week_prior)
+    month_pct, month_color = get_pct_change(taken_month, taken_month_prior)
+    ytd_pct, ytd_color = get_pct_change(taken_ytd, taken_ytd_prior)
+    year_pct, year_color = get_pct_change(taken_year, taken_year_prior)
+
     # Camera makes/models
-    cameras = qs.exclude(camera_model__isnull=True).exclude(camera_model='').values('camera_make', 'camera_model').annotate(count=Count('id')).order_by('-count')[:5]
+    cameras = qs.exclude(camera_model__isnull=True).exclude(camera_model='').values('camera_make', 'camera_model').annotate(count=Count('id')).order_by('-count')[:10]
 
     # Average Megapixels
     avg_mp = qs.filter(video=False, megapixels__isnull=False).aggregate(Avg('megapixels'))['megapixels__avg'] or 0
     avg_mp = round(avg_mp, 1)
 
-    # Collect monthly and hourly data
+    # Collect monthly, hourly, daily, and month-of-year data
     dates_and_types = qs.filter(date_taken__isnull=False).values_list('date_taken', 'video')
 
     from collections import defaultdict
     month_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
     year_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
     hour_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
+    day_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
+    month_of_year_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
 
     for dt, is_video in dates_and_types:
         month_str = dt.strftime('%Y-%m')
         year_str = dt.strftime('%Y')
         hr = dt.hour
+        day_num = dt.day
+        moy = dt.month
         key = 'video' if is_video else 'photo'
 
         month_histogram[month_str]['all'] += 1
@@ -791,11 +828,29 @@ def stats_page(request):
         hour_histogram[hr]['all'] += 1
         hour_histogram[hr][key] += 1
 
+        day_histogram[day_num]['all'] += 1
+        day_histogram[day_num][key] += 1
+
+        month_of_year_histogram[moy]['all'] += 1
+        month_of_year_histogram[moy][key] += 1
+
     # Hourly histogram (0 to 23)
     hours_labels = [f"{h:02d}:00" for h in range(24)]
     hours_data_all = [hour_histogram[h]['all'] for h in range(24)]
     hours_data_photo = [hour_histogram[h]['photo'] for h in range(24)]
     hours_data_video = [hour_histogram[h]['video'] for h in range(24)]
+
+    # Daily histogram (1 to 31)
+    days_labels = [str(d) for d in range(1, 32)]
+    days_data_all = [day_histogram[d]['all'] for d in range(1, 32)]
+    days_data_photo = [day_histogram[d]['photo'] for d in range(1, 32)]
+    days_data_video = [day_histogram[d]['video'] for d in range(1, 32)]
+
+    # Month of year histogram (1 to 12)
+    months_year_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+    months_year_data_all = [month_of_year_histogram[m]['all'] for m in range(1, 13)]
+    months_year_data_photo = [month_of_year_histogram[m]['photo'] for m in range(1, 13)]
+    months_year_data_video = [month_of_year_histogram[m]['video'] for m in range(1, 13)]
 
     # Generate labels chronologically going back 60 months (5 years)
     months_60_labels = []
@@ -852,15 +907,31 @@ def stats_page(request):
         "video_count": video_count,
         "video_pct": video_pct,
         "taken_week": taken_week,
+        "week_pct": week_pct,
+        "week_color": week_color,
         "taken_month": taken_month,
+        "month_pct": month_pct,
+        "month_color": month_color,
         "taken_ytd": taken_ytd,
+        "ytd_pct": ytd_pct,
+        "ytd_color": ytd_color,
         "taken_year": taken_year,
+        "year_pct": year_pct,
+        "year_color": year_color,
         "cameras": list(cameras),
         "avg_mp": avg_mp,
         "hours_labels": hours_labels,
         "hours_data_all": hours_data_all,
         "hours_data_photo": hours_data_photo,
         "hours_data_video": hours_data_video,
+        "days_labels": days_labels,
+        "days_data_all": days_data_all,
+        "days_data_photo": days_data_photo,
+        "days_data_video": days_data_video,
+        "months_year_labels": months_year_labels,
+        "months_year_data_all": months_year_data_all,
+        "months_year_data_photo": months_year_data_photo,
+        "months_year_data_video": months_year_data_video,
         "months_12_labels": months_12_labels,
         "months_12_data_all": months_12_all,
         "months_12_data_photo": months_12_photo,

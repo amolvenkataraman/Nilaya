@@ -116,7 +116,10 @@ def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
             p.update_info_exiftool()
         else:
             try:
-                img = Image.open(f); p.width = img.size[0]; p.height = img.size[1]
+                img = Image.open(f)
+                p.width = img.size[0]
+                p.height = img.size[1]
+                p.calculate_megapixels()
                 try:
                     gpsdata = gpsphoto.getGPSData(f)
                     try:

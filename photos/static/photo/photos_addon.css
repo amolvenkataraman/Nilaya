@@ -1267,6 +1267,20 @@ body.show-photo-times .photo-item .time-taken-tag {
     display: block;
 }
 
+/* Three side-by-side activity charts */
+.activity-charts-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+    margin-bottom: 30px;
+}
+
+@media (max-width: 1200px) {
+    .activity-charts-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 
 
 
