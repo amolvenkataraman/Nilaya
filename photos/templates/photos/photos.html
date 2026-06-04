@@ -418,10 +418,12 @@
         dates.push(date1);
 
         var r = new XMLHttpRequest();
-        {% if not bounds %}
-        bounds = ""
-        {% else %}
+        {% if bounds_b64 %}
+        bounds = `&bounds={{ bounds_b64 }}`
+        {% elif bounds %}
         bounds = `&north={{ bounds.north }}&south={{ bounds.south }}&east={{ bounds.east }}&west={{ bounds.west }}`
+        {% else %}
+        bounds = ""
         {% endif %}
 
         if (ndays > 0) { addto = `&ndays=${ndays}`; }

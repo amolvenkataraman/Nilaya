@@ -478,7 +478,12 @@ const MapApp = {
             // View photos bound click
             document.getElementById('view-photos').addEventListener('click', () => {
                 const bounds = MapApp.Map.leafletMap.getBounds();
-                window.open(`/photos/?north=${bounds._northEast.lat}&south=${bounds._southWest.lat}&east=${bounds._northEast.lng}&west=${bounds._southWest.lng}`, '_blank');
+                const n = bounds._northEast.lat.toFixed(5);
+                const s = bounds._southWest.lat.toFixed(5);
+                const e = bounds._northEast.lng.toFixed(5);
+                const w = bounds._southWest.lng.toFixed(5);
+                const b64 = btoa(`${n},${s},${e},${w}`);
+                window.open(`/photos/?bounds=${b64}`, '_blank');
             });
         },
 

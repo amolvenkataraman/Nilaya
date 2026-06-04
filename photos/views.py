@@ -17,6 +17,50 @@ import datetime
 import dateparser
 import pytz
 import json
+import base64
+
+def get_bounds_from_request(request):
+    bounds_b64 = request.GET.get('bounds')
+    if bounds_b64:
+        try:
+            missing_padding = len(bounds_b64) % 4
+            if missing_padding:
+                bounds_b64 += '=' * (4 - missing_padding)
+            decoded = base64.b64decode(bounds_b64.encode('utf-8')).decode('utf-8')
+            parts = decoded.split(',')
+            if len(parts) == 4:
+                return {
+                    "north": parts[0].strip(),
+                    "south": parts[1].strip(),
+                    "east": parts[2].strip(),
+                    "west": parts[3].strip()
+                }, bounds_b64
+        except Exception:
+            pass
+
+    # Fallback to separate params
+    north = request.GET.get('north')
+    south = request.GET.get('south')
+    east = request.GET.get('east')
+    west = request.GET.get('west')
+    if north and south and east and west:
+        try:
+            n_val = f"{float(north):.5f}"
+            s_val = f"{float(south):.5f}"
+            e_val = f"{float(east):.5f}"
+            w_val = f"{float(west):.5f}"
+            csv_str = f"{n_val},{s_val},{e_val},{w_val}"
+            computed_b64 = base64.b64encode(csv_str.encode('utf-8')).decode('utf-8')
+        except Exception:
+            computed_b64 = None
+        return {
+            "north": north,
+            "south": south,
+            "east": east,
+            "west": west
+        }, computed_b64
+
+    return None, None
 
 
 # Create your views here.
@@ -98,26 +142,24 @@ def photos(request):
         objects_ = None
 
 
+    bounds, bounds_b64 = get_bounds_from_request(request)
     rd = request.GET.get('date')
     if rd == None:
         try:
-            if (request.GET.get('north') and request.GET.get('south') and request.GET.get('east') and request.GET.get('west')):
-                bounds = {"north": request.GET.get('north'), "south": request.GET.get('south'), "east": request.GET.get('east'), "west": request.GET.get('west')}
+            if bounds:
                 photos = photos.filter(
-                    latitude__lte=request.GET.get('north'),
-                    latitude__gte=request.GET.get('south'),
-                    longitude__gte=request.GET.get('west'),
-                    longitude__lte=request.GET.get('east')
+                    latitude__lte=bounds['north'],
+                    latitude__gte=bounds['south'],
+                    longitude__gte=bounds['west'],
+                    longitude__lte=bounds['east']
                 ).order_by('-date_taken')
                 newest = photos[0].date_taken.date() + datetime.timedelta(days=1)
             else:
-                bounds = None
                 newest = photos[0].date_taken.date() + datetime.timedelta(days=1)
         except IndexError: newest = None
         date_filter = None  # Not explicitly provided
     else:
         newest = dateparser.parse(request.GET.get('date')).date()
-        bounds = None
         date_filter = datetime.datetime.strftime(newest, "%Y-%m-%d")  # Explicitly provided
 
     ntotal = photos.count()
@@ -143,6 +185,7 @@ def photos(request):
         'date_filter': date_filter,  # Only set when explicitly provided
         'forward': request.GET.get('forward') == '1',
         'bounds': bounds,
+        'bounds_b64': bounds_b64,
         "left_sidebar": True,
         "right_sidebar": True,
         "video": video_only,
@@ -367,9 +410,11 @@ def get_photos_for_date(request):
 
     ans = []
 
+    bounds, bounds_b64 = get_bounds_from_request(request)
+    if bounds:
+        photos = photos.filter(latitude__gte=bounds['south'], latitude__lte=bounds['north'], longitude__gte=bounds['west'], longitude__lte=bounds['east'])
+
     while (numdays is None and numphotos is None and donedays == 0) or ((numdays is None or donedays < numdays) and (numphotos is None or donephotos < numphotos)):
-        if (request.GET.get('north') and request.GET.get('south') and request.GET.get('east') and request.GET.get('west')):
-            photos = photos.filter(latitude__gte=request.GET.get('south'), latitude__lte=request.GET.get('north'), longitude__gte=request.GET.get('west'), longitude__lte=request.GET.get('east'))
 
         dt = next if next else dateparser.parse(request.GET.get('date')).date()
 
