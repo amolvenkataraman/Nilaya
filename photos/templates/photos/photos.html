@@ -21,9 +21,7 @@
             <span class="indicator-badge badge-orig" title="Original file present">ORIG</span>
             {{/if}}
         </div>
-        {{#if time_taken}}
-        <div class="time-taken-tag">{{ time_taken }}</div>
-        {{/if}}
+        <div class="time-taken-tag detail-tag" data-time="{{ time_taken }}" data-city="{{ location_city }}" data-camera="{{ camera_model }}" data-megapixels="{{ megapixels }}" data-size="{{ size }}"></div>
         {{#if video}}
         <div class="play-btn-center">
             <svg viewBox="0 0 24 24">
@@ -195,6 +193,32 @@
         if (dur > 3600) { return `${Math.floor(dur / 3600)}h ${Math.floor((dur % 3600) / 60)}m ${Math.floor((dur % 3600) % 60)}s` }
         else if (dur > 60) { return `${Math.floor(dur / 60)}m ${Math.floor(dur % 60)}s` }
         else { return `${Math.floor(dur)}s` }
+    }
+
+    function update_photo_details() {
+        const detailType = localStorage.getItem('photoDetailType') || 'time';
+        document.querySelectorAll('.detail-tag').forEach(tag => {
+            let val = "";
+            if (detailType === 'time') {
+                val = tag.dataset.time;
+            } else if (detailType === 'city') {
+                val = tag.dataset.city;
+            } else if (detailType === 'camera') {
+                val = tag.dataset.camera;
+            } else if (detailType === 'megapixels') {
+                val = tag.dataset.megapixels ? parseFloat(tag.dataset.megapixels).toFixed(2) + ' MP' : '';
+            } else if (detailType === 'size') {
+                val = tag.dataset.size;
+            }
+            
+            if (detailType === 'none' || !val || val === 'null' || val === 'undefined') {
+                tag.style.setProperty('display', 'none', 'important');
+                tag.textContent = '';
+            } else {
+                tag.style.setProperty('display', 'block', 'important');
+                tag.textContent = val;
+            }
+        });
     }
 
     function view_image(e) {
@@ -475,7 +499,14 @@
                     }
 
                     for (j = 0; j < res["photos"][i]["photos"].length; j++) {
-                        photo = res["photos"][i]["photos"][j]
+                        photo = res["photos"][i]["photos"][j];
+                        let formattedSize = "";
+                        if (photo['size']) {
+                            const sz = get_size_in_format(photo['size']);
+                            formattedSize = sz[0] + " " + sz[1];
+                        }
+                        let timeStr = photo['date_taken'] ? new Date(photo['date_taken']).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : "";
+
                         document.querySelector(`.day-photos-${res["photos"][i]["date"]}`).innerHTML += photo_in_list({
                             "id": photo['id'],
                             "url": `/photo_cdn/${photo['photo_hash']}/${photo['path']}`,
@@ -489,18 +520,23 @@
                             "has_raw": photo['has_raw'],
                             "has_orig": photo['has_orig'],
                             "is_cover": (photo['id'] === activeAlbumCoverPhotoId),
-                            "time_taken": photo['date_taken'] ? new Date(photo['date_taken']).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : null
-                        })
+                            "time_taken": timeStr,
+                            "location_city": photo['location_city'] || "",
+                            "camera_model": photo['camera_model'] || "",
+                            "megapixels": photo['megapixels'] || "",
+                            "size": formattedSize
+                        });
                     }
                     document.querySelector(`.day-photos-${res["photos"][i]["date"]}`).innerHTML += `<div class="last-row-spacer"></div>`;
 
                     // After adding all placeholders, load the actual images
                     document.querySelectorAll(`.day-photos-${res["photos"][i]["date"]} img`).forEach(img => {
-                        img.src = img.dataset.src
+                        img.src = img.dataset.src;
                     });
                 }
 
             }
+            update_photo_details();
             nowloading = false;
             origload = true;
 
@@ -544,23 +580,16 @@
     }
 
     window.addEventListener('DOMContentLoaded', (event) => {
-        // Setup Show Time Taken setting
-        const showTimeCheckbox = document.getElementById('show-time-taken');
-        const showTimeTaken = localStorage.getItem('showTimeTaken') === 'true';
-        showTimeCheckbox.checked = showTimeTaken;
-        if (showTimeTaken) {
-            document.body.classList.add('show-photo-times');
+        // Setup Show Detail setting
+        const showDetailSelect = document.getElementById('show-detail-select');
+        const detailType = localStorage.getItem('photoDetailType') || 'time';
+        if (showDetailSelect) {
+            showDetailSelect.value = detailType;
+            showDetailSelect.addEventListener('change', function () {
+                localStorage.setItem('photoDetailType', this.value);
+                update_photo_details();
+            });
         }
-
-        showTimeCheckbox.addEventListener('change', function () {
-            if (this.checked) {
-                document.body.classList.add('show-photo-times');
-                localStorage.setItem('showTimeTaken', 'true');
-            } else {
-                document.body.classList.remove('show-photo-times');
-                localStorage.setItem('showTimeTaken', 'false');
-            }
-        });
 
         {% if not no_photos %}
         get_photos_for_date(currdate, 10, 100)
@@ -987,10 +1016,15 @@
         </div>
 
         <div class="filter-group">
-            <label class="filter-label">
-                <input type="checkbox" id="show-time-taken">
-                <span>Show Time Taken</span>
-            </label>
+            <label class="filter-label" for="show-detail-select" style="margin-bottom: 6px;">Show Detail</label>
+            <select class="form-select form-select-sm filter-input" id="show-detail-select" style="background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-glass);">
+                <option value="none">None</option>
+                <option value="time">Time Taken</option>
+                <option value="city">City</option>
+                <option value="camera">Camera</option>
+                <option value="megapixels">Megapixels</option>
+                <option value="size">Size</option>
+            </select>
         </div>
 
         <div class="filter-section-divider"></div>

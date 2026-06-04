@@ -274,6 +274,10 @@ class Photo(models.Model):
             "has_raw": self.has_raw,
             "has_orig": self.has_orig,
             "aspect_ratio": aspect_ratio,
+            "location_city": self.location_city,
+            "camera_model": self.camera_model,
+            "megapixels": self.megapixels if self.megapixels is not None else self.calculate_megapixels(),
+            "size": self.size,
         }
 
     def calculate_megapixels(self):
