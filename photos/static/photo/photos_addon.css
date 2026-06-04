@@ -960,6 +960,10 @@
     color: #f59e0b; /* Orange for Original */
 }
 
+.badge-cover {
+    color: #eab308; /* Yellow/Gold for Cover Photo */
+}
+
 /* Search Dashboard Styling */
 .search-container {
     max-width: 900px;

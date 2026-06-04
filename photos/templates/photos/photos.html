@@ -11,6 +11,9 @@
     <div class="photo-item" style="flex: {{ aspect_ratio }} {{ aspect_ratio }} calc(180px * {{ aspect_ratio }}); height: 180px; background-color: {{ main_color }};" onclick="handle_photo_click(event, this)">
         <img src="" data-src="{{ thumbnail }}" data-id="{{ id }}" data-url="{{ url }}" data-video="{{ video }}" class="list-img" style="width: 100%; height: 100%; object-fit: cover; display: block;">
         <div class="photo-indicators">
+            {{#if is_cover}}
+            <span class="indicator-badge badge-cover" title="Album cover photo">★ COVER</span>
+            {{/if}}
             {{#if has_raw}}
             <span class="indicator-badge badge-raw" title="RAW file present">RAW</span>
             {{/if}}
@@ -166,6 +169,7 @@
 <script>
     const photo_in_list = Handlebars.compile(document.querySelector("#photo-in-list").innerHTML)
     const photo_description = Handlebars.compile(document.querySelector("#photo-description").innerHTML)
+    let activeAlbumCoverPhotoId = "{% if album_obj %}{{ album_obj.cover_photo_id_resolved }}{% endif %}";
 
     var currdate = new Date('{{ newest }}');
     const forward = '{{ forward }}' === 'True';
@@ -298,6 +302,16 @@
         if (selected.length > 0) {
             countEl.textContent = selected.length;
             bar.classList.add('active');
+            
+            const setCoverBtn = document.getElementById('action-set-cover');
+            const setCoverDropdownLi = document.getElementById('dropdown-action-set-cover-li');
+            if (selected.length === 1) {
+                if (setCoverBtn) setCoverBtn.style.setProperty('display', 'inline-flex', 'important');
+                if (setCoverDropdownLi) setCoverDropdownLi.style.setProperty('display', 'block', 'important');
+            } else {
+                if (setCoverBtn) setCoverBtn.style.setProperty('display', 'none', 'important');
+                if (setCoverDropdownLi) setCoverDropdownLi.style.setProperty('display', 'none', 'important');
+            }
         } else {
             bar.classList.remove('active');
         }
@@ -474,6 +488,7 @@
                             "duration_text": photo['duration_text'],
                             "has_raw": photo['has_raw'],
                             "has_orig": photo['has_orig'],
+                            "is_cover": (photo['id'] === activeAlbumCoverPhotoId),
                             "time_taken": photo['date_taken'] ? new Date(photo['date_taken']).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : null
                         })
                     }
@@ -763,6 +778,12 @@
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
             Delete
         </button>
+        {% if album_obj and is_owner %}
+        <button id="action-set-cover" class="action-bar-btn btn-success d-none d-md-inline-flex" title="Set as Album Cover" style="display: none !important;">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            Set Cover
+        </button>
+        {% endif %}
         
         <!-- 3-Dot Context Menu (always visible/collapsible on small screens) -->
         <div class="dropdown">
@@ -774,6 +795,14 @@
                 </svg>
             </button>
             <ul class="dropdown-menu dropdown-menu-end shadow glassmorphic-dropdown" aria-labelledby="selectionMenuButton">
+                {% if album_obj and is_owner %}
+                <li id="dropdown-action-set-cover-li" style="display: none !important;">
+                    <button class="dropdown-item d-flex align-items-center gap-2" id="dropdown-action-set-cover">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warning"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                        Set as Album Cover
+                    </button>
+                </li>
+                {% endif %}
                 <li>
                     <button class="dropdown-item d-flex align-items-center gap-2" id="dropdown-action-add-to-album">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
@@ -1204,6 +1233,36 @@
         document.getElementById('dropdown-action-delete').addEventListener('click', () => {
             document.getElementById('action-delete-selected').click();
         });
+        document.getElementById('dropdown-action-clear').addEventListener('click', clear_selection);
+
+        {% if album_obj and is_owner %}
+        const setCoverFunc = () => {
+            const selectedImg = document.querySelector('.photo-item.selected img');
+            if (!selectedImg) return;
+            const photoId = selectedImg.dataset.id;
+
+            const r = new XMLHttpRequest();
+            r.open("POST", "{% url 'set_album_cover' album_obj.id %}");
+            r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+            r.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+            r.onload = () => {
+                const res = JSON.parse(r.responseText);
+                if (res.status === 'success') {
+                    alert('Album cover updated successfully.');
+                    location.reload();
+                } else {
+                    alert('Error updating cover: ' + (res.message || 'unknown error'));
+                }
+            };
+            r.send(JSON.stringify({ cover_photo_id: photoId }));
+        };
+
+        const setCoverBtn = document.getElementById('action-set-cover');
+        if (setCoverBtn) setCoverBtn.addEventListener('click', setCoverFunc);
+
+        const dropdownSetCoverBtn = document.getElementById('dropdown-action-set-cover');
+        if (dropdownSetCoverBtn) dropdownSetCoverBtn.addEventListener('click', setCoverFunc);
+        {% endif %}
         document.getElementById('dropdown-action-clear').addEventListener('click', clear_selection);
 
         // Edit/Share modals logic for loaded album context

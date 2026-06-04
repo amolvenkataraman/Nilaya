@@ -157,7 +157,7 @@ class Photo(models.Model):
     class Meta:
         indexes = [
             # Specifically indexes the 'objects' key inside the JSON
-            GinIndex(fields=['ai_index_info__objects'], name='idx_objects_gin'),
+            GinIndex(fields=['ai_index_info'], name='idx_objects_gin'),
         ]
 
     def __str__(self):
@@ -403,17 +403,61 @@ class ShareAlbum(models.Model):
     name = models.CharField(max_length=64)
     description = models.TextField(null=True, blank=True)
     public = models.BooleanField(default=False)
+    cover_photo = models.ForeignKey(Photo, on_delete=models.SET_NULL, null=True, blank=True, related_name='cover_for_albums')
 
     def __str__(self):
         return f"ShareAlbum {self.name} [{self.owner.username}]"
 
+    @property
+    def cover_photo_id_resolved(self):
+        if self.cover_photo_id:
+            return str(self.cover_photo_id)
+        # Fallback to the newest photo by date_taken
+        photos_qs = Photo.objects.filter(photo_in_sharealbum__sharealbum=self)
+        cover_photo = photos_qs.order_by('-date_taken').first()
+        return str(cover_photo.id) if cover_photo else ""
+
     def getinfo(self):
+        photos_qs = Photo.objects.filter(photo_in_sharealbum__sharealbum=self)
+        total_photos = photos_qs.filter(video=False).count()
+        total_videos = photos_qs.filter(video=True).count()
+        total_kb = photos_qs.aggregate(total=models.Sum('size_total'))['total'] or 0
+        
+        if self.cover_photo:
+            cover_photo = self.cover_photo
+        else:
+            cover_photo = photos_qs.order_by('-date_taken').first()
+        cover_photo_id = str(cover_photo.id) if cover_photo else None
+        cover_photo_hash = cover_photo.thumbnail_hash if cover_photo else None
+
+        oldest_date = photos_qs.aggregate(oldest=models.Min('date_taken'))['oldest']
+        newest_date = photos_qs.aggregate(newest=models.Max('date_taken'))['newest']
+
+        def format_size(kb):
+            mb = kb / 1024.0
+            if mb >= 1024.0 * 1024.0:
+                return f"{mb / (1024.0 * 1024.0):.2f} TB"
+            elif mb >= 1024.0:
+                return f"{mb / 1024.0:.2f} GB"
+            else:
+                return f"{mb:.1f} MB"
+                
+        space_used = format_size(total_kb)
+
         return {
             "id": str(self.id),
             "owner": self.owner.id,
             "name": self.name,
             "description": self.description,
             "public": self.public,
+            "photo_count": total_photos,
+            "video_count": total_videos,
+            "space_used": space_used,
+            "space_used_kb": total_kb,
+            "cover_photo_id": cover_photo_id,
+            "cover_photo_hash": cover_photo_hash,
+            "oldest_date": oldest_date.isoformat() if oldest_date else "",
+            "newest_date": newest_date.isoformat() if newest_date else "",
         }
 
 class ShareAlbum_Photo(models.Model):

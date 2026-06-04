@@ -642,6 +642,34 @@ def edit_share_album(request, album_id):
     
     return JsonResponse({"status": "success", "album": album.getinfo()})
 
+@post_request_only
+@login_required_api
+def set_album_cover(request, album_id):
+    try:
+        album = ShareAlbum.objects.get(id=album_id)
+    except ShareAlbum.DoesNotExist:
+        return error_response("Album does not exist", 404)
+    
+    if album.owner != request.user and not request.user.is_superuser:
+        return error_response("Not authorized", 401)
+    
+    body = json.loads(request.body.decode('utf8'))
+    cover_photo_id = body.get('cover_photo_id')
+    if not cover_photo_id:
+        return error_response("cover_photo_id is required", 400)
+        
+    try:
+        photo = Photo.objects.get(id=cover_photo_id)
+        if not ShareAlbum_Photo.objects.filter(sharealbum=album, photo=photo).exists():
+            return error_response("Photo is not part of this album", 400)
+    except Photo.DoesNotExist:
+        return error_response("Photo does not exist", 404)
+        
+    album.cover_photo = photo
+    album.save()
+    
+    return JsonResponse({"status": "success", "album": album.getinfo()})
+
 @login_required_api
 def manage_subscribers(request, album_id):
     try:

@@ -21,6 +21,7 @@ urlpatterns = [
     path("albums/remove/", views.remove_photo_from_album, name='remove_photo_from_album'),
     path("albums/create/", views.create_share_album, name='create_share_album'),
     path("albums/<slug:album_id>/edit/", views.edit_share_album, name='edit_share_album'),
+    path("albums/<slug:album_id>/set-cover/", views.set_album_cover, name='set_album_cover'),
     path("albums/<slug:album_id>/subscribers/", views.manage_subscribers, name='manage_subscribers'),
     path("albums/toggle-visibility/<int:album_id>/", views.toggle_album_visibility, name='toggle_album_visibility'),
     path("albums/display-only/<int:album_id>/", views.display_only_album, name='display_only_album'),

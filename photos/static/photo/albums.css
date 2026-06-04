@@ -26,35 +26,41 @@
 }
 
 .albums-container {
-    padding: 30px 20px;
-    max-width: 1000px;
+    padding: 20px 20px;
+    max-width: 1300px;
     margin: 0 auto;
     font-family: var(--font-stack);
 }
 
 .albums-header {
     text-align: center;
-    margin-bottom: 40px;
+    margin-bottom: 24px;
 }
 
 .albums-header h1 {
     font-weight: 700;
     color: var(--text-primary);
-    font-size: 2.25rem;
-    margin-bottom: 8px;
+    font-size: 2.0rem;
+    margin-bottom: 6px;
     letter-spacing: -0.02em;
 }
 
 .album-count {
     color: var(--text-secondary);
-    font-size: 1.05rem;
+    font-size: 1.0rem;
     font-weight: 500;
 }
 
 .albums-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 10px;
+}
+
+.albums-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 14px;
 }
 
 /* Glassmorphism Album Card */
@@ -65,19 +71,46 @@
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
     border-radius: var(--border-radius);
-    padding: 20px 24px;
     transition: var(--transition);
     text-decoration: none !important;
     color: inherit;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
 }
 
-.album-card:hover {
+/* List Card adjustments */
+.album-card.list-card {
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+}
+
+.album-card.list-card:hover {
     transform: translateX(6px) translateY(-2px);
     box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
     border-color: var(--accent);
+}
+
+/* Grid Card adjustments */
+.album-card.grid-card:hover {
+    transform: translateY(-6px);
+    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.06);
+    border-color: var(--accent);
+}
+
+.album-card.grid-card .album-cover-wrapper {
+    transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.album-card.grid-card:hover .album-cover-wrapper {
+    transform: scale(1.08);
+}
+
+.album-card.list-card .album-cover-sidebar img {
+    transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.album-card.list-card:hover .album-cover-sidebar img {
+    transform: scale(1.08);
 }
 
 .album-content {
@@ -117,14 +150,43 @@
 }
 
 .badge {
-    background: var(--accent);
     color: white;
     padding: 4px 12px;
     border-radius: 20px;
     font-size: 0.75rem;
     font-weight: 600;
     white-space: nowrap;
+}
+
+.badge-owned {
+    background: var(--accent);
     box-shadow: 0 4px 10px -3px rgba(37, 99, 235, 0.3);
+}
+
+.badge-shared {
+    background: #64748b;
+    box-shadow: 0 4px 10px -3px rgba(100, 116, 139, 0.3);
+}
+
+.badge-public {
+    background: #10b981;
+    box-shadow: 0 4px 10px -3px rgba(16, 185, 129, 0.3);
+}
+
+/* View Toggle Controls */
+.view-toggle-group .btn.active {
+    background: var(--accent) !important;
+    color: white !important;
+}
+
+.view-toggle-group .btn:not(.active) {
+    background: transparent;
+    color: var(--text-secondary) !important;
+}
+
+.view-toggle-group .btn:not(.active):hover {
+    background: var(--bg-item-hover);
+    color: var(--text-primary) !important;
 }
 
 /* Empty State */
