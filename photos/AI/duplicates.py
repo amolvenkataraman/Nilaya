@@ -1,7 +1,7 @@
 import hashlib
 import time
 
-from PIL import Image
+from PIL import Image, ImageOps
 import imagehash
 
 PHASH_SIZE = 16   # 256-bit pHash (more accurate than default 64-bit)
@@ -22,7 +22,6 @@ def perceptual_hash(path: str) -> str:
     Two images with Hamming distance ≤ 8 are near-duplicates.
     Distance = 0 means visually identical despite different bytes.
     """
-    from PIL import ImageOps
     img = Image.open(path)
     img = ImageOps.exif_transpose(img).convert("RGB")
     return str(imagehash.phash(img, hash_size=PHASH_SIZE))

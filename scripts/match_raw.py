@@ -5,6 +5,7 @@ import shutil
 import datetime
 import django
 import exifread
+import re
 
 # Set up Django environment
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -129,13 +130,18 @@ def match_and_move_raw_files():
                 photo_base_path, _ = os.path.splitext(p.filepath)
                 photo_base_name, _ = os.path.splitext(os.path.basename(p.filepath))
                 
+                raw_match = re.search(r'\d{8}_\d{6,}', raw_base_name)
+                photo_match = re.search(r'\d{8}_\d{6,}', photo_base_name)
+                
                 # Match conditions:
                 # 1. Base names match exactly
                 # 2. Or photo's relative path ends with raw's relative path
                 # 3. Or vice-versa
+                # 4. Or both contain the same YYYYMMDD_HHMMSS timestamp pattern
                 if (photo_base_name.lower() == raw_base_name.lower() or 
                     photo_base_path.lower().endswith(raw_base_path.lower()) or 
-                    raw_base_path.lower().endswith(photo_base_path.lower())):
+                    raw_base_path.lower().endswith(photo_base_path.lower()) or
+                    (raw_match and photo_match and raw_match.group() == photo_match.group())):
                     matched_photos.append(p)
             
             if not matched_photos:

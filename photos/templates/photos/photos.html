@@ -159,29 +159,29 @@
             <div class="sidebar-section-title">Find Similar Photos</div>
             <div class="find-similar-body">
                 <div class="tol-row">
-                    <span class="tol-label">Tolerance</span>
+                    <span class="tol-label">Similarity</span>
                     <div class="tol-slider-wrap">
                         <input
                             type="range"
-                            min="1" max="128" step="1" value="8"
+                            min="50" max="100" step="1" value="97"
                             class="tol-slider"
                             id="tol-slider-{{ id }}"
                             oninput="
-                                document.getElementById('tol-val-{{ id }}').textContent = this.value; 
-                                document.getElementById('tol-desc-n-{{ id }}').textContent = this.value;
-                                let pct = Math.max(0, Math.round(100 - (this.value / 256) * 100));
-                                document.getElementById('tol-desc-pct-{{ id }}').textContent = pct + '%';
+                                document.getElementById('tol-val-{{ id }}').textContent = this.value + '%'; 
+                                document.getElementById('tol-desc-pct-{{ id }}').textContent = this.value;
+                                let dist = Math.round(256 * (100 - this.value) / 100);
+                                document.getElementById('tol-desc-n-{{ id }}').textContent = dist;
                             "
                         >
                         <span class="tol-hint">
-                            <span class="tol-hint-lo">exact</span>
-                            <span class="tol-hint-hi">loose</span>
+                            <span class="tol-hint-lo">loose</span>
+                            <span class="tol-hint-hi">exact</span>
                         </span>
                     </div>
-                    <span class="tol-value-badge" id="tol-val-{{ id }}">8</span>
+                    <span class="tol-value-badge" id="tol-val-{{ id }}">97%</span>
                 </div>
                 <div class="tol-desc" id="tol-desc-{{ id }}">
-                    ≤ <strong id="tol-desc-n-{{ id }}">8</strong> bits diff / 256 (≈ <strong id="tol-desc-pct-{{ id }}">97%</strong> similar)
+                    ≈ <strong id="tol-desc-pct-{{ id }}">97</strong>% similar (≤ <strong id="tol-desc-n-{{ id }}">8</strong> bits diff / 256)
                 </div>
                 <button class="action-btn similar-btn" onclick="loadSimilarPhotos('{{ id }}', document.getElementById('tol-slider-{{ id }}').value)">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
@@ -739,7 +739,7 @@
             Similar photos
         </div>
         <div style="font-size: .8em; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            Hamming tolerance: <strong>{{ similar_tol }}</strong> / 256
+            Similarity: <strong>{{ similar_tol }}%</strong>
         </div>
     </div>
     <a href="{% url 'photos' %}" style="flex-shrink: 0; color: var(--text-secondary); opacity: .7; text-decoration: none; font-size: .85em; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-glass);">

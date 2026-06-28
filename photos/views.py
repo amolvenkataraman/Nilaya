@@ -72,9 +72,12 @@ def _resolve_similar_ids(request, base_qs):
     if not similar_uuid:
         return None, None, None
     try:
-        tol = max(0, min(256, int(request.GET.get("tol", DEFAULT_PHASH_TOLERANCE))))
+        raw_tol = int(request.GET.get("tol", 97))  # Default 97% similar (approx dist 8)
+        pct = max(0, min(100, raw_tol))
+        tol = round(256 * (100 - pct) / 100)
     except (ValueError, TypeError):
-        tol = DEFAULT_PHASH_TOLERANCE
+        pct = 97
+        tol = 8
     try:
         ref = Photo.objects.get(id=similar_uuid)
     except Photo.DoesNotExist:
@@ -92,7 +95,7 @@ def _resolve_similar_ids(request, base_qs):
                 matching.add(photo_id)
         except Exception:
             pass
-    return ref, tol, matching
+    return ref, pct, matching
 
 
 def _get_base_photo_pool(request):
