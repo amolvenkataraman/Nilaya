@@ -82,7 +82,7 @@
                     <tr>
                         <th rowspan="2" style="vertical-align: middle;">Album Name</th>
                         <th colspan="3" style="text-align: center; border-bottom: 2px solid #10b981; color: #10b981; padding-bottom: 4px;">Photos</th>
-                        <th colspan="3" style="text-align: center; border-bottom: 2px solid #3b82f6; color: #3b82f6; padding-bottom: 4px;">Videos</th>
+                        <th colspan="4" style="text-align: center; border-bottom: 2px solid #3b82f6; color: #3b82f6; padding-bottom: 4px;">Videos</th>
                         <th rowspan="2" style="text-align: right; vertical-align: middle;">Total Space</th>
                         <th rowspan="2" style="width: 25%; vertical-align: middle;">Usage Breakdown</th>
                     </tr>
@@ -91,6 +91,7 @@
                         <th style="text-align: right;">Optimized</th>
                         <th style="text-align: right;">RAW</th>
                         <th style="text-align: right;">Count</th>
+                        <th style="text-align: right;">Duration</th>
                         <th style="text-align: right;">Optimized</th>
                         <th style="text-align: right;">Original</th>
                     </tr>
@@ -105,6 +106,7 @@
                         <td style="text-align: right; color: #34d399;">{{ item.overhead_str_photo }}</td>
                         <!-- Videos -->
                         <td style="text-align: right;">{{ item.count_video }}</td>
+                        <td style="text-align: right;">{{ item.duration_video }}</td>
                         <td style="text-align: right;">{{ item.opt_size_str_video }}</td>
                         <td style="text-align: right; color: #f59e0b;">{{ item.overhead_str_video }}</td>
                         <!-- Combined Total -->
@@ -121,7 +123,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="text-center text-muted">No albums found.</td>
+                        <td colspan="10" class="text-center text-muted">No albums found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -137,7 +139,7 @@
                     <tr>
                         <th rowspan="2" style="vertical-align: middle;">Year</th>
                         <th colspan="3" style="text-align: center; border-bottom: 2px solid #10b981; color: #10b981; padding-bottom: 4px;">Photos</th>
-                        <th colspan="3" style="text-align: center; border-bottom: 2px solid #3b82f6; color: #3b82f6; padding-bottom: 4px;">Videos</th>
+                        <th colspan="4" style="text-align: center; border-bottom: 2px solid #3b82f6; color: #3b82f6; padding-bottom: 4px;">Videos</th>
                         <th rowspan="2" style="text-align: right; vertical-align: middle;">Total Space</th>
                         <th rowspan="2" style="width: 25%; vertical-align: middle;">Usage Breakdown</th>
                     </tr>
@@ -146,6 +148,7 @@
                         <th style="text-align: right;">Optimized</th>
                         <th style="text-align: right;">RAW</th>
                         <th style="text-align: right;">Count</th>
+                        <th style="text-align: right;">Duration</th>
                         <th style="text-align: right;">Optimized</th>
                         <th style="text-align: right;">Original</th>
                     </tr>
@@ -160,6 +163,7 @@
                         <td style="text-align: right; color: #34d399;">{{ item.overhead_str_photo }}</td>
                         <!-- Videos -->
                         <td style="text-align: right;">{{ item.count_video }}</td>
+                        <td style="text-align: right;">{{ item.duration_video }}</td>
                         <td style="text-align: right;">{{ item.opt_size_str_video }}</td>
                         <td style="text-align: right; color: #f59e0b;">{{ item.overhead_str_video }}</td>
                         <!-- Combined Total -->
@@ -176,7 +180,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="text-center text-muted">No stats by year available.</td>
+                        <td colspan="10" class="text-center text-muted">No stats by year available.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -192,7 +196,7 @@
                     <tr>
                         <th rowspan="2" style="vertical-align: middle;">Month</th>
                         <th colspan="3" style="text-align: center; border-bottom: 2px solid #10b981; color: #10b981; padding-bottom: 4px;">Photos</th>
-                        <th colspan="3" style="text-align: center; border-bottom: 2px solid #3b82f6; color: #3b82f6; padding-bottom: 4px;">Videos</th>
+                        <th colspan="4" style="text-align: center; border-bottom: 2px solid #3b82f6; color: #3b82f6; padding-bottom: 4px;">Videos</th>
                         <th rowspan="2" style="text-align: right; vertical-align: middle;">Total Space</th>
                         <th rowspan="2" style="width: 25%; vertical-align: middle;">Usage Breakdown</th>
                     </tr>
@@ -201,6 +205,7 @@
                         <th style="text-align: right;">Optimized</th>
                         <th style="text-align: right;">RAW</th>
                         <th style="text-align: right;">Count</th>
+                        <th style="text-align: right;">Duration</th>
                         <th style="text-align: right;">Optimized</th>
                         <th style="text-align: right;">Original</th>
                     </tr>
@@ -215,6 +220,7 @@
                         <td style="text-align: right; color: #34d399;">{{ item.overhead_str_photo }}</td>
                         <!-- Videos -->
                         <td style="text-align: right;">{{ item.count_video }}</td>
+                        <td style="text-align: right;">{{ item.duration_video }}</td>
                         <td style="text-align: right;">{{ item.opt_size_str_video }}</td>
                         <td style="text-align: right; color: #f59e0b;">{{ item.overhead_str_video }}</td>
                         <!-- Combined Total -->
@@ -231,7 +237,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="9" class="text-center text-muted">No stats by month available.</td>
+                        <td colspan="10" class="text-center text-muted">No stats by month available.</td>
                     </tr>
                     {% endfor %}
                 </tbody>

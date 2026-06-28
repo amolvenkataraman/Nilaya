@@ -52,6 +52,7 @@
                         <option value="all">All Media</option>
                         <option value="photo">Photos Only</option>
                         <option value="video">Videos Only</option>
+                        <option value="video_duration">Video Duration (Mins)</option>
                     </select>
                     <select class="form-select form-select-sm" id="chartRangeSelect" style="width: auto; font-size: 0.85rem; padding: 4px 8px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-glass);">
                         <option value="12m">Past 12 Months</option>
@@ -196,31 +197,36 @@
                 labels: {{ months_12_labels|safe }},
                 all: {{ months_12_data_all|safe }},
                 photo: {{ months_12_data_photo|safe }},
-                video: {{ months_12_data_video|safe }}
+                video: {{ months_12_data_video|safe }},
+                video_duration: {{ months_12_data_video_duration|safe }}
             },
             '24m': {
                 labels: {{ months_24_labels|safe }},
                 all: {{ months_24_data_all|safe }},
                 photo: {{ months_24_data_photo|safe }},
-                video: {{ months_24_data_video|safe }}
+                video: {{ months_24_data_video|safe }},
+                video_duration: {{ months_24_data_video_duration|safe }}
             },
             '5y': {
                 labels: {{ months_60_labels|safe }},
                 all: {{ months_60_data_all|safe }},
                 photo: {{ months_60_data_photo|safe }},
-                video: {{ months_60_data_video|safe }}
+                video: {{ months_60_data_video|safe }},
+                video_duration: {{ months_60_data_video_duration|safe }}
             },
             '10y': {
                 labels: {{ years_10_labels|safe }},
                 all: {{ years_10_data_all|safe }},
                 photo: {{ years_10_data_photo|safe }},
-                video: {{ years_10_data_video|safe }}
+                video: {{ years_10_data_video|safe }},
+                video_duration: {{ years_10_data_video_duration|safe }}
             },
             'all': {
                 labels: {{ all_years_labels|safe }},
                 all: {{ all_years_data_all|safe }},
                 photo: {{ all_years_data_photo|safe }},
-                video: {{ all_years_data_video|safe }}
+                video: {{ all_years_data_video|safe }},
+                video_duration: {{ all_years_data_video_duration|safe }}
             }
         };
 
@@ -228,21 +234,24 @@
             labels: {{ hours_labels|safe }},
             all: {{ hours_data_all|safe }},
             photo: {{ hours_data_photo|safe }},
-            video: {{ hours_data_video|safe }}
+            video: {{ hours_data_video|safe }},
+            video_duration: {{ hours_data_video_duration|safe }}
         };
 
         const dailyDataset = {
             labels: {{ days_labels|safe }},
             all: {{ days_data_all|safe }},
             photo: {{ days_data_photo|safe }},
-            video: {{ days_data_video|safe }}
+            video: {{ days_data_video|safe }},
+            video_duration: {{ days_data_video_duration|safe }}
         };
 
         const monthlyDataset = {
             labels: {{ months_year_labels|safe }},
             all: {{ months_year_data_all|safe }},
             photo: {{ months_year_data_photo|safe }},
-            video: {{ months_year_data_video|safe }}
+            video: {{ months_year_data_video|safe }},
+            video_duration: {{ months_year_data_video_duration|safe }}
         };
 
         // 1. History Chart
@@ -292,12 +301,19 @@
             if (mediaType === 'photo') {
                 historyChart.data.datasets[0].backgroundColor = 'rgba(16, 185, 129, 0.75)'; // Green for photos
                 historyChart.data.datasets[0].borderColor = 'rgb(16, 185, 129)';
+                historyChart.data.datasets[0].label = 'Items Uploaded';
             } else if (mediaType === 'video') {
                 historyChart.data.datasets[0].backgroundColor = 'rgba(245, 158, 11, 0.75)'; // Orange/Yellow for videos
                 historyChart.data.datasets[0].borderColor = 'rgb(245, 158, 11)';
+                historyChart.data.datasets[0].label = 'Items Uploaded';
+            } else if (mediaType === 'video_duration') {
+                historyChart.data.datasets[0].backgroundColor = 'rgba(168, 85, 247, 0.75)'; // Purple for duration
+                historyChart.data.datasets[0].borderColor = 'rgb(168, 85, 247)';
+                historyChart.data.datasets[0].label = 'Minutes';
             } else {
                 historyChart.data.datasets[0].backgroundColor = 'rgba(37, 99, 235, 0.75)'; // Blue for all
                 historyChart.data.datasets[0].borderColor = 'rgb(37, 99, 235)';
+                historyChart.data.datasets[0].label = 'Items Uploaded';
             }
             
             historyChart.update();
@@ -350,12 +366,19 @@
             if (mediaType === 'photo') {
                 hourChart.data.datasets[0].backgroundColor = 'rgba(16, 185, 129, 0.1)';
                 hourChart.data.datasets[0].borderColor = 'rgb(16, 185, 129)';
+                hourChart.data.datasets[0].label = 'Captures';
             } else if (mediaType === 'video') {
                 hourChart.data.datasets[0].backgroundColor = 'rgba(245, 158, 11, 0.1)';
                 hourChart.data.datasets[0].borderColor = 'rgb(245, 158, 11)';
+                hourChart.data.datasets[0].label = 'Captures';
+            } else if (mediaType === 'video_duration') {
+                hourChart.data.datasets[0].backgroundColor = 'rgba(168, 85, 247, 0.1)';
+                hourChart.data.datasets[0].borderColor = 'rgb(168, 85, 247)';
+                hourChart.data.datasets[0].label = 'Minutes';
             } else {
                 hourChart.data.datasets[0].backgroundColor = 'rgba(59, 130, 246, 0.1)';
                 hourChart.data.datasets[0].borderColor = 'rgb(37, 99, 235)';
+                hourChart.data.datasets[0].label = 'Captures';
             }
             
             hourChart.update();
@@ -403,12 +426,19 @@
             if (mediaType === 'photo') {
                 dayChart.data.datasets[0].backgroundColor = 'rgba(16, 185, 129, 0.75)';
                 dayChart.data.datasets[0].borderColor = 'rgb(16, 185, 129)';
+                dayChart.data.datasets[0].label = 'Captures';
             } else if (mediaType === 'video') {
                 dayChart.data.datasets[0].backgroundColor = 'rgba(245, 158, 11, 0.75)';
                 dayChart.data.datasets[0].borderColor = 'rgb(245, 158, 11)';
+                dayChart.data.datasets[0].label = 'Captures';
+            } else if (mediaType === 'video_duration') {
+                dayChart.data.datasets[0].backgroundColor = 'rgba(168, 85, 247, 0.75)';
+                dayChart.data.datasets[0].borderColor = 'rgb(168, 85, 247)';
+                dayChart.data.datasets[0].label = 'Minutes';
             } else {
                 dayChart.data.datasets[0].backgroundColor = 'rgba(37, 99, 235, 0.75)';
                 dayChart.data.datasets[0].borderColor = 'rgb(37, 99, 235)';
+                dayChart.data.datasets[0].label = 'Captures';
             }
             
             dayChart.update();
@@ -456,12 +486,19 @@
             if (mediaType === 'photo') {
                 monthOfYearChart.data.datasets[0].backgroundColor = 'rgba(16, 185, 129, 0.75)';
                 monthOfYearChart.data.datasets[0].borderColor = 'rgb(16, 185, 129)';
+                monthOfYearChart.data.datasets[0].label = 'Captures';
             } else if (mediaType === 'video') {
                 monthOfYearChart.data.datasets[0].backgroundColor = 'rgba(245, 158, 11, 0.75)';
                 monthOfYearChart.data.datasets[0].borderColor = 'rgb(245, 158, 11)';
+                monthOfYearChart.data.datasets[0].label = 'Captures';
+            } else if (mediaType === 'video_duration') {
+                monthOfYearChart.data.datasets[0].backgroundColor = 'rgba(168, 85, 247, 0.75)';
+                monthOfYearChart.data.datasets[0].borderColor = 'rgb(168, 85, 247)';
+                monthOfYearChart.data.datasets[0].label = 'Minutes';
             } else {
                 monthOfYearChart.data.datasets[0].backgroundColor = 'rgba(37, 99, 235, 0.75)';
                 monthOfYearChart.data.datasets[0].borderColor = 'rgb(37, 99, 235)';
+                monthOfYearChart.data.datasets[0].label = 'Captures';
             }
             
             monthOfYearChart.update();

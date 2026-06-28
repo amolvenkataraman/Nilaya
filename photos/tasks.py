@@ -42,7 +42,15 @@ def ingest_all_photos(user_id=None):
 @shared_task
 def ai_index_photos(photo_ids):
     from photos.AI import objects as ai_objects
+    from photos.AI import duplicates as ai_duplicates
+    from photos.AI import quality as ai_quality
+
     photos = list(Photo.objects.filter(id__in=photo_ids))
     logger.info(f"Running AI indexing on {len(photos)} photos")
+
     ai_objects.run(photos)
+    ai_duplicates.run(photos)
+    ai_quality.run(photos)
+
     logger.info("AI indexing complete.")
+

@@ -21,7 +21,7 @@
             <span class="indicator-badge badge-orig" title="Original file present">ORIG</span>
             {{/if}}
         </div>
-        <div class="time-taken-tag detail-tag" data-time="{{ time_taken }}" data-city="{{ location_city }}" data-camera="{{ camera_model }}" data-megapixels="{{ megapixels }}" data-size="{{ size }}"></div>
+        <div class="time-taken-tag detail-tag" data-time="{{ time_taken }}" data-city="{{ location_city }}" data-camera="{{ camera_model }}" data-megapixels="{{ megapixels }}" data-size="{{ size }}" data-blur="{{ normalized_blur }}"></div>
         {{#if video}}
         <div class="play-btn-center">
             <svg viewBox="0 0 24 24">
@@ -154,6 +154,38 @@
             {{/if}}
         </div>
 
+        {{#unless video}}
+        <div class="sidebar-section find-similar-section">
+            <div class="sidebar-section-title">Find Similar Photos</div>
+            <div class="find-similar-body">
+                <div class="tol-row">
+                    <span class="tol-label">Tolerance</span>
+                    <div class="tol-slider-wrap">
+                        <input
+                            type="range"
+                            min="1" max="64" step="1" value="8"
+                            class="tol-slider"
+                            id="tol-slider-{{ id }}"
+                            oninput="document.getElementById('tol-val-{{ id }}').textContent = this.value; document.getElementById('tol-desc-n-{{ id }}').textContent = this.value"
+                        >
+                        <span class="tol-hint">
+                            <span class="tol-hint-lo">exact</span>
+                            <span class="tol-hint-hi">loose</span>
+                        </span>
+                    </div>
+                    <span class="tol-value-badge" id="tol-val-{{ id }}">8</span>
+                </div>
+                <div class="tol-desc" id="tol-desc-{{ id }}">
+                    Hamming distance ≤ <strong id="tol-desc-n-{{ id }}">8</strong> / 256
+                </div>
+                <button class="action-btn similar-btn" onclick="loadSimilarPhotos('{{ id }}', document.getElementById('tol-slider-{{ id }}').value)">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    Load Similar
+                </button>
+            </div>
+        </div>
+        {{/unless}}
+
         <div class="sidebar-actions-section">
             <button onclick="del_photo('{{ id }}')" class="action-btn delete-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
@@ -209,6 +241,8 @@
                 val = tag.dataset.megapixels ? parseFloat(tag.dataset.megapixels).toFixed(2) + ' MP' : '';
             } else if (detailType === 'size') {
                 val = tag.dataset.size;
+            } else if (detailType === 'blur') {
+                val = tag.dataset.blur ? parseFloat(tag.dataset.blur).toFixed(1) : '';
             }
             
             if (detailType === 'none' || !val || val === 'null' || val === 'undefined') {
@@ -408,6 +442,15 @@
         r.send();
     }
 
+    function loadSimilarPhotos(id, tol) {
+        const params = new URLSearchParams(window.location.search);
+        params.set('similar', id);
+        params.set('tol', tol);
+        // Clear date to search across the entire collection starting from the newest similar photo
+        params.delete('date');
+        window.location.search = params.toString();
+    }
+
     function get_photos_for_date(date, ndays = 0, nphotos = 0) {
         if (nowloading) { return; }
         nowloading = true;
@@ -447,8 +490,20 @@
         addto += `&objects={{ objects }}`
         {% endif %}
 
+        {% if min_blur %}
+        addto += `&min_blur={{ min_blur }}`
+        {% endif %}
+
+        {% if max_blur %}
+        addto += `&max_blur={{ max_blur }}`
+        {% endif %}
+
         {% if share_album %}
         addto += `&album={{ share_album }}`
+        {% endif %}
+
+        {% if similar_ref %}
+        addto += `&similar={{ similar_ref }}&tol={{ similar_tol }}`
         {% endif %}
 
         if ("{{ video }}" == "True") { addto += ((addto == "") ? "?" : "&") + "video=1" }
@@ -464,27 +519,32 @@
                 console.log(res["photos"][i]["date"])
 
                 if (res["photos"][i]["photos"].length != 0) {
+                    const _d  = res["photos"][i]["date"];
+                    const _sz = get_size_in_format(res["photos"][i]["total_size"] || 0);
                     document.querySelector(".photos").innerHTML += `
-                        <div class="day-header day-header-${res["photos"][i]["date"]}">
+                        <div class="day-header day-header-${_d}">
                             <div class="date-section">
                                 <div class="calendar-icon">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
                                 </div>
                                 <div class="date-info">
-                                    <span class="date">${res["photos"][i]["date"]}</span>
-                                    <span class="day">${moment(res["photos"][i]["date"]).format('dddd')}</span>
+                                    <span class="date">${_d}</span>
+                                    <span class="day">${moment(_d).format('dddd')}</span>
                                 </div>
                             </div>
-                            <span class="photo-count-${res["photos"][i]["date"]}">0 photos</span>
-                            <div class="locations locations-${res["photos"][i]["date"]}">
+                            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
+                                <span class="photo-count-${_d}" style="font-size:.85em;opacity:.9">0 photos</span>
+                                <span class="day-size-${_d}" style="font-size:.75em;opacity:.55;font-variant-numeric:tabular-nums">${_sz[0]} ${_sz[1]}</span>
+                            </div>
+                            <div class="locations locations-${_d}">
                             </div>
                         </div>
-                        <div class="day-photos day-photos-${res["photos"][i]["date"]}"></div>`;
+                        <div class="day-photos day-photos-${_d}"></div>`;
 
 
-                    const photoCount = document.querySelector(`.day-header .photo-count-${res["photos"][i]["date"]}`);
+                    const photoCount = document.querySelector(`.day-header .photo-count-${_d}`);
                     if (photoCount) {
-                        photoCount.textContent = `${res["photos"][i]["photos"].length} photos`;
+                        photoCount.textContent = `${res["photos"][i]["photos"].length} photo${res["photos"][i]["photos"].length !== 1 ? 's' : ''}`;
                     }
 
                     // Add the first 5 locations, and add a (+n) badge if there are more
@@ -594,7 +654,8 @@
         }
 
         {% if not no_photos %}
-        get_photos_for_date(currdate, 10, 100)
+        // similar mode uses more days per batch (results are sparse across time)
+        get_photos_for_date(currdate, {% if similar_ref %}30{% else %}10{% endif %}, 100)
         {% endif %}
 
         document.onkeydown = function (e) {
@@ -628,7 +689,7 @@
         document.querySelector(".main-content").addEventListener('scroll', (event) => {
             el = document.querySelector(".main-content");
             if (el.scrollHeight - el.scrollTop - el.clientHeight < 2000 && !nowloading && origload) {
-                get_photos_for_date(currdate, 10, 50)
+                get_photos_for_date(currdate, {% if similar_ref %}30{% else %}10{% endif %}, 50)
             }
         })
     })
@@ -661,6 +722,24 @@
         <button id="share-album-btn" class="album-banner-btn btn-secondary" data-bs-toggle="modal" data-bs-target="#shareAlbumModal">🔗 Share Album</button>
     </div>
     {% endif %}
+</div>
+{% endif %}
+
+{% if similar_ref %}
+<div style="background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.1)); border: 1px solid rgba(99,102,241,0.3); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 14px;">
+    <img src="/private/{{ similar_ref_hash }}/photo_cache/thumbnail/{{ similar_ref }}.webp"
+         style="width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 2px solid rgba(99,102,241,0.5); flex-shrink: 0;">
+    <div style="flex: 1; min-width: 0;">
+        <div style="font-weight: 600; font-size: .9em; color: var(--text-primary); margin-bottom: 2px;">
+            Similar photos
+        </div>
+        <div style="font-size: .8em; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+            Hamming tolerance: <strong>{{ similar_tol }}</strong> / 256
+        </div>
+    </div>
+    <a href="{% url 'photos' %}" style="flex-shrink: 0; color: var(--text-secondary); opacity: .7; text-decoration: none; font-size: .85em; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-glass);">
+        ✕ Clear
+    </a>
 </div>
 {% endif %}
 
@@ -997,13 +1076,25 @@
             <span class="filter-tag" data-filter="objects">Objects: {{ objects }} <button class="remove-filter"
                     onclick="removeFilter('objects')">&times;</button></span>
             {% endif %}
-            {% if not video and not date_filter and not forward and not cam_make and not country and not city %}
-            {% if not objects %}
+            {% if similar_ref %}
+            <span class="filter-tag" data-filter="similar"
+                  style="background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.4);">
+                Similar (tol={{ similar_tol }})
+                <button class="remove-filter" onclick="window.location='{% url 'photos' %}'">&times;</button>
+            </span>
+            {% endif %}
+            {% if min_blur or max_blur %}
+            <span class="filter-tag" data-filter="blur"
+                  style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: var(--danger);">
+                Blur: {% if min_blur and max_blur %}{{ min_blur }}–{{ max_blur }}{% elif min_blur %}≥{{ min_blur }}{% else %}≤{{ max_blur }}{% endif %}
+                <button class="remove-filter" onclick="removeBlurFilter()">&times;</button>
+            </span>
+            {% endif %}
+            {% if not video and not date_filter and not forward and not cam_make and not country and not city and not objects and not similar_ref and not min_blur and not max_blur %}
             <span class="no-filters">No filters applied</span>
             {% endif %}
-            {% endif %}
         </div>
-        {% if video or date_filter or forward or cam_make or country or city or objects %}
+        {% if video or date_filter or forward or cam_make or country or city or objects or min_blur or max_blur %}
         <button class="clear-all-btn" onclick="clearAllFilters()">Clear All</button>
         {% endif %}
     </div>
@@ -1026,6 +1117,7 @@
                 <option value="camera">Camera</option>
                 <option value="megapixels">Megapixels</option>
                 <option value="size">Size</option>
+                <option value="blur">Blur Score</option>
             </select>
         </div>
 
@@ -1080,6 +1172,21 @@
             <div class="filter-hint">Comma-separated object names</div>
         </div>
 
+        <div class="filter-section-divider"></div>
+        <div class="filter-section-title">Quality & Sharpness</div>
+
+        <div class="filter-group">
+            <label class="filter-label">Blurriness Score (12MP Norm)</label>
+            <div style="display: flex; gap: 8px; align-items: center;">
+                <input type="number" step="any" min="0" class="filter-input" id="filter-min-blur" placeholder="Min (e.g. 30)"
+                    value="{{ min_blur|default:'' }}" style="flex: 1; min-width: 0; background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-glass); padding: 6px 10px; border-radius: var(--border-radius-sm);">
+                <span style="color: var(--text-secondary); font-size: 0.85rem;">to</span>
+                <input type="number" step="any" min="0" class="filter-input" id="filter-max-blur" placeholder="Max (e.g. 150)"
+                    value="{{ max_blur|default:'' }}" style="flex: 1; min-width: 0; background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-glass); padding: 6px 10px; border-radius: var(--border-radius-sm);">
+            </div>
+            <div class="filter-hint">Lower = blurrier. Guide: &lt;30 blurry, 30–80 soft, &gt;80 sharp. Only works for photos.</div>
+        </div>
+
         <button class="apply-filters-btn" onclick="applyFilters()">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -1106,6 +1213,8 @@
         params.delete('country');
         params.delete('city');
         params.delete('objects');
+        params.delete('min_blur');
+        params.delete('max_blur');
         params.delete('date');
         params.delete('forward');
 
@@ -1147,6 +1256,16 @@
             params.set('objects', objects);
         }
 
+        const minBlur = document.getElementById('filter-min-blur').value.trim();
+        if (minBlur) {
+            params.set('min_blur', minBlur);
+        }
+
+        const maxBlur = document.getElementById('filter-max-blur').value.trim();
+        if (maxBlur) {
+            params.set('max_blur', maxBlur);
+        }
+
         // Reload with new parameters
         window.location.search = params.toString();
     }
@@ -1154,6 +1273,13 @@
     function removeFilter(filterName) {
         const params = new URLSearchParams(window.location.search);
         params.delete(filterName);
+        window.location.search = params.toString();
+    }
+
+    function removeBlurFilter() {
+        const params = new URLSearchParams(window.location.search);
+        params.delete('min_blur');
+        params.delete('max_blur');
         window.location.search = params.toString();
     }
 

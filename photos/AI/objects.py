@@ -154,7 +154,7 @@ def run(images, force_reindex=False, delay=0):
 
     from ultralytics import YOLO
 
-    model = YOLO("yolo11n_object365.pt")
+    model = YOLO("models/yolo11n_object365.pt")
 
     for img in images:
 

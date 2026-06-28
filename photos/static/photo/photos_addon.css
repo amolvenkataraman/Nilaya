@@ -1285,8 +1285,133 @@ body.show-photo-times .photo-item .time-taken-tag {
     }
 }
 
+/* Find Similar Photos Section */
+.find-similar-section {
+    display: flex;
+    flex-direction: column;
+}
 
+.find-similar-body {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
 
+.tol-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+}
 
+.tol-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
 
+.tol-slider-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
 
+.tol-slider {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--border-glass);
+    outline: none;
+    margin: 6px 0;
+    background-color: var(--border-glass);
+}
+
+/* Chrome/Safari */
+.tol-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    appearance: none;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: #6366f1;
+    cursor: pointer;
+    transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.tol-slider::-webkit-slider-thumb:hover {
+    transform: scale(1.2);
+    background: #4f46e5;
+}
+
+/* Firefox */
+.tol-slider::-moz-range-thumb {
+    width: 14px;
+    height: 14px;
+    border: none;
+    border-radius: 50%;
+    background: #6366f1;
+    cursor: pointer;
+    transition: transform 0.15s ease, background-color 0.15s ease;
+}
+
+.tol-slider::-moz-range-thumb:hover {
+    transform: scale(1.2);
+    background: #4f46e5;
+}
+
+.tol-hint {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+    opacity: 0.75;
+}
+
+.tol-value-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 28px;
+    height: 20px;
+    padding: 0 6px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: rgba(99, 102, 241, 0.1);
+    color: #6366f1;
+    border-radius: 10px;
+    font-variant-numeric: tabular-nums;
+}
+
+.dark-mode .tol-value-badge {
+    background: rgba(99, 102, 241, 0.25);
+    color: #818cf8;
+}
+
+.tol-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    text-align: center;
+    margin-top: 2px;
+    opacity: 0.85;
+}
+
+.similar-btn {
+    background: linear-gradient(135deg, #6366f1, #a855f7) !important;
+    color: white !important;
+    border: 1px solid transparent !important;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2) !important;
+}
+
+.similar-btn:hover {
+    background: linear-gradient(135deg, #4f46e5, #9333ea) !important;
+    color: white !important;
+    transform: translateY(-1px) !important;
+    box-shadow: 0 6px 16px rgba(99, 102, 241, 0.3) !important;
+}
+
+.similar-btn:active {
+    transform: translateY(0) !important;
+}

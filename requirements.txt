@@ -22,3 +22,7 @@ requests
 crispy-bootstrap4
 reverse_geocode
 PyExifTool
+
+# AI indexing
+imagehash        # pHash perceptual duplicate detection
+pybktree         # BK-tree for sub-linear near-duplicate lookup at scale

@@ -63,148 +63,251 @@ def get_bounds_from_request(request):
     return None, None
 
 
-# Create your views here.
-# @login_required
-def photos(request):
+DEFAULT_PHASH_TOLERANCE = 8   # Hamming distance ≤ 8 out of 256 → near-duplicate
+
+
+def _resolve_similar_ids(request, base_qs):
+    """Return (similar_photo, tolerance, matching_id_set) or (None, None, None)."""
+    similar_uuid = request.GET.get("similar")
+    if not similar_uuid:
+        return None, None, None
+    try:
+        tol = max(0, min(256, int(request.GET.get("tol", DEFAULT_PHASH_TOLERANCE))))
+    except (ValueError, TypeError):
+        tol = DEFAULT_PHASH_TOLERANCE
+    try:
+        ref = Photo.objects.get(id=similar_uuid)
+    except Photo.DoesNotExist:
+        return None, None, None
+    if not ref.phash:
+        return ref, tol, set()   # reference photo has no phash yet
+    from imagehash import hex_to_hash
+    ref_hash = hex_to_hash(ref.phash)
+    # Fetch only id + phash for the accessible pool — lightweight
+    candidates = base_qs.exclude(phash__isnull=True).values_list("id", "phash")
+    matching = set()
+    for photo_id, ph in candidates:
+        try:
+            if (ref_hash - hex_to_hash(ph)) <= tol:
+                matching.add(photo_id)
+        except Exception:
+            pass
+    return ref, tol, matching
+
+
+def _get_base_photo_pool(request):
+    """Resolve auth and return the base accessible Photo queryset.
+
+    Returns (qs, album_obj, is_owner, err) where err is a non-None HttpResponse
+    if auth failed (caller must return it).  qs is None when no album param is
+    given and the user isn't authenticated (caller decides whether to redirect
+    or return an API error).
+    """
     album_obj = None
     is_owner = False
+
     if request.GET.get('album'):
-        album = ShareAlbum.objects.filter(id=request.GET.get('album'))
-        if album.exists():
-            album_obj = album[0]
-            is_owner = request.user.is_authenticated and (album_obj.owner == request.user or request.user.is_superuser)
-            if album_obj.public or \
-                request.user.is_authenticated and (
-                    ShareAlbum_Subscriber.objects.filter(album=album_obj, user=request.user).exists() \
-                    or album_obj.owner == request.user \
-                    or request.user.is_superuser
-                ):
-                sphotos = ShareAlbum_Photo.objects.filter(sharealbum=album_obj)
-                photos = Photo.objects.filter(id__in=[i.photo.id for i in sphotos]).order_by('-date_taken')
-            else:
-                return error_response("Not authorized", 401)
-        else:
-            return error_response("Album does not exist", 404)
+        album_qs = ShareAlbum.objects.filter(id=request.GET.get('album'))
+        if not album_qs.exists():
+            return None, None, False, error_response("Album does not exist", 404)
+        album_obj = album_qs[0]
+        is_owner = request.user.is_authenticated and (
+            album_obj.owner == request.user or request.user.is_superuser
+        )
+        can_view = album_obj.public or (
+            request.user.is_authenticated and (
+                ShareAlbum_Subscriber.objects.filter(album=album_obj, user=request.user).exists()
+                or album_obj.owner == request.user
+                or request.user.is_superuser
+            )
+        )
+        if not can_view:
+            return None, None, False, error_response("Not authorized", 401)
+        sp_ids = ShareAlbum_Photo.objects.filter(sharealbum=album_obj).values_list('photo_id', flat=True)
+        qs = Photo.objects.filter(id__in=sp_ids)
     else:
         if not request.user.is_authenticated:
-            return redirect("/accounts/login/?next=" + request.path)
+            return None, None, False, None  # caller decides redirect vs API error
         album_subs = request.user.album_subscribed.filter(visible=True)
-        albums = [i.album for i in album_subs]
-        album = None
+        albums = [s.album for s in album_subs]
+        qs = Photo.objects.filter(album__in=albums)
 
-        photos = Photo.objects.filter(album__in=albums).order_by('-date_taken')
+    return qs, album_obj, is_owner, None
 
+
+def _apply_standard_filters(qs, request):
+    """Apply all common photo filters from request.GET to the queryset.
+
+    Handles: video, camera_make, camera_model, country, city, objects, bounds, similar.
+    Returns (filtered_qs, ctx) where ctx is a flat dict of filter values ready
+    to be spread into a template context with **ctx.
+    """
+    ctx = {}
+
+    # video
     if request.GET.get("video") == "1":
-        photos = photos.filter(video=True)
-        video_only = True
-    else: video_only = False
-
-    if request.GET.get("camera_make"):
-        cam_make = request.GET.get("camera_make")
-        photos = photos.filter(camera_make__icontains=cam_make)
+        qs = qs.filter(video=True)
+        ctx["video"] = True
     else:
-        cam_make = None
+        ctx["video"] = False
 
-    if request.GET.get("camera_model"):
-        cam_model = request.GET.get("camera_model")
-        photos = photos.filter(camera_model=cam_model)
-    else:
-        cam_model = None
+    # camera
+    cam_make = request.GET.get("camera_make") or None
+    if cam_make:
+        qs = qs.filter(camera_make__icontains=cam_make)
+    ctx["cam_make"] = cam_make
 
-    if request.GET.get('country'):
-        country = request.GET.get('country')
-        photos = photos.filter(location_country=country)
-    else:
-        country = None
+    cam_model = request.GET.get("camera_model") or None
+    if cam_model:
+        qs = qs.filter(camera_model=cam_model)
+    ctx["cam_model"] = cam_model
 
-    if request.GET.get('city'):
-        city = request.GET.get('city')
-        photos = photos.filter(location_city=city)
-    else:
-        city = None
+    # location
+    country = request.GET.get("country") or None
+    if country:
+        qs = qs.filter(location_country=country)
+    ctx["country"] = country
 
-    if request.GET.get('objects'):
-        raw_objects = request.GET.get('objects').strip().lower().split(",")
-        
+    city = request.GET.get("city") or None
+    if city:
+        qs = qs.filter(location_city=city)
+    ctx["city"] = city
+
+    # AI objects
+    raw_objects = request.GET.get("objects")
+    if raw_objects:
+        raw_list = raw_objects.strip().lower().split(",")
         object_ids = [
-            NAME_TO_ID_MAPPING[obj.strip()] 
-            for obj in raw_objects 
-            if obj.strip() in NAME_TO_ID_MAPPING
+            NAME_TO_ID_MAPPING[o.strip()]
+            for o in raw_list if o.strip() in NAME_TO_ID_MAPPING
         ]
-
         if object_ids:
-            photos = photos.filter(ai_index_info__objects__contains=object_ids)
+            qs = qs.filter(ai_index_info__objects__contains=object_ids)
         else:
-            photos = photos.none() 
-        
-        objects_ = object_ids
+            qs = qs.none()
+        ctx["objects"] = ",".join(str(i) for i in object_ids) if object_ids else None
     else:
-        objects_ = None
+        ctx["objects"] = None
 
-
+    # geographic bounds
     bounds, bounds_b64 = get_bounds_from_request(request)
+    if bounds:
+        qs = qs.filter(
+            latitude__gte=bounds['south'], latitude__lte=bounds['north'],
+            longitude__gte=bounds['west'], longitude__lte=bounds['east'],
+        )
+    ctx["bounds"] = bounds
+    ctx["bounds_b64"] = bounds_b64
+
+    # pHash similar-photo filter
+    similar_ref, similar_tol, similar_ids = _resolve_similar_ids(request, qs)
+    if similar_ref is not None:
+        qs = qs.filter(id__in=similar_ids) if similar_ids else qs.none()
+    ctx["similar_ref"]      = str(similar_ref.id) if similar_ref else None
+    ctx["similar_tol"]      = similar_tol
+    ctx["similar_ref_hash"] = similar_ref.thumbnail_hash if similar_ref else None
+    ctx["similar_ref_path"] = similar_ref.get_path() if similar_ref else None
+
+    # Blur / Sharpness filter (12MP normalized)
+    min_blur = request.GET.get("min_blur") or None
+    max_blur = request.GET.get("max_blur") or None
+    if min_blur or max_blur:
+        qs = qs.filter(video=False, ai_index_info__blur_score__isnull=False)
+        from django.db.models import F, FloatField, Case, When, Value
+        from django.db.models.functions import Cast
+        from django.db.models.fields.json import KeyTextTransform
+
+        megapixels_expr = Case(
+            When(megapixels__gt=0, then=F('megapixels')),
+            default=Value(12.0),
+            output_field=FloatField()
+        )
+        raw_blur_expr = Cast(
+            KeyTextTransform('blur_score', 'ai_index_info'),
+            output_field=FloatField()
+        )
+        qs = qs.annotate(
+            normalized_blur=raw_blur_expr * (12.0 / megapixels_expr)
+        )
+
+        if min_blur:
+            try:
+                qs = qs.filter(normalized_blur__gte=float(min_blur))
+            except ValueError:
+                pass
+        if max_blur:
+            try:
+                qs = qs.filter(normalized_blur__lte=float(max_blur))
+            except ValueError:
+                pass
+
+    ctx["min_blur"] = min_blur
+    ctx["max_blur"] = max_blur
+
+    return qs, ctx
+
+
+# ---------------------------------------------------------------------------
+# Page views
+# ---------------------------------------------------------------------------
+
+# @login_required
+def photos(request):
+    qs, album_obj, is_owner, err = _get_base_photo_pool(request)
+    if err is not None:
+        return err
+    if qs is None:  # not authenticated, no album param
+        return redirect("/accounts/login/?next=" + request.path)
+
+    qs = qs.order_by('-date_taken')
+    qs, fctx = _apply_standard_filters(qs, request)
+
+    # Determine start date / date filter for the infinite-scroll JS
     rd = request.GET.get('date')
-    if rd == None:
+    if rd is None:
         try:
-            if bounds:
-                photos = photos.filter(
-                    latitude__lte=bounds['north'],
-                    latitude__gte=bounds['south'],
-                    longitude__gte=bounds['west'],
-                    longitude__lte=bounds['east']
-                ).order_by('-date_taken')
-                newest = photos[0].date_taken.date() + datetime.timedelta(days=1)
-            else:
-                newest = photos[0].date_taken.date() + datetime.timedelta(days=1)
-        except IndexError: newest = None
-        date_filter = None  # Not explicitly provided
+            newest = qs[0].date_taken.date() + datetime.timedelta(days=1)
+        except IndexError:
+            newest = None
+        date_filter = None
     else:
-        newest = dateparser.parse(request.GET.get('date')).date()
-        date_filter = datetime.datetime.strftime(newest, "%Y-%m-%d")  # Explicitly provided
+        newest = dateparser.parse(rd).date()
+        date_filter = datetime.datetime.strftime(newest, "%Y-%m-%d")
 
-    ntotal = photos.count()
-
-    # Set defaults when no photos are found
+    ntotal = qs.count()
     if ntotal == 0:
-        nphotos = 0
-        nvideos = 0
-        fyear = None
-        lyear = None
-        countries = 0
+        nphotos = nvideos = fyear = lyear = countries = 0
         no_photos = True
     else:
-        nphotos = photos.filter(video=False).count()
+        nphotos = qs.filter(video=False).count()
         nvideos = ntotal - nphotos
-        fyear = photos[0].date_taken.year
-        lyear = photos.reverse()[0].date_taken.year
-        countries = photos.filter(Q(location_country__isnull=False) & Q(Q(altitude__isnull=True) | Q(altitude__lte=1000))).values_list('location_country').distinct().count()
+        fyear = qs[0].date_taken.year
+        lyear = qs.reverse()[0].date_taken.year
+        countries = qs.filter(
+            Q(location_country__isnull=False) &
+            Q(Q(altitude__isnull=True) | Q(altitude__lte=1000))
+        ).values_list('location_country').distinct().count()
         no_photos = False
 
     return render(request, 'photos/photos.html', {
-        'newest': datetime.datetime.strftime(newest, "%Y-%m-%d") if newest else None,
-        'date_filter': date_filter,  # Only set when explicitly provided
-        'forward': request.GET.get('forward') == '1',
-        'bounds': bounds,
-        'bounds_b64': bounds_b64,
-        "left_sidebar": True,
-        "right_sidebar": True,
-        "video": video_only,
-        "cam_make": cam_make,
-        "cam_model": cam_model,
-        "country": country,
-        "city": city,
-        "objects": ",".join([f"{i}" for i in objects_]) if objects_ else None,
-        "share_album": album_obj.id if album_obj else None,
-        "album_obj": album_obj,
-        "is_owner": is_owner,
-        "ntotal": ntotal,
-        "nphotos": nphotos,
-        "nvideos": nvideos,
-        "drange": f"{lyear}-{fyear}" if fyear and lyear else "N/A",
-        "countries": countries,
-        "no_photos": no_photos,
-        "active_page": "photos"
+        'newest':       datetime.datetime.strftime(newest, "%Y-%m-%d") if newest else None,
+        'date_filter':  date_filter,
+        'forward':      request.GET.get('forward') == '1',
+        'left_sidebar': True,
+        'right_sidebar': True,
+        'share_album':  album_obj.id if album_obj else None,
+        'album_obj':    album_obj,
+        'is_owner':     is_owner,
+        'ntotal':       ntotal,
+        'nphotos':      nphotos,
+        'nvideos':      nvideos,
+        'drange':       f"{lyear}-{fyear}" if fyear and lyear else "N/A",
+        'countries':    countries,
+        'no_photos':    no_photos,
+        'active_page':  'photos',
+        **fctx,   # video, cam_make, cam_model, country, city, objects, bounds, bounds_b64, similar_*
     })
+
 
 @login_required
 def my_albums_page(request):
@@ -375,95 +478,84 @@ def view_photo(request, photo_id):
     except IndexError: pass
 
 def get_photos_for_date(request):
-    if request.GET.get('album'):
-        album = ShareAlbum.objects.filter(id=request.GET.get('album'))
-        if album.exists():
-            if album[0].public or \
-                request.user.is_authenticated and (
-                    ShareAlbum_Subscriber.objects.filter(album=album[0], user=request.user).exists() \
-                    or album[0].owner == request.user \
-                    or request.user.is_superuser
-                ):
-                sphotos = ShareAlbum_Photo.objects.filter(sharealbum=album[0])
-                photos = Photo.objects.filter(id__in=[i.photo.id for i in sphotos]).order_by('-date_taken')
-            else:
-                return error_response("Not authorized", 401)
-        else:
-            return error_response("Album does not exist", 404)
-    else:
-        if not request.user.is_authenticated:
-            return error_response("Not logged in", 401)
+    """AJAX endpoint called repeatedly as the user scrolls.
 
-        album_subs = request.user.album_subscribed.filter(visible=True)
-        albums = [i.album for i in album_subs]
+    Standard filter params (same as the main photos page):
+      ?date=YYYY-MM-DD  — starting date for this batch
+      &ndays=N          — stop after N days (even if nphotos not reached)
+      &nphotos=N        — stop after N photos (even if ndays not reached)
+      &forward=1        — walk forward in time instead of backward
 
-        photos = Photo.objects.filter(album__in=albums)
+    All other common filters (video, camera_make, country, city, objects,
+    bounds, similar, tol, album) are handled via _apply_standard_filters.
 
-    if request.GET.get("video") == "1":
-        photos = photos.filter(video=True)
+    Returns JSON:
+      { photos: [{date, photos[], cities[], total_size}…], next: "YYYY-MM-DD" }
+    """
+    qs, _album_obj, _is_owner, err = _get_base_photo_pool(request)
+    if err is not None:
+        return err
+    if qs is None:
+        return error_response("Not logged in", 401)
 
-    numdays = int(request.GET.get("ndays")) if request.GET.get("ndays") else None
+    # Apply all static filters once before the date loop
+    qs, _fctx = _apply_standard_filters(qs, request)
+
+    numdays   = int(request.GET.get("ndays"))   if request.GET.get("ndays")   else None
     numphotos = int(request.GET.get("nphotos")) if request.GET.get("nphotos") else None
-    donedays = 0
-    donephotos = 0
-    next = None
+    forward   = request.GET.get('forward') == '1'
+    donedays = donephotos = 0
+    next_dt  = None
+    ans      = []
 
-    ans = []
+    while (
+        (numdays is None and numphotos is None and donedays == 0) or
+        ((numdays is None or donedays < numdays) and (numphotos is None or donephotos < numphotos))
+    ):
+        dt = next_dt if next_dt else dateparser.parse(request.GET.get('date')).date()
 
-    bounds, bounds_b64 = get_bounds_from_request(request)
-    if bounds:
-        photos = photos.filter(latitude__gte=bounds['south'], latitude__lte=bounds['north'], longitude__gte=bounds['west'], longitude__lte=bounds['east'])
-
-    while (numdays is None and numphotos is None and donedays == 0) or ((numdays is None or donedays < numdays) and (numphotos is None or donephotos < numphotos)):
-
-        dt = next if next else dateparser.parse(request.GET.get('date')).date()
-
-        if request.GET.get('forward') == '1':
-            photos = photos.filter(date_taken__date__gte=dt).order_by('date_taken')
+        if forward:
+            window = qs.filter(date_taken__date__gte=dt).order_by('date_taken')
         else:
-            photos = photos.filter(date_taken__date__lte=dt).order_by('-date_taken')
+            window = qs.filter(date_taken__date__lte=dt).order_by('-date_taken')
 
-        if request.GET.get('camera_make') != None:
-            photos = photos.filter(camera_make__icontains=request.GET.get('camera_make'))
+        day_qs = window.filter(date_taken__date=dt)
 
-        if request.GET.get('country') != None:
-            photos = photos.filter(location_country=request.GET.get('country'))
-
-        if request.GET.get('city') != None:
-            photos = photos.filter(location_city=request.GET.get('city'))
-
-        if request.GET.get('objects') != None:
-            try:
-                object_ids = [int(x.strip()) for x in request.GET.get('objects').split(',') if x.strip()]
-                photos = photos.filter(ai_index_info__objects__contains=object_ids)
-            except ValueError:
-                photos = photos.none()
-
-        p1 = photos.filter(date_taken__date=dt)
-
-        citcount = p1.filter(location_city__isnull=False, location_country__isnull=False).values_list('location_city', 'location_country').annotate(count=Count('id')).order_by('-count')
+        citcount = (
+            day_qs
+            .filter(location_city__isnull=False, location_country__isnull=False)
+            .values_list('location_city', 'location_country')
+            .annotate(count=Count('id'))
+            .order_by('-count')
+        )
+        total_size = day_qs.aggregate(ts=Sum('size'))['ts'] or 0
 
         ans.append({
-            'date': datetime.datetime.strftime(dt, "%Y-%m-%d"),
-            'photos': [i.getinfo_zip() for i in p1],
-            'cities': [list(i) for i in citcount],
+            'date':       datetime.datetime.strftime(dt, "%Y-%m-%d"),
+            'photos':     [p.getinfo_zip() for p in day_qs],
+            'cities':     [list(c) for c in citcount],
+            'total_size': total_size,
         })
 
-        next = timezone.localtime(photos[p1.count()].date_taken, pytz.timezone(TIME_ZONE)).date() if photos.count() > p1.count() else None
+        day_count = day_qs.count()
+        next_dt   = (
+            timezone.localtime(window[day_count].date_taken, pytz.timezone(TIME_ZONE)).date()
+            if window.count() > day_count else None
+        )
+        donedays   += 1
+        donephotos += day_count
 
-        donedays += 1
-        donephotos += p1.count()
-
-        if (numdays is None and numphotos is None) or next is None:
+        if (numdays is None and numphotos is None) or next_dt is None:
             break
-
 
     return JsonResponse({
         "photos": ans,
-        "next": datetime.datetime.strftime(next, "%Y-%m-%d") if next else None
+        "next":   datetime.datetime.strftime(next_dt, "%Y-%m-%d") if next_dt else None,
     })
 
+
 def get_photo(request, photo_id, ret_type):
+
     if request.GET.get('album'):
         album = ShareAlbum.objects.filter(id=request.GET.get('album'))
 
@@ -875,16 +967,16 @@ def stats_page(request):
     avg_mp = round(avg_mp, 1)
 
     # Collect monthly, hourly, daily, and month-of-year data
-    dates_and_types = qs.filter(date_taken__isnull=False).values_list('date_taken', 'video')
+    dates_and_types = qs.filter(date_taken__isnull=False).values_list('date_taken', 'video', 'length')
 
     from collections import defaultdict
-    month_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
-    year_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
-    hour_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
-    day_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
-    month_of_year_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0})
+    month_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0, 'video_duration': 0})
+    year_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0, 'video_duration': 0})
+    hour_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0, 'video_duration': 0})
+    day_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0, 'video_duration': 0})
+    month_of_year_histogram = defaultdict(lambda: {'all': 0, 'photo': 0, 'video': 0, 'video_duration': 0})
 
-    for dt, is_video in dates_and_types:
+    for dt, is_video, length in dates_and_types:
         month_str = dt.strftime('%Y-%m')
         year_str = dt.strftime('%Y')
         hr = dt.hour
@@ -907,23 +999,33 @@ def stats_page(request):
         month_of_year_histogram[moy]['all'] += 1
         month_of_year_histogram[moy][key] += 1
 
+        if is_video and length:
+            month_histogram[month_str]['video_duration'] += length
+            year_histogram[year_str]['video_duration'] += length
+            hour_histogram[hr]['video_duration'] += length
+            day_histogram[day_num]['video_duration'] += length
+            month_of_year_histogram[moy]['video_duration'] += length
+
     # Hourly histogram (0 to 23)
     hours_labels = [f"{h:02d}:00" for h in range(24)]
     hours_data_all = [hour_histogram[h]['all'] for h in range(24)]
     hours_data_photo = [hour_histogram[h]['photo'] for h in range(24)]
     hours_data_video = [hour_histogram[h]['video'] for h in range(24)]
+    hours_data_video_duration = [round(hour_histogram[h]['video_duration'] / 60.0, 1) for h in range(24)]
 
     # Daily histogram (1 to 31)
     days_labels = [str(d) for d in range(1, 32)]
     days_data_all = [day_histogram[d]['all'] for d in range(1, 32)]
     days_data_photo = [day_histogram[d]['photo'] for d in range(1, 32)]
     days_data_video = [day_histogram[d]['video'] for d in range(1, 32)]
+    days_data_video_duration = [round(day_histogram[d]['video_duration'] / 60.0, 1) for d in range(1, 32)]
 
     # Month of year histogram (1 to 12)
     months_year_labels = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
     months_year_data_all = [month_of_year_histogram[m]['all'] for m in range(1, 13)]
     months_year_data_photo = [month_of_year_histogram[m]['photo'] for m in range(1, 13)]
     months_year_data_video = [month_of_year_histogram[m]['video'] for m in range(1, 13)]
+    months_year_data_video_duration = [round(month_of_year_histogram[m]['video_duration'] / 60.0, 1) for m in range(1, 13)]
 
     # Generate labels chronologically going back 60 months (5 years)
     months_60_labels = []
@@ -938,18 +1040,21 @@ def stats_page(request):
     months_60_all = [month_histogram[m]['all'] for m in months_60_labels]
     months_60_photo = [month_histogram[m]['photo'] for m in months_60_labels]
     months_60_video = [month_histogram[m]['video'] for m in months_60_labels]
+    months_60_video_duration = [round(month_histogram[m]['video_duration'] / 60.0, 1) for m in months_60_labels]
 
     # Past 24 months
     months_24_labels = months_60_labels[-24:]
     months_24_all = months_60_all[-24:]
     months_24_photo = months_60_photo[-24:]
     months_24_video = months_60_video[-24:]
+    months_24_video_duration = months_60_video_duration[-24:]
 
     # Past 12 months
     months_12_labels = months_60_labels[-12:]
     months_12_all = months_60_all[-12:]
     months_12_photo = months_60_photo[-12:]
     months_12_video = months_60_video[-12:]
+    months_12_video_duration = months_60_video_duration[-12:]
 
     # 10 years yearly
     this_year = now.year
@@ -957,6 +1062,7 @@ def stats_page(request):
     years_10_all = [year_histogram[y]['all'] for y in years_10_labels]
     years_10_photo = [year_histogram[y]['photo'] for y in years_10_labels]
     years_10_video = [year_histogram[y]['video'] for y in years_10_labels]
+    years_10_video_duration = [round(year_histogram[y]['video_duration'] / 60.0, 1) for y in years_10_labels]
 
     # All years yearly
     sorted_all_years = sorted(year_histogram.keys())
@@ -969,6 +1075,7 @@ def stats_page(request):
     all_years_all = [year_histogram[y]['all'] for y in sorted_all_years]
     all_years_photo = [year_histogram[y]['photo'] for y in sorted_all_years]
     all_years_video = [year_histogram[y]['video'] for y in sorted_all_years]
+    all_years_video_duration = [round(year_histogram[y]['video_duration'] / 60.0, 1) for y in sorted_all_years]
 
     context = {
         "active_page": "stats",
@@ -997,36 +1104,53 @@ def stats_page(request):
         "hours_data_all": hours_data_all,
         "hours_data_photo": hours_data_photo,
         "hours_data_video": hours_data_video,
+        "hours_data_video_duration": hours_data_video_duration,
         "days_labels": days_labels,
         "days_data_all": days_data_all,
         "days_data_photo": days_data_photo,
         "days_data_video": days_data_video,
+        "days_data_video_duration": days_data_video_duration,
         "months_year_labels": months_year_labels,
         "months_year_data_all": months_year_data_all,
         "months_year_data_photo": months_year_data_photo,
         "months_year_data_video": months_year_data_video,
+        "months_year_data_video_duration": months_year_data_video_duration,
         "months_12_labels": months_12_labels,
         "months_12_data_all": months_12_all,
         "months_12_data_photo": months_12_photo,
         "months_12_data_video": months_12_video,
+        "months_12_data_video_duration": months_12_video_duration,
         "months_24_labels": months_24_labels,
         "months_24_data_all": months_24_all,
         "months_24_data_photo": months_24_photo,
         "months_24_data_video": months_24_video,
+        "months_24_data_video_duration": months_24_video_duration,
         "months_60_labels": months_60_labels,
         "months_60_data_all": months_60_all,
         "months_60_data_photo": months_60_photo,
         "months_60_data_video": months_60_video,
+        "months_60_data_video_duration": months_60_video_duration,
         "years_10_labels": years_10_labels,
         "years_10_data_all": years_10_all,
         "years_10_data_photo": years_10_photo,
         "years_10_data_video": years_10_video,
+        "years_10_data_video_duration": years_10_video_duration,
         "all_years_labels": sorted_all_years,
         "all_years_data_all": all_years_all,
         "all_years_data_photo": all_years_photo,
         "all_years_data_video": all_years_video,
+        "all_years_data_video_duration": all_years_video_duration,
     }
     return render(request, 'photos/stats.html', context)
+
+
+def get_duration_str(seconds):
+    if not seconds:
+        return "00:00:00"
+    h = seconds // 3600
+    m = (seconds % 3600) // 60
+    s = seconds % 60
+    return f"{int(h):02d}:{int(m):02d}:{int(s):02d}"
 
 
 def get_size_str(kb):
@@ -1053,6 +1177,7 @@ def get_storage_breakdown(qs):
         video_opt=Sum('size', filter=Q(video=True)),
         video_tot=Sum('size_total', filter=Q(video=True)),
         video_cnt=Count('id', filter=Q(video=True)),
+        video_length=Sum('length', filter=Q(video=True)),
     )
     all_opt = totals['all_opt'] or 0
     all_tot = totals['all_tot'] or 0
@@ -1065,11 +1190,12 @@ def get_storage_breakdown(qs):
     video_opt = totals['video_opt'] or 0
     video_tot = totals['video_tot'] or 0
     video_cnt = totals['video_cnt'] or 0
+    video_length = totals['video_length'] or 0
 
     return {
         'all': {'opt': all_opt, 'tot': all_tot, 'cnt': all_cnt, 'overhead': all_tot - all_opt},
         'photo': {'opt': photo_opt, 'tot': photo_tot, 'cnt': photo_cnt, 'overhead': photo_tot - photo_opt},
-        'video': {'opt': video_opt, 'tot': video_tot, 'cnt': video_cnt, 'overhead': video_tot - video_opt},
+        'video': {'opt': video_opt, 'tot': video_tot, 'cnt': video_cnt, 'overhead': video_tot - video_opt, 'length': video_length},
     }
 
 
@@ -1156,6 +1282,7 @@ def storage_page(request):
             'overhead_str_photo': get_size_str(raw_photo),
             # VIDEO
             'count_video': bd_album['video']['cnt'],
+            'duration_video': get_duration_str(bd_album['video']['length']),
             'opt_size_mb_video': opt_video / 1024,
             'tot_size_mb_video': bd_album['video']['tot'] / 1024,
             'overhead_mb_video': orig_video / 1024,
@@ -1174,11 +1301,13 @@ def storage_page(request):
     from collections import defaultdict
     year_stats = defaultdict(lambda: {'all_opt': 0, 'all_tot': 0, 'all_cnt': 0,
                                       'photo_opt': 0, 'photo_tot': 0, 'photo_cnt': 0,
-                                      'video_opt': 0, 'video_tot': 0, 'video_cnt': 0})
-    for dt, opt, tot, is_video in qs.filter(date_taken__isnull=False).values_list('date_taken', 'size', 'size_total', 'video'):
+                                      'video_opt': 0, 'video_tot': 0, 'video_cnt': 0,
+                                      'video_length': 0})
+    for dt, opt, tot, is_video, length in qs.filter(date_taken__isnull=False).values_list('date_taken', 'size', 'size_total', 'video', 'length'):
         yr = dt.year
         opt_val = opt or 0
         tot_val = tot or 0
+        length_val = length or 0
         year_stats[yr]['all_opt'] += opt_val
         year_stats[yr]['all_tot'] += tot_val
         year_stats[yr]['all_cnt'] += 1
@@ -1186,6 +1315,7 @@ def storage_page(request):
             year_stats[yr]['video_opt'] += opt_val
             year_stats[yr]['video_tot'] += tot_val
             year_stats[yr]['video_cnt'] += 1
+            year_stats[yr]['video_length'] += length_val
         else:
             year_stats[yr]['photo_opt'] += opt_val
             year_stats[yr]['photo_tot'] += tot_val
@@ -1215,6 +1345,7 @@ def storage_page(request):
             'overhead_str_photo': get_size_str(raw_photo),
             # VIDEO
             'count_video': vals['video_cnt'],
+            'duration_video': get_duration_str(vals['video_length']),
             'opt_size_str_video': get_size_str(opt_video),
             'tot_size_str_video': get_size_str(vals['video_tot']),
             'overhead_str_video': get_size_str(orig_video),
@@ -1228,11 +1359,13 @@ def storage_page(request):
     # Group by Month
     month_stats = defaultdict(lambda: {'all_opt': 0, 'all_tot': 0, 'all_cnt': 0,
                                        'photo_opt': 0, 'photo_tot': 0, 'photo_cnt': 0,
-                                       'video_opt': 0, 'video_tot': 0, 'video_cnt': 0})
-    for dt, opt, tot, is_video in qs.filter(date_taken__isnull=False).values_list('date_taken', 'size', 'size_total', 'video'):
+                                       'video_opt': 0, 'video_tot': 0, 'video_cnt': 0,
+                                       'video_length': 0})
+    for dt, opt, tot, is_video, length in qs.filter(date_taken__isnull=False).values_list('date_taken', 'size', 'size_total', 'video', 'length'):
         m_str = dt.strftime('%Y-%m')
         opt_val = opt or 0
         tot_val = tot or 0
+        length_val = length or 0
         month_stats[m_str]['all_opt'] += opt_val
         month_stats[m_str]['all_tot'] += tot_val
         month_stats[m_str]['all_cnt'] += 1
@@ -1240,6 +1373,7 @@ def storage_page(request):
             month_stats[m_str]['video_opt'] += opt_val
             month_stats[m_str]['video_tot'] += tot_val
             month_stats[m_str]['video_cnt'] += 1
+            month_stats[m_str]['video_length'] += length_val
         else:
             month_stats[m_str]['photo_opt'] += opt_val
             month_stats[m_str]['photo_tot'] += tot_val
@@ -1285,6 +1419,7 @@ def storage_page(request):
             'overhead_str_photo': get_size_str(raw_photo),
             # VIDEO
             'count_video': vals['video_cnt'],
+            'duration_video': get_duration_str(vals['video_length']),
             'opt_size_mb_video': opt_video / 1024,
             'tot_size_mb_video': vals['video_tot'] / 1024,
             'overhead_mb_video': video_oh / 1024,

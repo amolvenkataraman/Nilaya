@@ -154,6 +154,12 @@ class Photo(models.Model):
     ai_index_info = models.JSONField(default={}, null=True, blank=True)
     file_not_available = models.BooleanField(default=False)
 
+    # Duplicate detection — stored as flat indexed columns for fast DB-level lookups
+    md5_hash = models.CharField(max_length=32, null=True, blank=True, db_index=True)
+    phash    = models.CharField(max_length=64, null=True, blank=True, db_index=True)
+    # blur_score is stored in ai_index_info["blur_score"] (AI-derived, no column needed)
+
+
     class Meta:
         indexes = [
             # Specifically indexes the 'objects' key inside the JSON
@@ -200,6 +206,17 @@ class Photo(models.Model):
         }
 
     def getinfo(self):
+        raw_blur = None
+        normalized_blur = None
+        if self.ai_index_info and "blur_score" in self.ai_index_info:
+            raw_blur = self.ai_index_info["blur_score"]
+            if raw_blur is not None:
+                mpx = self.megapixels if self.megapixels is not None else self.calculate_megapixels()
+                if mpx and mpx > 0:
+                    normalized_blur = raw_blur * (12.0 / mpx)
+                else:
+                    normalized_blur = raw_blur
+
         duration_text = ""
         if self.video and self.length:
             minutes, seconds = divmod(self.length, 60)
@@ -246,9 +263,22 @@ class Photo(models.Model):
             "has_raw": self.has_raw,
             "has_orig": self.has_orig,
             "aspect_ratio": aspect_ratio,
+            "raw_blur": round(raw_blur, 1) if raw_blur is not None else None,
+            "normalized_blur": round(normalized_blur, 1) if normalized_blur is not None else None,
         }
 
     def getinfo_zip(self):
+        raw_blur = None
+        normalized_blur = None
+        if self.ai_index_info and "blur_score" in self.ai_index_info:
+            raw_blur = self.ai_index_info["blur_score"]
+            if raw_blur is not None:
+                mpx = self.megapixels if self.megapixels is not None else self.calculate_megapixels()
+                if mpx and mpx > 0:
+                    normalized_blur = raw_blur * (12.0 / mpx)
+                else:
+                    normalized_blur = raw_blur
+
         duration_text = ""
         if self.video and self.length:
             minutes, seconds = divmod(self.length, 60)
@@ -278,6 +308,8 @@ class Photo(models.Model):
             "camera_model": self.camera_model,
             "megapixels": self.megapixels if self.megapixels is not None else self.calculate_megapixels(),
             "size": self.size,
+            "raw_blur": round(raw_blur, 1) if raw_blur is not None else None,
+            "normalized_blur": round(normalized_blur, 1) if normalized_blur is not None else None,
         }
 
     def calculate_megapixels(self):
