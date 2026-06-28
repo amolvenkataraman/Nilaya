@@ -22,7 +22,9 @@ def perceptual_hash(path: str) -> str:
     Two images with Hamming distance ≤ 8 are near-duplicates.
     Distance = 0 means visually identical despite different bytes.
     """
-    img = Image.open(path).convert("RGB")
+    from PIL import ImageOps
+    img = Image.open(path)
+    img = ImageOps.exif_transpose(img).convert("RGB")
     return str(imagehash.phash(img, hash_size=PHASH_SIZE))
 
 
