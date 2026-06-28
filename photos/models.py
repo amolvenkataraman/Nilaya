@@ -1,6 +1,7 @@
 import os
 import uuid
 import hashlib
+from pathlib import Path
 from django.db import models, connection
 from django.contrib.postgres.indexes import GinIndex
 from users.models import *
@@ -578,6 +579,19 @@ def delete_photo(p):
         if p.raw_filepath != None and os.path.exists(p.album.location + p.raw_filepath):
             os.remove(p.album.location + p.raw_filepath)
     except FileNotFoundError: pass
+
+    try:
+        basename = os.path.basename(p.filepath)
+        ingest_dir = Path(p.album.location) / "Ingest"
+        if ingest_dir.exists():
+            for match in ingest_dir.rglob(basename):
+                if match.is_file():
+                    try:
+                        os.remove(match)
+                    except OSError:
+                        pass
+    except Exception:
+        pass
 
     p.delete()
 
