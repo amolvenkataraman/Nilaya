@@ -328,6 +328,7 @@ def my_albums_page(request):
 def map(request):
     year = request.GET.get('year')
     year1 = request.GET.get('year-')
+    date = request.GET.get('date')
     alt = request.GET.get('alt-')
     vals = request.GET.get('vals')
     spec = request.GET.get('special')
@@ -341,7 +342,13 @@ def map(request):
     photos = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False)
     print(PhotoLocationCache.objects.filter(album_id__in=albums).count())
 
-    if year != None:
+    if date != None:
+        try:
+            parsed_date = datetime.datetime.strptime(date, '%Y-%m-%d').date()
+            photos = photos.filter(date_taken__date=parsed_date)
+        except (ValueError, TypeError):
+            pass
+    elif year != None:
         photos = photos.filter(date_taken__year=year)
     elif year1 != None:
         photos = photos.filter(date_taken__year__lte=year1)
