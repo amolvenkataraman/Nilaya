@@ -357,12 +357,35 @@ const MapApp = {
                         this.leafletMap.removeLayer(MapApp.State.currentHeatmap);
                     }
 
-                    MapApp.State.currentHeatmap = L.heatLayer(points, {
-                        minOpacity: 0.3,
-                        radius: 25,
-                        blur: 20,
-                        max: 1
-                    }).addTo(this.leafletMap);
+                    // ?style=dot restores the original per-photo dot heatmap
+                    // (heatmap.js / HeatmapOverlay); anything else uses the
+                    // modern blurred "blob" heatmap.
+                    const mapStyle = new URLSearchParams(window.location.search).get('style');
+
+                    if (mapStyle === 'dot') {
+                        const heatmapLayer = new HeatmapOverlay({
+                            radius: 7,
+                            maxOpacity: 0.9,
+                            scaleRadius: false,
+                            useLocalExtrema: true,
+                            latField: 'lat',
+                            lngField: 'lng',
+                            valueField: 'count'
+                        });
+                        heatmapLayer.addTo(this.leafletMap);
+                        heatmapLayer.setData({
+                            max: 1,
+                            data: points.map(p => ({ lat: p[0], lng: p[1], count: p[2] }))
+                        });
+                        MapApp.State.currentHeatmap = heatmapLayer;
+                    } else {
+                        MapApp.State.currentHeatmap = L.heatLayer(points, {
+                            minOpacity: 0.3,
+                            radius: 25,
+                            blur: 20,
+                            max: 1
+                        }).addTo(this.leafletMap);
+                    }
                 })
                 .catch(err => {
                     if (err.name === 'AbortError') return;
