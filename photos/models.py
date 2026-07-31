@@ -155,9 +155,8 @@ class Photo(models.Model):
     ai_index_info = models.JSONField(default={}, null=True, blank=True)
     file_not_available = models.BooleanField(default=False)
 
-    # Duplicate detection — stored as flat indexed columns for fast DB-level lookups
-    md5_hash = models.CharField(max_length=32, null=True, blank=True, db_index=True)
-    phash    = models.CharField(max_length=64, null=True, blank=True, db_index=True)
+    # Duplicate detection — stored as flat columns for fast DB-level lookups
+    md5_hash = models.CharField(max_length=32, null=True, blank=True, help_text="MD5 of the file bytes — exact duplicate detection")
     # blur_score is stored in ai_index_info["blur_score"] (AI-derived, no column needed)
 
 

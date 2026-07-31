@@ -6,8 +6,8 @@ already-indexed photos are skipped unless --force is passed.
 
 Features
 --------
-  duplicates   MD5 hash + pHash (perceptual hash). Lightweight, fast. Works on
-               all media types. Enables duplicate detection and similar-photo search.
+  duplicates   MD5 hash. Lightweight, fast. Works on
+               all media types. Enables duplicate detection.
 
   quality      Laplacian-variance blur score. Images only (skips video). Fast.
                Score guide: < 30 = blurry, 30–80 = soft, > 80 = acceptable.
@@ -43,7 +43,7 @@ class Command(BaseCommand):
             choices=["all", "duplicates", "quality", "objects"],
             help=(
                 "Which indexer to run (default: all).\n"
-                "  duplicates  MD5 + pHash for duplicate/similar detection (fast)\n"
+                "  duplicates  MD5 for duplicate detection (fast)\n"
                 "  quality     Laplacian blur score — images only (fast)\n"
                 "  objects     YOLO object detection — slow, GPU recommended"
             ),
@@ -67,14 +67,14 @@ class Command(BaseCommand):
         force = options["force"]
 
         # ------------------------------------------------------------------
-        # duplicates — MD5 hash + pHash
+        # duplicates — MD5 hash
         # ------------------------------------------------------------------
         if feat in ("all", "duplicates"):
             from photos.AI import duplicates
 
             qs = Photo.objects.all() if force else Photo.objects.filter(md5_hash__isnull=True)
             count = qs.count()
-            self.stdout.write(f"Indexing duplicates (MD5 + pHash) for {count} photo(s)...")
+            self.stdout.write(f"Indexing duplicates (MD5) for {count} photo(s)...")
             duplicates.run(qs.iterator(chunk_size=500), force_reindex=force, delay=sleep)
             self.stdout.write(self.style.SUCCESS("  ✓ Duplicates done."))
 

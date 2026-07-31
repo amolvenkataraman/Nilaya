@@ -154,42 +154,7 @@
             {{/if}}
         </div>
 
-        {{#unless video}}
-        <div class="sidebar-section find-similar-section">
-            <div class="sidebar-section-title">Find Similar Photos</div>
-            <div class="find-similar-body">
-                <div class="tol-row">
-                    <span class="tol-label">Similarity</span>
-                    <div class="tol-slider-wrap">
-                        <input
-                            type="range"
-                            min="50" max="100" step="1" value="97"
-                            class="tol-slider"
-                            id="tol-slider-{{ id }}"
-                            oninput="
-                                document.getElementById('tol-val-{{ id }}').textContent = this.value + '%'; 
-                                document.getElementById('tol-desc-pct-{{ id }}').textContent = this.value;
-                                let dist = Math.round(256 * (100 - this.value) / 100);
-                                document.getElementById('tol-desc-n-{{ id }}').textContent = dist;
-                            "
-                        >
-                        <span class="tol-hint">
-                            <span class="tol-hint-lo">loose</span>
-                            <span class="tol-hint-hi">exact</span>
-                        </span>
-                    </div>
-                    <span class="tol-value-badge" id="tol-val-{{ id }}">97%</span>
-                </div>
-                <div class="tol-desc" id="tol-desc-{{ id }}">
-                    ≈ <strong id="tol-desc-pct-{{ id }}">97</strong>% similar (≤ <strong id="tol-desc-n-{{ id }}">8</strong> bits diff / 256)
-                </div>
-                <button class="action-btn similar-btn" onclick="loadSimilarPhotos('{{ id }}', document.getElementById('tol-slider-{{ id }}').value)">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                    Load Similar
-                </button>
-            </div>
-        </div>
-        {{/unless}}
+
 
         <div class="sidebar-actions-section">
             {{#if video}}
@@ -478,14 +443,6 @@
         r.send();
     }
 
-    function loadSimilarPhotos(id, tol) {
-        const params = new URLSearchParams(window.location.search);
-        params.set('similar', id);
-        params.set('tol', tol);
-        // Clear date to search across the entire collection starting from the newest similar photo
-        params.delete('date');
-        window.location.search = params.toString();
-    }
 
     function get_photos_for_date(date, ndays = 0, nphotos = 0) {
         if (nowloading) { return; }
@@ -761,23 +718,6 @@
 </div>
 {% endif %}
 
-{% if similar_ref %}
-<div style="background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(168,85,247,0.1)); border: 1px solid rgba(99,102,241,0.3); border-radius: 12px; padding: 14px 18px; margin-bottom: 16px; display: flex; align-items: center; gap: 14px;">
-    <img src="/private/{{ similar_ref_hash }}/photo_cache/thumbnail/{{ similar_ref }}.webp"
-         style="width: 56px; height: 56px; object-fit: cover; border-radius: 8px; border: 2px solid rgba(99,102,241,0.5); flex-shrink: 0;">
-    <div style="flex: 1; min-width: 0;">
-        <div style="font-weight: 600; font-size: .9em; color: var(--text-primary); margin-bottom: 2px;">
-            Similar photos
-        </div>
-        <div style="font-size: .8em; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
-            Similarity: <strong>{{ similar_tol }}%</strong>
-        </div>
-    </div>
-    <a href="{% url 'photos' %}" style="flex-shrink: 0; color: var(--text-secondary); opacity: .7; text-decoration: none; font-size: .85em; padding: 4px 8px; border-radius: 6px; border: 1px solid var(--border-glass);">
-        ✕ Clear
-    </a>
-</div>
-{% endif %}
 
 <div class="stats-bar">
     <div class="stats-item">
@@ -1112,21 +1052,7 @@
             <span class="filter-tag" data-filter="objects">Objects: {{ objects }} <button class="remove-filter"
                     onclick="removeFilter('objects')">&times;</button></span>
             {% endif %}
-            {% if similar_ref %}
-            <span class="filter-tag" data-filter="similar"
-                  style="background: rgba(99,102,241,0.15); border-color: rgba(99,102,241,0.4);">
-                Similar (tol={{ similar_tol }})
-                <button class="remove-filter" onclick="window.location='{% url 'photos' %}'">&times;</button>
-            </span>
-            {% endif %}
-            {% if min_blur or max_blur %}
-            <span class="filter-tag" data-filter="blur"
-                  style="background: rgba(239, 68, 68, 0.1); border-color: rgba(239, 68, 68, 0.3); color: var(--danger);">
-                Blur: {% if min_blur and max_blur %}{{ min_blur }}–{{ max_blur }}{% elif min_blur %}≥{{ min_blur }}{% else %}≤{{ max_blur }}{% endif %}
-                <button class="remove-filter" onclick="removeBlurFilter()">&times;</button>
-            </span>
-            {% endif %}
-            {% if not video and not date_filter and not forward and not cam_make and not country and not city and not objects and not similar_ref and not min_blur and not max_blur %}
+            {% if not video and not date_filter and not forward and not cam_make and not country and not city and not objects and not min_blur and not max_blur %}
             <span class="no-filters">No filters applied</span>
             {% endif %}
         </div>

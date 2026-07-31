@@ -28,7 +28,6 @@ urlpatterns = [
     path("albums/display-only/<int:album_id>/", views.display_only_album, name='display_only_album'),
     path("stats/", views.stats_page, name='photos_stats'),
     path("storage/", views.storage_page, name='photos_storage'),
-    path("biggest/", views.superlatives_page, name='photos_biggest'),
     path("superlatives/", views.superlatives_page, name='photos_superlatives'),
     path("superlatives/<str:category>/", views.superlatives_page, name='photos_superlatives_category'),
     path("search/", views.search_page, name='search_page'),

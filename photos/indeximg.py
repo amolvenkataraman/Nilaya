@@ -197,6 +197,12 @@ def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
         if p.latitude != 0 and p.longitude != 0 and p.latitude != None and p.longitude != None:
             p.location_city, p.location_country = _reverse_geocode_city(p.latitude, p.longitude)
 
+        try:
+            from photos.AI.duplicates import md5_hash
+            p.md5_hash = md5_hash(f)
+        except Exception:
+            pass
+
         p.save()
 
         p.gen_thumbnail()

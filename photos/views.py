@@ -63,39 +63,6 @@ def get_bounds_from_request(request):
     return None, None
 
 
-DEFAULT_PHASH_TOLERANCE = 8   # Hamming distance ≤ 8 out of 256 → near-duplicate
-
-
-def _resolve_similar_ids(request, base_qs):
-    """Return (similar_photo, tolerance, matching_id_set) or (None, None, None)."""
-    similar_uuid = request.GET.get("similar")
-    if not similar_uuid:
-        return None, None, None
-    try:
-        raw_tol = int(request.GET.get("tol", 97))  # Default 97% similar (approx dist 8)
-        pct = max(0, min(100, raw_tol))
-        tol = round(256 * (100 - pct) / 100)
-    except (ValueError, TypeError):
-        pct = 97
-        tol = 8
-    try:
-        ref = Photo.objects.get(id=similar_uuid)
-    except Photo.DoesNotExist:
-        return None, None, None
-    if not ref.phash:
-        return ref, tol, set()   # reference photo has no phash yet
-    from imagehash import hex_to_hash
-    ref_hash = hex_to_hash(ref.phash)
-    # Fetch only id + phash for the accessible pool — lightweight
-    candidates = base_qs.exclude(phash__isnull=True).values_list("id", "phash")
-    matching = set()
-    for photo_id, ph in candidates:
-        try:
-            if (ref_hash - hex_to_hash(ph)) <= tol:
-                matching.add(photo_id)
-        except Exception:
-            pass
-    return ref, pct, matching
 
 
 def _get_base_photo_pool(request):
@@ -202,14 +169,6 @@ def _apply_standard_filters(qs, request):
     ctx["bounds"] = bounds
     ctx["bounds_b64"] = bounds_b64
 
-    # pHash similar-photo filter
-    similar_ref, similar_tol, similar_ids = _resolve_similar_ids(request, qs)
-    if similar_ref is not None:
-        qs = qs.filter(id__in=similar_ids) if similar_ids else qs.none()
-    ctx["similar_ref"]      = str(similar_ref.id) if similar_ref else None
-    ctx["similar_tol"]      = similar_tol
-    ctx["similar_ref_hash"] = similar_ref.thumbnail_hash if similar_ref else None
-    ctx["similar_ref_path"] = similar_ref.get_path() if similar_ref else None
 
     # Blur / Sharpness filter (12MP normalized)
     min_blur = request.GET.get("min_blur") or None
