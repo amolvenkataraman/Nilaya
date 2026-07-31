@@ -394,10 +394,10 @@ def geoguessr_ent(request):
         album_subs = request.user.album_subscribed.all()
         albums = [i.album for i in album_subs]
 
-        p = Photo.objects.filter(id=b['photo'])[0]
         if p.album in albums:
             p.latitude = b['lat']
             p.longitude = b['lng']
+            p.refresh_city_data()
             p.save()
             print(f"Saved location ({b['lat']}, {b['lng']}) for photo {b['photo']}")
             with open("/home/user/photo_gg_ent_log.txt", "a") as f:
@@ -1502,23 +1502,30 @@ def superlatives_page(request, category='biggest-files'):
 
     base_qs = album_qs.exclude(filepath__in=orig_paths).select_related('album', 'owner')
 
+    try:
+        limit = int(request.GET.get("limit", 50))
+        if limit not in (20, 50, 100, 200):
+            limit = 50
+    except (ValueError, TypeError):
+        limit = 50
+
     # Apply category specific filters & ordering
     if category == 'biggest-files':
-        qs = base_qs.order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:50]
+        qs = base_qs.order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:limit]
     elif category == 'longest-videos':
-        qs = base_qs.filter(video=True).exclude(length__isnull=True).order_by(F('length').desc(nulls_last=True))[:50]
+        qs = base_qs.filter(video=True).exclude(length__isnull=True).order_by(F('length').desc(nulls_last=True))[:limit]
     elif category == 'biggest-orig-videos':
-        qs = base_qs.filter(video=True, orig_filepath__isnull=False).exclude(orig_filepath='').order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:50]
+        qs = base_qs.filter(video=True, orig_filepath__isnull=False).exclude(orig_filepath='').order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:limit]
     elif category == 'biggest-resolution':
-        qs = base_qs.exclude(megapixels__isnull=True).order_by(F('megapixels').desc(nulls_last=True))[:50]
+        qs = base_qs.exclude(megapixels__isnull=True).order_by(F('megapixels').desc(nulls_last=True))[:limit]
     elif category == 'biggest-photos':
-        qs = base_qs.filter(video=False).order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:50]
+        qs = base_qs.filter(video=False).order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:limit]
     elif category == 'biggest-overhead':
-        qs = base_qs.annotate(overhead_gap=F('size_total') - F('size')).filter(overhead_gap__gt=0).order_by(F('overhead_gap').desc(nulls_last=True))[:50]
+        qs = base_qs.annotate(overhead_gap=F('size_total') - F('size')).filter(overhead_gap__gt=0).order_by(F('overhead_gap').desc(nulls_last=True))[:limit]
     elif category == 'biggest-raw':
-        qs = base_qs.filter(Q(raw_filepath__isnull=False) & ~Q(raw_filepath='')).order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:50]
+        qs = base_qs.filter(Q(raw_filepath__isnull=False) & ~Q(raw_filepath='')).order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:limit]
     else:
-        qs = base_qs.order_by(F('size_total').desc(nulls_last=True))[:50]
+        qs = base_qs.order_by(F('size_total').desc(nulls_last=True))[:limit]
 
     top_photos = []
     tot_size_sum = 0
@@ -1560,6 +1567,9 @@ def superlatives_page(request, category='biggest-files'):
 
         info_dict = photo.getinfo()
 
+        local_dt = timezone.localtime(photo.date_taken, pytz.timezone(TIME_ZONE)) if (photo.date_taken and timezone.is_aware(photo.date_taken)) else photo.date_taken
+        date_taken_str = local_dt.strftime("%Y-%m-%d %H:%M") if local_dt else "—"
+
         top_photos.append({
             'rank': idx,
             'id': str(photo.id),
@@ -1573,7 +1583,8 @@ def superlatives_page(request, category='biggest-files'):
             'opt_size_str': get_size_str(opt),
             'tot_size_str': get_size_str(tot),
             'overhead_str': get_size_str(max(0, tot - opt)),
-            'date_taken': photo.date_taken,
+            'date_taken': local_dt,
+            'date_taken_str': date_taken_str,
             'thumbnail_hash': photo.thumbnail_hash,
             'photo_hash': photo.photo_hash,
             'path': photo.get_path(),
@@ -1607,6 +1618,7 @@ def superlatives_page(request, category='biggest-files'):
         "left_sidebar": True,
         "right_sidebar": False,
         "admin_override": admin_override,
+        "limit": limit,
         "top_photos": top_photos,
         "top_photos_meta_json": top_photos_meta_json,
         "summary": summary,

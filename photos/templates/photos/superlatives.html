@@ -37,7 +37,7 @@
     <!-- Superlatives Category Tabs Bar -->
     <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.1));">
         {% for cat in categories %}
-        <a href="{% url 'photos_superlatives_category' cat.id %}{% if admin_override %}?admin=1{% endif %}" 
+        <a href="{% url 'photos_superlatives_category' cat.id %}?{% if admin_override %}admin=1&{% endif %}{% if limit and limit != 50 %}limit={{ limit }}{% endif %}" 
            class="btn btn-sm {% if category == cat.id %}btn-primary{% else %}btn-outline-secondary{% endif %}"
            style="border-radius: 20px; padding: 6px 16px; font-weight: 600; font-size: 0.85rem; white-space: nowrap; transition: all 0.2s ease;">
             {{ cat.icon }} {{ cat.name }}
@@ -55,7 +55,18 @@
                 {{ current_category.desc }}
             </span>
         </div>
-        <span class="badge bg-primary" style="font-size: 0.85rem; padding: 6px 12px; border-radius: 12px;">Top 50 Ranked</span>
+        <div style="display: flex; align-items: center; gap: 8px;">
+            <label style="font-size: 0.85rem; color: var(--text-secondary, #94a3b8); margin: 0; white-space: nowrap; font-weight: 600;">Ranked Items:</label>
+            <select class="form-select form-select-sm" 
+                    id="limitSelect"
+                    onchange="changeLimit(this.value)"
+                    style="background: var(--bg-glass, rgba(15, 23, 42, 0.8)); color: var(--text-primary, #fff); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 8px; font-weight: 600; padding: 4px 10px; font-size: 0.85rem; cursor: pointer;">
+                <option value="20" {% if limit == 20 %}selected{% endif %}>Top 20</option>
+                <option value="50" {% if limit == 50 or not limit %}selected{% endif %}>Top 50</option>
+                <option value="100" {% if limit == 100 %}selected{% endif %}>Top 100</option>
+                <option value="200" {% if limit == 200 %}selected{% endif %}>Top 200</option>
+            </select>
+        </div>
     </div>
 
     <!-- Storage Summary Cards -->
@@ -136,7 +147,7 @@
                         </div>
                     </td>
                     <td style="vertical-align: middle; font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap;">
-                        {{ item.date_taken|date:"Y-m-d H:i"|default:"—" }}
+                        {{ item.date_taken_str|default:"—" }}
                     </td>
                     <td style="vertical-align: middle; font-size: 0.85rem;">
                         {% if item.video %}
@@ -309,7 +320,7 @@
                 <div style="font-weight: 600; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 6px;">File Details</div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Type</span><strong>${meta.video ? 'Video' : 'Photo'}</strong></div>
                 ${meta.width ? `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Dimensions</span><strong>${meta.width} × ${meta.height} (${meta.megapixels || ''} MP)</strong></div>` : ''}
-                ${meta.date_taken ? `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Date Taken</span><strong>${new Date(meta.date_taken).toLocaleString()}</strong></div>` : ''}
+                ${meta.date_taken ? `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Date Taken</span><strong>${new Date(meta.date_taken).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</strong></div>` : ''}
                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Optimized Size</span><strong>${formatBytesStr(meta.size)}</strong></div>
                 <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Total Size</span><strong style="color: #f59e0b;">${formatBytesStr(meta.size_total || meta.size)}</strong></div>
             </div>
@@ -578,6 +589,12 @@
                 }
             }
         }
+    }
+
+    function changeLimit(val) {
+        const params = new URLSearchParams(window.location.search);
+        params.set('limit', val);
+        window.location.search = params.toString();
     }
 </script>
 {% endblock %}
