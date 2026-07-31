@@ -16,6 +16,7 @@ urlpatterns = [
     path("photo/<slug:photo_id>/<slug:ret_type>/", views.get_photo, name='get_photo'),
     path("ingest/", views.ingest_photos, name='ingest_photos'),
     path("delete/<slug:photo_id>/", views.del_photo_req, name='del_photo_req'),
+    path("delete-original/<slug:photo_id>/", views.delete_photo_original, name='delete_photo_original'),
     path("albums/json-list/", views.list_my_albums, name='list_my_albums'),
     path("albums/add/", views.add_photo_to_album, name='add_photo_to_album'),
     path("albums/remove/", views.remove_photo_from_album, name='remove_photo_from_album'),
@@ -27,6 +28,9 @@ urlpatterns = [
     path("albums/display-only/<int:album_id>/", views.display_only_album, name='display_only_album'),
     path("stats/", views.stats_page, name='photos_stats'),
     path("storage/", views.storage_page, name='photos_storage'),
+    path("biggest/", views.superlatives_page, name='photos_biggest'),
+    path("superlatives/", views.superlatives_page, name='photos_superlatives'),
+    path("superlatives/<str:category>/", views.superlatives_page, name='photos_superlatives_category'),
     path("search/", views.search_page, name='search_page'),
     path("search/<str:category>/", views.search_category, name='search_category'),
 ]

@@ -652,6 +652,54 @@ def del_photo_req(request, photo_id):
     except IndexError: pass
 
 
+@post_request_only
+@login_required_api
+def delete_photo_original(request, photo_id):
+    album_subs = request.user.album_subscribed.all()
+    albums = [i.album for i in album_subs]
+
+    try:
+        p = Photo.objects.get(id=photo_id)
+        if p.album not in albums and not request.user.is_superuser:
+            return error_response("Not authorized", 401)
+
+        freed_kb = 0
+
+        # Safety Check 1: Must have orig_filepath and it MUST be different from p.filepath (the file used by the app)
+        if p.orig_filepath and p.orig_filepath != p.filepath:
+            album_loc = p.album.location if p.album else None
+            if album_loc:
+                orig_full = os.path.normpath(os.path.join(album_loc, p.orig_filepath))
+                app_file_full = os.path.normpath(os.path.join(album_loc, p.filepath))
+
+                # Safety Check 2: Never delete the app's optimized file
+                if orig_full != app_file_full and os.path.exists(orig_full):
+                    try:
+                        freed_kb += os.path.getsize(orig_full) // 1024
+                        os.remove(orig_full)
+                    except OSError:
+                        pass
+
+            # Safety Check 3: Delete standalone DB record for the original file (if any), ensuring p itself is never deleted
+            Photo.objects.filter(album=p.album, filepath=p.orig_filepath).exclude(id=p.id).delete()
+            p.orig_filepath = None
+
+            # Reset size_total to match the app's file size
+            p.size_total = p.size
+            p.save()
+
+        return JsonResponse({
+            "status": "success",
+            "size": p.size,
+            "size_total": p.size_total,
+            "opt_size_str": get_size_str(p.size),
+            "tot_size_str": get_size_str(p.size_total),
+            "freed_kb": freed_kb,
+        })
+    except Photo.DoesNotExist:
+        return error_response("Photo does not exist", 404)
+
+
 @login_required_api
 def list_my_albums(request):
     if request.GET.get('all') == '1':
@@ -1454,6 +1502,159 @@ def storage_page(request):
         "month_storage": month_storage,
     }
     return render(request, 'photos/storage.html', context)
+
+
+@login_required
+def superlatives_page(request, category='biggest-files'):
+    from django.shortcuts import redirect
+    from django.db.models import F, Q
+
+    CATEGORIES = [
+        {'id': 'biggest-files', 'name': 'Disk Footprint', 'icon': '💾', 'desc': 'Top 50 photos & videos by total disk space.'},
+        {'id': 'longest-videos', 'name': 'Longest Videos', 'icon': '🎬', 'desc': 'Top 50 longest videos by duration.'},
+        {'id': 'biggest-orig-videos', 'name': 'Original Videos', 'icon': '📼', 'desc': 'Top 50 videos with original unoptimized source files.'},
+        {'id': 'biggest-resolution', 'name': 'Highest Resolution', 'icon': '🖼️', 'desc': 'Top 50 media items by megapixel resolution.'},
+        {'id': 'biggest-photos', 'name': 'Largest Photos', 'icon': '📸', 'desc': 'Top 50 photo files (excluding videos) by file size.'},
+        {'id': 'biggest-overhead', 'name': 'Overhead Gap', 'icon': '⚡', 'desc': 'Top 50 files with largest original vs. optimized gap.'},
+        {'id': 'biggest-raw', 'name': 'RAW Files', 'icon': '🎞️', 'desc': 'Top 50 photos with attached RAW camera images.'},
+    ]
+
+    cat_dict = {c['id']: c for c in CATEGORIES}
+    if category not in cat_dict:
+        category = 'biggest-files'
+    current_category = cat_dict[category]
+
+    is_admin = request.user.is_superuser or request.user.is_staff
+    admin_override = False
+
+    if request.GET.get('admin') == '1':
+        if is_admin:
+            admin_override = True
+            albums = Album.objects.all()
+        else:
+            return redirect(request.path)
+    else:
+        album_subs = request.user.album_subscribed.filter(visible=True)
+        albums = [sub.album for sub in album_subs]
+
+    album_qs = Photo.objects.filter(album__in=albums)
+
+    # Exclude standalone Photo entries whose filepath is already linked as an orig_filepath or raw_filepath of another primary photo
+    orig_paths = set(album_qs.exclude(orig_filepath__isnull=True).exclude(orig_filepath='').values_list('orig_filepath', flat=True)) | \
+                 set(album_qs.exclude(raw_filepath__isnull=True).exclude(raw_filepath='').values_list('raw_filepath', flat=True))
+
+    base_qs = album_qs.exclude(filepath__in=orig_paths).select_related('album', 'owner')
+
+    # Apply category specific filters & ordering
+    if category == 'biggest-files':
+        qs = base_qs.order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:50]
+    elif category == 'longest-videos':
+        qs = base_qs.filter(video=True).exclude(length__isnull=True).order_by(F('length').desc(nulls_last=True))[:50]
+    elif category == 'biggest-orig-videos':
+        qs = base_qs.filter(video=True, orig_filepath__isnull=False).exclude(orig_filepath='').order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:50]
+    elif category == 'biggest-resolution':
+        qs = base_qs.exclude(megapixels__isnull=True).order_by(F('megapixels').desc(nulls_last=True))[:50]
+    elif category == 'biggest-photos':
+        qs = base_qs.filter(video=False).order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:50]
+    elif category == 'biggest-overhead':
+        qs = base_qs.annotate(overhead_gap=F('size_total') - F('size')).filter(overhead_gap__gt=0).order_by(F('overhead_gap').desc(nulls_last=True))[:50]
+    elif category == 'biggest-raw':
+        qs = base_qs.filter(Q(raw_filepath__isnull=False) & ~Q(raw_filepath='')).order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:50]
+    else:
+        qs = base_qs.order_by(F('size_total').desc(nulls_last=True))[:50]
+
+    top_photos = []
+    tot_size_sum = 0
+    opt_size_sum = 0
+    photo_count = 0
+    video_count = 0
+    total_duration_sec = 0
+    max_mp = 0.0
+
+    for idx, photo in enumerate(qs, 1):
+        tot = photo.size_total or photo.size or 0
+        opt = photo.size or photo.size_total or 0
+
+        if tot == 0:
+            try:
+                full_p = photo.get_filepath()
+                if os.path.exists(full_p):
+                    tot = os.path.getsize(full_p) // 1024
+                    opt = tot
+            except Exception:
+                pass
+        tot_size_sum += tot
+        opt_size_sum += opt
+
+        if photo.video:
+            video_count += 1
+            if photo.length:
+                total_duration_sec += photo.length
+        else:
+            photo_count += 1
+
+        if photo.megapixels and photo.megapixels > max_mp:
+            max_mp = photo.megapixels
+
+        duration_text = ""
+        if photo.video and photo.length:
+            m, s = divmod(photo.length, 60)
+            duration_text = f"{m:02d}:{s:02d}"
+
+        info_dict = photo.getinfo()
+
+        top_photos.append({
+            'rank': idx,
+            'id': str(photo.id),
+            'filename': os.path.basename(photo.filepath),
+            'filepath': photo.filepath,
+            'album_name': photo.album.name,
+            'owner_username': photo.owner.username,
+            'video': photo.video,
+            'size': photo.size,
+            'size_total': photo.size_total,
+            'opt_size_str': get_size_str(opt),
+            'tot_size_str': get_size_str(tot),
+            'overhead_str': get_size_str(max(0, tot - opt)),
+            'date_taken': photo.date_taken,
+            'thumbnail_hash': photo.thumbnail_hash,
+            'photo_hash': photo.photo_hash,
+            'path': photo.get_path(),
+            'has_raw': photo.has_raw,
+            'has_orig': photo.has_orig,
+            'duration_text': duration_text,
+            'megapixels': photo.megapixels,
+            'dimensions': f"{photo.width or 0} × {photo.height or 0}" if (photo.width and photo.height) else "",
+            'info': info_dict,
+            'info_json': json.dumps(info_dict),
+        })
+
+    summary = {
+        'count': len(top_photos),
+        'photo_count': photo_count,
+        'video_count': video_count,
+        'tot_size_str': get_size_str(tot_size_sum),
+        'opt_size_str': get_size_str(opt_size_sum),
+        'overhead_str': get_size_str(max(0, tot_size_sum - opt_size_sum)),
+        'total_duration_str': get_duration_str(total_duration_sec),
+        'max_mp': round(max_mp, 1),
+    }
+
+    top_photos_meta_json = json.dumps({p['id']: p['info'] for p in top_photos})
+
+    context = {
+        "active_page": "superlatives",
+        "category": category,
+        "categories": CATEGORIES,
+        "current_category": current_category,
+        "left_sidebar": True,
+        "right_sidebar": False,
+        "admin_override": admin_override,
+        "top_photos": top_photos,
+        "top_photos_meta_json": top_photos_meta_json,
+        "summary": summary,
+    }
+    return render(request, 'photos/superlatives.html', context)
 
 
 # --- Search Features ---

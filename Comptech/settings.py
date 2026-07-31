@@ -151,7 +151,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTH_USER_MODEL = 'users.ComptechUser'
 
-CSRF_TRUSTED_ORIGINS = ['http://192.168.50.11', 'https://192.168.50.11', 'http://app.home.lan', 'https://app.home.lan', 'https://app.example.com']
+CSRF_TRUSTED_ORIGINS = ['http://192.168.50.11', 'https://192.168.50.11', 'http://app.home.lan', 'https://app.home.lan', 'https://app.example.com', 'https://lab.example.com']
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/

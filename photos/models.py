@@ -574,10 +574,14 @@ def delete_photo(p):
     except FileNotFoundError: pass
 
     try:
-        if p.orig_filepath != None and os.path.exists(p.album.location + p.orig_filepath):
-            os.remove(p.album.location + p.orig_filepath)
-        if p.raw_filepath != None and os.path.exists(p.album.location + p.raw_filepath):
-            os.remove(p.album.location + p.raw_filepath)
+        if p.orig_filepath != None:
+            if os.path.exists(p.album.location + p.orig_filepath):
+                os.remove(p.album.location + p.orig_filepath)
+            Photo.objects.filter(album=p.album, filepath=p.orig_filepath).delete()
+        if p.raw_filepath != None:
+            if os.path.exists(p.album.location + p.raw_filepath):
+                os.remove(p.album.location + p.raw_filepath)
+            Photo.objects.filter(album=p.album, filepath=p.raw_filepath).delete()
     except FileNotFoundError: pass
 
     try:

@@ -192,6 +192,14 @@
         {{/unless}}
 
         <div class="sidebar-actions-section">
+            {{#if video}}
+            {{#if has_orig}}
+            <button onclick="delete_original_video('{{ id }}')" class="action-btn warning-btn" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; margin-bottom: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 0.85rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                Delete Original Video
+            </button>
+            {{/if}}
+            {{/if}}
             <button onclick="del_photo('{{ id }}')" class="action-btn delete-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                 Delete Asset
@@ -444,6 +452,29 @@
         r.open("POST", `/photos/delete/${p}/`)
         r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
         r.onload = () => { }
+        r.send();
+    }
+
+    function delete_original_video(id) {
+        if (!confirm("Are you sure you want to delete the original video source file?\n\nThis will free up disk space while retaining the optimized video in your library.")) {
+            return;
+        }
+
+        var r = new XMLHttpRequest();
+        r.open("POST", `/photos/delete-original/${id}/`);
+        r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+        r.onload = () => {
+            if (r.status === 200) {
+                alert("Original video source file deleted successfully.");
+                close_image();
+                location.reload();
+            } else {
+                alert("Failed to delete original video.");
+            }
+        };
+        r.onerror = () => {
+            alert("Network error occurred while deleting original video.");
+        };
         r.send();
     }
 

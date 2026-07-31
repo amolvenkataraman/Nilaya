@@ -89,6 +89,18 @@
             Storage
         </a>
     </li>
+    <li class="nav-item {% if active_page == 'superlatives' or active_page == 'biggest' %}nav-item-selected{% endif %}">
+        <a class="photo-page-link"
+            href="{% url 'photos_superlatives' %}{% if request.GET.admin == '1' %}?admin=1{% endif %}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
+                class="feather feather-award">
+                <circle cx="12" cy="8" r="7"></circle>
+                <polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"></polyline>
+            </svg>
+            Superlatives
+        </a>
+    </li>
     <li class="nav-item nav-item-ingest">
         <button class="photo-page-link" onclick="ingest_photos()">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"

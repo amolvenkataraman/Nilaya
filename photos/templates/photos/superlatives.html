@@ -1,0 +1,583 @@
+{% extends "photos/photos_base.html" %}
+
+{% load static %}
+
+{% block page_title %} {{ current_category.name }} - Superlatives {% endblock %}
+
+{% block page_body %}
+<div class="storage-container" style="padding-bottom: 60px;">
+    {% if admin_override %}
+    <div class="alert alert-warning d-flex align-items-center justify-content-between mb-4" role="alert" style="border-radius: var(--border-radius-sm, 8px); border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.08); color: #d97706; padding: 12px 20px;">
+        <div class="d-flex align-items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16" style="flex-shrink: 0; margin-right: 8px;">
+                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+            </svg>
+            <span><strong>Admin Override Mode Active:</strong> Displaying data for all albums across the entire system.</span>
+        </div>
+        <a href="{% url 'photos_superlatives_category' category %}" class="btn btn-sm btn-outline-warning" style="font-size: 0.8rem; font-weight: 600;">Exit Admin Mode</a>
+    </div>
+    {% endif %}
+
+    <!-- Top Navigation Header -->
+    <div class="d-flex align-items-center justify-content-between mb-4">
+        <div>
+            <div class="dashboard-title" style="margin-bottom: 4px;">🏆 Photos Superlatives</div>
+            <div class="text-muted" style="font-size: 0.9rem;">
+                Browse media rankings across 
+                {% if admin_override %}<strong>all system albums</strong>{% else %}<strong>currently visible albums</strong>{% endif %}.
+            </div>
+        </div>
+        {% if is_admin and not admin_override %}
+        <a href="?admin=1" class="btn btn-sm btn-outline-primary" style="font-size: 0.85rem; font-weight: 600; padding: 6px 14px; border-radius: 6px;">
+            🔑 Enable Admin Mode
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- Superlatives Category Tabs Bar -->
+    <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.1));">
+        {% for cat in categories %}
+        <a href="{% url 'photos_superlatives_category' cat.id %}{% if admin_override %}?admin=1{% endif %}" 
+           class="btn btn-sm {% if category == cat.id %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+           style="border-radius: 20px; padding: 6px 16px; font-weight: 600; font-size: 0.85rem; white-space: nowrap; transition: all 0.2s ease;">
+            {{ cat.icon }} {{ cat.name }}
+        </a>
+        {% endfor %}
+    </div>
+
+    <!-- Active Category Banner & Explanation -->
+    <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+        <div>
+            <h4 style="margin: 0 0 4px 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary, #fff);">
+                {{ current_category.icon }} {{ current_category.name }}
+            </h4>
+            <span style="font-size: 0.85rem; color: var(--text-secondary, #94a3b8);">
+                {{ current_category.desc }}
+            </span>
+        </div>
+        <span class="badge bg-primary" style="font-size: 0.85rem; padding: 6px 12px; border-radius: 12px;">Top 50 Ranked</span>
+    </div>
+
+    <!-- Storage Summary Cards -->
+    <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
+        <div class="stats-card">
+            <span class="stats-card-label" style="color: var(--accent, #6366f1);">Total Storage Footprint</span>
+            <span class="stats-card-value" id="stat-tot-size">{{ summary.tot_size_str }}</span>
+            <span class="stats-card-desc">
+                <strong id="stat-opt-size">{{ summary.opt_size_str }}</strong> optimized / 
+                <strong style="color: #f59e0b;" id="stat-overhead-size">{{ summary.overhead_str }}</strong> overhead
+            </span>
+        </div>
+        <div class="stats-card">
+            <span class="stats-card-label" style="color: #10b981;">Photos Listed</span>
+            <span class="stats-card-value" id="stat-photo-count">{{ summary.photo_count }}</span>
+            <span class="stats-card-desc">photos in top 50</span>
+        </div>
+        <div class="stats-card">
+            <span class="stats-card-label" style="color: #3b82f6;">Videos Listed</span>
+            <span class="stats-card-value" id="stat-video-count">{{ summary.video_count }}</span>
+            <span class="stats-card-desc">videos in top 50</span>
+        </div>
+        <div class="stats-card">
+            {% if category == 'longest-videos' %}
+            <span class="stats-card-label" style="color: #8b5cf6;">Total Playtime</span>
+            <span class="stats-card-value" style="font-size: 1.25rem;">{{ summary.total_duration_str }}</span>
+            <span class="stats-card-desc">combined video duration</span>
+            {% elif category == 'biggest-resolution' %}
+            <span class="stats-card-label" style="color: #8b5cf6;">Max Resolution</span>
+            <span class="stats-card-value">{{ summary.max_mp }} MP</span>
+            <span class="stats-card-desc">highest megapixels</span>
+            {% else %}
+            <span class="stats-card-label" style="color: #8b5cf6;">Total Items</span>
+            <span class="stats-card-value" id="stat-total-items">{{ summary.count }}</span>
+            <span class="stats-card-desc">ranked items in list</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Table of Top 50 Files -->
+    <div class="ct-table-container">
+        <table class="ct-table" id="top-files-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px; text-align: center;">
+                        <input type="checkbox" id="select-all-checkbox" onchange="toggleSelectAll(this)">
+                    </th>
+                    <th style="width: 40px; text-align: center;">#</th>
+                    <th style="width: 70px; text-align: center;">Preview</th>
+                    <th>File & Album</th>
+                    <th>Date Taken</th>
+                    <th>Type / Specs</th>
+                    <th>Metrics</th>
+                    <th style="text-align: right;">Total Disk Size</th>
+                    <th style="text-align: right; width: 190px;">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in top_photos %}
+                <tr id="row-{{ item.id }}" data-tot-kb="{{ item.size_total|default:item.size }}" data-opt-kb="{{ item.size|default:item.size_total }}" data-filename="{{ item.filename }}">
+                    <td style="text-align: center; vertical-align: middle;">
+                        <input type="checkbox" class="row-checkbox" value="{{ item.id }}" onchange="updateBatchSelection()">
+                    </td>
+                    <td style="text-align: center; vertical-align: middle; font-weight: 700; color: var(--text-secondary);">
+                        {{ item.rank }}
+                    </td>
+                    <td style="text-align: center; vertical-align: middle;">
+                        <div style="width: 48px; height: 48px; border-radius: 8px; overflow: hidden; background: #000; display: flex; align-items: center; justify-content: center; cursor: pointer; border: 1px solid rgba(255,255,255,0.1);" onclick="openLightboxById('{{ item.id }}')">
+                            <img src="/private/{{ item.thumbnail_hash }}/photo_cache/thumbnail/{{ item.id }}.webp" style="width: 100%; height: 100%; object-fit: cover;" loading="lazy">
+                        </div>
+                    </td>
+                    <td style="vertical-align: middle;">
+                        <div style="font-weight: 600; color: var(--text-primary); font-size: 0.9rem; word-break: break-all;">
+                            {{ item.filename }}
+                        </div>
+                        <div style="font-size: 0.78rem; color: var(--text-secondary); margin-top: 2px;">
+                            📁 {{ item.album_name }} • 👤 {{ item.owner_username }}
+                        </div>
+                    </td>
+                    <td style="vertical-align: middle; font-size: 0.85rem; color: var(--text-secondary); white-space: nowrap;">
+                        {{ item.date_taken|date:"Y-m-d H:i"|default:"—" }}
+                    </td>
+                    <td style="vertical-align: middle; font-size: 0.85rem;">
+                        {% if item.video %}
+                        <span class="badge bg-info text-dark" style="font-weight: 600;">🎬 Video</span>
+                        {% if item.duration_text %}
+                        <span style="color: var(--text-secondary); font-size: 0.78rem; margin-left: 4px;">({{ item.duration_text }})</span>
+                        {% endif %}
+                        {% else %}
+                        <span class="badge bg-secondary" style="font-weight: 600;">📸 Photo</span>
+                        {% endif %}
+                        <div class="badge-container-orig" style="margin-top: 4px;">
+                            {% if item.has_orig %}
+                            <span class="badge bg-warning text-dark" style="font-size: 0.7rem; font-weight: 600;">ORIG</span>
+                            {% endif %}
+                            {% if item.has_raw %}
+                            <span class="badge bg-danger" style="font-size: 0.7rem; font-weight: 600;">RAW</span>
+                            {% endif %}
+                        </div>
+                    </td>
+                    <td style="vertical-align: middle; font-size: 0.85rem; color: var(--text-secondary);">
+                        {% if category == 'longest-videos' %}
+                        <strong style="color: var(--text-primary);">⏱️ {{ item.duration_text|default:"—" }}</strong>
+                        {% elif category == 'biggest-orig-videos' %}
+                        <strong style="color: #f59e0b;">📼 +{{ item.overhead_str }} orig source</strong>
+                        {% elif category == 'biggest-resolution' %}
+                        <strong style="color: var(--text-primary);">📐 {{ item.dimensions }}</strong>
+                        {% if item.megapixels %}<div style="font-size: 0.75rem; color: #a78bfa;">({{ item.megapixels }} MP)</div>{% endif %}
+                        {% elif category == 'biggest-overhead' %}
+                        <strong style="color: #f59e0b;">+{{ item.overhead_str }} gap</strong>
+                        {% else %}
+                        <span>Opt: {{ item.opt_size_str }}</span>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
+                        <div style="font-weight: 700; color: var(--text-primary); font-size: 0.95rem;">
+                            {{ item.tot_size_str }}
+                        </div>
+                        {% if item.overhead_str != "0.0 MB" %}
+                        <div style="font-size: 0.75rem; color: #f59e0b;">
+                            +{{ item.overhead_str }} extra
+                        </div>
+                        {% endif %}
+                    </td>
+                    <td style="text-align: right; vertical-align: middle; white-space: nowrap;">
+                        <div style="display: flex; justify-content: flex-end; gap: 6px;">
+                            <button class="btn btn-sm btn-outline-info" style="font-size: 0.8rem; padding: 4px 10px;" onclick="openLightboxById('{{ item.id }}')" title="View File">
+                                👁️ View
+                            </button>
+                            {% if item.has_orig %}
+                            <button class="btn btn-sm btn-outline-warning btn-del-orig" style="font-size: 0.8rem; padding: 4px 10px;" onclick="deleteOriginalFile('{{ item.id }}', '{{ item.filename|escapejs }}', '{{ item.overhead_str }}')" title="Delete Original Video/Photo Only (retains optimized file)">
+                                🗑️ Delete Orig
+                            </button>
+                            {% endif %}
+                            <button class="btn btn-sm btn-outline-danger" style="font-size: 0.8rem; padding: 4px 10px;" onclick="deleteSingleFile('{{ item.id }}', '{{ item.filename|escapejs }}')" title="Delete Entire Item">
+                                🗑️ Delete
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                        No items found for this superlative in visible albums.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Floating Batch Action Bar -->
+<div id="batch-action-bar" style="position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(30, 41, 59, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.15); box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5); padding: 12px 24px; border-radius: 30px; display: none; align-items: center; gap: 16px; z-index: 1040; color: white;">
+    <span style="font-size: 0.9rem; font-weight: 600;"><span id="batch-count">0</span> items selected</span>
+    <button class="btn btn-sm btn-danger" style="border-radius: 20px; font-weight: 600; padding: 6px 16px;" onclick="deleteBatchFiles()">
+        🗑️ Delete Selected
+    </button>
+    <button class="btn btn-sm btn-outline-light" style="border-radius: 20px; padding: 6px 14px;" onclick="clearBatchSelection()">
+        Cancel
+    </button>
+</div>
+
+<!-- Lightbox Modal Container -->
+<div id="photo-display-area" style="visibility: hidden; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background-color: rgba(0,0,0,0.92); z-index: 1050; display: flex;">
+    <div id="photo-area" style="flex: 1; position: relative; display: flex; align-items: center; justify-content: center;">
+        <button id="exit-btn" type="button" class="photo-btn btn btn-dark" style="position: absolute; top: 20px; right: 20px; z-index: 1060; border-radius: 50%; width: 44px; height: 44px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick="closeLightbox()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+        <button id="previous-btn" type="button" class="photo-btn btn btn-dark" style="position: absolute; left: 20px; top: 50%; transform: translateY(-50%); z-index: 1060; border-radius: 50%; width: 48px; height: 48px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick="prevLightboxImage()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <button id="next-btn" type="button" class="photo-btn btn btn-dark" style="position: absolute; right: 20px; top: 50%; transform: translateY(-50%); z-index: 1060; border-radius: 50%; width: 48px; height: 48px; padding: 0; display: flex; align-items: center; justify-content: center;" onclick="nextLightboxImage()">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+        <div id="photo" style="max-width: 90%; max-height: 90vh; display: flex; align-items: center; justify-content: center;"></div>
+    </div>
+    <div class="photo-info" style="width: 340px; background: #111827; border-left: 1px solid rgba(255,255,255,0.1); padding: 20px; overflow-y: auto; color: #e2e8f0; font-size: 0.9rem;">
+        <!-- Detailed Sidebar Populated dynamically -->
+    </div>
+</div>
+
+<script>
+    // Store metadata for all items in page
+    const photosMeta = {{ top_photos_meta_json|safe }};
+    let activePhotoIds = [{% for item in top_photos %}"{{ item.id }}"{% if not forloop.last %},{% endif %}{% endfor %}];
+    let currentLightboxIdx = -1;
+    let isLightboxOpen = false;
+
+    function formatBytesStr(kb) {
+        if (!kb) return "0.0 MB";
+        let mb = kb / 1024.0;
+        if (mb >= 1024.0 * 1024.0) {
+            return (mb / (1024.0 * 1024.0)).toFixed(2) + " TB";
+        } else if (mb >= 1024.0) {
+            return (mb / 1024.0).toFixed(2) + " GB";
+        } else {
+            return mb.toFixed(1) + " MB";
+        }
+    }
+
+    function openLightboxById(id) {
+        const idx = activePhotoIds.indexOf(id);
+        if (idx !== -1) {
+            showLightboxAtIndex(idx);
+        }
+    }
+
+    function showLightboxAtIndex(idx) {
+        if (idx < 0 || idx >= activePhotoIds.length) return;
+        currentLightboxIdx = idx;
+        isLightboxOpen = true;
+        const id = activePhotoIds[idx];
+        const meta = photosMeta[id];
+        if (!meta) return;
+
+        const displayArea = document.getElementById("photo-display-area");
+        displayArea.style.visibility = "visible";
+
+        const photoContainer = document.getElementById("photo");
+        photoContainer.innerHTML = "";
+
+        const mediaUrl = `/photo_cdn/${meta.photo_hash}/${meta.path}`;
+        if (meta.video) {
+            const vid = document.createElement("video");
+            vid.src = mediaUrl;
+            vid.controls = true;
+            vid.autoplay = true;
+            vid.loop = true;
+            vid.style.maxHeight = "90vh";
+            vid.style.maxWidth = "90vw";
+            photoContainer.appendChild(vid);
+        } else {
+            const img = document.createElement("img");
+            img.src = mediaUrl;
+            img.style.maxHeight = "90vh";
+            img.style.maxWidth = "90vw";
+            img.style.objectFit = "contain";
+            photoContainer.appendChild(img);
+        }
+
+        // Render Sidebar info
+        const infoSidebar = document.querySelector("#photo-display-area .photo-info");
+        infoSidebar.innerHTML = `
+            <div style="margin-bottom: 20px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 12px;">
+                <div style="font-weight: 700; font-size: 1.1rem; word-break: break-all; color: white;">${meta.filepath ? meta.filepath.split('/').pop() : 'File Details'}</div>
+                <div style="font-size: 0.8rem; color: #94a3b8; margin-top: 4px;">ID: ${meta.id}</div>
+            </div>
+            
+            <div style="margin-bottom: 16px;">
+                <div style="font-weight: 600; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 6px;">File Details</div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Type</span><strong>${meta.video ? 'Video' : 'Photo'}</strong></div>
+                ${meta.width ? `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Dimensions</span><strong>${meta.width} × ${meta.height} (${meta.megapixels || ''} MP)</strong></div>` : ''}
+                ${meta.date_taken ? `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Date Taken</span><strong>${new Date(meta.date_taken).toLocaleString()}</strong></div>` : ''}
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Optimized Size</span><strong>${formatBytesStr(meta.size)}</strong></div>
+                <div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Total Size</span><strong style="color: #f59e0b;">${formatBytesStr(meta.size_total || meta.size)}</strong></div>
+            </div>
+
+            ${meta.camera_model || meta.camera_make ? `
+            <div style="margin-bottom: 16px;">
+                <div style="font-weight: 600; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 6px;">Camera</div>
+                ${meta.camera_make ? `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Make</span><strong>${meta.camera_make}</strong></div>` : ''}
+                ${meta.camera_model ? `<div style="display: flex; justify-content: space-between; margin-bottom: 4px;"><span>Model</span><strong>${meta.camera_model}</strong></div>` : ''}
+            </div>` : ''}
+
+            ${meta.location_city ? `
+            <div style="margin-bottom: 16px;">
+                <div style="font-weight: 600; color: #94a3b8; font-size: 0.75rem; text-transform: uppercase; margin-bottom: 6px;">Location</div>
+                <div>📍 <strong>${meta.location_city}${meta.location_country ? ', ' + meta.location_country : ''}</strong></div>
+            </div>` : ''}
+
+            <div style="margin-top: 30px;">
+                ${meta.has_orig ? `
+                <button class="btn btn-sm btn-warning w-100 mb-2" onclick="deleteOriginalFile('${meta.id}', '${meta.filepath ? meta.filepath.split('/').pop().replace(/'/g, "\\'") : ''}', '${formatBytesStr((meta.size_total || meta.size) - meta.size)}')">
+                    🗑️ Delete Original Only (${formatBytesStr((meta.size_total || meta.size) - meta.size)})
+                </button>` : ''}
+                <button class="btn btn-sm btn-danger w-100" onclick="deleteSingleFile('${meta.id}', '${meta.filepath ? meta.filepath.split('/').pop().replace(/'/g, "\\'") : ''}')">
+                    🗑️ Delete Entire Item
+                </button>
+            </div>
+        `;
+    }
+
+    function closeLightbox() {
+        isLightboxOpen = false;
+        document.getElementById("photo-display-area").style.visibility = "hidden";
+        document.getElementById("photo").innerHTML = "";
+    }
+
+    function prevLightboxImage() {
+        if (isLightboxOpen && currentLightboxIdx > 0) {
+            showLightboxAtIndex(currentLightboxIdx - 1);
+        }
+    }
+
+    function nextLightboxImage() {
+        if (isLightboxOpen && currentLightboxIdx < activePhotoIds.length - 1) {
+            showLightboxAtIndex(currentLightboxIdx + 1);
+        }
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (!isLightboxOpen) return;
+        if (e.key === 'Escape') closeLightbox();
+        else if (e.key === 'ArrowLeft') prevLightboxImage();
+        else if (e.key === 'ArrowRight') nextLightboxImage();
+    });
+
+    // --- Deletion Handlers ---
+
+    function deleteOriginalFile(id, filename, overheadStr) {
+        if (!confirm(`Are you sure you want to delete the original source file for '${filename}' (${overheadStr})?\n\nThis will free up disk space while keeping the optimized file in your library.`)) {
+            return;
+        }
+
+        const r = new XMLHttpRequest();
+        r.open("POST", `/photos/delete-original/${id}/`);
+        r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+        r.onload = function() {
+            if (r.status === 200) {
+                const res = JSON.parse(r.responseText);
+                if (res.status === 'success') {
+                    updateRowAfterOriginalDeleted(id, res);
+                    if (isLightboxOpen && activePhotoIds[currentLightboxIdx] === id) {
+                        showLightboxAtIndex(currentLightboxIdx);
+                    }
+                } else {
+                    alert("Failed to delete original file: " + (res.data || "Unknown error"));
+                }
+            } else {
+                alert("Failed to delete original file. You may not have authorization.");
+            }
+        };
+        r.onerror = function() {
+            alert("Network error occurred while deleting original file.");
+        };
+        r.send();
+    }
+
+    function updateRowAfterOriginalDeleted(id, res) {
+        const row = document.getElementById(`row-${id}`);
+        if (row) {
+            row.dataset.totKb = res.size_total;
+
+            const totCell = row.children[7];
+            if (totCell) {
+                totCell.innerHTML = `${res.tot_size_str}`;
+            }
+
+            const badgesContainer = row.querySelector('.badge-container-orig');
+            if (badgesContainer) {
+                badgesContainer.innerHTML = '';
+            }
+
+            const origBtn = row.querySelector('.btn-del-orig');
+            if (origBtn) {
+                origBtn.remove();
+            }
+        }
+
+        if (photosMeta[id]) {
+            photosMeta[id].size_total = res.size_total;
+            photosMeta[id].has_orig = false;
+            photosMeta[id].has_raw = false;
+        }
+
+        recalculateStats();
+    }
+
+    function deleteSingleFile(id, filename) {
+        if (!confirm(`Are you sure you want to permanently delete '${filename}'?\nThis will remove the file and all associated thumbnails from storage.`)) {
+            return;
+        }
+
+        const r = new XMLHttpRequest();
+        r.open("POST", `/photos/delete/${id}/`);
+        r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+        r.onload = function() {
+            if (r.status === 200) {
+                if (isLightboxOpen && activePhotoIds[currentLightboxIdx] === id) {
+                    closeLightbox();
+                }
+                removeRowFromTable(id);
+            } else {
+                alert("Failed to delete file. You may not have authorization to delete this item.");
+            }
+        };
+        r.onerror = function() {
+            alert("Network error occurred while attempting to delete file.");
+        };
+        r.send();
+    }
+
+    function removeRowFromTable(id) {
+        const row = document.getElementById(`row-${id}`);
+        if (row) {
+            row.remove();
+        }
+
+        activePhotoIds = activePhotoIds.filter(pid => pid !== id);
+
+        const countEl = document.getElementById("stat-total-items");
+        if (countEl) {
+            countEl.textContent = activePhotoIds.length;
+        }
+
+        recalculateStats();
+        updateBatchSelection();
+    }
+
+    function recalculateStats() {
+        let totKbSum = 0;
+        let optKbSum = 0;
+        let photos = 0;
+        let videos = 0;
+
+        activePhotoIds.forEach(id => {
+            const row = document.getElementById(`row-${id}`);
+            if (row) {
+                const tot = parseFloat(row.dataset.totKb) || 0;
+                const opt = parseFloat(row.dataset.optKb) || 0;
+                totKbSum += tot;
+                optKbSum += opt;
+
+                const isVid = row.querySelector('.badge.bg-info') !== null;
+                if (isVid) videos++;
+                else photos++;
+            }
+        });
+
+        const totEl = document.getElementById("stat-tot-size");
+        const optEl = document.getElementById("stat-opt-size");
+        const overheadEl = document.getElementById("stat-overhead-size");
+        const photoCntEl = document.getElementById("stat-photo-count");
+        const videoCntEl = document.getElementById("stat-video-count");
+
+        if (totEl) totEl.textContent = formatBytesStr(totKbSum);
+        if (optEl) optEl.textContent = formatBytesStr(optKbSum);
+        if (overheadEl) overheadEl.textContent = formatBytesStr(Math.max(0, totKbSum - optKbSum));
+        if (photoCntEl) photoCntEl.textContent = photos;
+        if (videoCntEl) videoCntEl.textContent = videos;
+    }
+
+    // --- Batch Selection Handlers ---
+
+    function toggleSelectAll(master) {
+        const checkboxes = document.querySelectorAll('.row-checkbox');
+        checkboxes.forEach(cb => {
+            cb.checked = master.checked;
+        });
+        updateBatchSelection();
+    }
+
+    function updateBatchSelection() {
+        const selected = document.querySelectorAll('.row-checkbox:checked');
+        const count = selected.length;
+        const bar = document.getElementById('batch-action-bar');
+        const countSpan = document.getElementById('batch-count');
+        const master = document.getElementById('select-all-checkbox');
+
+        if (countSpan) countSpan.textContent = count;
+
+        if (count > 0) {
+            bar.style.display = 'flex';
+        } else {
+            bar.style.display = 'none';
+        }
+
+        const allCheckboxes = document.querySelectorAll('.row-checkbox');
+        if (master && allCheckboxes.length > 0) {
+            master.checked = selected.length === allCheckboxes.length;
+        }
+    }
+
+    function clearBatchSelection() {
+        const checkboxes = document.querySelectorAll('.row-checkbox');
+        checkboxes.forEach(cb => cb.checked = false);
+        const master = document.getElementById('select-all-checkbox');
+        if (master) master.checked = false;
+        updateBatchSelection();
+    }
+
+    function deleteBatchFiles() {
+        const selected = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
+        if (selected.length === 0) return;
+
+        if (!confirm(`Are you sure you want to permanently delete the ${selected.length} selected files?\nThis action cannot be undone.`)) {
+            return;
+        }
+
+        let completed = 0;
+        let failed = 0;
+
+        selected.forEach(id => {
+            const r = new XMLHttpRequest();
+            r.open("POST", `/photos/delete/${id}/`);
+            r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+            r.onload = function() {
+                if (r.status === 200) {
+                    removeRowFromTable(id);
+                } else {
+                    failed++;
+                }
+                completed++;
+                checkBatchDone();
+            };
+            r.onerror = function() {
+                failed++;
+                completed++;
+                checkBatchDone();
+            };
+            r.send();
+        });
+
+        function checkBatchDone() {
+            if (completed === selected.length) {
+                clearBatchSelection();
+                if (failed > 0) {
+                    alert(`Batch deletion completed with ${failed} failure(s).`);
+                }
+            }
+        }
+    }
+</script>
+{% endblock %}
