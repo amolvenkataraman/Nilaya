@@ -642,9 +642,7 @@ def delete_photo_original(request, photo_id):
             # Safety Check 3: Delete standalone DB record for the original file (if any), ensuring p itself is never deleted
             Photo.objects.filter(album=p.album, filepath=p.orig_filepath).exclude(id=p.id).delete()
             p.orig_filepath = None
-
-            # Reset size_total to match the app's file size
-            p.size_total = p.size
+            p.update_file_sizes()
             p.save()
 
         return JsonResponse({

@@ -391,6 +391,108 @@ class Photo(models.Model):
                 self.update_info_exiftool(True, update_location)
         except FileNotFoundError: pass
 
+    def update_info_video(self, orig=False, update_location=True):
+        """Extract metadata for video files using ExifTool."""
+        self.update_info_exiftool(orig=orig, update_location=update_location)
+
+    def update_file_sizes(self):
+        """Calculate and store size (main file KB) and size_total (main + orig + raw KB)."""
+        f = self.get_filepath()
+        try:
+            sz = os.path.getsize(f)
+            self.size = int(sz / 1024)
+            if self.orig_filepath:
+                try:
+                    orig_p = os.path.join(self.album.location, self.orig_filepath)
+                    if os.path.exists(orig_p):
+                        sz += os.path.getsize(orig_p)
+                except Exception: pass
+            if self.raw_filepath:
+                try:
+                    raw_p = os.path.join(self.album.location, self.raw_filepath)
+                    if os.path.exists(raw_p):
+                        sz += os.path.getsize(raw_p)
+                except Exception: pass
+            self.size_total = int(sz / 1024)
+        except (FileNotFoundError, OSError): pass
+
+    def update_info_photo(self):
+        """Extract dimensions, megapixels, GPS data, and EXIF tags for photo files using PIL and GPSPhoto."""
+        from PIL import Image, ImageOps, UnidentifiedImageError
+        from PIL.ExifTags import TAGS
+
+        f = self.get_filepath()
+        try:
+            img = Image.open(f)
+            self.width = img.size[0]
+            self.height = img.size[1]
+            self.calculate_megapixels()
+
+            try:
+                gpsdata = gpsphoto.getGPSData(f)
+                try:
+                    self.latitude = gpsdata['Latitude']
+                    self.longitude = gpsdata['Longitude']
+                    try:
+                        self.altitude = gpsdata['Altitude']
+                    except Exception: pass
+                except Exception: pass
+            except Exception: pass
+
+            self.orientation = 1
+
+            try:
+                exif = img._getexif()
+                if exif is not None:
+                    exif1 = {TAGS.get(key, key): value for key, value in exif.items()}
+                    exif = exif1
+
+                    def _clean_str(val):
+                        if isinstance(val, str):
+                            return val.replace('\x00', '').replace('\00', '').replace('\0', '')
+                        return str(val) if val is not None else None
+
+                    if 'Make' in exif:
+                        self.camera_make = _clean_str(exif['Make'])
+                    if 'Model' in exif:
+                        self.camera_model = _clean_str(exif['Model'])
+                    if 'ExposureTime' in exif:
+                        self.exposure = _clean_str(exif['ExposureTime'])
+                    if 'FNumber' in exif:
+                        self.fnumber = _clean_str(exif['FNumber'])
+                    if 'ISOSpeedRatings' in exif:
+                        self.isospeed = _clean_str(exif['ISOSpeedRatings'])
+                    if 'ShutterSpeedValue' in exif:
+                        self.shutterspeed = _clean_str(exif['ShutterSpeedValue'])
+                    if 'ApertureValue' in exif:
+                        self.aperture = _clean_str(exif['ApertureValue'])
+                    if 'Flash' in exif:
+                        self.flash = _clean_str(exif['Flash'])
+                    if 'FocalLength' in exif:
+                        self.focallength = _clean_str(exif['FocalLength'])
+                    if 'Orientation' in exif:
+                        self.orientation = _clean_str(exif['Orientation'])
+            except (AttributeError, TypeError, KeyError): pass
+        except (UnidentifiedImageError, OSError): pass
+
+    def update_all_metadata(self, orig=False, update_location=True):
+        """Extract and save file size, EXIF/video metadata, GPS, city location info, and MD5 hash."""
+        self.update_file_sizes()
+        if self.video:
+            self.update_info_video(orig=orig, update_location=update_location)
+        else:
+            self.update_info_photo()
+
+        if self.latitude and self.longitude and self.latitude != 0 and self.longitude != 0:
+            self.refresh_city_data()
+
+        try:
+            from photos.AI.duplicates import md5_hash
+            self.md5_hash = md5_hash(self.get_filepath())
+        except Exception: pass
+
+        self.save()
+
     def regen_hashes(self):
         fp = (self.album.location + self.filepath + SALT).replace("/mnt/data/Photos/", "")
         fp1 = f"photo_cache/thumbnail/{self.id}.webp{SALT}"

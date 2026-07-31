@@ -91,122 +91,18 @@ def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
         p.owner = user
         p.album = album
         p.filepath = f"{destdir1}{os.path.basename(ff)}"
-        p.save()
-
-        # print(f"Saved photo {p.id}")
-
-        f = p.album.location + p.filepath #; print(p.id)
-
+        p.video = (ff.split('.')[-1].lower() in ['mp4', 'mpg', 'm4v', 'mov', 'mod', 'avi', '3gp', 'mkv'])
+        
         try:
-            sz = os.path.getsize(f)
-            p.size = int(sz / 1024)
-            try:
-                if p.orig_filepath: sz += os.path.getsize(p.album.location + p.orig_filepath)
-            except FileNotFoundError: pass
-            try:
-                if p.raw_filepath: sz += os.path.getsize(p.album.location + p.raw_filepath)
-            except FileNotFoundError: pass
-
-            p.size_total = int(sz / 1024)
-        except FileNotFoundError: pass
-
-
-        if f.split('.')[-1].lower() in ['mp4', 'mpg', 'm4v', 'mov', "mod", "avi", "3gp", "mkv"]:
-            p.video = True
-            p.update_info_exiftool()
-        else:
-            try:
-                img = Image.open(f)
-                p.width = img.size[0]
-                p.height = img.size[1]
-                p.calculate_megapixels()
-                try:
-                    gpsdata = gpsphoto.getGPSData(f)
-                    try:
-                        p.latitude = gpsdata['Latitude']
-                        p.longitude = gpsdata['Longitude']
-                        try:
-                            p.altitude = gpsdata['Altitude']
-                        except: pass
-                    except: pass
-                except: pass
-                p.orientation = 1
-
-                try:
-                    exif = img._getexif()
-
-                    if exif is not None:
-                        exif1 = {}
-                        for key, value in exif.items():
-                            name = TAGS.get(key, key)
-                            exif1[name] = exif[key]
-
-                        exif = exif1
-                        try:
-                            try:
-                                p.camera_make = exif['Make'].replace('\x00', '').replace('\00', '').replace('\0', '')
-                            except KeyError:
-                                pass
-                            try:
-                                p.camera_model = exif['Model'].replace('\x00', '').replace('\00', '').replace('\0', '')
-                            except KeyError:
-                                pass
-                            try:
-                                p.exposure = exif['ExposureTime']
-                            except KeyError:
-                                pass
-                            try:
-                                p.fnumber = exif['FNumber']
-                            except KeyError:
-                                pass
-                            try:
-                                p.isospeed = exif['ISOSpeedRatings']
-                            except KeyError:
-                                pass
-                            try:
-                                p.shutterspeed = exif['ShutterSpeedValue']
-                            except KeyError:
-                                pass
-                            try:
-                                p.aperture = exif['ApertureValue']
-                            except KeyError:
-                                pass
-                            try:
-                                p.flash = exif['Flash']
-                            except KeyError:
-                                pass
-                            try:
-                                p.focallength = exif['FocalLength']
-                            except KeyError:
-                                pass
-                            try:
-                                p.orientation = exif['Orientation']
-                            except KeyError:
-                                pass
-                        except TypeError:
-                            pass
-                except AttributeError: pass
-            except UnidentifiedImageError: pass
-
-        dt = _extract_date_taken(f)
-        try: p.date_taken = dt   
-        except: pass
-
-        # print(p, dt)
-
-        if p.latitude != 0 and p.longitude != 0 and p.latitude != None and p.longitude != None:
-            p.location_city, p.location_country = _reverse_geocode_city(p.latitude, p.longitude)
-
-        try:
-            from photos.AI.duplicates import md5_hash
-            p.md5_hash = md5_hash(f)
+            p.date_taken = _extract_date_taken(ff)
         except Exception:
             pass
 
         p.save()
 
+        # Delegate all file size calculation, EXIF/video info, GPS, location, and MD5 hashing to model method
+        p.update_all_metadata()
         p.gen_thumbnail()
-
         p.regen_hashes()
 
         new_photos.append(p)
