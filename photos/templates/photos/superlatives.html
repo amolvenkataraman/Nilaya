@@ -34,33 +34,51 @@
         {% endif %}
     </div>
 
-    <!-- Superlatives Category Tabs Bar -->
-    <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px; margin-bottom: 24px; border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.1));">
-        {% for cat in categories %}
-        <a href="{% url 'photos_superlatives_category' cat.id %}?{% if admin_override %}admin=1&{% endif %}{% if limit and limit != 50 %}limit={{ limit }}{% endif %}" 
-           class="btn btn-sm {% if category == cat.id %}btn-primary{% else %}btn-outline-secondary{% endif %}"
-           style="border-radius: 20px; padding: 6px 16px; font-weight: 600; font-size: 0.85rem; white-space: nowrap; transition: all 0.2s ease;">
-            {{ cat.icon }} {{ cat.name }}
-        </a>
-        {% endfor %}
+    <!-- Superlatives Category Tabs (Two Rows) -->
+    <div style="margin-bottom: 24px; border-bottom: 1px solid var(--border-color, rgba(255,255,255,0.1)); padding-bottom: 16px;">
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: var(--accent, #6366f1); letter-spacing: 0.05em; margin-bottom: 8px;">
+            🖼️ Media Item Superlatives
+        </div>
+        <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px;">
+            {% for cat in item_categories %}
+            <a href="{% url 'photos_superlatives_category' cat.id %}?{% if admin_override %}admin=1&{% endif %}{% if limit and limit != 50 %}limit={{ limit }}{% endif %}" 
+               class="btn btn-sm {% if category == cat.id %}btn-primary{% else %}btn-outline-secondary{% endif %}"
+               style="border-radius: 20px; padding: 6px 16px; font-weight: 600; font-size: 0.85rem; white-space: nowrap; transition: all 0.2s ease;">
+                {{ cat.icon }} {{ cat.name }}
+            </a>
+            {% endfor %}
+        </div>
+
+        <div style="font-size: 0.75rem; font-weight: 700; text-transform: uppercase; color: #f59e0b; letter-spacing: 0.05em; margin-top: 14px; margin-bottom: 8px;">
+            📅 Single-Day Superlatives
+        </div>
+        <div style="display: flex; gap: 8px; overflow-x: auto;">
+            {% for cat in day_categories %}
+            <a href="{% url 'photos_superlatives_category' cat.id %}?{% if admin_override %}admin=1&{% endif %}{% if limit and limit != 50 %}limit={{ limit }}{% endif %}" 
+               class="btn btn-sm {% if category == cat.id %}btn-warning text-dark{% else %}btn-outline-secondary{% endif %}"
+               style="border-radius: 20px; padding: 6px 16px; font-weight: 600; font-size: 0.85rem; white-space: nowrap; transition: all 0.2s ease;">
+                {{ cat.icon }} {{ cat.name }}
+            </a>
+            {% endfor %}
+        </div>
     </div>
 
     <!-- Active Category Banner & Explanation -->
-    <div style="background: rgba(99, 102, 241, 0.08); border: 1px solid rgba(99, 102, 241, 0.2); border-radius: 12px; padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
+    <div style="background: var(--bg-glass); border: 1px solid var(--border-glass); border-radius: var(--border-radius-sm, 12px); padding: 16px 20px; margin-bottom: 24px; display: flex; align-items: center; justify-content: space-between;">
         <div>
-            <h4 style="margin: 0 0 4px 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary, #fff);">
+            <h4 style="margin: 0 0 4px 0; font-size: 1.1rem; font-weight: 700; color: var(--text-primary);">
                 {{ current_category.icon }} {{ current_category.name }}
             </h4>
-            <span style="font-size: 0.85rem; color: var(--text-secondary, #94a3b8);">
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">
                 {{ current_category.desc }}
             </span>
         </div>
         <div style="display: flex; align-items: center; gap: 8px;">
-            <label style="font-size: 0.85rem; color: var(--text-secondary, #94a3b8); margin: 0; white-space: nowrap; font-weight: 600;">Ranked Items:</label>
+            <label style="font-size: 0.85rem; color: var(--text-secondary); margin: 0; white-space: nowrap; font-weight: 600;">Ranked Items:</label>
             <select class="form-select form-select-sm" 
                     id="limitSelect"
                     onchange="changeLimit(this.value)"
-                    style="background: var(--bg-glass, rgba(15, 23, 42, 0.8)); color: var(--text-primary, #fff); border: 1px solid rgba(99, 102, 241, 0.4); border-radius: 8px; font-weight: 600; padding: 4px 10px; font-size: 0.85rem; cursor: pointer;">
+                    style="background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-glass); border-radius: 8px; font-weight: 600; padding: 4px 10px; font-size: 0.85rem; cursor: pointer;">
                 <option value="20" {% if limit == 20 %}selected{% endif %}>Top 20</option>
                 <option value="50" {% if limit == 50 or not limit %}selected{% endif %}>Top 50</option>
                 <option value="100" {% if limit == 100 %}selected{% endif %}>Top 100</option>
@@ -68,6 +86,55 @@
             </select>
         </div>
     </div>
+
+    {% if is_day_category %}
+    <!-- Single-Day Superlatives Table -->
+    <div class="ct-table-container">
+        <table class="ct-table" id="top-days-table">
+            <thead>
+                <tr>
+                    <th style="width: 80px; text-align: center;">Rank</th>
+                    <th>Date</th>
+                    <th>Primary Metric</th>
+                    <th>Day Summary & Breakdown</th>
+                    <th style="width: 140px; text-align: right;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in top_days %}
+                <tr>
+                    <td style="text-align: center; font-weight: 800; font-size: 1rem; color: {% if item.rank == 1 %}#f59e0b{% elif item.rank == 2 %}#94a3b8{% elif item.rank == 3 %}#b45309{% else %}var(--text-secondary){% endif %};">
+                        {% if item.rank == 1 %}🥇 1{% elif item.rank == 2 %}🥈 2{% elif item.rank == 3 %}🥉 3{% else %}#{{ item.rank }}{% endif %}
+                    </td>
+                    <td style="font-weight: 700; font-size: 0.95rem;">
+                        🗓️ {{ item.date_str }}
+                    </td>
+                    <td>
+                        <span class="badge bg-warning text-dark" style="font-size: 0.9rem; font-weight: 700; padding: 6px 12px; border-radius: 8px;">
+                            {{ item.primary_metric }}
+                        </span>
+                    </td>
+                    <td style="font-size: 0.88rem; color: var(--text-secondary);">
+                        {{ item.secondary_info }}
+                    </td>
+                    <td style="text-align: right;">
+                        <a href="{% url 'day_photos' year=item.year month=item.month day=item.day %}" 
+                           target="_blank"
+                           class="btn btn-sm btn-outline-primary" 
+                           style="font-weight: 600; border-radius: 6px; padding: 5px 14px; font-size: 0.82rem;">
+                            👁️ View Day
+                        </a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5" style="text-align: center; padding: 40px; color: var(--text-secondary);">No day statistics found matching criteria.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
 
     <!-- Storage Summary Cards -->
     <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr); margin-bottom: 24px;">
@@ -82,12 +149,12 @@
         <div class="stats-card">
             <span class="stats-card-label" style="color: #10b981;">Photos Listed</span>
             <span class="stats-card-value" id="stat-photo-count">{{ summary.photo_count }}</span>
-            <span class="stats-card-desc">photos in top 50</span>
+            <span class="stats-card-desc">photos in top {{ limit }}</span>
         </div>
         <div class="stats-card">
             <span class="stats-card-label" style="color: #3b82f6;">Videos Listed</span>
             <span class="stats-card-value" id="stat-video-count">{{ summary.video_count }}</span>
-            <span class="stats-card-desc">videos in top 50</span>
+            <span class="stats-card-desc">videos in top {{ limit }}</span>
         </div>
         <div class="stats-card">
             {% if category == 'longest-videos' %}
@@ -106,7 +173,7 @@
         </div>
     </div>
 
-    <!-- Table of Top 50 Files -->
+    <!-- Table of Top Media Files -->
     <div class="ct-table-container">
         <table class="ct-table" id="top-files-table">
             <thead>
@@ -217,6 +284,7 @@
             </tbody>
         </table>
     </div>
+    {% endif %}
 </div>
 
 <!-- Floating Batch Action Bar -->

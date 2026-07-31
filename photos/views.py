@@ -1466,20 +1466,29 @@ def superlatives_page(request, category='biggest-files'):
     from django.shortcuts import redirect
     from django.db.models import F, Q
 
-    CATEGORIES = [
-        {'id': 'biggest-files', 'name': 'Disk Footprint', 'icon': '💾', 'desc': 'Top 50 photos & videos by total disk space.'},
-        {'id': 'longest-videos', 'name': 'Longest Videos', 'icon': '🎬', 'desc': 'Top 50 longest videos by duration.'},
-        {'id': 'biggest-orig-videos', 'name': 'Original Videos', 'icon': '📼', 'desc': 'Top 50 videos with original unoptimized source files.'},
-        {'id': 'biggest-resolution', 'name': 'Highest Resolution', 'icon': '🖼️', 'desc': 'Top 50 media items by megapixel resolution.'},
-        {'id': 'biggest-photos', 'name': 'Largest Photos', 'icon': '📸', 'desc': 'Top 50 photo files (excluding videos) by file size.'},
-        {'id': 'biggest-overhead', 'name': 'Overhead Gap', 'icon': '⚡', 'desc': 'Top 50 files with largest original vs. optimized gap.'},
-        {'id': 'biggest-raw', 'name': 'RAW Files', 'icon': '🎞️', 'desc': 'Top 50 photos with attached RAW camera images.'},
+    ITEM_CATEGORIES = [
+        {'id': 'biggest-files', 'name': 'Disk Footprint', 'icon': '💾', 'desc': 'Top media items ranked by total disk space used.', 'type': 'item'},
+        {'id': 'longest-videos', 'name': 'Longest Videos', 'icon': '🎬', 'desc': 'Top longest individual videos by duration.', 'type': 'item'},
+        {'id': 'biggest-orig-videos', 'name': 'Original Videos', 'icon': '📼', 'desc': 'Top videos with original uncompressed source backups.', 'type': 'item'},
+        {'id': 'biggest-resolution', 'name': 'Highest Resolution', 'icon': '🖼️', 'desc': 'Top media items ranked by megapixel resolution.', 'type': 'item'},
+        {'id': 'biggest-photos', 'name': 'Largest Photos', 'icon': '📸', 'desc': 'Top photo files (excluding videos) by file size.', 'type': 'item'},
+        {'id': 'biggest-overhead', 'name': 'Overhead Gap', 'icon': '⚡', 'desc': 'Top files with largest original vs. compressed size gap.', 'type': 'item'},
+        {'id': 'biggest-raw', 'name': 'RAW Files', 'icon': '🎞️', 'desc': 'Top photos with attached RAW camera images.', 'type': 'item'},
     ]
 
-    cat_dict = {c['id']: c for c in CATEGORIES}
+    DAY_CATEGORIES = [
+        {'id': 'day-most-photos', 'name': 'Most Photos (1 Day)', 'icon': '📅', 'desc': 'Days with the highest number of photos taken.', 'type': 'day'},
+        {'id': 'day-most-videos', 'name': 'Most Videos (1 Day)', 'icon': '📹', 'desc': 'Days with the highest number of videos recorded.', 'type': 'day'},
+        {'id': 'day-most-storage', 'name': 'Most Storage (1 Day)', 'icon': '📊', 'desc': 'Days with the largest total storage footprint.', 'type': 'day'},
+        {'id': 'day-longest-video-time', 'name': 'Most Video Time (1 Day)', 'icon': '⏱️', 'desc': 'Days with the longest combined video duration recorded.', 'type': 'day'},
+    ]
+
+    ALL_CATEGORIES = ITEM_CATEGORIES + DAY_CATEGORIES
+    cat_dict = {c['id']: c for c in ALL_CATEGORIES}
     if category not in cat_dict:
         category = 'biggest-files'
     current_category = cat_dict[category]
+    is_day_category = current_category.get('type') == 'day'
 
     is_admin = request.user.is_superuser or request.user.is_staff
     admin_override = False
@@ -1509,117 +1518,210 @@ def superlatives_page(request, category='biggest-files'):
     except (ValueError, TypeError):
         limit = 50
 
-    # Apply category specific filters & ordering
-    if category == 'biggest-files':
-        qs = base_qs.order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:limit]
-    elif category == 'longest-videos':
-        qs = base_qs.filter(video=True).exclude(length__isnull=True).order_by(F('length').desc(nulls_last=True))[:limit]
-    elif category == 'biggest-orig-videos':
-        qs = base_qs.filter(video=True, orig_filepath__isnull=False).exclude(orig_filepath='').order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:limit]
-    elif category == 'biggest-resolution':
-        qs = base_qs.exclude(megapixels__isnull=True).order_by(F('megapixels').desc(nulls_last=True))[:limit]
-    elif category == 'biggest-photos':
-        qs = base_qs.filter(video=False).order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:limit]
-    elif category == 'biggest-overhead':
-        qs = base_qs.annotate(overhead_gap=F('size_total') - F('size')).filter(overhead_gap__gt=0).order_by(F('overhead_gap').desc(nulls_last=True))[:limit]
-    elif category == 'biggest-raw':
-        qs = base_qs.filter(Q(raw_filepath__isnull=False) & ~Q(raw_filepath='')).order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:limit]
-    else:
-        qs = base_qs.order_by(F('size_total').desc(nulls_last=True))[:limit]
-
     top_photos = []
-    tot_size_sum = 0
-    opt_size_sum = 0
-    photo_count = 0
-    video_count = 0
-    total_duration_sec = 0
-    max_mp = 0.0
+    top_days = []
+    summary = {}
 
-    for idx, photo in enumerate(qs, 1):
-        tot = photo.size_total or photo.size or 0
-        opt = photo.size or photo.size_total or 0
+    if is_day_category:
+        day_base = base_qs.filter(date_taken__isnull=False)
 
-        if tot == 0:
-            try:
-                full_p = photo.get_filepath()
-                if os.path.exists(full_p):
-                    tot = os.path.getsize(full_p) // 1024
-                    opt = tot
-            except Exception:
-                pass
-        tot_size_sum += tot
-        opt_size_sum += opt
+        if category == 'day-most-photos':
+            rows = day_base.filter(video=False).values(d=F('date_taken__date')).annotate(
+                metric_val=Count('id'),
+                tot_size=Sum('size_total')
+            ).order_by('-metric_val')[:limit]
 
-        if photo.video:
-            video_count += 1
-            if photo.length:
-                total_duration_sec += photo.length
+            for idx, r in enumerate(rows, 1):
+                dt = r['d']
+                top_days.append({
+                    'rank': idx,
+                    'date': dt,
+                    'year': dt.year,
+                    'month': dt.month,
+                    'day': dt.day,
+                    'date_str': dt.strftime('%A, %b %d, %Y'),
+                    'primary_metric': f"{r['metric_val']:,} Photos",
+                    'secondary_info': f"{get_size_str(r['tot_size'] or 0)} storage",
+                })
+
+        elif category == 'day-most-videos':
+            rows = day_base.filter(video=True).values(d=F('date_taken__date')).annotate(
+                metric_val=Count('id'),
+                tot_length=Sum('length'),
+                tot_size=Sum('size_total')
+            ).order_by('-metric_val')[:limit]
+
+            for idx, r in enumerate(rows, 1):
+                dt = r['d']
+                dur_str = get_duration_str(r['tot_length'] or 0)
+                top_days.append({
+                    'rank': idx,
+                    'date': dt,
+                    'year': dt.year,
+                    'month': dt.month,
+                    'day': dt.day,
+                    'date_str': dt.strftime('%A, %b %d, %Y'),
+                    'primary_metric': f"{r['metric_val']:,} Videos",
+                    'secondary_info': f"{dur_str} total length • {get_size_str(r['tot_size'] or 0)} storage",
+                })
+
+        elif category == 'day-most-storage':
+            rows = day_base.values(d=F('date_taken__date')).annotate(
+                metric_val=Sum('size_total'),
+                count=Count('id'),
+                video_count=Count('id', filter=Q(video=True)),
+                photo_count=Count('id', filter=Q(video=False))
+            ).order_by(F('metric_val').desc(nulls_last=True))[:limit]
+
+            for idx, r in enumerate(rows, 1):
+                dt = r['d']
+                top_days.append({
+                    'rank': idx,
+                    'date': dt,
+                    'year': dt.year,
+                    'month': dt.month,
+                    'day': dt.day,
+                    'date_str': dt.strftime('%A, %b %d, %Y'),
+                    'primary_metric': get_size_str(r['metric_val'] or 0),
+                    'secondary_info': f"{r['count']:,} items ({r['photo_count']} photos, {r['video_count']} videos)",
+                })
+
+        elif category == 'day-longest-video-time':
+            rows = day_base.filter(video=True, length__gt=0).values(d=F('date_taken__date')).annotate(
+                metric_val=Sum('length'),
+                count=Count('id'),
+                tot_size=Sum('size_total')
+            ).order_by(F('metric_val').desc(nulls_last=True))[:limit]
+
+            for idx, r in enumerate(rows, 1):
+                dt = r['d']
+                top_days.append({
+                    'rank': idx,
+                    'date': dt,
+                    'year': dt.year,
+                    'month': dt.month,
+                    'day': dt.day,
+                    'date_str': dt.strftime('%A, %b %d, %Y'),
+                    'primary_metric': get_duration_str(r['metric_val'] or 0),
+                    'secondary_info': f"{r['count']:,} videos • {get_size_str(r['tot_size'] or 0)} storage",
+                })
+
+        summary = {'count': len(top_days)}
+
+    else:
+        # Apply category specific filters & ordering
+        if category == 'biggest-files':
+            qs = base_qs.order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:limit]
+        elif category == 'longest-videos':
+            qs = base_qs.filter(video=True).exclude(length__isnull=True).order_by(F('length').desc(nulls_last=True))[:limit]
+        elif category == 'biggest-orig-videos':
+            qs = base_qs.filter(video=True, orig_filepath__isnull=False).exclude(orig_filepath='').order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:limit]
+        elif category == 'biggest-resolution':
+            qs = base_qs.exclude(megapixels__isnull=True).order_by(F('megapixels').desc(nulls_last=True))[:limit]
+        elif category == 'biggest-photos':
+            qs = base_qs.filter(video=False).order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:limit]
+        elif category == 'biggest-overhead':
+            qs = base_qs.annotate(overhead_gap=F('size_total') - F('size')).filter(overhead_gap__gt=0).order_by(F('overhead_gap').desc(nulls_last=True))[:limit]
+        elif category == 'biggest-raw':
+            qs = base_qs.filter(Q(raw_filepath__isnull=False) & ~Q(raw_filepath='')).order_by(F('size_total').desc(nulls_last=True), F('size').desc(nulls_last=True))[:limit]
         else:
-            photo_count += 1
+            qs = base_qs.order_by(F('size_total').desc(nulls_last=True))[:limit]
 
-        if photo.megapixels and photo.megapixels > max_mp:
-            max_mp = photo.megapixels
+        tot_size_sum = 0
+        opt_size_sum = 0
+        photo_count = 0
+        video_count = 0
+        total_duration_sec = 0
+        max_mp = 0.0
 
-        duration_text = ""
-        if photo.video and photo.length:
-            m, s = divmod(photo.length, 60)
-            duration_text = f"{m:02d}:{s:02d}"
+        for idx, photo in enumerate(qs, 1):
+            tot = photo.size_total or photo.size or 0
+            opt = photo.size or photo.size_total or 0
 
-        info_dict = photo.getinfo()
+            if tot == 0:
+                try:
+                    full_p = photo.get_filepath()
+                    if os.path.exists(full_p):
+                        tot = os.path.getsize(full_p) // 1024
+                        opt = tot
+                except Exception:
+                    pass
+            tot_size_sum += tot
+            opt_size_sum += opt
 
-        local_dt = timezone.localtime(photo.date_taken, pytz.timezone(TIME_ZONE)) if (photo.date_taken and timezone.is_aware(photo.date_taken)) else photo.date_taken
-        date_taken_str = local_dt.strftime("%Y-%m-%d %H:%M") if local_dt else "—"
+            if photo.video:
+                video_count += 1
+                if photo.length:
+                    total_duration_sec += photo.length
+            else:
+                photo_count += 1
 
-        top_photos.append({
-            'rank': idx,
-            'id': str(photo.id),
-            'filename': os.path.basename(photo.filepath),
-            'filepath': photo.filepath,
-            'album_name': photo.album.name,
-            'owner_username': photo.owner.username,
-            'video': photo.video,
-            'size': photo.size,
-            'size_total': photo.size_total,
-            'opt_size_str': get_size_str(opt),
-            'tot_size_str': get_size_str(tot),
-            'overhead_str': get_size_str(max(0, tot - opt)),
-            'date_taken': local_dt,
-            'date_taken_str': date_taken_str,
-            'thumbnail_hash': photo.thumbnail_hash,
-            'photo_hash': photo.photo_hash,
-            'path': photo.get_path(),
-            'has_raw': photo.has_raw,
-            'has_orig': photo.has_orig,
-            'duration_text': duration_text,
-            'megapixels': photo.megapixels,
-            'dimensions': f"{photo.width or 0} × {photo.height or 0}" if (photo.width and photo.height) else "",
-            'info': info_dict,
-            'info_json': json.dumps(info_dict),
-        })
+            if photo.megapixels and photo.megapixels > max_mp:
+                max_mp = photo.megapixels
 
-    summary = {
-        'count': len(top_photos),
-        'photo_count': photo_count,
-        'video_count': video_count,
-        'tot_size_str': get_size_str(tot_size_sum),
-        'opt_size_str': get_size_str(opt_size_sum),
-        'overhead_str': get_size_str(max(0, tot_size_sum - opt_size_sum)),
-        'total_duration_str': get_duration_str(total_duration_sec),
-        'max_mp': round(max_mp, 1),
-    }
+            duration_text = ""
+            if photo.video and photo.length:
+                m, s = divmod(photo.length, 60)
+                duration_text = f"{m:02d}:{s:02d}"
+
+            info_dict = photo.getinfo()
+
+            local_dt = timezone.localtime(photo.date_taken, pytz.timezone(TIME_ZONE)) if (photo.date_taken and timezone.is_aware(photo.date_taken)) else photo.date_taken
+            date_taken_str = local_dt.strftime("%Y-%m-%d %H:%M") if local_dt else "—"
+
+            top_photos.append({
+                'rank': idx,
+                'id': str(photo.id),
+                'filename': os.path.basename(photo.filepath),
+                'filepath': photo.filepath,
+                'album_name': photo.album.name,
+                'owner_username': photo.owner.username,
+                'video': photo.video,
+                'size': photo.size,
+                'size_total': photo.size_total,
+                'opt_size_str': get_size_str(opt),
+                'tot_size_str': get_size_str(tot),
+                'overhead_str': get_size_str(max(0, tot - opt)),
+                'date_taken': local_dt,
+                'date_taken_str': date_taken_str,
+                'thumbnail_hash': photo.thumbnail_hash,
+                'photo_hash': photo.photo_hash,
+                'path': photo.get_path(),
+                'has_raw': photo.has_raw,
+                'has_orig': photo.has_orig,
+                'duration_text': duration_text,
+                'megapixels': photo.megapixels,
+                'dimensions': f"{photo.width or 0} × {photo.height or 0}" if (photo.width and photo.height) else "",
+                'info': info_dict,
+                'info_json': json.dumps(info_dict),
+            })
+
+        summary = {
+            'count': len(top_photos),
+            'photo_count': photo_count,
+            'video_count': video_count,
+            'tot_size_str': get_size_str(tot_size_sum),
+            'opt_size_str': get_size_str(opt_size_sum),
+            'overhead_str': get_size_str(max(0, tot_size_sum - opt_size_sum)),
+            'total_duration_str': get_duration_str(total_duration_sec),
+            'max_mp': round(max_mp, 1),
+        }
 
     top_photos_meta_json = json.dumps({p['id']: p['info'] for p in top_photos})
 
     context = {
         "active_page": "superlatives",
         "category": category,
-        "categories": CATEGORIES,
+        "item_categories": ITEM_CATEGORIES,
+        "day_categories": DAY_CATEGORIES,
         "current_category": current_category,
+        "is_day_category": is_day_category,
         "left_sidebar": True,
         "right_sidebar": False,
         "admin_override": admin_override,
         "limit": limit,
         "top_photos": top_photos,
+        "top_days": top_days,
         "top_photos_meta_json": top_photos_meta_json,
         "summary": summary,
     }
