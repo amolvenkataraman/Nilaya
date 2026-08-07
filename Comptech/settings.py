@@ -209,6 +209,8 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Photos settings
 PHOTOS_AI_INDEX_ON_INGEST = True  # Set to False to disable automatic AI object detection during photo ingest
+ALLOW_PHOTO_UPLOADS = True        # Set to False to disable /photos/upload/ route
+PHOTOS_UPLOAD_RECIPIENT_NAME = "Amol Venkataraman"  # Name displayed on media share upload portal
 
 # Allow cross-origin requests to include the Referer header (required by OSM tile servers)
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"

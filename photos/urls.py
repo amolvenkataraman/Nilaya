@@ -15,6 +15,7 @@ urlpatterns = [
     path("date/", views.get_photos_for_date, name='get_photos_for_date'),
     path("photo/<slug:photo_id>/<slug:ret_type>/", views.get_photo, name='get_photo'),
     path("ingest/", views.ingest_photos, name='ingest_photos'),
+    path("upload/", views.upload_photos, name='upload_photos'),
     path("delete/<slug:photo_id>/", views.del_photo_req, name='del_photo_req'),
     path("delete-original/<slug:photo_id>/", views.delete_photo_original, name='delete_photo_original'),
     path("albums/json-list/", views.list_my_albums, name='list_my_albums'),

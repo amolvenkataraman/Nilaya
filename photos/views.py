@@ -1,8 +1,9 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.db.models import Q, Count, Sum
 from django.http import HttpResponse, JsonResponse, FileResponse
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
+from django.conf import settings
 from wsgiref.util import FileWrapper
 from .models import *
 from .indeximg import photo_ingest_for_album
@@ -1863,5 +1864,89 @@ def search_category(request, category):
         "items": items,
     }
     return render(request, "photos/search_category.html", context)
+
+
+ALLOWED_MEDIA_EXTENSIONS = {
+    "jpg", "jpeg", "png", "mp4", "mpg", "m4v", "mov", "mod", "avi", "3gp", "mkv", "gif", "heic", "webp"
+}
+UPLOAD_TARGET_DIR = "/mnt/data/Photos/Uploads/"
+
+
+def upload_photos(request):
+    """Google Drive style uploader view for ingesting photos and videos with full metadata preservation."""
+    recipient_name = getattr(settings, 'PHOTOS_UPLOAD_RECIPIENT_NAME', 'Amol Venkataraman')
+
+    # Check if upload route is enabled in settings
+    if not getattr(settings, 'ALLOW_PHOTO_UPLOADS', True):
+        if request.headers.get('x-requested-with') == 'XMLHttpRequest' or 'multipart/form-data' in request.content_type:
+            return JsonResponse({'status': 'error', 'message': 'Photo uploads are currently disabled.'}, status=403)
+        return render(request, "photos/upload.html", {
+            "active_page": "upload",
+            "left_sidebar": False,
+            "right_sidebar": False,
+            "recipient_name": recipient_name,
+            "uploads_disabled": True,
+        }, status=403)
+
+    if request.method == "POST":
+        uploaded_files = request.FILES.getlist('files') or request.FILES.getlist('file')
+        if not uploaded_files and len(request.FILES) > 0:
+            uploaded_files = list(request.FILES.values())
+
+        if not uploaded_files:
+            return JsonResponse({'status': 'error', 'message': 'No files provided for upload.'}, status=400)
+
+        os.makedirs(UPLOAD_TARGET_DIR, exist_ok=True)
+
+        saved_files = []
+        errors = []
+
+        for f in uploaded_files:
+            # Strip path elements to prevent directory traversal
+            orig_name = Path(f.name).name
+            ext = orig_name.split('.')[-1].lower() if '.' in orig_name else ''
+
+            if ext not in ALLOWED_MEDIA_EXTENSIONS:
+                errors.append(f"File '{orig_name}' has an unsupported extension (.{ext}).")
+                continue
+
+            # Ensure unique filename to prevent accidental overwriting
+            target_path = os.path.join(UPLOAD_TARGET_DIR, orig_name)
+            base_name, file_ext = os.path.splitext(orig_name)
+            counter = 1
+            while os.path.exists(target_path):
+                target_path = os.path.join(UPLOAD_TARGET_DIR, f"{base_name}_{counter}{file_ext}")
+                counter += 1
+
+            try:
+                # Write raw chunks directly to disk to preserve 100% EXIF & video metadata
+                with open(target_path, 'wb+') as destination:
+                    for chunk in f.chunks():
+                        destination.write(chunk)
+                saved_files.append(os.path.basename(target_path))
+            except Exception as e:
+                errors.append(f"Failed to save '{orig_name}': {str(e)}")
+
+        if not saved_files and errors:
+            return JsonResponse({'status': 'error', 'message': '; '.join(errors)}, status=400)
+
+        return JsonResponse({
+            'status': 'success',
+            'saved_count': len(saved_files),
+            'files': saved_files,
+            'errors': errors
+        })
+
+    # GET request
+    context = {
+        "active_page": "upload",
+        "left_sidebar": False,
+        "right_sidebar": False,
+        "recipient_name": recipient_name,
+        "allowed_extensions": sorted(list(ALLOWED_MEDIA_EXTENSIONS)),
+        "uploads_disabled": False,
+    }
+    return render(request, "photos/upload.html", context)
+
 
 
