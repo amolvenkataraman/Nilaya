@@ -2379,12 +2379,108 @@ function roundDate(date = new Date(), mins) {
 }
 
 function parse_message(text) {
-    text = text.replace("\n", "<br>")
-    var urlRegex = /(https?:\/\/[^\s]+)/g;
-    return text.replace(urlRegex, function (url) {
-        return '<a href="' + url + '" target="blank">' + url + '</a>';
-    })
+    if (!text) return "";
+
+    // If text does not contain HTML tags, convert newlines to <br>
+    const hasBlockHtml = /<\s*(p|div|ul|ol|li|table|br|h[1-6]|a)\b/i.test(text);
+    let htmlContent = hasBlockHtml ? text : text.replace(/\r?\n/g, '<br>');
+
+    try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(htmlContent, 'text/html');
+
+        // Traverse all text nodes that are NOT inside an <a> tag
+        const walker = doc.createTreeWalker(
+            doc.body,
+            NodeFilter.SHOW_TEXT,
+            {
+                acceptNode: function (node) {
+                    let parent = node.parentElement;
+                    while (parent && parent !== doc.body) {
+                        if (parent.tagName.toLowerCase() === 'a') {
+                            return NodeFilter.FILTER_REJECT;
+                        }
+                        parent = parent.parentElement;
+                    }
+                    return NodeFilter.FILTER_ACCEPT;
+                }
+            }
+        );
+
+        const nodesToReplace = [];
+        const urlRegex = /(https?:\/\/[^\s<>"'`]+)/g;
+
+        let currentNode;
+        while ((currentNode = walker.nextNode())) {
+            if (urlRegex.test(currentNode.nodeValue)) {
+                nodesToReplace.push(currentNode);
+            }
+            urlRegex.lastIndex = 0;
+        }
+
+        for (let i = 0; i < nodesToReplace.length; i++) {
+            const node = nodesToReplace[i];
+            const val = node.nodeValue;
+            const parent = node.parentNode;
+            if (!parent) continue;
+
+            const frag = doc.createDocumentFragment();
+            let lastIdx = 0;
+            let match;
+            urlRegex.lastIndex = 0;
+
+            while ((match = urlRegex.exec(val)) !== null) {
+                if (match.index > lastIdx) {
+                    frag.appendChild(doc.createTextNode(val.substring(lastIdx, match.index)));
+                }
+
+                let url = match[0];
+                let trailing = "";
+                const punctMatch = url.match(/[.,;:!?)]+$/);
+                if (punctMatch) {
+                    const openCount = (url.slice(0, -punctMatch[0].length).match(/\(/g) || []).length;
+                    const closeCount = (url.slice(0, -punctMatch[0].length).match(/\)/g) || []).length;
+                    if (openCount === closeCount) {
+                        trailing = punctMatch[0];
+                        url = url.slice(0, -trailing.length);
+                    }
+                }
+
+                const a = doc.createElement('a');
+                a.href = url;
+                a.target = '_blank';
+                a.rel = 'noopener noreferrer';
+                a.textContent = url;
+                frag.appendChild(a);
+
+                if (trailing) {
+                    frag.appendChild(doc.createTextNode(trailing));
+                }
+
+                lastIdx = match.index + match[0].length;
+            }
+
+            if (lastIdx < val.length) {
+                frag.appendChild(doc.createTextNode(val.substring(lastIdx)));
+            }
+
+            parent.replaceChild(frag, node);
+        }
+
+        // Ensure all existing or newly created <a> tags open safely in a new tab
+        const allLinks = doc.body.querySelectorAll('a');
+        for (let j = 0; j < allLinks.length; j++) {
+            if (!allLinks[j].getAttribute('target')) allLinks[j].setAttribute('target', '_blank');
+            if (!allLinks[j].getAttribute('rel')) allLinks[j].setAttribute('rel', 'noopener noreferrer');
+        }
+
+        return doc.body.innerHTML;
+    } catch (e) {
+        console.error("Error in parse_message:", e);
+        return text;
+    }
 }
+
 
 function value_or_empty(str) {
     if (str == null) {
