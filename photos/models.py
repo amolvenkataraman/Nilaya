@@ -59,6 +59,7 @@ def parse_album_path(instance, filename):
 class Album(models.Model):
     name = models.CharField(max_length=64)
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='album_owner')
+    parent_album = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='child_albums')
     oldestdate = models.DateTimeField(null=True, blank=True)
     newestdate = models.DateTimeField(null=True, blank=True)
     picture = models.ImageField(upload_to=parse_album_path, null=True, blank=True)

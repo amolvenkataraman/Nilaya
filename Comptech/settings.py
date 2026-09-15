@@ -214,3 +214,6 @@ PHOTOS_UPLOAD_RECIPIENT_NAME = "Amol Venkataraman"  # Name displayed on media sh
 
 # Allow cross-origin requests to include the Referer header (required by OSM tile servers)
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
+
+PHOTOS_INGEST_RETENTION_DAYS = 365
+PHOTOS_INGEST_RAW_RETENTION_DAYS = 180
