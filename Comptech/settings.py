@@ -28,7 +28,7 @@ DB_PASSWORD = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'db_passwor
 SALT = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'salt.txt')).read().rstrip()
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True # True in development, False in production
+DEBUG = False # True in development, False in production
 
 ONLINE_MODE = True # Change to False to disable all external requests
 

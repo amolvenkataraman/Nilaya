@@ -12,18 +12,20 @@ def sync_ical(calendar, start, end, url=None):
     if url == None: url = calendar.calendar_url
     r = requests.get(url)
     cal = Cal(r.text)
+    toronto = pytz.timezone('America/Toronto')
     for i in cal.events:
         try:
-            sd = i.begin.naive.replace(tzinfo=i.begin.tzinfo)
-            ed = i.end.naive.replace(tzinfo=i.end.tzinfo)
+            sd = i.begin.datetime
+            ed = i.end.datetime
 
             is_all_day = i.all_day or (
-                sd.date() == ed.date() and  # Same start and end date
-                sd.time() == ed.time() == sd.replace(tzinfo=pytz.UTC).time()  # Time is 00:00 UTC
+                sd.date() == ed.date() and
+                sd.time() == datetime.time(0, 0) and
+                ed.time() == datetime.time(0, 0)
             )
             if is_all_day:
-                sd = sd.replace(tzinfo=pytz.timezone('America/Toronto'))
-                ed = ed.replace(tzinfo=pytz.timezone('America/Toronto'))
+                sd = toronto.localize(datetime.datetime(sd.year, sd.month, sd.day, 0, 0))
+                ed = toronto.localize(datetime.datetime(ed.year, ed.month, ed.day, 0, 0))
                 if sd.date() == ed.date(): ed = ed + datetime.timedelta(days=1)
 
             if (sd >= parser.parse(start) and ed <= parser.parse(end)):
@@ -100,8 +102,9 @@ def sync_uwaterloo(calendar, start, end):
 
     try:
         for i in res:
-            sd = parser.parse(i['eventStartDate']).replace(tzinfo=pytz.timezone('America/Toronto'))
-            ed = parser.parse(i['eventEndDate']).replace(tzinfo=pytz.timezone('America/Toronto'))
+            toronto = pytz.timezone('America/Toronto')
+            sd = toronto.localize(parser.parse(i['eventStartDate']))
+            ed = toronto.localize(parser.parse(i['eventEndDate']))
 
             if (sd >= parser.parse(start) and ed <= parser.parse(end)):
                 try:

@@ -57,7 +57,7 @@ def get_events(request):
     # TEMPORARY - For experiments
     # To remove later
     ext = request.GET.get("extra")
-    if ext != "":
+    if ext:
         inj = [i.rstrip().lstrip() for i in ext.split(",")]
         for i in inj:
             try:
