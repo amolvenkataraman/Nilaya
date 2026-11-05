@@ -2,6 +2,7 @@
 
     .venv/bin/python localdev/screens.py / /calendar/ /accounts/login/ ...
     .venv/bin/python localdev/screens.py --quick /calendar/     (light + desktop only)
+    .venv/bin/python localdev/screens.py --4k /photos/           (2560x1440 and 3840x2160, light)
     (needs: uv pip install --python .venv playwright && .venv/bin/playwright install chromium)
 
 Writes PNGs to localdev/data/screens/<page>-<theme>-<width>.png. Logs in as amol
@@ -56,7 +57,9 @@ def main(paths, themes=("light", "dark"), sizes=SIZES):
 
 if __name__ == "__main__":
     args = sys.argv[1:]
-    if args and args[0] in ("--quick", "--quick-dark"):  # one theme, desktop only
+    if args and args[0] == "--4k":  # big monitors at scale factor 1 (light only)
+        main(args[1:] or ["/"], themes=("light",), sizes={"qhd": (2560, 1440), "4k": (3840, 2160)})
+    elif args and args[0] in ("--quick", "--quick-dark"):  # one theme, desktop only
         theme = "dark" if args[0] == "--quick-dark" else "light"
         main(args[1:] or ["/"], themes=(theme,), sizes={"desktop": SIZES["desktop"]})
     else:
