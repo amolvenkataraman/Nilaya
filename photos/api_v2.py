@@ -152,9 +152,7 @@ def library(user, request=None, listing=False):
     subs = Album_Subscriber.objects.filter(user=user)
     if listing:
         subs = subs.filter(visible=True)
-    # file_not_available isn't used to hide items: old scripts set it whenever a thumbnail failed (most
-    # older videos), and the classic pages always showed and counted those items.
-    qs = Photo.objects.filter(album_id__in=subs.values("album_id"))
+    qs = Photo.objects.filter(album_id__in=subs.values("album_id"), file_not_available=False)  # files that are gone
     return hidden_mode.visible(qs, request)
 
 
