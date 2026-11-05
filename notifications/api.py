@@ -85,11 +85,17 @@ class TestOut(Schema):
 # ---------------------------------------------------------------- inbox
 
 @router.get("/", response=InboxOut, summary="Recent notifications")
-def inbox(request, unread_only: bool = False, limit: int = 20, before: Optional[datetime.datetime] = None):
+def inbox(request, unread_only: bool = False, limit: int = 20, before: Optional[datetime.datetime] = None,
+          q: str = "", source: str = ""):
+    from django.db.models import Q
     qs = Notification.objects.filter(user=request.user).exclude(expires_on__lt=timezone.now())
     unread = qs.filter(read=False).count()
     if unread_only:
         qs = qs.filter(read=False)
+    if q:
+        qs = qs.filter(Q(title__icontains=q) | Q(description__icontains=q))
+    if source:
+        qs = qs.filter(source__iexact=source)
     if before:
         qs = qs.filter(created_on__lt=before)
     return {"items": list(qs[: max(1, min(limit, 100))]), "unread": unread}
@@ -105,6 +111,17 @@ def unread_count(request):
 def read_all(request):
     Notification.objects.filter(user=request.user, read=False).update(read=True, read_at=timezone.now())
     return {"unread": 0}
+
+
+@router.post("/clear-read", summary="Delete every read notification")
+def clear_read(request):
+    deleted, _ = Notification.objects.filter(user=request.user, read=True).delete()
+    return {"deleted": deleted}
+
+
+@router.get("/sources", summary="Sources that appear in your inbox (for filters)")
+def sources(request):
+    return sorted(set(Notification.objects.filter(user=request.user).values_list("source", flat=True)))
 
 
 @router.post("/{uuid:notification_id}/read", response=NotificationOut)

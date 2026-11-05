@@ -48,6 +48,18 @@ class DeliveryTests(TestCase):
         self.client.patch(f"/api/v2/notifications/channels/{cid}", {"config": {"token": ""}}, content_type="application/json")
         self.assertEqual(NotificationChannel.objects.get(id=cid).config["token"], "supersecrettoken")
 
+    def test_inbox_search_source_filter_and_clear_read(self):
+        notify(self.user, "Dentist tomorrow", source="Calendar", deliver_now=False)
+        read = notify(self.user, "Backup done", source="Tasks", deliver_now=False)
+        notify(self.user, "Read later", source="Tasks", deliver_now=False)
+        self.client.force_login(self.user)
+        titles = lambda q: [i["title"] for i in self.client.get(f"/api/v2/notifications/?{q}").json()["items"]]
+        self.assertEqual(titles("q=dentist"), ["Dentist tomorrow"])
+        self.assertEqual(sorted(titles("source=Tasks")), ["Backup done", "Read later"])
+        self.client.post(f"/api/v2/notifications/{read.id}/read")
+        self.assertEqual(self.client.post("/api/v2/notifications/clear-read").json(), {"deleted": 1})
+        self.assertEqual(len(titles("")), 2)
+
     def test_inbox_is_per_user_and_read_state_updates(self):
         mine = notify(self.user, "Mine", deliver_now=False)
         other = ComptechUser.objects.create_user("bo", password="pw")
