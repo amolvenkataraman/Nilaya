@@ -6,12 +6,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import 'leaflet/dist/leaflet.css'
 import L from './leaflet-global'
 import { ApiError, get, post, safeHref } from '../../lib/api'
+import { photoSummaryQuery } from '../../lib/photoQueries'
 import { fmtDate, fmtTime } from '../../lib/dates'
 import type { Photo } from '../../lib/types'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { useDebounced, useHotkey } from '../../components/ui'
-import { HeatLayer, type HeatPoint } from './heat'
+import { HeatLayer, realPoints, type HeatPoint } from './heat'
 import { closeness, distanceM, fmtDistance, score } from './game'
 
 type LatLng = { lat: number; lng: number }
@@ -297,6 +298,7 @@ export function LocatePage() {
   const points = useQuery({
     queryKey: ['photos', 'points', WORLD, '', false],
     queryFn: ({ signal }) => get<HeatPoint[]>('photos/points', WORLD, signal),
+    select: realPoints,
     enabled: heat, staleTime: 30 * 60_000,
   })
   const heatLayer = useRef<HeatLayer | null>(null)
@@ -368,7 +370,7 @@ export function LocatePage() {
     try { localStorage.setItem(PRESETS_KEY, JSON.stringify(v)) } catch { /* ignore */ }
   }
   const [naming, setNaming] = useState<string | null>(null)
-  const years = useQuery({ queryKey: ['photos', 'summary'], queryFn: () => get<{ per_year: { year: number; count: number }[] }>('photos/summary'), staleTime: 10 * 60_000 }).data?.per_year ?? []
+  const years = useQuery(photoSummaryQuery<{ per_year: { year: number; count: number }[] }>()).data?.per_year ?? []
   const t = photo && when(photo)
 
   return (

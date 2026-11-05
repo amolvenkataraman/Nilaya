@@ -136,9 +136,6 @@ export default function TasksPage() {
     return p
   }, [params, isProjectList, state.view, showCompleted, isList, isTable]) // eslint-disable-line react-hooks/exhaustive-deps
   const doneQuery = useTasks(doneParams ?? {}, !!doneParams)
-  const todayStart = startOfDay(new Date()).toISOString()
-  // "X of Y done today": from the overview's done_today once the API has it; until then one limit=1 request.
-  const doneToday = useTasks({ view: 'done', done_after: todayStart, limit: 1 }, state.view === 'today' && !state.q && overview?.done_today === undefined)
   const bParams = state.project ? boardParams(state.project, state.q) : {}
   const boardTasks = useTasks(bParams, isBoard)
   const setDone = useSetDone()
@@ -482,7 +479,7 @@ export default function TasksPage() {
   const filtersActive = !!(labelFilter || prioMin || assignee || state.q)
   const savedDirty = !!saved && (!!labelFilter || !!prioMin || !!assignee || search.has('sort') || (!!state.q && state.q !== saved.filters.q))
   const updateSaved = (v: SavedView) => saveView.mutate({ id: v.id, body: { filters: viewFilters(params) } }, { onSuccess: () => { toast.show('View updated'); setSearch(new URLSearchParams({ saved: v.id })) } })
-  const doneTodayN = overview?.done_today ?? doneToday.data?.total ?? 0
+  const doneTodayN = overview?.done_today ?? 0 // "X of Y done today" (from the overview, no extra request)
   const projectPct = items.length ? Math.round(((items.length - open.length) / items.length) * 100) : 0
   const writable = (project?.role ?? 0) >= 1
 
@@ -546,7 +543,7 @@ export default function TasksPage() {
             {isProjectList && !isBoard && !isCal && tasks.data && items.length > 0 && (
               <p className="muted small row tasks-progress" title={`${projectPct}% complete`}><Ring value={projectPct} size={14} />{open.length} open · {items.length - open.length} done</p>
             )}
-            {state.view === 'today' && !state.q && tasks.data && (overview?.done_today !== undefined || doneToday.data) && (doneTodayN + totalOpen > 0) && (
+            {state.view === 'today' && !state.q && tasks.data && overview && (doneTodayN + totalOpen > 0) && (
               <p className="muted small row tasks-progress"><Ring value={Math.round((doneTodayN / (doneTodayN + totalOpen)) * 100)} size={14} />{doneTodayN} of {doneTodayN + totalOpen} done today</p>
             )}
             {project?.description && <p className="muted small truncate">{project.description}</p>}

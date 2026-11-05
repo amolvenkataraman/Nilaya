@@ -10,7 +10,7 @@ import { HBars } from '../../components/charts'
 import { toast } from '../../components/toast'
 import { get, safeHref } from '../../lib/api'
 import { fmtDate, parseDayKey, shortStamp } from '../../lib/dates'
-import { STATUSES, distanceM, fmtDistance, useDeletePlace, usePlacePhotos, usePlaceStats, useSavePlace, type Group, type PlacePhotos, type PlaceStatus, type Place, type Suggestion } from './api'
+import { STATUSES, distanceM, fmtDistance, useDeletePlace, usePlacePhotos, usePlaceStats, useSavePlace, type Group, type Pin, type PlacePhotos, type PlaceStatus, type Place, type Suggestion } from './api'
 
 const PHOTO_RADIUS_M = 150
 /** The classic Photos page filtered to a box (it takes ?bounds=base64("north,south,east,west")). */
@@ -30,7 +30,7 @@ const day = (iso: string | null | undefined) => (iso ? fmtDate(parseDayKey(iso.s
 export const stars = (n: number | null | undefined) => (n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '')
 
 export function PlaceRow({ p, active, onSelect, catLabel, groupName, pos }: {
-  p: Place; active: boolean; onSelect: () => void; catLabel: (k: string) => string; groupName: (id: number) => string; pos: Pos
+  p: Pin; active: boolean; onSelect: () => void; catLabel: (k: string) => string; groupName: (id: number) => string; pos: Pos
 }) {
   const st = STATUSES.find((s) => s.key === p.status)
   const dist = pos ? fmtDistance(distanceM(pos, { lat: p.latitude, lon: p.longitude })) : null

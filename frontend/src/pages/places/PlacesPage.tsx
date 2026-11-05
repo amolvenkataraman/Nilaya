@@ -6,13 +6,14 @@ import { Confirm, Dialog, ErrorBox, Menu, MenuItem, SkeletonRows, Switch, useDeb
 import type { PlaceCategory, PlaceGroup } from '../../lib/types'
 import {
   STATUSES, VISIBLE_KEY, importPlaces, useDeleteGroup, useDeletePlace, useGroupVisibility, usePlaceCategories, usePlaceGroups, useSaveGroup, useSavePlace,
-  useShowOnlyGroup, useSuggestions, useVisiblePlaces, distanceM, type Group, type ImportResult, type Place, type PlaceInput, type PlaceStatus, type Suggestion,
+  useShowOnlyGroup, useSuggestions, useVisiblePlaces, distanceM, fetchVisiblePins, placeQuery, usePlace, useVisibleTextMatches, type Group, type Pin, type ImportResult, type Place, type PlaceInput, type PlaceStatus, type Suggestion,
 } from './api'
 import { PlaceDetail, PlaceRow, StatsTab, SuggestedTab, SuggestionDetail, photosInBox, type Tab } from './PlacePanel'
 import { PlaceSearch } from './Search'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { get } from '../../lib/api'
-import type { HeatPoint } from '../photos/heat'
+import { photoSummaryQuery } from '../../lib/photoQueries'
+import { realPoints, type HeatPoint } from '../photos/heat'
 import { toast } from '../../components/toast'
 import { PlaceMap, type MapFocus } from './PlaceMap'
 import './places.css'
@@ -57,11 +58,12 @@ export default function PlacesPage() {
   const heat = useQuery({
     queryKey: ['photos', 'points', box, heatYear, planes],
     queryFn: ({ signal }) => get<HeatPoint[]>('photos/points', { ...box!, year: heatYear || undefined, include_planes: planes || undefined }, signal),
+    select: realPoints,
     enabled: heatOn && !!box,
     staleTime: 30 * 60_000,
     placeholderData: keepPreviousData,
   })
-  const years = useQuery({ queryKey: ['photos', 'summary'], queryFn: () => get<{ per_year: { year: number; count: number }[] }>('photos/summary'), enabled: heatOn, staleTime: 10 * 60_000 }).data?.per_year ?? []
+  const years = useQuery({ ...photoSummaryQuery<{ per_year: { year: number; count: number }[] }>(), enabled: heatOn }).data?.per_year ?? []
   const toggleHeat = () => setHeatOn((v) => { try { localStorage.setItem('app.places.heat', v ? '0' : '1') } catch { /* ignore */ } return !v })
 
   // Groups are hidden by default (per person, on the server): the map loads only the groups turned on.
@@ -105,7 +107,7 @@ export default function PlacesPage() {
     return (k: string) => m.get(k) ?? k
   }, [cats.data])
   const groupName = (id: number) => groups.data?.find((g) => g.id === id)?.name ?? ''
-  const canEdit = (p: Place) => !!groups.data?.some((g) => g.id === p.group_id && g.mine)
+  const canEdit = (p: Pin) => !!groups.data?.some((g) => g.id === p.group_id && g.mine)
 
   const [draft, setDraft] = useState<Draft | null>(null)
   // Long lists render in pages (thousands of rows would make every map move janky).
@@ -142,19 +144,29 @@ export default function PlacesPage() {
   // One request for the groups that are on; filters and counts happen here over that set.
   const everything = useMemo(() => (anyVisible ? all.data ?? [] : []), [all.data, anyVisible])
   const inGroup = groupId ? everything.filter((p) => p.group_id === groupId) : everything
+  // Pins carry no address/notes/description: a text filter also asks the server which places match those.
+  const textHits = useVisibleTextMatches(q, anyVisible)
+  const textIds = useMemo(() => new Set((textHits.data ?? []).map((p) => p.id)), [textHits.data])
   const places = useMemo(() => {
     const list = inGroup.filter((p) =>
       (!category || p.category === category) && (!status || (p.status ?? 'saved') === status) && (!minRating || (p.rating ?? 0) >= minRating) &&
-      (!q || [p.name, p.address, p.description, p.notes].some((t) => t?.toLowerCase().includes(q))))
+      (!q || p.name.toLowerCase().includes(q) || textIds.has(p.id)))
     // Nearest first once your location is known.
     return pos ? list.map((p) => [distanceM(pos, { lat: p.latitude, lon: p.longitude }), p] as const).sort((a, b) => a[0] - b[0]).map((x) => x[1]) : list
-  }, [inGroup, category, status, minRating, q, pos])
-  const count = (fn: (p: Place) => boolean) => inGroup.filter(fn).length
+  }, [inGroup, category, status, minRating, q, pos, textIds])
+  const count = (fn: (p: Pin) => boolean) => inGroup.filter(fn).length
   const filtered = !!(groupId || category || status || q || minRating)
-  // A place in a group that's off (from search or a link) loads on its own.
-  const loadedSel = everything.find((p) => p.id === selected) ?? null
-  const oneSel = useQuery({ queryKey: ['places', 'one', selected], queryFn: () => get<Place>(`places/${selected}`), enabled: !!selected && !loadedSel && (!anyVisible || all.isSuccess), staleTime: 60_000 })
-  const sel = loadedSel ?? (oneSel.data?.id === selected ? oneSel.data : null)
+  // The open place loads in full (pins have no description, notes or address); its pin fills in meanwhile.
+  const pinSel = everything.find((p) => p.id === selected) ?? null
+  const oneSel = usePlace(selected)
+  const sel: Place | null = oneSel.data?.id === selected ? oneSel.data
+    : pinSel ? { description: '', notes: '', altitude: null, ...pinSel } : null
+  /** Edit with every field: fetch the full place first (cached for a minute). */
+  const editPlace = (p: Pin) => {
+    if ('description' in p && 'notes' in p && p.description !== undefined && p.notes !== undefined) return setDraft({ ...(p as Place) })
+    qc.fetchQuery(placeQuery(p.id)).then((full) => setDraft({ ...full }), (e) => toast.error((e as Error).message))
+  }
+  const prefetchPlace = (id: string) => void qc.prefetchQuery(placeQuery(id))
 
   const locate = () => {
     if (!navigator.geolocation) return toast.error("This browser can't share its location.")
@@ -248,7 +260,7 @@ export default function PlacesPage() {
             categoryLabel={catLabel}
             canEdit={canEdit}
             onSelect={(id) => setParam('place', id)}
-            onEdit={(p) => setDraft({ ...p })}
+            onEdit={editPlace}
             onAddAt={(lat, lon, name, address) => (setAddMode(false), newPlace(lat, lon, name ? { name, address: address ?? '' } : {}))}
             suggestions={tab === 'suggested' ? suggestions : undefined}
             onSuggestion={focusSuggestion}
@@ -284,7 +296,7 @@ export default function PlacesPage() {
             <SuggestionDetail s={sug} pos={pos} onSave={() => saveSuggestion(sug)} onDismiss={() => dismiss(sug)} onClose={() => setSug(null)} />
           ) : sel ? (
             <PlaceDetail p={sel} catLabel={catLabel} group={groupById(sel.group_id)} canEdit={canEdit(sel)} pos={pos}
-              onEdit={() => setDraft({ ...sel })} onClose={() => setParam('place', null)} onShowGroup={() => turnOn(sel.group_id)} />
+              onEdit={() => editPlace(sel)} onClose={() => setParam('place', null)} onShowGroup={() => turnOn(sel.group_id)} />
           ) : (
             <>
               <div className="tabs pl-tabs" role="tablist">
@@ -310,10 +322,10 @@ export default function PlacesPage() {
                   ) : (
                     <ul className="pl-items">
                       {places.slice(0, limit).map((p) => (
-                        <li key={p.id} className="pl-item">
+                        <li key={p.id} className="pl-item" onPointerEnter={() => prefetchPlace(p.id)}>
                           <PlaceRow p={p} active={selected === p.id} onSelect={() => setParam('place', p.id)} catLabel={catLabel} groupName={groupName} pos={pos} />
                           {canEdit(p) && (
-                            <button className="btn ghost icon sm pl-item-edit" onClick={() => setDraft({ ...p })} aria-label={`Edit ${p.name}`} title="Edit">
+                            <button className="btn ghost icon sm pl-item-edit" onClick={() => editPlace(p)} aria-label={`Edit ${p.name}`} title="Edit">
                               <Icon name="edit" size={14} />
                             </button>
                           )}
@@ -339,7 +351,7 @@ export default function PlacesPage() {
         // Turn the group on, then fit the map to its places once they're loaded.
         const g = groupById(gid)
         if (g && !g.visible) await setVisible.mutateAsync({ id: gid, visible: true })
-        const fresh = await qc.fetchQuery({ queryKey: VISIBLE_KEY, queryFn: () => get<Place[]>('places/', { visible: true }), staleTime: 0 })
+        const fresh = await qc.fetchQuery({ queryKey: VISIBLE_KEY, queryFn: () => fetchVisiblePins(), staleTime: 0 })
         const pts = fresh.filter((p) => p.group_id === gid).map((p) => [p.latitude, p.longitude] as [number, number])
         if (pts.length) setFit({ key: Date.now(), points: pts })
       }} />}

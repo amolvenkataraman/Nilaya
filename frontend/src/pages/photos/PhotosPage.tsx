@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { Link, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { get, safeHref } from '../../lib/api'
+import { photoSummaryQuery } from '../../lib/photoQueries'
 import { addDays, fmtDate, fmtTime, isSameDay, parseDayKey } from '../../lib/dates'
 import type { Photo, PhotoSummary, YearGroup } from '../../lib/types'
 import { AppShell, SideItem, SideSection } from '../../components/AppShell'
@@ -27,7 +28,7 @@ const BrowsePage = lazy(() => import('./Explore').then((m) => ({ default: m.Brow
 const StatsPage = lazy(() => import('./Explore').then((m) => ({ default: m.StatsPage })))
 const StoragePage = lazy(() => import('./Explore').then((m) => ({ default: m.StoragePage })))
 
-const useSummary = () => useQuery({ queryKey: ['photos', 'summary'], queryFn: () => get<PhotoSummary>('photos/summary'), staleTime: 10 * 60_000 })
+const useSummary = () => useQuery(photoSummaryQuery<PhotoSummary>())
 
 const ZOOM_KEY = 'app.photos.zoom'
 function readZoom(): Zoom {

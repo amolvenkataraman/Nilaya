@@ -1,16 +1,17 @@
 // Photos: shared queries and write actions (albums, libraries/Sources, hidden mode, ingest, originals).
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { ApiError, api, errorMessage, get, patch, post, readCookie } from '../../lib/api'
+import { photoAlbumsQuery, photoHiddenModeQuery, photoLibrariesQuery } from '../../lib/photoQueries'
+import { ApiError, api, errorMessage, patch, post, readCookie } from '../../lib/api'
 import type { Album, Library } from '../../lib/types'
 import { toast } from '../../components/toast'
 
 export type HiddenMode = { show: boolean; minutes: number }
 export type AlbumMember = { id: number; username: string; name: string; role: 'editor' | 'viewer' }
 
-export const useAlbums = () => useQuery({ queryKey: ['photos', 'albums'], queryFn: () => get<Album[]>('photos/albums'), staleTime: 5 * 60_000 })
-export const useLibraries = () => useQuery({ queryKey: ['photos', 'libraries'], queryFn: () => get<Library[]>('photos/libraries'), staleTime: 10 * 60_000 })
+export const useAlbums = () => useQuery(photoAlbumsQuery<Album[]>())
+export const useLibraries = () => useQuery(photoLibrariesQuery<Library[]>())
 export const useHiddenMode = () =>
-  useQuery({ queryKey: ['photos', 'hidden-mode'], queryFn: () => get<HiddenMode>('photos/hidden-mode'), staleTime: 5 * 60_000 })
+  useQuery(photoHiddenModeQuery<HiddenMode>())
 
 /** Can the user change files in this library (owner/editor)? Libraries are matched by name (details.library). */
 export function canEditLibrary(libs: Library[] | undefined, name: string | undefined): boolean {

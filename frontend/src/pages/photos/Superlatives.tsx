@@ -5,6 +5,7 @@ import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { get, safeHref } from '../../lib/api'
+import { photoSummaryQuery } from '../../lib/photoQueries'
 import { fmtDate, parseDayKey } from '../../lib/dates'
 import type { PhotoSummary } from '../../lib/types'
 import { Icon } from '../../components/Icon'
@@ -94,7 +95,7 @@ function Largest() {
 
 function TopDays({ metric }: { metric: 'day-most-photos' | 'day-most-videos' | 'day-most-storage' }) {
   const [limit, setLimit] = useState(20)
-  const summary = useQuery({ queryKey: ['photos', 'summary'], queryFn: () => get<PhotoSummary>('photos/summary'), staleTime: 10 * 60_000 })
+  const summary = useQuery(photoSummaryQuery<PhotoSummary>())
   const years = (summary.data?.per_year ?? []).map((y) => y.year).filter((y) => y > 1900)
   const qs = useQueries({
     queries: years.map((y) => ({

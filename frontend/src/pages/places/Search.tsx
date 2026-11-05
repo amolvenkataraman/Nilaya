@@ -6,7 +6,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { useDebounced } from '../../components/ui'
 import { ApiError, get } from '../../lib/api'
-import { usePlaceSearch, type Group, type Place } from './api'
+import { usePlaceSearch, type Group, type Pin } from './api'
 
 export interface GeoHit { lat: number; lon: number; name: string; address: string; bbox?: [number, number, number, number] }
 interface Nominatim { lat: string; lon: string; display_name?: string; name?: string; boundingbox?: string[] }
@@ -14,8 +14,8 @@ interface Nominatim { lat: string; lon: string; display_name?: string; name?: st
 let mapSearchOff = false
 
 export function PlaceSearch({ text, onText, places, groups, onPlace, onHit, onShowGroup }: {
-  text: string; onText: (t: string) => void; places: Place[]; groups: Group[]
-  onPlace: (p: Place) => void; onHit: (h: GeoHit) => void; onShowGroup: (g: Group) => void
+  text: string; onText: (t: string) => void; places: Pin[]; groups: Group[]
+  onPlace: (p: Pin) => void; onHit: (h: GeoHit) => void; onShowGroup: (g: Group) => void
 }) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
@@ -57,7 +57,7 @@ export function PlaceSearch({ text, onText, places, groups, onPlace, onHit, onSh
   const more = needle ? (all.data ?? []).filter((p) => !shown.some((x) => x.id === p.id) && !places.some((x) => x.id === p.id)).slice(0, 6) : []
   const local = [...shown, ...more]
   const hits = geo.data ?? []
-  const items: ({ kind: 'place'; p: Place } | { kind: 'hit'; h: GeoHit })[] = [...local.map((p) => ({ kind: 'place' as const, p })), ...hits.map((h) => ({ kind: 'hit' as const, h }))]
+  const items: ({ kind: 'place'; p: Pin } | { kind: 'hit'; h: GeoHit })[] = [...local.map((p) => ({ kind: 'place' as const, p })), ...hits.map((h) => ({ kind: 'hit' as const, h }))]
   useEffect(() => setActive(-1), [needle, hits.length])
   useEffect(() => {
     if (!open) return

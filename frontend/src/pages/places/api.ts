@@ -7,6 +7,9 @@ import { toast } from '../../components/toast'
 export type PlaceStatus = 'saved' | 'want_to_go' | 'visited'
 export interface Place extends BasePlace { status?: PlaceStatus; visited_on?: string | null; updated_on?: string }
 export type PlaceInput = Omit<Place, 'id' | 'updated_on'>
+/** A map pin (GET /places/pins): only what the map and list rows need; the full place loads when opened. */
+type PinField = 'id' | 'group_id' | 'name' | 'latitude' | 'longitude' | 'category' | 'status' | 'rating' | 'address' | 'visited_on'
+export type Pin = Pick<Place, PinField> & Partial<Omit<Place, PinField>>
 
 export const STATUSES: { key: PlaceStatus; label: string; icon: string }[] = [
   { key: 'saved', label: 'Saved', icon: 'star' },
@@ -26,10 +29,22 @@ export const usePlaceGroups = (includeArchived = false) =>
     placeholderData: (prev) => prev,
   })
 
-export const VISIBLE_KEY = ['places', 'list', 'visible'] as const
-/** The map's normal load: only places in groups I turned on (never archived ones). Off while nothing is on. */
+export const VISIBLE_KEY = ['places', 'pins', 'visible'] as const
+export const fetchVisiblePins = (signal?: AbortSignal) => get<Pin[]>('places/pins', { visible: true }, signal)
+/** The map's normal load: pins of the groups I turned on (never archived ones). Off while nothing is on. */
 export const useVisiblePlaces = (enabled: boolean) =>
-  useQuery({ queryKey: VISIBLE_KEY, queryFn: ({ signal }) => get<Place[]>('places/', { visible: true }, signal), enabled, staleTime: 5 * 60_000 })
+  useQuery({ queryKey: VISIBLE_KEY, queryFn: ({ signal }) => fetchVisiblePins(signal), enabled, staleTime: 5 * 60_000 })
+
+/** One full place (description, notes, address…): when its panel opens, or before editing it. */
+export const placeQuery = (id: string) => ({ queryKey: ['places', 'one', id], queryFn: () => get<Place>(`places/${id}`), staleTime: 60_000 })
+export const usePlace = (id: string | null) => useQuery({ ...placeQuery(id ?? ''), enabled: !!id })
+/** Text filter over the groups that are on: matched on the server (address, notes and description aren't in pins). */
+export const useVisibleTextMatches = (q: string, enabled: boolean) =>
+  useQuery({
+    queryKey: ['places', 'list', { visible: true, q }],
+    queryFn: ({ signal }) => get<Place[]>('places/', { visible: true, q }, signal),
+    enabled: enabled && q.length >= 2, staleTime: 60_000, placeholderData: (prev) => prev,
+  })
 
 /** Search every non-archived group I can see (shown or not), on the server. */
 export const usePlaceSearch = (q: string) =>
@@ -46,7 +61,7 @@ export function useGroupVisibility() {
     onMutate: ({ id, visible }) => {
       const snaps = qc.getQueriesData<Group[]>({ queryKey: ['places', 'groups'] })
       patchGroups(qc, (g) => (g.id === id ? { ...g, visible } : g))
-      if (!visible) qc.setQueryData<Place[]>(VISIBLE_KEY, (old) => old?.filter((p) => p.group_id !== id))
+      if (!visible) qc.setQueryData<Pin[]>(VISIBLE_KEY, (old) => old?.filter((p) => p.group_id !== id))
       return { rollback: () => snaps.forEach(([k, d]) => qc.setQueryData(k, d)) }
     },
     onSuccess: (_r, { visible }) => { if (visible) qc.invalidateQueries({ queryKey: VISIBLE_KEY }) },
@@ -61,7 +76,7 @@ export function useShowOnlyGroup() {
     mutationFn: (g: Group) => post(`places/groups/${g.id}/only`),
     onMutate: (g) => {
       patchGroups(qc, (x) => ({ ...x, visible: x.id === g.id }))
-      if (g.visible) qc.setQueryData<Place[]>(VISIBLE_KEY, (old) => old?.filter((p) => p.group_id === g.id))
+      if (g.visible) qc.setQueryData<Pin[]>(VISIBLE_KEY, (old) => old?.filter((p) => p.group_id === g.id))
     },
     onSuccess: (_r, g) => { if (!g.visible) qc.invalidateQueries({ queryKey: VISIBLE_KEY }) },
     onError: (e) => (toast.error((e as Error).message), qc.invalidateQueries({ queryKey: ['places'] })),

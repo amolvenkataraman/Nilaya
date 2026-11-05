@@ -2,6 +2,7 @@
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api, ApiError, apiUrl, del, errorMessage, get, loginUrl, patch, post, readCookie } from '../../lib/api'
 import { toast } from '../../components/toast'
+import { queryGroup } from '../../lib/batch'
 
 export interface LabeledValue { label: string; value: string }
 export interface Address { label: string; street: string; city: string; region: string; postcode: string; country: string }
@@ -106,10 +107,17 @@ export const usePeopleSearch = (q: string) =>
   })
 export const usePerson = (id: string | null) =>
   useQuery({ queryKey: ['contacts', 'person', id], queryFn: () => get<PersonDetail>(`contacts/${id}`), enabled: !!id })
-export const useContactStats = () => useQuery({ queryKey: ['contacts', 'stats'], queryFn: () => get<ContactStats>('contacts/stats') })
-export const useContactTags = () => useQuery({ queryKey: ['contacts', 'tags'], queryFn: () => get<Tag[]>('contacts/tags') })
+// Meta, tags and stats: fetched together (first load, or invalidating ['contacts']) they cost one
+// GET /contacts/overview; refetched alone, each uses its own endpoint.
+const side = queryGroup('contacts/overview', {
+  meta: { key: ['contacts', 'meta'], path: 'contacts/meta' },
+  tags: { key: ['contacts', 'tags'], path: 'contacts/tags' },
+  stats: { key: ['contacts', 'stats'], path: 'contacts/stats' },
+}, (all, k) => all[k])
+export const useContactStats = () => useQuery({ queryKey: ['contacts', 'stats'], queryFn: side<ContactStats>('stats') })
+export const useContactTags = () => useQuery({ queryKey: ['contacts', 'tags'], queryFn: side<Tag[]>('tags') })
 export const useContactMeta = () =>
-  useQuery({ queryKey: ['contacts', 'meta'], queryFn: () => get<ContactMeta>('contacts/meta'), staleTime: Infinity })
+  useQuery({ queryKey: ['contacts', 'meta'], queryFn: side<ContactMeta>('meta'), staleTime: Infinity })
 export const useDuplicates = () =>
   useQuery({ queryKey: ['contacts', 'duplicates'], queryFn: () => get<DuplicatePair[]>('contacts/duplicates') })
 

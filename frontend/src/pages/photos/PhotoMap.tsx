@@ -9,9 +9,10 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { get, safeHref } from '../../lib/api'
+import { photoSummaryQuery } from '../../lib/photoQueries'
 import { fmtDate } from '../../lib/dates'
 import type { Photo } from '../../lib/types'
-import { HeatLayer, type HeatPoint } from './heat'
+import { HeatLayer, realPoints, type HeatPoint } from './heat'
 
 type Box = { south: number; west: number; north: number; east: number }
 const CLUSTER_PX = 72
@@ -153,6 +154,7 @@ export function PhotoMapPage() {
   const points = useQuery({
     queryKey: ['photos', 'points', box, year, planes],
     queryFn: ({ signal }) => get<HeatPoint[]>('photos/points', { ...box!, year: year || undefined, include_planes: planes || undefined }, signal),
+    select: realPoints,
     enabled: !!box,
     staleTime: 30 * 60_000,
     placeholderData: keepPreviousData,
@@ -204,7 +206,7 @@ export function PhotoMapPage() {
     return '/photos/?bounds=' + encodeURIComponent(btoa(`${b.getNorth().toFixed(5)},${b.getSouth().toFixed(5)},${b.getEast().toFixed(5)},${b.getWest().toFixed(5)}`))
   }
 
-  const years = useQuery({ queryKey: ['photos', 'summary'], queryFn: () => get<{ per_year: { year: number; count: number }[] }>('photos/summary'), staleTime: 10 * 60_000 }).data?.per_year ?? []
+  const years = useQuery(photoSummaryQuery<{ per_year: { year: number; count: number }[] }>()).data?.per_year ?? []
   const near = useQuery({
     queryKey: ['places', 'photos-near', at && at.lat.toFixed(4), at && at.lng.toFixed(4)],
     queryFn: () => get<Near>('places/photos-near', { latitude: at!.lat, longitude: at!.lng, limit: 24 }),

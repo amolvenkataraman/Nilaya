@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import type { Place, Suggestion } from './api'
+import type { Pin as Place, Suggestion } from './api'
 import { HeatLayer, type HeatPoint } from '../photos/heat'
 
 interface Props {

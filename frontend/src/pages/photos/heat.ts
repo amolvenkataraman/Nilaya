@@ -7,6 +7,8 @@ import L from './leaflet-global'
 import 'leaflet.heat'
 
 export type HeatPoint = { lat: number; lng: number; count: number }
+/** A coordinate of exactly 0 is broken GPS (e.g. EXIF longitude 0.0), not a place: never draw it. */
+export const realPoints = (pts: HeatPoint[]) => pts.filter((p) => p.lat !== 0 && p.lng !== 0)
 export const HEAT_OPTIONS = { minOpacity: 0.3, radius: 25, blur: 20, max: 1, maxZoom: 19 }
 /** CSS for a legend swatch matching the default gradient. */
 export const HEAT_GRADIENT_CSS = 'linear-gradient(90deg, blue 0%, blue 40%, cyan 60%, lime 70%, yellow 80%, red 100%)'

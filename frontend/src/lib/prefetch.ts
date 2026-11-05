@@ -3,6 +3,7 @@
 import type { QueryClient } from '@tanstack/react-query'
 import { get } from './api'
 import { dayKey } from './dates'
+import { photoAlbumsQuery, photoHiddenModeQuery, photoLibrariesQuery, photoSummaryQuery } from './photoQueries'
 import { DASH_AGENDA_DAYS, DASH_TODAY_PARAMS, fetchOverview, keys } from './queries'
 
 export function prefetchDashboard(qc: QueryClient) {
@@ -30,9 +31,6 @@ export function prefetchCalendar(qc: QueryClient) {
   qc.prefetchQuery({ queryKey: keys.calendars, queryFn: () => get('calendar/calendars', {}), staleTime: 5 * 60_000 })
 }
 export function prefetchPhotos(qc: QueryClient) {
-  const p = (queryKey: readonly unknown[], path: string) => qc.prefetchQuery({ queryKey, queryFn: () => get(path), staleTime: 5 * 60_000 })
-  p(['photos', 'summary'], 'photos/summary')
-  p(['photos', 'albums'], 'photos/albums')
-  p(['photos', 'libraries'], 'photos/libraries')
-  p(['photos', 'hidden-mode'], 'photos/hidden-mode')
+  // Same tick: one GET /photos/sidebar serves all four.
+  for (const q of [photoSummaryQuery(), photoAlbumsQuery(), photoLibrariesQuery(), photoHiddenModeQuery()]) qc.prefetchQuery(q)
 }
