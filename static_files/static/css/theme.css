@@ -168,3 +168,7 @@ body {
 .auth-card form { display: grid; gap: 14px; }
 .auth-card .form-text ul { margin: 6px 0 0; padding-left: 18px; }
 .auth-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 0.875rem; color: var(--app-muted); }
+
+/* Modals and dropdowns sit on the card surface, not the page background. */
+.modal-content { --bs-modal-bg: var(--app-surface); --bs-modal-border-color: var(--app-border); }
+.dropdown-menu { --bs-dropdown-bg: var(--app-surface); --bs-dropdown-border-color: var(--app-border); }
