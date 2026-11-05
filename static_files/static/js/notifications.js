@@ -14,6 +14,9 @@
     }
     window.notifTimeAgo = timeAgo;
 
+    // Only same-site paths or http(s) links become hrefs (never javascript: or data:).
+    const safeUrl = (u) => (typeof u === "string" && (/^\/(?![\/\\])/.test(u) || /^https?:\/\//i.test(u))) ? u : null;
+
     function setBadge(n) {
         const badge = document.getElementById("notif-badge");
         if (!badge) return;
@@ -32,7 +35,7 @@
         const li = document.createElement("li");
         const a = document.createElement("a");
         a.className = "dropdown-item notif-item" + (n.read ? "" : " unread");
-        a.href = n.url || "/notifications/";
+        a.href = safeUrl(n.url) || "/notifications/";
         const title = document.createElement("div");
         title.className = "notif-title";
         title.textContent = n.title;

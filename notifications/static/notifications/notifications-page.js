@@ -15,8 +15,9 @@
 
     function row(n) {
         const li = el("li", "nt-item" + (n.read ? "" : " unread"));
-        const title = el(n.url ? "a" : "div", "t", n.title);
-        if (n.url) title.href = n.url;
+        const url = (/^\/(?![\/\\])/.test(n.url || "") || /^https?:\/\//i.test(n.url || "")) ? n.url : null;  // no javascript: links
+        const title = el(url ? "a" : "div", "t", n.title);
+        if (url) title.href = url;
         const actions = el("div", "actions");
         if (PRIO[n.priority]) actions.append(el("span", `prio prio-${n.priority}`, PRIO[n.priority]));
         const toggle = el("button", "btn btn-sm btn-link p-0", n.read ? "Mark unread" : "Mark read");

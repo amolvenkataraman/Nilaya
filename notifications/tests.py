@@ -6,6 +6,7 @@ from unittest import mock
 from django.test import TestCase, override_settings
 from django.utils import timezone
 
+from Comptech import netguard
 from scheduler.models import Calendar, Event, Subscriber, Todo
 from users.models import ComptechUser
 
@@ -31,12 +32,33 @@ class DeliveryTests(TestCase):
         self.assertEqual(loud.last_error, "down")
         self.assertIsNone(quiet.last_sent_at)
 
-    @override_settings(ONLINE_MODE=False)
-    def test_offline_mode_only_allows_lan_destinations(self):
-        channels._check_destination("http://127.0.0.1:8123/api/webhook/x")
-        with mock.patch("socket.getaddrinfo", return_value=[(None, None, None, None, ("93.184.216.34", 0))]):
-            with self.assertRaises(channels.DeliveryError):
-                channels._check_destination("https://example.com/hook")
+    @override_settings(ONLINE_MODE=True)
+    def test_destinations_never_this_server_or_link_local_even_online(self):
+        addr = lambda ip: mock.patch("socket.getaddrinfo", return_value=[(None, None, None, None, (ip, 0))])
+        for ip in ("127.0.0.1", "169.254.169.254", "::ffff:127.0.0.1", "0.0.0.0"):
+            with addr(ip), self.assertRaises(channels.DeliveryError):
+                channels._check_destination("http://hook.example/x")
+        with addr("192.168.1.20"), mock.patch.object(netguard, "_is_own_address", return_value=False):
+            channels._check_destination("http://ntfy.lan/topic")  # LAN stays allowed...
+        with addr("192.168.1.20"), mock.patch.object(netguard, "_is_own_address", return_value=True):
+            with self.assertRaises(channels.DeliveryError):  # ...but not this server's own LAN address
+                channels._check_destination("http://ntfy.lan/topic")
+        with override_settings(ONLINE_MODE=False), addr("93.184.216.34"), self.assertRaises(channels.DeliveryError):
+            channels._check_destination("https://example.com/hook")
+
+    def test_api_keys_cannot_set_up_channels_and_links_must_be_http_or_paths(self):
+        from apikeys.models import ApiKey
+        _key, token = ApiKey.issue(self.user, "script", ["notifications:write"])
+        auth = {"HTTP_AUTHORIZATION": f"Bearer {token}"}
+        r = self.client.post("/api/v2/notifications/channels", {"kind": "webhook", "name": "Out",
+                             "config": {"url": "https://attacker.example/x"}}, content_type="application/json", **auth)
+        self.assertEqual(r.status_code, 403)
+        send = lambda url: self.client.post("/api/v2/notifications/send", {"title": "Hi", "url": url},
+                                            content_type="application/json", **auth)
+        self.assertEqual(send("javascript:alert(1)").status_code, 400)
+        self.assertEqual(send("//evil.example/").status_code, 400)
+        self.assertEqual(send("/tasks/").json()["url"], "/tasks/")
+        self.assertEqual(notify(self.user, "x", url="JavaScript:alert(1)", deliver_now=False).url, "")
 
     def test_secrets_are_masked_and_kept_on_blank_patch(self):
         self.client.force_login(self.user)

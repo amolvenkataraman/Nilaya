@@ -1,21 +1,27 @@
 """Deliver a notification to an outside service (ntfy, Gotify, email, Discord, webhook).
 
-Every sender raises DeliveryError with a message the user can act on. Outbound
-requests respect ONLINE_MODE: when it is off, only LAN / localhost destinations
-are allowed (self-hosted ntfy, Gotify or Home Assistant keep working).
+Every sender raises DeliveryError. Destinations are checked before every request
+(Comptech/netguard.py): never this server, loopback, link-local, multicast or reserved
+addresses; LAN addresses are fine (self-hosted ntfy, Gotify or Home Assistant). When
+ONLINE_MODE is off, only LAN destinations are allowed. Redirects are never followed.
+Network failures get one generic message, so "Send test" can't be used to probe which
+hosts and ports answer; the detail goes to the server log.
 """
 
-import ipaddress
-import socket
+import logging
 from urllib.parse import urlsplit, urlunsplit
 
 import requests
 from django.conf import settings
 from django.core.mail import send_mail
 
+from Comptech import netguard
+
 from .models import NotificationChannel, Priority
 
+log = logging.getLogger("comptech.notifications")
 TIMEOUT = 10
+UNREACHABLE = "Couldn't deliver: check the URL (and token) and that the service is reachable from the server"
 Kind = NotificationChannel.Kind
 
 # Config fields per kind: (key, label, required, secret)
@@ -61,35 +67,34 @@ def public_config(channel):
 
 
 def _check_destination(url):
-    host = urlsplit(url).hostname
-    if not host:
-        raise DeliveryError("Invalid URL")
-    if getattr(settings, "ONLINE_MODE", True):
-        return
     try:
-        addresses = {info[4][0] for info in socket.getaddrinfo(host, None)}
-    except socket.gaierror as exc:
-        raise DeliveryError(f"Can't resolve {host}") from exc
-    for addr in addresses:
-        ip = ipaddress.ip_address(addr)
-        if not (ip.is_private or ip.is_loopback or ip.is_link_local):
-            raise DeliveryError(f"Online mode is off: {host} is on the internet (only LAN/localhost allowed)")
+        addresses = netguard.resolve(url)
+    except netguard.Blocked as exc:
+        log.info("Channel destination %s refused: %s", urlsplit(url).hostname, exc)
+        raise DeliveryError(UNREACHABLE) from exc
+    if not getattr(settings, "ONLINE_MODE", True) and not all(ip.is_private for ip in addresses):
+        raise DeliveryError("Online mode is off: only LAN destinations are allowed")
 
 
 def _post(url, **kwargs):
     _check_destination(url)
     try:
-        response = requests.post(url, timeout=TIMEOUT, allow_redirects=False, **kwargs)  # a redirect could leave the LAN
+        response = requests.post(url, timeout=TIMEOUT, allow_redirects=False, **kwargs)  # a redirect would skip the check
     except requests.RequestException as exc:
-        raise DeliveryError(f"Couldn't reach {urlsplit(url).hostname}: {type(exc).__name__}") from exc
-    if response.status_code >= 400:
-        raise DeliveryError(f"{urlsplit(url).hostname} answered HTTP {response.status_code}")
+        log.info("Channel delivery to %s failed: %s", urlsplit(url).hostname, type(exc).__name__)
+        raise DeliveryError(UNREACHABLE) from exc
+    if response.status_code >= 300:
+        log.info("Channel delivery to %s answered HTTP %s", urlsplit(url).hostname, response.status_code)
+        raise DeliveryError(UNREACHABLE)
     return response
 
 
 def _link(notification):
+    url = notification.url or ""
+    if url.lower().startswith(("http://", "https://")):
+        return url
     base = getattr(settings, "SITE_URL", "").rstrip("/")
-    return f"{base}{notification.url}" if notification.url and base else ""
+    return f"{base}{url}" if url and base else ""
 
 
 def _ntfy(channel, n):

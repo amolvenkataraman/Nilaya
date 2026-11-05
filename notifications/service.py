@@ -10,6 +10,7 @@ minimum priority it meets. Delivery problems never break the caller.
 
 import datetime
 import logging
+from urllib.parse import urlsplit
 
 from django.db import transaction
 from django.utils import timezone
@@ -18,14 +19,29 @@ from .models import Notification, NotificationChannel, Priority
 
 log = logging.getLogger("comptech.notifications")
 
-__all__ = ["notify", "notify_many", "deliver", "Priority"]
+__all__ = ["notify", "notify_many", "deliver", "safe_url", "Priority"]
+
+
+def safe_url(url):
+    """The link a notification may carry: a path on this site ("/photos/") or an http(s) URL.
+    Anything else ("javascript:...", "//other.host", control characters) gives ""."""
+    url = (url or "").strip()
+    if not url or len(url) > 512 or any(ord(c) < 32 or ord(c) == 127 for c in url):
+        return ""
+    if url.startswith("/"):
+        return "" if url[1:2] in ("/", "\\") else url
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return ""
+    return url if parts.scheme.lower() in ("http", "https") and parts.hostname else ""
 
 
 def notify(user, title, body="", *, source="AVNet Superapp", priority=Priority.NORMAL, url="",
            expires_in=None, deliver_now=True):
     n = Notification.objects.create(
         user=user, title=title[:128], description=body or None, source=source[:128],
-        priority=int(priority), url=url[:512],
+        priority=int(priority), url=safe_url(url),
         expires_on=timezone.now() + expires_in if isinstance(expires_in, datetime.timedelta) else None,
     )
     if deliver_now:

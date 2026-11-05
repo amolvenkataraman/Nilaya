@@ -8,7 +8,7 @@ occurrences are extra VEVENTs with the same UID and a RECURRENCE-ID.
 
 import datetime as dt
 
-from feeds.ics import esc, fold, utc
+from feeds.ics import esc, fold, uri, utc
 
 from . import recurrence as rec
 
@@ -72,6 +72,8 @@ def _time_lines(e, tz, tzid, recurring):
 
 def _rule_lines(e, tz, tzid):
     rule = e.rrule
+    if not rec.well_formed(rule):  # an old row with a CR/LF in it would write extra lines into the feed
+        return []
     if e.kind == "all_day":  # UNTIL must be a DATE when DTSTART is one
         p = rec.parts(rule)
         if "UNTIL" in p:
@@ -112,8 +114,8 @@ def vevent(e, *, calendar_name, colour, tz, tzid, stamp, extra_exdates=(), maske
         if value and not masked:
             lines.append(f"{prop}:{esc(value)}")
     if e.meeting_url and not masked:
-        lines.append(f"URL:{e.meeting_url}")
-        lines.append(f"CONFERENCE;VALUE=URI;FEATURE=VIDEO:{e.meeting_url}")
+        lines.append(f"URL:{uri(e.meeting_url)}")
+        lines.append(f"CONFERENCE;VALUE=URI;FEATURE=VIDEO:{uri(e.meeting_url)}")
     cats = [calendar_name]
     if e.event_category_id and e.event_category.legacy_id != 0 and not masked:
         cats.append(e.event_category.name)

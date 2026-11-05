@@ -75,6 +75,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',  # GIN index (postgres.E005 on Django 6 without it); harmless on SQLite
 
     # Other Python libraries
     'channels',
@@ -263,7 +264,8 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
-# Synced into the beat database on start (edit intervals in the admin afterwards).
+# Written into the beat database on every beat start: change intervals here, not in the admin
+# (admin edits to these entries are reset to these values on the next start).
 CELERY_BEAT_SCHEDULE = {
     'task-reminders': {'task': 'tasks.tasks.send_due_reminders', 'schedule': 60.0},
     'auto-reminders': {'task': 'tasks.tasks.send_auto_reminders', 'schedule': 60.0},

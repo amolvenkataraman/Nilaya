@@ -120,6 +120,15 @@ class StatsTests(PlacesTestCase):
         self.assertEqual(data["most_visited"][0]["id"], str(home.id))
         self.assertEqual(data["most_visited"][0]["visits"], 3)
 
+    def test_api_works_with_the_cache_down(self):
+        """Redis stopped: the API rate limiter fails open and the Places cache computes as before."""
+        from django.core.cache.backends.locmem import LocMemCache
+        down = mock.Mock(side_effect=ConnectionError("Redis is down"))
+        with mock.patch.object(LocMemCache, "get", down), mock.patch.object(LocMemCache, "set", down):
+            self.assertEqual(self.client.get("/api/v2/me").status_code, 200)
+            self.assertEqual(self.client.get(f"{API}/stats").status_code, 200)
+        self.assertTrue(down.called)
+
 
 class ExportImportTests(PlacesTestCase):
     def test_export_geojson(self):

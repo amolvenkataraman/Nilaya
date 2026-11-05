@@ -16,7 +16,8 @@ class FeedTests(TestCase):
         Subscriber.objects.create(calendar=cal, user=self.user, subscribe_type=0)
         other = Calendar.objects.create(name="Not mine", owner=ComptechUser.objects.create_user("lee", password="pw"))
         soon = timezone.now() + datetime.timedelta(days=2)
-        Event.objects.create(calendar=cal, name="Lunch, then\nwalk", startdate=soon, enddate=soon + datetime.timedelta(hours=1))
+        Event.objects.create(calendar=cal, name="Lunch, then\nwalk", startdate=soon, enddate=soon + datetime.timedelta(hours=1),
+                             meeting_url="https://meet.example/x\r\nATTENDEE:mailto:evil@example.com")
         Event.objects.create(calendar=other, name="Secret", startdate=soon, enddate=soon + datetime.timedelta(hours=1))
         Todo.objects.create(user=self.user, name="File taxes", complete_by=soon)
         Todo.objects.create(user=self.user, name="Done already", complete_by=soon, completed=True)
@@ -34,6 +35,8 @@ class FeedTests(TestCase):
         body = r.content.decode()
         self.assertEqual(r["Content-Type"], "text/calendar; charset=utf-8")
         self.assertIn("SUMMARY:Lunch\\, then\\nwalk", body)
+        self.assertIn("\r\nURL:https://meet.example/x", body)
+        self.assertNotIn("\r\nATTENDEE", body)  # a line break in meeting_url can't add a property
         self.assertNotIn("Secret", body)
         self.assertTrue(body.startswith("BEGIN:VCALENDAR\r\n"))
 

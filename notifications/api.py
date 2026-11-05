@@ -11,7 +11,7 @@ from ninja.errors import HttpError
 
 from .channels import FIELDS, DeliveryError, public_config, send, validate_config
 from .models import Notification, NotificationChannel, Priority
-from .service import notify
+from .service import notify, safe_url
 
 router = Router(tags=["notifications"])
 
@@ -140,11 +140,21 @@ def delete(request, notification_id: uuid.UUID):
 
 @router.post("/send", response=NotificationOut, summary="Send a notification to yourself (scripts, testing)")
 def send_to_self(request, payload: SendIn):
+    if payload.url.strip() and not safe_url(payload.url):
+        raise HttpError(400, "url must be a path on this site (/...) or an http(s) URL")
     return notify(request.user, payload.title, payload.body, source="API", url=payload.url,
                   priority=max(Priority.LOW, min(Priority.URGENT, payload.priority)))
 
 
 # ---------------------------------------------------------------- channels
+
+def _session_only(request):
+    """Adding, changing or testing a channel decides where notifications are sent, so it needs a
+    signed-in browser session: a notifications:write key can't forward everything elsewhere."""
+    from apikeys.models import ApiKey
+    if isinstance(getattr(request, "auth", None), ApiKey):
+        raise HttpError(403, "Setting up channels needs a signed-in browser session")
+
 
 @router.get("/channel-types", auth=None, summary="Channel types and their settings fields")
 def channel_types(request):
@@ -159,8 +169,9 @@ def list_channels(request):
     return list(NotificationChannel.objects.filter(user=request.user))
 
 
-@router.post("/channels", response={201: ChannelOut})
+@router.post("/channels", response={201: ChannelOut}, summary="Add a channel (browser session only)")
 def create_channel(request, payload: ChannelIn):
+    _session_only(request)
     try:
         config = validate_config(payload.kind, payload.config)
     except ValueError as exc:
@@ -171,8 +182,9 @@ def create_channel(request, payload: ChannelIn):
     return 201, channel
 
 
-@router.patch("/channels/{uuid:channel_id}", response=ChannelOut)
+@router.patch("/channels/{uuid:channel_id}", response=ChannelOut, summary="Change a channel (browser session only)")
 def update_channel(request, channel_id: uuid.UUID, payload: ChannelPatch):
+    _session_only(request)
     channel = get_object_or_404(NotificationChannel, id=channel_id, user=request.user)
     if payload.config is not None:
         merged = {**channel.config, **{k: v for k, v in payload.config.items() if v not in (None, "")}}
@@ -193,8 +205,9 @@ def delete_channel(request, channel_id: uuid.UUID):
     return 204, None
 
 
-@router.post("/channels/{uuid:channel_id}/test", response=TestOut, summary="Send a test message to one channel now")
+@router.post("/channels/{uuid:channel_id}/test", response=TestOut, summary="Send a test message to one channel now (browser session only)")
 def test_channel(request, channel_id: uuid.UUID):
+    _session_only(request)
     channel = get_object_or_404(NotificationChannel, id=channel_id, user=request.user)
     sample = Notification(user=request.user, title="Test notification", source="AVNet Superapp",
                           description="If you can read this, this channel works.", url="/notifications/",

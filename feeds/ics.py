@@ -8,6 +8,12 @@ def esc(text):
             .replace("\r\n", "\\n").replace("\r", "\\n").replace("\n", "\\n"))
 
 
+def uri(value):
+    """A URI property value (URL, CONFERENCE): no backslash escaping in URIs, so control characters
+    (a CR or LF would start a new property) are dropped."""
+    return "".join(ch for ch in str(value or "") if ch >= " " and ch != "\x7f")
+
+
 def fold(line):
     raw = line.encode()
     if len(raw) <= 75:
@@ -41,7 +47,7 @@ def calendar(name, events):
             lines += [f"DTSTART:{utc(e['start'])}", f"DTEND:{utc(e['end'] or e['start'])}"]
         for key, prop in (("location", "LOCATION"), ("description", "DESCRIPTION"), ("url", "URL"), ("categories", "CATEGORIES")):
             if e.get(key):
-                lines.append(f"{prop}:{esc(e[key]) if prop != 'URL' else e[key]}")
+                lines.append(f"{prop}:{esc(e[key]) if prop != 'URL' else uri(e[key])}")
         lines.append("END:VEVENT")
     lines.append("END:VCALENDAR")
     return "\r\n".join(fold(line) for line in lines) + "\r\n"

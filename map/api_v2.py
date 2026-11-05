@@ -242,7 +242,10 @@ def _photo_cells(user):
     """The user's geotagged photos aggregated in SQL to (grid cell, local day) rows, as a grid index of
     (lat, lon, day, photos, city, country). Cached briefly: suggestions and stats both read it."""
     key = f"map:photo-cells:{user.pk}"
-    cells = cache.get(key)
+    try:
+        cells = cache.get(key)
+    except Exception:  # the cache is never required: if it's down, compute as before
+        cells = None
     if cells is None:
         rows = (library(user).filter(latitude__isnull=False, longitude__isnull=False)
                 .exclude(BROKEN_GPS)  # a 0 coordinate is broken GPS, not a visit to the equator/meridian
@@ -256,7 +259,10 @@ def _photo_cells(user):
             cells[(int(r["cy"]), int(r["cx"]))].append(
                 (r["lat"], r["lon"], r["day"], r["n"], r["location_city"], r["location_country"]))
         cells = dict(cells)
-        cache.set(key, cells, CELLS_TTL)
+        try:
+            cache.set(key, cells, CELLS_TTL)
+        except Exception:
+            pass
     return cells
 
 
