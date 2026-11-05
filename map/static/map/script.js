@@ -9,6 +9,33 @@ function esc(value) {
         .replace(/'/g, "&#39;");
 }
 
+// Bootstrap Icons (MIT, icons.getbootstrap.com): inner SVG markup for the icons used in this script.
+const ICON_PATHS = {
+    "house-fill": '<path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L8 2.207l6.646 6.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293z"/> <path d="m8 3.293 6 6V13.5a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 2 13.5V9.293z"/>',
+    "building-fill": '<path d="M3 0a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h3v-3.5a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 .5.5V16h3a1 1 0 0 0 1-1V1a1 1 0 0 0-1-1zm1 2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5M4 5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM7.5 5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5m2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zM4.5 8h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5m2.5.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5zm3.5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1a.5.5 0 0 1 .5-.5"/>',
+    "backpack-fill": '<path d="M5 13v-3h4v.5a.5.5 0 0 0 1 0V10h1v3z"/> <path d="M6 2v.341C3.67 3.165 2 5.388 2 8v5.5A2.5 2.5 0 0 0 4.5 16h7a2.5 2.5 0 0 0 2.5-2.5V8a6 6 0 0 0-4-5.659V2a2 2 0 1 0-4 0m2-1a1 1 0 0 1 1 1v.083a6 6 0 0 0-2 0V2a1 1 0 0 1 1-1m0 3a4 4 0 0 1 3.96 3.43.5.5 0 1 1-.99.14 3 3 0 0 0-5.94 0 .5.5 0 1 1-.99-.14A4 4 0 0 1 8 4M4.5 9h7a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-.5.5h-7a.5.5 0 0 1-.5-.5v-4a.5.5 0 0 1 .5-.5"/>',
+    "mortarboard-fill": '<path d="M8.211 2.047a.5.5 0 0 0-.422 0l-7.5 3.5a.5.5 0 0 0 .025.917l7.5 3a.5.5 0 0 0 .372 0L14 7.14V13a1 1 0 0 0-1 1v2h3v-2a1 1 0 0 0-1-1V6.739l.686-.275a.5.5 0 0 0 .025-.917z"/> <path d="M4.176 9.032a.5.5 0 0 0-.656.327l-.5 1.7a.5.5 0 0 0 .294.605l4.5 1.8a.5.5 0 0 0 .372 0l4.5-1.8a.5.5 0 0 0 .294-.605l-.5-1.7a.5.5 0 0 0-.656-.327L8 10.466z"/>',
+    "cup-hot-fill": '<path fill-rule="evenodd" d="M.5 6a.5.5 0 0 0-.488.608l1.652 7.434A2.5 2.5 0 0 0 4.104 16h5.792a2.5 2.5 0 0 0 2.44-1.958l.131-.59a3 3 0 0 0 1.3-5.854l.221-.99A.5.5 0 0 0 13.5 6zM13 12.5a2 2 0 0 1-.316-.025l.867-3.898A2.001 2.001 0 0 1 13 12.5"/> <path d="m4.4.8-.003.004-.014.019a4 4 0 0 0-.204.31 2 2 0 0 0-.141.267c-.026.06-.034.092-.037.103v.004a.6.6 0 0 0 .091.248c.075.133.178.272.308.445l.01.012c.118.158.26.347.37.543.112.2.22.455.22.745 0 .188-.065.368-.119.494a3 3 0 0 1-.202.388 5 5 0 0 1-.253.382l-.018.025-.005.008-.002.002A.5.5 0 0 1 3.6 4.2l.003-.004.014-.019a4 4 0 0 0 .204-.31 2 2 0 0 0 .141-.267c.026-.06.034-.092.037-.103a.6.6 0 0 0-.09-.252A4 4 0 0 0 3.6 2.8l-.01-.012a5 5 0 0 1-.37-.543A1.53 1.53 0 0 1 3 1.5c0-.188.065-.368.119-.494.059-.138.134-.274.202-.388a6 6 0 0 1 .253-.382l.025-.035A.5.5 0 0 1 4.4.8m3 0-.003.004-.014.019a4 4 0 0 0-.204.31 2 2 0 0 0-.141.267c-.026.06-.034.092-.037.103v.004a.6.6 0 0 0 .091.248c.075.133.178.272.308.445l.01.012c.118.158.26.347.37.543.112.2.22.455.22.745 0 .188-.065.368-.119.494a3 3 0 0 1-.202.388 5 5 0 0 1-.253.382l-.018.025-.005.008-.002.002A.5.5 0 0 1 6.6 4.2l.003-.004.014-.019a4 4 0 0 0 .204-.31 2 2 0 0 0 .141-.267c.026-.06.034-.092.037-.103a.6.6 0 0 0-.09-.252A4 4 0 0 0 6.6 2.8l-.01-.012a5 5 0 0 1-.37-.543A1.53 1.53 0 0 1 6 1.5c0-.188.065-.368.119-.494.059-.138.134-.274.202-.388a6 6 0 0 1 .253-.382l.025-.035A.5.5 0 0 1 7.4.8m3 0-.003.004-.014.019a4 4 0 0 0-.204.31 2 2 0 0 0-.141.267c-.026.06-.034.092-.037.103v.004a.6.6 0 0 0 .091.248c.075.133.178.272.308.445l.01.012c.118.158.26.347.37.543.112.2.22.455.22.745 0 .188-.065.368-.119.494a3 3 0 0 1-.202.388 5 5 0 0 1-.252.382l-.019.025-.005.008-.002.002A.5.5 0 0 1 9.6 4.2l.003-.004.014-.019a4 4 0 0 0 .204-.31 2 2 0 0 0 .141-.267c.026-.06.034-.092.037-.103a.6.6 0 0 0-.09-.252A4 4 0 0 0 9.6 2.8l-.01-.012a5 5 0 0 1-.37-.543A1.53 1.53 0 0 1 9 1.5c0-.188.065-.368.119-.494.059-.138.134-.274.202-.388a6 6 0 0 1 .253-.382l.025-.035A.5.5 0 0 1 10.4.8"/>',
+    "shop": '<path d="M2.97 1.35A1 1 0 0 1 3.73 1h8.54a1 1 0 0 1 .76.35l2.609 3.044A1.5 1.5 0 0 1 16 5.37v.255a2.375 2.375 0 0 1-4.25 1.458A2.37 2.37 0 0 1 9.875 8 2.37 2.37 0 0 1 8 7.083 2.37 2.37 0 0 1 6.125 8a2.37 2.37 0 0 1-1.875-.917A2.375 2.375 0 0 1 0 5.625V5.37a1.5 1.5 0 0 1 .361-.976zm1.78 4.275a1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0 1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0 1.375 1.375 0 1 0 2.75 0V5.37a.5.5 0 0 0-.12-.325L12.27 2H3.73L1.12 5.045A.5.5 0 0 0 1 5.37v.255a1.375 1.375 0 0 0 2.75 0 .5.5 0 0 1 1 0M1.5 8.5A.5.5 0 0 1 2 9v6h1v-5a1 1 0 0 1 1-1h3a1 1 0 0 1 1 1v5h6V9a.5.5 0 0 1 1 0v6h.5a.5.5 0 0 1 0 1H.5a.5.5 0 0 1 0-1H1V9a.5.5 0 0 1 .5-.5M4 15h3v-5H4zm5-5a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1zm3 0h-2v3h2z"/>',
+    "bag-fill": '<path d="M8 1a2.5 2.5 0 0 1 2.5 2.5V4h-5v-.5A2.5 2.5 0 0 1 8 1m3.5 3v-.5a3.5 3.5 0 1 0-7 0V4H1v10a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V4z"/>',
+    "p-square-fill": '<path d="M8.27 8.074c.893 0 1.419-.545 1.419-1.488s-.526-1.482-1.42-1.482H6.778v2.97z"/> <path d="M2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2zm3.5 4.002h2.962C10.045 4.002 11 5.104 11 6.586c0 1.494-.967 2.578-2.55 2.578H6.784V12H5.5z"/>',
+    "bank2": '<path d="M8.277.084a.5.5 0 0 0-.554 0l-7.5 5A.5.5 0 0 0 .5 6h1.875v7H1.5a.5.5 0 0 0 0 1h13a.5.5 0 1 0 0-1h-.875V6H15.5a.5.5 0 0 0 .277-.916zM12.375 6v7h-1.25V6zm-2.5 0v7h-1.25V6zm-2.5 0v7h-1.25V6zm-2.5 0v7h-1.25V6zM8 4a1 1 0 1 1 0-2 1 1 0 0 1 0 2M.5 15a.5.5 0 0 0 0 1h15a.5.5 0 1 0 0-1z"/>',
+    "hospital-fill": '<path d="M6 0a1 1 0 0 0-1 1v1a1 1 0 0 0-1 1v4H1a1 1 0 0 0-1 1v7a1 1 0 0 0 1 1h6v-2.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5V16h6a1 1 0 0 0 1-1V8a1 1 0 0 0-1-1h-3V3a1 1 0 0 0-1-1V1a1 1 0 0 0-1-1zm2.5 5.034v1.1l.953-.55.5.867L9 7l.953.55-.5.866-.953-.55v1.1h-1v-1.1l-.953.55-.5-.866L7 7l-.953-.55.5-.866.953.55v-1.1zM2.25 9h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5A.25.25 0 0 1 2 9.75v-.5A.25.25 0 0 1 2.25 9m0 2h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5a.25.25 0 0 1-.25-.25v-.5a.25.25 0 0 1 .25-.25M2 13.25a.25.25 0 0 1 .25-.25h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5a.25.25 0 0 1-.25-.25zM13.25 9h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5a.25.25 0 0 1-.25-.25v-.5a.25.25 0 0 1 .25-.25M13 11.25a.25.25 0 0 1 .25-.25h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5a.25.25 0 0 1-.25-.25zm.25 1.75h.5a.25.25 0 0 1 .25.25v.5a.25.25 0 0 1-.25.25h-.5a.25.25 0 0 1-.25-.25v-.5a.25.25 0 0 1 .25-.25"/>',
+    "train-front-fill": '<path d="M10.621.515C8.647.02 7.353.02 5.38.515c-.924.23-1.982.766-2.78 1.22C1.566 2.322 1 3.432 1 4.582V13.5A2.5 2.5 0 0 0 3.5 16h9a2.5 2.5 0 0 0 2.5-2.5V4.583c0-1.15-.565-2.26-1.6-2.849-.797-.453-1.855-.988-2.779-1.22ZM6.5 2h3a.5.5 0 0 1 0 1h-3a.5.5 0 0 1 0-1m-2 2h7A1.5 1.5 0 0 1 13 5.5v2A1.5 1.5 0 0 1 11.5 9h-7A1.5 1.5 0 0 1 3 7.5v-2A1.5 1.5 0 0 1 4.5 4m.5 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0m0 0a1 1 0 1 1 2 0 1 1 0 0 1-2 0m8 0a1 1 0 1 1-2 0 1 1 0 0 1 2 0m-3-1a1 1 0 1 1 0 2 1 1 0 0 1 0-2M4 5.5a.5.5 0 0 1 .5-.5h3v3h-3a.5.5 0 0 1-.5-.5zM8.5 8V5h3a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-.5.5z"/>',
+    "tree-fill": '<path d="M8.416.223a.5.5 0 0 0-.832 0l-3 4.5A.5.5 0 0 0 5 5.5h.098L3.076 8.735A.5.5 0 0 0 3.5 9.5h.191l-1.638 3.276a.5.5 0 0 0 .447.724H7V16h2v-2.5h4.5a.5.5 0 0 0 .447-.724L12.31 9.5h.191a.5.5 0 0 0 .424-.765L10.902 5.5H11a.5.5 0 0 0 .416-.777z"/>',
+    "image-alt": '<path d="M7 2.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0m4.225 4.053a.5.5 0 0 0-.577.093l-3.71 4.71-2.66-2.772a.5.5 0 0 0-.63.062L.002 13v2a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-4.5z"/>',
+    "pencil": '<path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325"/>',
+    "trash3": '<path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/>',
+    "globe2": '<path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8m7.5-6.923c-.67.204-1.335.82-1.887 1.855q-.215.403-.395.872c.705.157 1.472.257 2.282.287zM4.249 3.539q.214-.577.481-1.078a7 7 0 0 1 .597-.933A7 7 0 0 0 3.051 3.05q.544.277 1.198.49zM3.509 7.5c.036-1.07.188-2.087.436-3.008a9 9 0 0 1-1.565-.667A6.96 6.96 0 0 0 1.018 7.5zm1.4-2.741a12.3 12.3 0 0 0-.4 2.741H7.5V5.091c-.91-.03-1.783-.145-2.591-.332M8.5 5.09V7.5h2.99a12.3 12.3 0 0 0-.399-2.741c-.808.187-1.681.301-2.591.332zM4.51 8.5c.035.987.176 1.914.399 2.741A13.6 13.6 0 0 1 7.5 10.91V8.5zm3.99 0v2.409c.91.03 1.783.145 2.591.332.223-.827.364-1.754.4-2.741zm-3.282 3.696q.18.469.395.872c.552 1.035 1.218 1.65 1.887 1.855V11.91c-.81.03-1.577.13-2.282.287zm.11 2.276a7 7 0 0 1-.598-.933 9 9 0 0 1-.481-1.079 8.4 8.4 0 0 0-1.198.49 7 7 0 0 0 2.276 1.522zm-1.383-2.964A13.4 13.4 0 0 1 3.508 8.5h-2.49a6.96 6.96 0 0 0 1.362 3.675c.47-.258.995-.482 1.565-.667m6.728 2.964a7 7 0 0 0 2.275-1.521 8.4 8.4 0 0 0-1.197-.49 9 9 0 0 1-.481 1.078 7 7 0 0 1-.597.933M8.5 11.909v3.014c.67-.204 1.335-.82 1.887-1.855q.216-.403.395-.872A12.6 12.6 0 0 0 8.5 11.91zm3.555-.401c.57.185 1.095.409 1.565.667A6.96 6.96 0 0 0 14.982 8.5h-2.49a13.4 13.4 0 0 1-.437 3.008M14.982 7.5a6.96 6.96 0 0 0-1.362-3.675c-.47.258-.995.482-1.565.667.248.92.4 1.938.437 3.008zM11.27 2.461q.266.502.482 1.078a8.4 8.4 0 0 0 1.196-.49 7 7 0 0 0-2.275-1.52c.218.283.418.597.597.932m-.488 1.343a8 8 0 0 0-.395-.872C9.835 1.897 9.17 1.282 8.5 1.077V4.09c.81-.03 1.577-.13 2.282-.287z"/>',
+    "lock-fill": '<path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2m3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2"/>',
+    "dot": '<circle cx="8" cy="8" r="3.5"/>'
+};
+
+// Inline SVG icon (inherits the text colour)
+function svgIcon(name, size = 16) {
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">${ICON_PATHS[name]}</svg>`;
+}
+
 /**
  * Map Application Javascript
  * Organised, modularised, and cleaned up version of the map app script.
@@ -16,21 +43,22 @@ function esc(value) {
 
 const MapApp = {
     Config: {
+        // Category glyphs (inline SVG), used in map pins, popups and the sidebar list
         categoryIcons: {
-            'house': '🏠',
-            'business': '🏢',
-            'school': '🏫',
-            'university': '🎓',
-            'restaurant': '🍽️',
-            'shop': '🏪',
-            'mall': '🛍️',
-            'parking': '🅿️',
-            'religious': '⛪',
-            'hospital': '🏥',
-            'transit': '🚉',
-            'park': '🌳',
-            'nature': '🏞️',
-            'other': '📍'
+            'house': svgIcon('house-fill'),
+            'business': svgIcon('building-fill'),
+            'school': svgIcon('backpack-fill'),
+            'university': svgIcon('mortarboard-fill'),
+            'restaurant': svgIcon('cup-hot-fill'),
+            'shop': svgIcon('shop'),
+            'mall': svgIcon('bag-fill'),
+            'parking': svgIcon('p-square-fill'),
+            'religious': svgIcon('bank2'),
+            'hospital': svgIcon('hospital-fill'),
+            'transit': svgIcon('train-front-fill'),
+            'park': svgIcon('tree-fill'),
+            'nature': svgIcon('image-alt'),
+            'other': svgIcon('dot')
         },
         defaultLocation: [43.4643, -80.5204], // Default to Waterloo if geo fails
         defaultZoom: 13
@@ -219,10 +247,10 @@ const MapApp = {
                     this.leafletMap.setView(userLocation, MapApp.Config.defaultZoom);
                     
                     const userIcon = L.divIcon({
-                        html: `<div style="font-size: 24px; filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.5));">📍</div>`,
+                        html: `<div class="user-location-dot"></div>`,
                         className: 'custom-div-icon',
-                        iconSize: [30, 30],
-                        iconAnchor: [15, 15]
+                        iconSize: [18, 18],
+                        iconAnchor: [9, 9]
                     });
 
                     L.marker(userLocation, {
@@ -238,10 +266,11 @@ const MapApp = {
         createCustomIcon(category) {
             const icon = MapApp.Config.categoryIcons[category] || MapApp.Config.categoryIcons['other'];
             return L.divIcon({
-                html: `<div style="font-size: 24px; filter: drop-shadow(1px 1px 1px rgba(0,0,0,0.5));">${icon}</div>`,
+                html: `<div class="map-pin"><svg class="map-pin-shape" viewBox="0 0 28 36" aria-hidden="true"><path d="M14 1C6.8 1 1 6.7 1 13.7 1 23.2 14 35 14 35s13-11.8 13-21.3C27 6.7 21.2 1 14 1z"/></svg><span class="map-pin-glyph">${icon}</span></div>`,
                 className: 'custom-div-icon',
-                iconSize: [30, 30],
-                iconAnchor: [15, 15]
+                iconSize: [28, 36],
+                iconAnchor: [14, 35],
+                popupAnchor: [0, -32]
             });
         },
 
@@ -266,14 +295,14 @@ const MapApp = {
                 
                 popupDiv.innerHTML = `
                     <div class="popup-icon">${icon}</div>
-                    <strong>${esc(location.name)}</strong><br>
-                    <span class="text-muted" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">${esc(location.category)}</span><br>
+                    <strong class="popup-title">${esc(location.name)}</strong>
+                    <div class="popup-category">${esc(location.category)}</div>
                     ${location.description ? `<div class="popup-desc">${esc(location.description)}</div>` : ''}
                     ${location.address ? `<div class="popup-addr">${esc(location.address)}</div>` : ''}
-                    ${location.rating ? `<div class="popup-rating">${starRating}</div>` : ''}
+                    ${location.rating ? `<div class="popup-rating" title="${location.rating} / 5">${starRating}</div>` : ''}
                     <div class="popup-actions-row">
-                        <button class="btn btn-sm btn-outline-secondary edit-popup-btn">✏️ Edit</button>
-                        <button class="btn btn-sm btn-outline-danger delete-popup-btn">🗑️ Delete</button>
+                        <button class="btn btn-sm btn-outline-secondary edit-popup-btn">${svgIcon('pencil', 13)} Edit</button>
+                        <button class="btn btn-sm btn-outline-danger delete-popup-btn">${svgIcon('trash3', 13)} Delete</button>
                     </div>
                 `;
 
@@ -432,7 +461,8 @@ const MapApp = {
             document.getElementById('toggle-sidebar').addEventListener('click', function() {
                 const sidebar = document.getElementById('sidebar');
                 sidebar.classList.toggle('hidden');
-                this.textContent = sidebar.classList.contains('hidden') ? '☰' : '✕';
+                // Icon swaps via CSS (#sidebar.hidden ~ #toggle-sidebar)
+                this.setAttribute('aria-expanded', String(!sidebar.classList.contains('hidden')));
             });
 
             // Tab switching logic
@@ -625,13 +655,11 @@ const MapApp = {
                 div.className = 'group-item';
                 div.innerHTML = `
                     <div class="group-header">
-                        <div>
+                        <label class="group-toggle">
+                            <input type="checkbox" class="form-check-input" data-group-id="${group.id}">
                             <strong>${esc(group.name)}</strong>
-                            ${group.is_public ? '🌍' : '🔒'}
-                        </div>
-                        <label>
-                            <input type="checkbox" data-group-id="${group.id}">
                         </label>
+                        <span class="group-visibility" title="${group.is_public ? 'Public' : 'Private'}">${group.is_public ? svgIcon('globe2', 13) : svgIcon('lock-fill', 13)}</span>
                     </div>
                     <div class="group-locations" id="group-${group.id}">
                         <!-- Locations loaded inside -->
@@ -660,11 +688,12 @@ const MapApp = {
             const icons = MapApp.Config.categoryIcons;
             groupDiv.innerHTML = locations.map(location => `
                 <div class="location-marker">
-                    ${icons[location.category] || icons['other']} &nbsp; ${esc(location.name)}
+                    <span class="location-icon">${icons[location.category] || icons['other']}</span>
+                    <span class="location-name">${esc(location.name)}</span>
                     <span class="category-badge">${esc(location.category)}</span>
                     <div class="location-actions">
-                        <button class="action-btn edit-location" data-location-json='${encodeURIComponent(JSON.stringify(location))}'>✏️</button>
-                        <button class="action-btn delete-location" data-id="${location.id}">🗑️</button>
+                        <button class="action-btn edit-location" title="Edit" aria-label="Edit" data-location-json='${encodeURIComponent(JSON.stringify(location))}'>${svgIcon('pencil', 13)}</button>
+                        <button class="action-btn delete-location" title="Delete" aria-label="Delete" data-id="${location.id}">${svgIcon('trash3', 13)}</button>
                     </div>
                 </div>
             `).join('');
@@ -690,7 +719,7 @@ const MapApp = {
             const modalTitle = document.getElementById('locationModalTitle');
             const modalBody = document.getElementById('locationModalBody');
             
-            modalTitle.textContent = location && location.id ? 'Edit Location' : 'Add New Location';
+            modalTitle.textContent = location && location.id ? 'Edit place' : 'New place';
             
             const templateData = location || {
                 id: '',

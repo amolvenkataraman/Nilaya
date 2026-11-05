@@ -93,6 +93,7 @@ def locations(request):
             'address': loc.address,
             'rating': loc.rating,
             'notes': loc.notes,
+            'group_id': loc.group_id,  # pre-selects the group in the edit form
         } for loc in locations], safe=False)
         
     except LocationGroup.DoesNotExist:

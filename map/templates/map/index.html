@@ -1,11 +1,20 @@
 {% load static %}
 
 <!DOCTYPE html>
-<html lang="en" {% if request.user.dark_mode %}class="dark-mode"{% endif %}>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Map</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Places · AVNet Superapp</title>
+    <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}" />
+
+    <!-- Theme first so the right light/dark theme applies before first paint -->
+    <script src="{% static 'js/theme.js' %}"></script>
+
+    <!-- Bootstrap + the app design system -->
+    <link href="{% static 'vendor/bootstrap-5.3.3/bootstrap.min.css' %}" rel="stylesheet">
+    <script src="{% static 'vendor/bootstrap-5.3.3/bootstrap.bundle.min.js' %}"></script>
+    <link href="{% static 'css/theme.css' %}" rel="stylesheet">
 
     <!-- Leaflet & Heatmap libraries -->
     <link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">
@@ -14,16 +23,12 @@
     <script src="{% static 'js/leaflet-heatmap/leaflet-heatmap.js' %}" type="text/javascript"></script>
     <script src="{% static 'vendor/leaflet-heat-0.2.0/leaflet-heat.min.js' %}"></script>
     <script src="{% static 'vendor/leaflet-gpx-1.7.0/gpx.min.js' %}"></script>
-    
-    <!-- Bootstrap CSS and JS -->
-    <link href="{% static 'vendor/bootstrap-5.1.3/bootstrap.min.css' %}" rel="stylesheet">
-    <script src="{% static 'vendor/bootstrap-5.1.3/bootstrap.bundle.min.js' %}"></script>
-    
+
     <!-- jQuery and Handlebars -->
     <script src="{% static 'js/jquery/jquery.min.js' %}" type="text/javascript"></script>
     <script src="{% static 'js/handlebars/handlebars.js' %}" type="text/javascript"></script>
 
-    <!-- Custom Premium Styles -->
+    <!-- Map page styles (uses the --app-* tokens from theme.css) -->
     <link href="{% static 'map/styles.css' %}" rel="stylesheet">
 
     <!-- Handlebars Templates -->
@@ -33,59 +38,60 @@
             <input type="hidden" name="id" value="{{id}}">
             <input type="hidden" name="latitude" value="{{latitude}}">
             <input type="hidden" name="longitude" value="{{longitude}}">
-            
+
             <div class="mb-3">
-                <label class="form-label">Group</label>
-                <select class="form-select" name="group" required>
-                    <option value="">Select group...</option>
-                    {{#each groups}}
-                    <option value="{{id}}" {{#if (eq ../group_id id)}}selected{{/if}}>{{name}}</option>
-                    {{/each}}
-                </select>
+                <label class="form-label" for="loc-name">Name</label>
+                <input type="text" class="form-control" id="loc-name" name="name" value="{{name}}" required>
             </div>
-            
-            <div class="mb-3">
-                <label class="form-label">Name</label>
-                <input type="text" class="form-control" name="name" value="{{name}}" required>
+
+            <div class="row g-3 mb-3">
+                <div class="col-sm-6">
+                    <label class="form-label" for="loc-group">Group</label>
+                    <select class="form-select" id="loc-group" name="group" required>
+                        <option value="">Select group...</option>
+                        {{#each groups}}
+                        <option value="{{id}}" {{#if (eq ../group_id id)}}selected{{/if}}>{{name}}</option>
+                        {{/each}}
+                    </select>
+                </div>
+                <div class="col-sm-6">
+                    <label class="form-label" for="loc-category">Category</label>
+                    <select class="form-select" id="loc-category" name="category" required>
+                        <option value="">Select category...</option>
+                        <option value="house" {{#if (eq category "house")}}selected{{/if}}>House</option>
+                        <option value="business" {{#if (eq category "business")}}selected{{/if}}>Business</option>
+                        <option value="school" {{#if (eq category "school")}}selected{{/if}}>School</option>
+                        <option value="university" {{#if (eq category "university")}}selected{{/if}}>University</option>
+                        <option value="restaurant" {{#if (eq category "restaurant")}}selected{{/if}}>Restaurant</option>
+                        <option value="shop" {{#if (eq category "shop")}}selected{{/if}}>Shop</option>
+                        <option value="mall" {{#if (eq category "mall")}}selected{{/if}}>Shopping Mall</option>
+                        <option value="parking" {{#if (eq category "parking")}}selected{{/if}}>Parking</option>
+                        <option value="religious" {{#if (eq category "religious")}}selected{{/if}}>Religious</option>
+                        <option value="hospital" {{#if (eq category "hospital")}}selected{{/if}}>Hospital</option>
+                        <option value="transit" {{#if (eq category "transit")}}selected{{/if}}>Transit</option>
+                        <option value="park" {{#if (eq category "park")}}selected{{/if}}>Park</option>
+                        <option value="nature" {{#if (eq category "nature")}}selected{{/if}}>Nature</option>
+                        <option value="other" {{#if (eq category "other")}}selected{{/if}}>Other</option>
+                    </select>
+                </div>
             </div>
-            
+
             <div class="mb-3">
-                <label class="form-label">Category</label>
-                <select class="form-select" name="category" required>
-                    <option value="">Select category...</option>
-                    <option value="house" {{#if (eq category "house")}}selected{{/if}}>🏠 House</option>
-                    <option value="business" {{#if (eq category "business")}}selected{{/if}}>🏢 Business</option>
-                    <option value="school" {{#if (eq category "school")}}selected{{/if}}>🏫 School</option>
-                    <option value="university" {{#if (eq category "university")}}selected{{/if}}>🎓 University</option>
-                    <option value="restaurant" {{#if (eq category "restaurant")}}selected{{/if}}>🍽️ Restaurant</option>
-                    <option value="shop" {{#if (eq category "shop")}}selected{{/if}}>🏪 Shop</option>
-                    <option value="mall" {{#if (eq category "mall")}}selected{{/if}}>🛍️ Shopping Mall</option>
-                    <option value="parking" {{#if (eq category "parking")}}selected{{/if}}>🅿️ Parking</option>
-                    <option value="religious" {{#if (eq category "religious")}}selected{{/if}}>⛪ Religious</option>
-                    <option value="hospital" {{#if (eq category "hospital")}}selected{{/if}}>🏥 Hospital</option>
-                    <option value="transit" {{#if (eq category "transit")}}selected{{/if}}>🚉 Transit</option>
-                    <option value="park" {{#if (eq category "park")}}selected{{/if}}>🌳 Park</option>
-                    <option value="nature" {{#if (eq category "nature")}}selected{{/if}}>🏞️ Nature</option>
-                    <option value="other" {{#if (eq category "other")}}selected{{/if}}>📍 Other</option>
-                </select>
+                <label class="form-label" for="loc-description">Description</label>
+                <textarea class="form-control" id="loc-description" name="description" rows="3">{{description}}</textarea>
             </div>
-            
+
             <div class="mb-3">
-                <label class="form-label">Description</label>
-                <textarea class="form-control" name="description" rows="3">{{description}}</textarea>
+                <label class="form-label" for="loc-address">Address</label>
+                <input type="text" class="form-control" id="loc-address" name="address" value="{{address}}">
             </div>
-            
-            <div class="mb-3">
-                <label class="form-label">Address</label>
-                <input type="text" class="form-control" name="address" value="{{address}}">
-            </div>
-            
-            <div class="mb-3">
-                <label class="form-label">Rating</label>
-                <select class="form-select" name="rating">
+
+            <div class="mb-1">
+                <label class="form-label" for="loc-rating">Rating</label>
+                <select class="form-select" id="loc-rating" name="rating">
                     <option value="">No rating</option>
                     {{#each ratings}}
-                    <option value="{{this}}" {{#if (eq ../rating this)}}selected{{/if}}>{{this}} ⭐</option>
+                    <option value="{{this}}" {{#if (eq ../rating this)}}selected{{/if}}>{{this}} / 5</option>
                     {{/each}}
                 </select>
             </div>
@@ -98,91 +104,127 @@
         <!-- Leaflet Map Mount Point -->
         <div id="mapid"></div>
 
-        <!-- Float Map Controls -->
-        <div class="map-controls">
-            <div class="search-container">
-                <input type="text" id="location-search" placeholder="Search for a location...">
-                <div id="search-results" class="search-results hidden"></div>
+        <!-- Floating top bar: home, search, add place, theme -->
+        <div class="map-topbar">
+            <a class="map-fab" href="{% url 'index' %}" title="Home" aria-label="Home">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 14.5v-3.505c0-.245.25-.495.5-.495h2c.25 0 .5.25.5.5v3.5a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5v-7a.5.5 0 0 0-.146-.354L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.354 1.146a.5.5 0 0 0-.708 0l-6 6A.5.5 0 0 0 1.5 7.5v7a.5.5 0 0 0 .5.5h4a.5.5 0 0 0 .5-.5"/></svg>
+            </a>
+
+            <div class="map-topbar-right">
+                <div class="search-container">
+                    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001q.044.06.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1 1 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0"/></svg>
+                    <input type="text" enterkeyhint="search" id="location-search" class="form-control" placeholder="Search for a place..." autocomplete="off" aria-label="Search for a place">
+                    <div id="search-results" class="search-results hidden"></div>
+                </div>
+                <button id="add-location-mode" class="map-control-btn" title="Click on the map to add a place">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10m0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6"/></svg>
+                    <span class="btn-label">Add place</span>
+                </button>
+                <button type="button" class="map-fab theme-toggle" onclick="cycleTheme()" title="Theme for this device" aria-label="Change theme">
+                    <svg class="ti-system" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 15A7 7 0 1 0 8 1v14zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16z"/></svg>
+                    <svg class="ti-light" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8z"/></svg>
+                    <svg class="ti-dark" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/></svg>
+                </button>
             </div>
-            <button id="add-location-mode" class="map-control-btn" title="Click on map to add location">📍 Add Location</button>
         </div>
 
-        <!-- Sidebar Trigger -->
-        <button id="toggle-sidebar">☰</button>
-
-        <!-- Sidebar Panel -->
-        <div id="sidebar" class="glass-panel">
+        <!-- Sidebar Panel (bottom sheet on phones) -->
+        <div id="sidebar" class="map-panel">
             <!-- Sidebar Tab Navigation -->
-            <div class="sidebar-tabs-nav">
-                <button class="tab-nav-btn active" data-target="#pane-locations">📍 Locations</button>
-                <button class="tab-nav-btn" data-target="#pane-heatmap">🔥 Heatmap</button>
+            <div class="sidebar-tabs-nav" role="tablist">
+                <button class="tab-nav-btn active" data-target="#pane-locations" role="tab">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10m0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6"/></svg>
+                    Places
+                </button>
+                <button class="tab-nav-btn" data-target="#pane-heatmap" role="tab">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 16c3.314 0 6-2 6-5.5 0-1.5-.5-4-2.5-6 .25 1.5-1.25 2-1.25 2C11 4 9 .5 6 0c.357 2 .5 4-2 6-1.25 1-2 2.729-2 4.5C2 14 4.686 16 8 16m0-1c-1.657 0-3-1-3-2.75 0-.75.25-2 1.25-3C6.125 10 7 10.5 7 10.5c-.375-1.25.5-3.25 2-3.5-.179 1-.25 2 1 3 .625.5 1 1.364 1 2.25C11 14 9.657 15 8 15"/></svg>
+                    Heatmap
+                </button>
             </div>
-            
+
             <!-- Locations Pane -->
             <div id="pane-locations" class="sidebar-pane active">
-                <div id="sidebar-header">
-                    <h4>Locations</h4>
-                    <div style="display: flex; gap: 8px;">
-                        <button id="add-group" class="toggle-btn" title="Add New Group">➕</button>
-                        <button id="refresh-data" class="toggle-btn" title="Refresh">🔄</button>
+                <div id="sidebar-header" class="pane-header">
+                    <span class="panel-label">Groups</span>
+                    <div class="pane-header-actions">
+                        <button id="add-group" class="icon-btn" title="Add new group" aria-label="Add new group">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2"/></svg>
+                        </button>
+                        <button id="refresh-data" class="icon-btn" title="Refresh" aria-label="Refresh">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 3a5 5 0 1 0 4.546 2.914.5.5 0 0 1 .908-.417A6 6 0 1 1 8 2z"/><path d="M8 4.466V.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384L8.41 4.658A.25.25 0 0 1 8 4.466"/></svg>
+                        </button>
                     </div>
                 </div>
-                
+
                 <div id="sidebar-content" class="pane-content">
-                    <!-- Groups and locations list loaded dynamically -->
+                    <!-- Groups and locations list loaded dynamically; skeleton until then -->
+                    <div class="skeleton-row" aria-hidden="true"><span class="skeleton-box square"></span><span class="skeleton-box" style="width: 45%"></span></div>
+                    <div class="skeleton-row" aria-hidden="true"><span class="skeleton-box square"></span><span class="skeleton-box" style="width: 30%"></span></div>
+                    <div class="skeleton-row" aria-hidden="true"><span class="skeleton-box square"></span><span class="skeleton-box" style="width: 55%"></span></div>
                 </div>
 
                 <div id="sidebar-footer" class="pane-footer">
-                    <div class="sidebar-group" style="margin-bottom: 8px;">
-                        <button class="sidebar-button w-100" id="view-photos">View Photos</button>
+                    <div class="form-check form-switch m-0">
+                        <input type="checkbox" class="form-check-input" role="switch" id="show-location-lists">
+                        <label class="form-check-label" for="show-location-lists">Show place lists</label>
                     </div>
-                    <div class="sidebar-group">
-                        <div class="form-check" style="display: flex; align-items: center; gap: 8px; padding: 4px 0 0 0; margin: 0;">
-                            <input type="checkbox" id="show-location-lists" style="width: 16px; height: 16px; margin: 0;">
-                            <label for="show-location-lists" style="font-size: 0.85rem; user-select: none; cursor: pointer; color: var(--text-secondary); margin: 0;">Show location lists</label>
-                        </div>
-                    </div>
+                    <button class="btn btn-primary w-100" id="view-photos">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M4.502 9a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3"/><path d="M14.002 13a2 2 0 0 1-2 2h-10a2 2 0 0 1-2-2V5A2 2 0 0 1 2 3a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v8a2 2 0 0 1-1.998 2M14 2H4a1 1 0 0 0-1 1h9.002a2 2 0 0 1 2 2v7A1 1 0 0 0 15 11V3a1 1 0 0 0-1-1M2.002 4a1 1 0 0 0-1 1v8l2.646-2.354a.5.5 0 0 1 .63-.062l2.66 1.773 3.71-3.71a.5.5 0 0 1 .577-.094l1.777 1.947V5a1 1 0 0 0-1-1z"/></svg>
+                        <span>View photos<span class="btn-label-extra"> in this area</span></span>
+                    </button>
                 </div>
             </div>
 
             <!-- Heatmap Pane -->
             <div id="pane-heatmap" class="sidebar-pane">
                 <div class="pane-header">
-                    <h4>Heatmap Settings</h4>
-                    <button id="reset-filters" class="toggle-btn" style="font-size: 0.75rem; width: auto; padding: 4px 8px;">Reset</button>
+                    <span class="panel-label">Photo heatmap</span>
+                    <button id="reset-filters" class="btn btn-sm btn-outline-secondary">Reset</button>
                 </div>
-                
+
                 <div class="pane-content">
-                    <div class="mb-4">
-                        <label class="form-label" style="font-size: 0.85rem; font-weight: 500;">Year Range: <span id="year-value" style="font-weight: 600;">{% now "Y" %}</span></label>
-                        <input type="range" id="year-filter" min="2004" max="{% now "Y" %}" value="{% now "Y" %}">
-                        <div class="form-check mt-2">
+                    <div class="filter-block">
+                        <label class="filter-label" for="year-filter">
+                            <span>Year</span>
+                            <span id="year-value" class="filter-value">{% now "Y" %}</span>
+                        </label>
+                        <input type="range" class="form-range" id="year-filter" min="2004" max="{% now "Y" %}" value="{% now "Y" %}">
+                        <div class="form-check mt-1">
                             <input type="checkbox" class="form-check-input" id="year-mode">
-                            <label class="form-check-label" for="year-mode" style="font-size: 0.8rem; user-select: none;">Show only selected year</label>
+                            <label class="form-check-label" for="year-mode">Only the selected year</label>
                         </div>
                     </div>
-                    
-                    <div class="mb-4">
-                        <label class="form-label" style="font-size: 0.85rem; font-weight: 500;">Max Altitude: <span id="altitude-value" style="font-weight: 600;">1000m</span></label>
-                        <input type="range" id="altitude-filter" min="0" max="10000" value="1000" step="100">
+
+                    <div class="filter-block">
+                        <label class="filter-label" for="altitude-filter">
+                            <span>Max altitude</span>
+                            <span id="altitude-value" class="filter-value">1000m</span>
+                        </label>
+                        <input type="range" class="form-range" id="altitude-filter" min="0" max="10000" value="1000" step="100">
                     </div>
-                    
+
                     <div class="form-check">
                         <input type="checkbox" class="form-check-input" id="special-only">
-                        <label class="form-check-label" for="special-only" style="font-size: 0.85rem; user-select: none;">Special photos only</label>
+                        <label class="form-check-label" for="special-only">Special photos only</label>
                     </div>
                 </div>
 
                 <div class="pane-footer">
-                    <button class="sidebar-button w-100" id="load-heatmap">Generate Heatmap</button>
+                    <button class="btn btn-primary w-100" id="load-heatmap">Generate heatmap</button>
                 </div>
             </div>
         </div>
+
+        <!-- Sidebar Trigger (icon follows the panel state via CSS) -->
+        <button id="toggle-sidebar" class="map-fab" title="Show / hide panel" aria-label="Show or hide panel" aria-expanded="true" aria-controls="sidebar">
+            <svg class="when-closed" xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5"/></svg>
+            <svg class="when-open" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg>
+        </button>
     </div>
 
     <!-- Location Form Modal -->
-    <div class="modal fade" id="locationModal" tabindex="-1">
-        <div class="modal-dialog modal-dialog-centered">
+    <div class="modal fade" id="locationModal" tabindex="-1" aria-labelledby="locationModalTitle" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="locationModalTitle">Location</h5>
@@ -193,39 +235,39 @@
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="saveLocationBtn">Save Location</button>
+                    <button type="button" class="btn btn-primary" id="saveLocationBtn">Save</button>
                 </div>
             </div>
         </div>
     </div>
 
     <!-- Add Group Modal -->
-    <div class="modal fade" id="groupModal" tabindex="-1">
+    <div class="modal fade" id="groupModal" tabindex="-1" aria-labelledby="groupModalTitle" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Create New Group</h5>
+                    <h5 class="modal-title" id="groupModalTitle">New group</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
                     <form id="group-form">
                         <div class="mb-3">
-                            <label class="form-label">Group Name</label>
-                            <input type="text" class="form-control" name="name" required placeholder="e.g. Favorite Cafes">
+                            <label class="form-label" for="group-name">Group name</label>
+                            <input type="text" class="form-control" id="group-name" name="name" required placeholder="e.g. Favourite cafes">
                         </div>
                         <div class="mb-3">
-                            <label class="form-label">Description</label>
-                            <textarea class="form-control" name="description" rows="3" placeholder="Optional description..."></textarea>
+                            <label class="form-label" for="group-description">Description</label>
+                            <textarea class="form-control" id="group-description" name="description" rows="3" placeholder="Optional"></textarea>
                         </div>
-                        <div class="form-check mb-2">
-                            <input type="checkbox" class="form-check-input" name="is_public" id="is_public">
-                            <label class="form-check-label" for="is_public" style="user-select: none;">Make this group public</label>
+                        <div class="form-check form-switch mb-1">
+                            <input type="checkbox" class="form-check-input" role="switch" name="is_public" id="is_public">
+                            <label class="form-check-label" for="is_public">Make this group public</label>
                         </div>
                     </form>
                 </div>
                 <div class="modal-footer">
                     <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" class="btn btn-primary" id="saveGroupBtn">Create Group</button>
+                    <button type="button" class="btn btn-primary" id="saveGroupBtn">Create group</button>
                 </div>
             </div>
         </div>

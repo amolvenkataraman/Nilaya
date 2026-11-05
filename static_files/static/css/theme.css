@@ -44,7 +44,7 @@
 /* Bootstrap mapped onto the tokens, so its components match the app in both themes. */
 :root,
 [data-bs-theme] {
-    --app-radius: 10px;
+    --app-radius: 8px;
     --app-radius-sm: 6px;
     --app-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --app-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -172,3 +172,9 @@ body {
 /* Modals and dropdowns sit on the card surface, not the page background. */
 .modal-content { --bs-modal-bg: var(--app-surface); --bs-modal-border-color: var(--app-border); }
 .dropdown-menu { --bs-dropdown-bg: var(--app-surface); --bs-dropdown-border-color: var(--app-border); }
+
+/* Range sliders follow the accent instead of Bootstrap's hardcoded blue. */
+.form-range { accent-color: var(--app-accent); }
+.form-range::-webkit-slider-thumb { background: var(--app-accent); }
+.form-range::-moz-range-thumb { background: var(--app-accent); }
+.form-range:focus::-webkit-slider-thumb { box-shadow: 0 0 0 .2rem var(--app-accent-soft); }
