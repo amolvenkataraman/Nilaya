@@ -114,7 +114,7 @@ class Event(models.Model):
     repeat_every = models.IntegerField(null=True, blank=True)
     repeat_end = models.DateField(null=True, blank=True)
     sync_id = models.CharField(max_length=256, null=True, blank=True)
-    custom_info = models.JSONField(default={}, null=True, blank=True)
+    custom_info = models.JSONField(default=dict, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} for {self.calendar.name}. From {str(self.startdate)} to {str(self.enddate)}"
@@ -153,7 +153,7 @@ class Todo(models.Model):
     completed_on = models.DateTimeField(auto_now=False, null=True, blank=True)
     percent_complete = models.PositiveSmallIntegerField(null=True, blank=True)
     time_spent = models.PositiveSmallIntegerField(null=True, blank=True)
-    custom_info = models.JSONField(default={}, null=True, blank=True)
+    custom_info = models.JSONField(default=dict, null=True, blank=True)
 
     def __str__(self):
         return f"{self.name} for {self.user.username}."

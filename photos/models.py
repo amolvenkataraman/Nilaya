@@ -154,8 +154,8 @@ class Photo(models.Model):
     focallength = models.CharField(max_length=32, null=True, blank=True)
 
     # last_ai_processed = models.DateTimeField(auto_now=False, null=True, blank=True)
-    metadata = models.JSONField(default={}, null=True, blank=True)
-    ai_index_info = models.JSONField(default={}, null=True, blank=True)
+    metadata = models.JSONField(default=dict, null=True, blank=True)
+    ai_index_info = models.JSONField(default=dict, null=True, blank=True)
     file_not_available = models.BooleanField(default=False)
 
     # Duplicate detection — stored as flat columns for fast DB-level lookups
