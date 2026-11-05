@@ -427,8 +427,11 @@ class Photo(models.Model):
         f = self.get_filepath()
         try:
             img = Image.open(f)
-            self.width = img.size[0]
-            self.height = img.size[1]
+            self.width, self.height = img.size
+            # EXIF orientations 5-8 mean the camera stored the image rotated 90 degrees:
+            # record the size as displayed (the thumbnail is already exif_transpose'd).
+            if (img.getexif() or {}).get(0x0112, 1) in (5, 6, 7, 8):
+                self.width, self.height = self.height, self.width
             self.calculate_megapixels()
 
             try:
@@ -629,8 +632,11 @@ def generate_video_thumbnail(video_path, output_path, video_id):
 
     # Open video file
     cap = cv2.VideoCapture(video_path)
-    
+
     if not cap.isOpened(): raise FileNotFoundError
+    # Newer OpenCV builds rotate frames automatically; turn that off so the explicit
+    # rotation below is applied exactly once on every version (else: sideways thumbnails).
+    cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 0)
 
     # Read the first frame
     ret, frame = cap.read()
@@ -656,7 +662,7 @@ def generate_video_thumbnail(video_path, output_path, video_id):
     elif rotation == 270:
         frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-    width, height, _ = frame.shape
+    height, width = frame.shape[:2]  # numpy shape is (rows, cols, channels)
 
     img = Image.fromarray(frame)
 
