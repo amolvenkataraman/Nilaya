@@ -24,7 +24,7 @@ My very own tech giant: a self-hosted personal and family platform for calendars
 | Places | `/map/` | Saved places in groups, photos taken nearby with visit history, suggested places from photo GPS, want-to-go and visited lists, GeoJSON/Takeout/KML import and export |
 | Notifications | `/notifications/` | Inbox and bell menu; delivery to ntfy, Gotify, email, Discord or any webhook (e.g. Home Assistant); automatic reminders for events, deadlines, todos and a morning agenda |
 | API keys and feeds | `/settings/api-keys/` | Per-app API keys, Markdown API guides for developers and AI agents, private ICS feeds for phone calendar apps |
-| Usage | `/analytics/` | Staff-only usage dashboard (page views by route, daily API counts per person and app) |
+| Usage | `/analytics/` | Staff-only usage dashboard: page views and API calls per person, per app, per day |
 | New interface (beta) | `/app/` | React + Vite + TypeScript app on the V2 API, G Suite-style apps with their own toolbars |
 
 Dark mode is chosen per device (system, light or dark) from the user menu.
@@ -62,7 +62,7 @@ New interface: `frontend/build.sh` builds into `static_files/static/app/`. The b
 
 The server runs from `/opt/Comptech` (venv `CT_env`) via `Comptech.sh`, in a tmux session with Daphne, a Celery worker and Celery beat, behind nginx, with Postgres. Step-by-step upgrade guides, with every changed path and command, are in [`docs/`](docs/).
 
-The usual upgrade: back up the database, `git pull`, `pip install -r requirements.txt`, `static_files/fetch_vendor.sh`, `python manage.py migrate`, `python manage.py collectstatic`, then restart Daphne, the worker and beat. Beat registers its own schedules: reminders, digests, analytics rollups and clean-ups.
+The usual upgrade: back up the database, `git pull`, `pip install -r requirements.txt`, `static_files/fetch_vendor.sh`, `python manage.py migrate`, `python manage.py collectstatic`, then restart Daphne, the worker and beat. Beat registers its own schedules: reminders and clean-ups.
 
 ## Project layout
 
@@ -90,4 +90,4 @@ docs/            upgrade guides and app docs
 - Delivery channels and other outbound calls only reach LAN addresses while `ONLINE_MODE` is off, and channel posts don't follow redirects.
 - Uploaded files (imports) have size limits and safe parsers; XML with a DTD is refused.
 - Hidden photos are invisible to everyone. Their owner can reveal them only through a session-only mode that switches off after 30 minutes.
-- Analytics stores route patterns only: no IDs, IP addresses or user agents. Do Not Track and Global Privacy Control are honoured.
+- Usage analytics keeps only daily counts per person and app (no URLs, IPs or browser details).
