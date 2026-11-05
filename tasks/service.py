@@ -1,0 +1,294 @@
+"""Tasks domain logic shared by the API, the Celery reminder job and both UIs."""
+
+import calendar
+import datetime
+import re
+
+from django.db import transaction
+from django.db.models import Q
+from django.utils import timezone
+
+from scheduler.models import Todo
+
+from .models import Bucket, Label, Project, ProjectMember, Reminder
+
+PRIORITIES = [(5, "Low"), (10, "Medium"), (15, "High"), (20, "Urgent")]
+DEFAULT_BUCKETS = [("To do", False), ("Doing", False), ("Done", True)]
+
+
+def priority_label(value):
+    for limit, label in PRIORITIES:
+        if value <= limit:
+            return label
+    return "Urgent"
+
+
+# ---------------------------------------------------------------- access
+
+def accessible_projects(user):
+    return Project.objects.filter(Q(owner=user) | Q(members__user=user)).distinct()
+
+
+def project_role(user, project):
+    """2 = admin (owner), 1 = can edit, 0 = can view, None = no access."""
+    if project.owner_id == user.id:
+        return ProjectMember.Role.ADMIN
+    m = ProjectMember.objects.filter(project=project, user=user).first()
+    return m.role if m else None
+
+
+def visible_tasks(user):
+    return Todo.objects.filter(Q(user=user) | Q(project__in=accessible_projects(user)) | Q(assignees=user)).distinct()
+
+
+def can_edit_task(user, todo):
+    if todo.user_id == user.id:
+        return True
+    if todo.project_id is None:
+        return False
+    role = project_role(user, todo.project)
+    return role is not None and role >= ProjectMember.Role.WRITE
+
+
+# ---------------------------------------------------------------- projects
+
+def create_project(owner, name, **fields):
+    with transaction.atomic():
+        p = Project.objects.create(owner=owner, name=name, **fields)
+        Bucket.objects.bulk_create([Bucket(project=p, name=n, position=i, is_done=d)
+                                    for i, (n, d) in enumerate(DEFAULT_BUCKETS)])
+    return p
+
+
+def ensure_inbox(user):
+    """Every user has one Inbox; todos made elsewhere (calendar, old API) land in it."""
+    inbox = Project.objects.filter(owner=user, is_inbox=True).first()
+    if inbox is None:
+        inbox = create_project(user, "Inbox", is_inbox=True, position=-1)
+    orphans = Todo.objects.filter(user=user, project__isnull=True)
+    if orphans.exists():
+        first = inbox.buckets.filter(is_done=False).first()
+        done = inbox.buckets.filter(is_done=True).first()
+        orphans.filter(completed=False).update(project=inbox, bucket=first)
+        orphans.filter(completed=True).update(project=inbox, bucket=done)
+    return inbox
+
+
+# ---------------------------------------------------------------- done / buckets / repeat
+
+def _add_months(dt, n):
+    m = dt.month - 1 + n
+    y, m = dt.year + m // 12, m % 12 + 1
+    return dt.replace(year=y, month=m, day=min(dt.day, calendar.monthrange(y, m)[1]))
+
+
+def set_done(todo, done):
+    """Complete or reopen. A repeating task moves its dates forward and stays open.
+    Returns True if the task repeated."""
+    now = timezone.now()
+    if done and todo.repeat_mode and (todo.complete_by or todo.start_on):
+        anchor = todo.complete_by or todo.start_on
+        if todo.repeat_mode == 2:
+            new_anchor = _add_months(anchor, 1)
+            while new_anchor < now:
+                new_anchor = _add_months(new_anchor, 1)
+        elif todo.repeat_every:
+            step = datetime.timedelta(seconds=todo.repeat_every)
+            new_anchor = (now + step) if todo.repeat_mode == 3 else anchor + step
+            while todo.repeat_mode == 1 and new_anchor < now:
+                new_anchor += step
+        else:
+            new_anchor = anchor
+        shift = new_anchor - anchor
+        if todo.complete_by:
+            todo.complete_by += shift
+        if todo.start_on:
+            todo.start_on += shift
+        todo.completed_on = now
+        todo.custom_info = {**(todo.custom_info or {}), "last_done": now.isoformat(),
+                            "times_done": (todo.custom_info or {}).get("times_done", 0) + 1}
+        todo.save()
+        for r in todo.reminders.all():
+            if r.at:
+                r.at += shift
+            r.sent_at = None
+            r.resolve()
+            r.save()
+        return True
+
+    todo.completed = done
+    todo.completed_on = now if done else None
+    todo.status = 100 if done else (todo.status if todo.status != 100 else 0)
+    if todo.project_id:
+        current_done = todo.bucket.is_done if todo.bucket_id else False
+        if done and not current_done:
+            todo.bucket = todo.project.buckets.filter(is_done=True).first() or todo.bucket
+        elif not done and current_done:
+            todo.bucket = todo.project.buckets.filter(is_done=False).first()
+    todo.save()
+    return False
+
+
+def move(todo, *, project=None, bucket=None, position=None):
+    if project is not None and project.id != todo.project_id:
+        todo.project = project
+        todo.bucket = bucket if bucket and bucket.project_id == project.id else \
+            project.buckets.filter(is_done=todo.completed).first()
+    if bucket is not None and bucket.project_id == todo.project_id and bucket.id != todo.bucket_id:
+        todo.bucket = bucket
+        if bucket.is_done != todo.completed:
+            set_done(todo, bucket.is_done)
+    if position is not None:
+        todo.position = position
+    todo.save()
+
+
+def sync_reminders(todo):
+    for r in todo.reminders.all():
+        old = r.fire_at
+        if r.resolve() != old:
+            r.sent_at = None
+            r.save(update_fields=["fire_at", "sent_at"])
+
+
+# ---------------------------------------------------------------- quick add
+
+WEEKDAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"]
+MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+UNITS = {"min": 60, "minute": 60, "hour": 3600, "day": 86400, "week": 604800, "month": 2592000, "year": 31536000}
+_word = r'(?:"([^"]+)"|(\S+))'
+
+
+def parse_quick_add(text, tz, now=None):
+    """'Pay rent tomorrow 5pm *bills +Home !3 every month' ->
+    {title, labels, project, priority, due, repeat_mode, repeat_every}. Unrecognised text stays in the title."""
+    now = (now or timezone.now()).astimezone(tz)
+    out = {"labels": [], "project": None, "priority": None, "due": None, "repeat_mode": 0, "repeat_every": None}
+
+    def take(pattern, fn):
+        nonlocal text
+        m = re.search(pattern, text, flags=re.I)
+        if m:
+            fn(m)
+            text = (text[:m.start()] + " " + text[m.end():]).strip()
+        return m
+
+    while take(r'(?:^|\s)\*' + _word, lambda m: out["labels"].append(m.group(1) or m.group(2))):
+        pass
+    take(r'(?:^|\s)\+' + _word, lambda m: out.__setitem__("project", m.group(1) or m.group(2)))
+    take(r'(?:^|\s)!([1-5])\b', lambda m: out.__setitem__("priority", [5, 10, 15, 20, 20][int(m.group(1)) - 1]))
+
+    def repeat(m):
+        if m.group(1):
+            n, unit = int(m.group(2) or 1), m.group(3).lower().rstrip("s")
+            if unit == "month" and n == 1:
+                out["repeat_mode"] = 2
+            else:
+                out["repeat_mode"], out["repeat_every"] = 1, n * UNITS[unit]
+        else:
+            word = m.group(4).lower()
+            if word == "monthly":
+                out["repeat_mode"] = 2
+            else:
+                out["repeat_mode"], out["repeat_every"] = 1, {"daily": 86400, "weekly": 604800, "yearly": 31536000}[word]
+    take(r'\b(?:(every)\s+(\d+\s+)?(min(?:ute)?s?|hours?|days?|weeks?|months?|years?)|(daily|weekly|monthly|yearly))\b', repeat)
+
+    day, clock = None, None
+
+    def set_time(m):
+        nonlocal clock
+        h, mnt, ap = int(m.group(1)), int(m.group(2) or 0), (m.group(3) or "").lower()
+        if ap == "pm" and h < 12:
+            h += 12
+        if ap == "am" and h == 12:
+            h = 0
+        if h < 24 and mnt < 60:
+            clock = (h, mnt)
+    take(r'\b(?:at\s+)?(\d{1,2}):(\d{2})\s*(am|pm)?\b', set_time) or \
+        take(r'\b(?:at\s+)?(\d{1,2})()\s*(am|pm)\b', set_time)
+
+    today = now.date()
+
+    def rel(m):
+        nonlocal day
+        w = m.group(0).lower()
+        if w == "today" or w == "tonight":
+            day = today
+        elif w == "tomorrow":
+            day = today + datetime.timedelta(days=1)
+        elif w == "next week":
+            day = today + datetime.timedelta(days=7)
+        elif w == "next month":
+            day = _add_months(datetime.datetime.combine(today, datetime.time()), 1).date()
+        elif w == "weekend" or w == "this weekend":
+            day = today + datetime.timedelta(days=(5 - today.weekday()) % 7)
+    take(r'\b(?:today|tonight|tomorrow|next week|next month|this weekend|weekend)\b', rel)
+
+    def in_n(m):
+        nonlocal day, clock
+        n, unit = int(m.group(1)), m.group(2).lower().rstrip("s")
+        target = now + datetime.timedelta(seconds=n * UNITS[unit])
+        day = target.date()
+        if unit in ("min", "minute", "hour"):
+            clock = (target.hour, target.minute)
+    if day is None:
+        take(r'\bin\s+(\d+)\s+(min(?:ute)?s?|hours?|days?|weeks?|months?)\b', in_n)
+
+    def weekday(m):
+        nonlocal day
+        idx = [w[:3] for w in WEEKDAYS].index(m.group(2).lower()[:3])
+        day = today + datetime.timedelta(days=(idx - today.weekday()) % 7 or 7)  # "next fri" = the coming one
+    if day is None:
+        take(r'\b(?:on\s+)?(next\s+)?(mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)(?:day|nesday|sday|urday)?\b', weekday)
+
+    def iso(m):
+        nonlocal day
+        try:
+            day = datetime.date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+        except ValueError:
+            pass
+    if day is None:
+        take(r'\b(\d{4})-(\d{2})-(\d{2})\b', iso)
+
+    def month_day(m):
+        nonlocal day
+        mon = m.group(1) or m.group(4)
+        d = int(m.group(2) or m.group(3))
+        try:
+            cand = datetime.date(today.year, MONTHS.index(mon.lower()[:3]) + 1, d)
+            day = cand if cand >= today else cand.replace(year=today.year + 1)
+        except ValueError:
+            pass
+    if day is None:
+        take(r'\b(?:on\s+)?(?:(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\.?\s+(\d{1,2})(?:st|nd|rd|th)?|(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*)\b', month_day)
+
+    if day is None and clock is not None:
+        day = today if clock > (now.hour, now.minute) else today + datetime.timedelta(days=1)
+    if day is not None:
+        h, mnt = clock if clock else ((20, 0) if re.search(r"tonight", text, re.I) else (23, 59))
+        out["due"] = tz.localize(datetime.datetime.combine(day, datetime.time(h, mnt))) if hasattr(tz, "localize") \
+            else datetime.datetime.combine(day, datetime.time(h, mnt), tzinfo=tz)
+    if out["repeat_mode"] and out["due"] is None:
+        out["due"] = (tz.localize(datetime.datetime.combine(today, datetime.time(23, 59))))
+
+    out["title"] = re.sub(r"\s{2,}", " ", text).strip() or "Untitled"
+    return out
+
+
+def labels_by_name(user, names):
+    out = []
+    for n in names:
+        n = n.strip()[:48]
+        if n:
+            label = Label.objects.filter(owner=user, name__iexact=n).first() or Label.objects.create(owner=user, name=n)
+            out.append(label)
+    return out
+
+
+# ---------------------------------------------------------------- reminders job
+
+def due_reminders(now=None):
+    now = now or timezone.now()
+    return (Reminder.objects.select_related("todo__user", "todo__project")
+            .filter(sent_at__isnull=True, fire_at__isnull=False, fire_at__lte=now,
+                    fire_at__gte=now - datetime.timedelta(days=1), todo__completed=False))

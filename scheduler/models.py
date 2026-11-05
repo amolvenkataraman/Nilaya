@@ -1,4 +1,5 @@
 from django.db import models
+from django.utils import timezone
 from users.models import *
 from Comptech.utils import get_model_attrs
 
@@ -161,6 +162,25 @@ class Todo(models.Model):
     percent_complete = models.PositiveSmallIntegerField(null=True, blank=True)
     time_spent = models.PositiveSmallIntegerField(null=True, blank=True)
     custom_info = models.JSONField(default=dict, null=True, blank=True)
+
+    # Tasks app (Vikunja-style). complete_by = due date, completed/completed_on = done.
+    project = models.ForeignKey('tasks.Project', on_delete=models.CASCADE, null=True, blank=True, related_name='tasks')
+    bucket = models.ForeignKey('tasks.Bucket', on_delete=models.SET_NULL, null=True, blank=True, related_name='tasks')
+    position = models.FloatField(default=0)
+    labels = models.ManyToManyField('tasks.Label', blank=True, related_name='tasks')
+    assignees = models.ManyToManyField(ComptechUser, blank=True, related_name='assigned_todos')
+    start_on = models.DateTimeField(null=True, blank=True)
+    repeat_mode = models.PositiveSmallIntegerField(choices=(
+        (0, 'Does not repeat'),
+        (1, 'Every interval after the due date'),
+        (2, 'Monthly'),
+        (3, 'Every interval after completion'),
+    ), default=0)
+    repeat_every = models.PositiveIntegerField(null=True, blank=True)  # seconds, for modes 1 and 3
+    favorite = models.BooleanField(default=False)
+    colour = models.CharField(max_length=7, blank=True, default='')
+    created_on = models.DateTimeField(default=timezone.now)
+    updated_on = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return f"{self.name} for {self.user.username}."

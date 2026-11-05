@@ -88,6 +88,7 @@ INSTALLED_APPS = [
     'mainsite',
     'static_files',
     'notifications',
+    'tasks',
 
     # Main functionality apps
     'scheduler',
@@ -232,6 +233,12 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+# Synced into the beat database on start (edit intervals in the admin afterwards).
+CELERY_BEAT_SCHEDULE = {
+    'task-reminders': {'task': 'tasks.tasks.send_due_reminders', 'schedule': 60.0},
+    'auto-reminders': {'task': 'tasks.tasks.send_auto_reminders', 'schedule': 60.0},
+    'cleanup-notifications': {'task': 'notifications.tasks.cleanup_expired_notifications', 'schedule': 6 * 3600.0},
+}
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
