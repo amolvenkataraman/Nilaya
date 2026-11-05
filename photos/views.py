@@ -272,7 +272,7 @@ def photos(request):
         lyear = qs.reverse()[0].date_taken.year
         countries = qs.filter(
             Q(location_country__isnull=False) &
-            Q(Q(altitude__isnull=True) | Q(altitude__lte=1000))
+            Q(Q(altitude__isnull=True) | Q(altitude__lt=PLANE_ALTITUDE_M))
         ).values_list('location_country').distinct().count()
         # Library summary strip: distinct places / cameras, storage and the exact date span.
         cities = qs.filter(location_city__isnull=False, location_country__isnull=False) \
@@ -392,7 +392,7 @@ def map(request):
         if alt == "NIL":
             qry = Q(altitude=None)
         else:
-            qry = Q(altitude__lte=alt) | Q(altitude=None)
+            qry = Q(altitude__lt=alt) | Q(altitude=None)  # "max altitude" excludes the limit itself
 
         photos = photos.filter(qry)
 
@@ -1961,7 +1961,7 @@ def search_category(request, category):
     elif category == "countries":
         category_name = "Countries"
         counts = (
-            user_photos.exclude(altitude__gte=1000)
+            user_photos.exclude(altitude__gte=PLANE_ALTITUDE_M)
             .exclude(location_country__isnull=True)
             .exclude(location_country="")
             .values("location_country")
@@ -1978,7 +1978,7 @@ def search_category(request, category):
     elif category == "cities":
         category_name = "Cities"
         counts = (
-            user_photos.exclude(altitude__gte=1000)
+            user_photos.exclude(altitude__gte=PLANE_ALTITUDE_M)
             .exclude(location_city__isnull=True)
             .exclude(location_city="")
             .values("location_city", "location_country")

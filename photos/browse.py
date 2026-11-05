@@ -66,7 +66,8 @@ def browse_items(qs, category):
             display = model if not make or model.lower().startswith(make.lower()) else f"{model} ({make})"
             out.append({"display": display, "value": model, "count": r["count"]})
         return out
-    ground = qs.exclude(altitude__gte=1000)  # skip plane photos
+    from .models import PLANE_ALTITUDE_M
+    ground = qs.exclude(altitude__gte=PLANE_ALTITUDE_M)  # skip plane photos
     if category == "countries":
         rows = (ground.exclude(location_country__isnull=True).exclude(location_country="")
                 .values("location_country").annotate(count=Count("id")).order_by("-count"))

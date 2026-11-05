@@ -253,7 +253,8 @@ def points(request, south: float, west: float, north: float, east: float, year: 
         if year:
             qs = qs.filter(date_taken__year=year)
         if not include_planes:
-            qs = qs.exclude(altitude__gt=1000)
+            from .models import PLANE_ALTITUDE_M
+            qs = qs.exclude(altitude__gte=PLANE_ALTITUDE_M)
         rows = qs.values("latitude", "longitude").annotate(n=Count("id"))[:20000]
         return [{"lat": round(r["latitude"], 5), "lng": round(r["longitude"], 5), "count": r["n"]} for r in rows]
     albums = Album_Subscriber.objects.filter(user=request.user).values("album_id")

@@ -88,6 +88,16 @@ class PhotosApiTests(TestCase):
         self.client.force_login(self.stranger)
         self.assertEqual(self.client.get("/api/v2/photos/points", {"south": 43, "west": -81, "north": 44, "east": -80}).json(), [])
 
+    def test_heatmap_points_leave_out_plane_photos_from_2000m(self):
+        album = self.photos[0].album
+        base = timezone.now()
+        for i, alt in enumerate((1500, 1999, 2000, 9000)):
+            Photo.objects.create(owner=self.user, album=album, filepath=f"alt{i}.jpg", orientation="1", date_taken=base,
+                                 latitude=10 + i, longitude=10, altitude=alt)
+        self.client.force_login(self.user)
+        pts = self.client.get("/api/v2/photos/points", {"south": 0, "west": 0, "north": 20, "east": 20}).json()
+        self.assertEqual(sorted(round(p["lat"]) for p in pts), [10, 11])  # 1500 m and 1999 m stay
+
     def test_other_users_cannot_see_the_library(self):
         self.client.force_login(self.stranger)
         self.assertEqual(self.client.get(f"/api/v2/photos/{self.photos[0].id}").status_code, 404)

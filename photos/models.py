@@ -741,6 +741,9 @@ class PhotoDaily(models.Model):
         db_table = 'photos_photo_daily'
 
 
+# Photos taken at or above this altitude (metres) count as "on a plane": left out of heatmaps and place lists.
+PLANE_ALTITUDE_M = 2000
+
 MATVIEWS = ('photos_photo_location_cache', 'photos_photo_daily')
 
 

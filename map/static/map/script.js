@@ -355,7 +355,7 @@ const MapView = {
         const params = new URLSearchParams();
         params.append('vals', '1');
         if (useDefaults) {
-            params.append('alt-', '1000');
+            params.append('alt-', '2000');  // plane photos (2000 m and up) left out
         } else {
             const year = $('#year-filter').value;
             params.append($('#year-mode').checked ? 'year' : 'year-', year);
@@ -726,8 +726,8 @@ const UI = {
             const year = String(new Date().getFullYear());
             $('#year-filter').value = year;
             $('#year-value').textContent = year;
-            $('#altitude-filter').value = '1000';
-            $('#altitude-value').textContent = '1000m';
+            $('#altitude-filter').value = '2000';
+            $('#altitude-value').textContent = '2000m';
             $('#special-only').checked = false;
             $('#year-mode').checked = false;
             MapView.loadHeatmap(true);
