@@ -276,18 +276,23 @@ function render_day(day) {
     selectDay.appendChild(check_svg());
     header.appendChild(selectDay);
 
-    const n = day.photos.length;
+    // Counts split by kind, day size, and up to five places (+n), like the original header.
+    const nVid = day.photos.filter(ph => ph.video).length, nPh = day.photos.length - nVid;
     const sz = get_size_in_format(day.total_size || 0);
-    const date = el("h2", "date", day_label(d));
-    header.appendChild(date);
-    header.appendChild(el("span", "day-meta", `${n} item${n !== 1 ? 's' : ''} · ${sz[0]} ${sz[1]}`));
+    header.appendChild(el("h2", "date", day_label(d)));
+    const parts = [];
+    if (nPh) parts.push(`${nPh} photo${nPh !== 1 ? 's' : ''}`);
+    if (nVid) parts.push(`${nVid} video${nVid !== 1 ? 's' : ''}`);
+    parts.push(`${sz[0]} ${sz[1]}`);
+    const meta = el("span", "day-meta");
+    parts.forEach(t => meta.appendChild(el("span", "", t)));
+    header.appendChild(meta);
 
     if (day.cities.length) {
         const locs = el("span", "locations");
-        const names = day.cities.slice(0, 3).map(c => `${c[0]}, ${c[1]}`);
-        if (day.cities.length > 3) names.push(`+${day.cities.length - 3}`);
-        locs.textContent = names.join(" · ");
-        locs.title = day.cities.map(c => `${c[0]}, ${c[1]}`).join("\n");
+        day.cities.slice(0, 5).forEach(c => locs.appendChild(el("span", "location-tag", `${c[0]}, ${c[1]}`)));
+        if (day.cities.length > 5) locs.appendChild(el("span", "location-tag location-more", `+${day.cities.length - 5}`));
+        locs.title = day.cities.map(c => `${c[0]}, ${c[1]} (${c[2]})`).join("\n");
         header.appendChild(locs);
     }
     section.appendChild(header);
@@ -705,6 +710,31 @@ window.addEventListener('DOMContentLoaded', () => {
     setBarH();
     if (window.ResizeObserver) new ResizeObserver(() => { setBarH(); scrubber_layout(); }).observe(bar);
     window.addEventListener('resize', scrubber_layout);
+
+    // Library summary: numbers, size, collapse (remembered), "videos only" keeps the other filters.
+    document.querySelectorAll('#ph-lib [data-num]').forEach(e => { e.textContent = Number(e.dataset.num).toLocaleString(); });
+    document.querySelectorAll('#ph-lib [data-kb]').forEach(e => { const z = get_size_in_format(Number(e.dataset.kb)); const v = parseFloat(z[0]); e.textContent = `${v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2)} ${z[1]}`; e.title = `${z[0]} ${z[1]}`; });
+    const lib = document.getElementById('ph-lib');
+    if (lib) {
+        const toggle = document.getElementById('ph-lib-toggle');
+        const setLib = open => {
+            lib.classList.toggle('is-collapsed', !open);
+            toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+        };
+        setLib(lsGet('photosLibCollapsed') !== '1');
+        toggle.addEventListener('click', () => {
+            const open = lib.classList.contains('is-collapsed');
+            setLib(open);
+            lsSet('photosLibCollapsed', open ? '0' : '1');
+            scrubber_update();
+        });
+        lib.querySelectorAll('[data-add-param]').forEach(a => a.addEventListener('click', e => {
+            e.preventDefault();
+            const params = new URLSearchParams(window.location.search);
+            params.set(a.dataset.addParam, '1');
+            navigate(params);
+        }));
+    }
 
     // Thumbnail label
     const showDetailSelect = document.getElementById('show-detail-select');

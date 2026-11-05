@@ -26,7 +26,8 @@ class PhotosPageTests(TestCase):
             when = timezone.make_aware(datetime.datetime(*day, 12, 0))
             return Photo.objects.create(owner=cls.user, album=album, filepath="x.jpg", orientation="", date_taken=when, **kw)
 
-        cls.paris = photo((2024, 3, 10), location_city="Paris", location_country="France")
+        cls.paris = photo((2024, 3, 10), location_city="Paris", location_country="France",
+                          camera_make="Canon", camera_model="R6", size_total=300)
         photo((2024, 3, 2), location_city="Toronto", location_country="Canada")
         photo((2023, 1, 5))
 
@@ -38,6 +39,13 @@ class PhotosPageTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertFalse(r.context["right_sidebar"])
         self.assertEqual(_json_script(r.content.decode(), "ph-months"), [["2024-03", 2], ["2023-01", 1]])
+
+    def test_library_summary_has_every_stat_and_follows_the_filters(self):
+        keys = ("ntotal", "nphotos", "nvideos", "countries", "cities", "cameras", "size_kb", "first_date", "last_date")
+        c = self.client.get("/photos/").context
+        self.assertEqual([c[k] for k in keys], [3, 3, 0, 2, 2, 1, 300, datetime.date(2023, 1, 5), datetime.date(2024, 3, 10)])
+        c = self.client.get("/photos/", {"country": "Canada"}).context
+        self.assertEqual([c[k] for k in ("ntotal", "cities", "cameras")], [1, 1, 0])
 
     def test_free_text_search_matches_place_case_insensitively(self):
         r = self.client.get("/photos/date/", {"date": "2024-04-01", "q": "paRI", "nphotos": 50}).json()

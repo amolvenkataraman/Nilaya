@@ -259,6 +259,8 @@ def photos(request):
         date_filter = datetime.datetime.strftime(newest, "%Y-%m-%d")
 
     ntotal = qs.count()
+    cities = cameras = size_kb = 0
+    first_date = last_date = None
     if ntotal == 0:
         nphotos = nvideos = fyear = lyear = countries = 0
         no_photos = True
@@ -271,6 +273,15 @@ def photos(request):
             Q(location_country__isnull=False) &
             Q(Q(altitude__isnull=True) | Q(altitude__lte=1000))
         ).values_list('location_country').distinct().count()
+        # Library summary strip: distinct places / cameras, storage and the exact date span.
+        cities = qs.filter(location_city__isnull=False, location_country__isnull=False) \
+            .values_list('location_city', 'location_country').distinct().count()
+        cameras = qs.filter(camera_make__isnull=False, camera_model__isnull=False) \
+            .values_list('camera_make', 'camera_model').distinct().count()
+        agg = qs.aggregate(kb=Sum('size_total'), first=Min('date_taken'), last=Max('date_taken'))
+        size_kb = agg['kb'] or 0
+        local = lambda dt: timezone.localtime(dt).date() if dt and timezone.is_aware(dt) else (dt.date() if dt else None)  # noqa: E731
+        first_date, last_date = local(agg['first']), local(agg['last'])
         no_photos = False
 
     # Items per month, newest first, for the date scrubber.
@@ -295,6 +306,11 @@ def photos(request):
         'nvideos':      nvideos,
         'drange':       f"{lyear}-{fyear}" if fyear and lyear else "N/A",
         'countries':    countries,
+        'cities':       cities,
+        'cameras':      cameras,
+        'size_kb':      size_kb,
+        'first_date':   first_date,
+        'last_date':    last_date,
         'no_photos':    no_photos,
         'active_page':  'photos',
         **fctx,   # video, cam_make, cam_model, country, city, objects, bounds, bounds_b64, similar_*

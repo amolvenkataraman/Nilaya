@@ -349,11 +349,33 @@
             {% if bounds %}<span class="filter-tag" data-filter="bounds,north,south,east,west">Map area<button type="button" class="remove-filter" aria-label="Remove filter">&times;</button></span>{% endif %}
         </div>
         <button type="button" class="ph-link-btn js-clear-filters" id="chips-clear" hidden>Clear all</button>
-        <div class="ph-summary">{{ ntotal }} item{{ ntotal|pluralize }}{% if ntotal %} · {{ nphotos }} photo{{ nphotos|pluralize }} · {{ nvideos }} video{{ nvideos|pluralize }} · {{ countries }} countr{{ countries|pluralize:"y,ies" }} · {{ drange }}{% endif %}</div>
     </div>
 </div>
 
 <div id="main-body">
+    {% if ntotal %}
+    <!-- Library summary: every stat the old header had, for the current filters. Collapsible (remembered). -->
+    <section class="ph-lib" id="ph-lib" aria-label="Library summary">
+        <button type="button" class="ph-lib-head" id="ph-lib-toggle" aria-expanded="true" aria-controls="ph-lib-stats">
+            <span class="ph-lib-title">{% if album_obj %}This album{% elif q or video or date_filter or cam_make or cam_model or country or city or gq.objects or min_blur or max_blur or bounds %}Matching filters{% else %}Library{% endif %}</span>
+            <span class="ph-lib-line"><span data-num="{{ ntotal }}">{{ ntotal }}</span> item{{ ntotal|pluralize }} · {% if first_date|date:"Y" == last_date|date:"Y" %}{{ first_date|date:"Y" }}{% else %}{{ first_date|date:"Y" }}–{{ last_date|date:"Y" }}{% endif %}</span>
+            <svg class="ph-lib-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="ph-lib-stats" id="ph-lib-stats">
+            <div class="ph-stat"><span class="ph-stat-label">Total</span><span class="ph-stat-value" data-num="{{ ntotal }}">{{ ntotal }}</span></div>
+            <div class="ph-stat"><span class="ph-stat-label">Photos</span><span class="ph-stat-value" data-num="{{ nphotos }}">{{ nphotos }}</span></div>
+            <a class="ph-stat" href="?video=1" data-add-param="video" title="Show videos only"><span class="ph-stat-label">Videos</span><span class="ph-stat-value" data-num="{{ nvideos }}">{{ nvideos }}</span></a>
+            <div class="ph-stat ph-stat-wide" title="{{ first_date|date:'D, M j, Y' }} – {{ last_date|date:'D, M j, Y' }}"><span class="ph-stat-label">Time range</span><span class="ph-stat-value">{% if first_date|date:"Y" == last_date|date:"Y" %}{{ first_date|date:"Y" }}{% else %}{{ first_date|date:"Y" }}–{{ last_date|date:"Y" }}{% endif %}</span><span class="ph-stat-sub">{{ first_date|date:"M j" }} – {{ last_date|date:"M j" }}</span></div>
+            <a class="ph-stat" href="{% url 'search_category' 'countries' %}" title="Browse countries"><span class="ph-stat-label">Countries</span><span class="ph-stat-value" data-num="{{ countries }}">{{ countries }}</span></a>
+            <a class="ph-stat" href="{% url 'search_category' 'cities' %}" title="Browse cities"><span class="ph-stat-label">Cities</span><span class="ph-stat-value" data-num="{{ cities }}">{{ cities }}</span></a>
+            <a class="ph-stat" href="{% url 'search_category' 'cameras' %}" title="Browse cameras"><span class="ph-stat-label">Cameras</span><span class="ph-stat-value" data-num="{{ cameras }}">{{ cameras }}</span></a>
+            <a class="ph-stat" href="{% url 'photos_storage' %}" title="Storage breakdown"><span class="ph-stat-label">Size</span><span class="ph-stat-value" data-kb="{{ size_kb }}">–</span></a>
+            <a class="ph-lib-more" href="{% url 'photos_stats' %}">All stats
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </a>
+        </div>
+    </section>
+    {% endif %}
     <div class="photos" id="photos-timeline">
         {% if no_photos %}
         <div class="photos-empty">

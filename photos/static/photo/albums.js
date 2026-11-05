@@ -138,13 +138,16 @@ document.addEventListener("DOMContentLoaded", () => {
         return wrap;
     }
 
-    function metaText(album) {
-        const n = (album.photo_count || 0) + (album.video_count || 0);
-        const parts = [`${n} item${n === 1 ? '' : 's'}`];
-        if (viewMode === 'list' && album.space_used) parts.push(album.space_used);
-        if (album.owner !== currentUserId) parts.push('Shared with you');
-        else if (album.public) parts.push('Public');
-        return parts.join(' · ');
+    // Same stats the old album cards had: photos, videos, storage, owned/shared, public.
+    function metaLines(album) {
+        const p = album.photo_count || 0, v = album.video_count || 0;
+        const counts = [`${p} photo${p === 1 ? '' : 's'}`];
+        if (v) counts.push(`${v} video${v === 1 ? '' : 's'}`);
+        const extra = [];
+        if (album.space_used) extra.push(album.space_used);
+        extra.push(album.owner === currentUserId ? 'Owned' : 'Shared with you');
+        if (album.public) extra.push('Public');
+        return [counts.join(' · '), extra.join(' · ')];
     }
 
     function renderAlbums() {
@@ -158,7 +161,9 @@ document.addEventListener("DOMContentLoaded", () => {
             const name = el('div', 'album-name', album.name);
             name.title = album.name;
             text.appendChild(name);
-            text.appendChild(el('div', 'album-meta', metaText(album)));
+            const [counts, extra] = metaLines(album);
+            text.appendChild(el('div', 'album-meta', counts));
+            text.appendChild(el('div', 'album-meta album-meta-2', extra));
             if (viewMode === 'list' && album.description) text.appendChild(el('div', 'album-desc', album.description));
             a.appendChild(text);
             return a;

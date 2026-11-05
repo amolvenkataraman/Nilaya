@@ -93,7 +93,11 @@
     overflow: hidden;
     text-overflow: ellipsis;
 }
-.album-meta { margin-top: 1px; font-size: 0.75rem; color: var(--app-muted); }
+.album-meta { margin-top: 1px; font-size: 0.75rem; color: var(--app-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-variant-numeric: tabular-nums; }
+.album-meta-2 { margin-top: 0; }
+.albums-list .album-meta { display: inline; }
+.albums-list .album-meta-2::before { content: " · "; }
+.albums-list .album-desc { display: block; }
 .album-desc {
     margin-top: 2px;
     font-size: 0.8125rem;
