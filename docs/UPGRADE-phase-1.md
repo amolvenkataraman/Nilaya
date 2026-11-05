@@ -19,6 +19,12 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 | Email delivery for notifications (optional) | Set `EMAIL_HOST`/`EMAIL_HOST_USER` in settings and put the password in `Comptech/email_password.txt` |
 | `SITE_URL` (links in notifications and feeds) | Already `https://app.example.com`; change it if your domain differs |
 
+### Behaviour changes users will notice
+- **Deleting photos** (and deleting originals) now needs owner or editor access to the library; viewers can no longer delete files.
+- **Dark mode** is chosen per device from the user menu (the old per-account switch is gone).
+- **Calendar categories** are now named, per-owner categories made from the old numbers; repeating events from ICS/Google feeds keep their rules.
+- **Logging in as before**; new apps (Tasks, Habits, Contacts) and the new interface at `/app/` appear in the app launcher.
+
 ## Step by step
 
 ### 1. Back up
