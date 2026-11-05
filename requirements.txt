@@ -15,7 +15,7 @@ numpy
 opencv-python
 celery
 daphne
-psycopg
+psycopg[pool]
 django_celery_beat
 django-ninja     # V2 API (/api/v2/)
 django-import-export
@@ -32,3 +32,4 @@ ultralytics      # photos/AI/objects.py (object detection)
 
 # Only needed by one-off tools in scripts/
 # gpxpy
+redis

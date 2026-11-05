@@ -748,13 +748,20 @@ class PhotoDaily(models.Model):
 # Photos taken at or above this altitude (metres) count as "on a plane": left out of heatmaps and place lists.
 PLANE_ALTITUDE_M = 2000
 
+# A coordinate of exactly 0 is broken GPS (some phones write the right latitude with longitude 0.0,
+# which lands in southern France), not a photo on the equator or meridian: treated as no location.
+BROKEN_GPS = models.Q(latitude=0) | models.Q(longitude=0)
+
 MATVIEWS = ('photos_photo_location_cache', 'photos_photo_daily')
 
 
 def refresh_photo_matviews(views=MATVIEWS):
     """Refresh the photo materialized views (migrations 0025, 0026) after ingest or hiding.
     CONCURRENTLY keeps them readable while refreshing. SQLite uses plain views: nothing to do.
-    Each refresh re-reads the whole photo table, so pass only the views a change can affect."""
+    Each refresh re-reads the whole photo table, so pass only the views a change can affect.
+    For changes made in a request, use photos.cache.schedule_matview_refresh (coalesced, in Celery)."""
+    from .cache import bump
+    bump()  # cached photo stats are stale too
     if connection.vendor != 'postgresql':
         return
     with connection.cursor() as cursor:

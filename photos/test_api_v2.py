@@ -98,6 +98,17 @@ class PhotosApiTests(TestCase):
         pts = self.client.get("/api/v2/photos/points", {"south": 0, "west": 0, "north": 20, "east": 20}).json()
         self.assertEqual(sorted(round(p["lat"]) for p in pts), [10, 11])  # 1500 m and 1999 m stay
 
+    def test_cached_summary_follows_new_photos_and_on_this_day_uses_the_rollup(self):
+        self.client.force_login(self.user)
+        self.assertEqual(self.client.get("/api/v2/photos/summary").json()["photos"], 3)
+        today = timezone.localdate()
+        then = today.replace(year=today.year - (4 if (today.month, today.day) == (2, 29) else 1))
+        old = Photo.objects.create(owner=self.user, album=self.photos[0].album, filepath="old.jpg", orientation="1",
+                                   date_taken=timezone.make_aware(datetime.datetime.combine(then, datetime.time(12))))
+        self.assertEqual(self.client.get("/api/v2/photos/summary").json()["photos"], 4)  # cache invalidated
+        otd = self.client.get("/api/v2/photos/on-this-day").json()
+        self.assertEqual([(g["year"], [p["id"] for p in g["items"]]) for g in otd], [(then.year, [str(old.id)])])
+
     def test_other_users_cannot_see_the_library(self):
         self.client.force_login(self.stranger)
         self.assertEqual(self.client.get(f"/api/v2/photos/{self.photos[0].id}").status_code, 404)

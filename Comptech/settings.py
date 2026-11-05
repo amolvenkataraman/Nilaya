@@ -145,13 +145,28 @@ ASGI_APPLICATION = 'Comptech.asgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
+        'ENGINE': 'django.db.backends.postgresql',  # psycopg 3
         # Override only for rehearsals on a copy (docs/UPGRADE-phase-1.md); production uses "Comptech".
         'NAME': os.environ.get('COMPTECH_DB_NAME', 'Comptech'),
         'USER': 'postgres',
         'PASSWORD': DB_PASSWORD,
         'HOST': '127.0.0.1',
         'PORT': '5432',
+        # A pool of open connections (psycopg 3, Django 5.1) instead of a new connection plus
+        # authentication on every request. Small: Daphne runs sync views on few threads, and each
+        # Celery worker process gets its own pool. COMPTECH_DB_POOL=0 turns it off.
+        'OPTIONS': {'pool': {'min_size': 1, 'max_size': 8, 'timeout': 10}} if os.environ.get('COMPTECH_DB_POOL', '1') != '0' else {},
+    },
+}
+
+# Shared cache in the Redis the app already uses (Celery broker, channels): one copy for Daphne and
+# the Celery workers, so an ingest in a worker can invalidate cached photo stats. Database 2.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': 'redis://localhost:6379/2',
+        'KEY_PREFIX': 'comptech',
+        'TIMEOUT': 300,
     },
 }
 
@@ -212,6 +227,12 @@ USE_TZ = True
 
 STATIC_ROOT = '/www/static'
 STATIC_URL = '/static/'
+# Hashed names (Comptech/storage.py): nginx serves /static/ with `expires max`, so without them
+# browsers kept old CSS/JS after an upgrade. Templates must use {% static %} (they all do).
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'Comptech.storage.LenientManifestStorage'},
+}
 
 
 # Tell Crispyforms (the form styling app) to use Bootstrap 4

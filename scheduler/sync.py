@@ -15,6 +15,7 @@ from Comptech.api import *
 
 from dateutil import parser
 import bleach
+import copy
 import datetime
 import icalendar
 import requests
@@ -111,6 +112,26 @@ def _fill(e, it, tz_cal):
     e.custom_info = ci
 
 
+def _state(e):
+    """The stored values of an event, to tell whether a sync changed anything."""
+    if e.pk is None:
+        return None
+    return {f.attname: copy.deepcopy(getattr(e, f.attname)) for f in Event._meta.concrete_fields if f.attname != "updated_on"}
+
+
+def _save_if_changed(e, before):
+    """Write only events the source changed: most syncs change nothing, and saving every event each
+    time cost an UPDATE per event and a new updated_on (so the events ETag changed and browsers
+    never got a 304 after a sync)."""
+    if before is None:
+        e.save()
+        return
+    e.normalize()
+    changed = [k for k, v in _state(e).items() if v != before[k]]
+    if changed:
+        e.save(update_fields=changed)
+
+
 def _in_window(it, lo, hi, tz_cal):
     start = rec.local_midnight(it.start_day, tz_cal) if it.all_day else it.start
     end = (rec.local_midnight(it.end_day or it.start_day + datetime.timedelta(days=1), tz_cal) if it.all_day
@@ -126,6 +147,12 @@ def _ingest(calendar, items, lo, hi):
     existing = {e.sync_id: e for e in Event.objects.filter(calendar=calendar, sync_id__isnull=False)}
     present = {it.uid if it.recurrence_id is None else f"{it.uid}|{rec.key(it.recurrence_id)}" for it in items}
     seen_uids = {it.uid for it in items}
+    # Cancelled occurrences become EXDATEs of their series: merge them in before the series is
+    # compared and saved, so an unchanged feed doesn't rewrite the series twice per sync.
+    cancelled_keys = {}
+    for it in items:
+        if it.recurrence_id is not None and it.status == "cancelled":
+            cancelled_keys.setdefault(it.uid, set()).add(rec.key(it.recurrence_id))
     series = {}
     with transaction.atomic():
         for it in (i for i in items if i.recurrence_id is None):
@@ -140,9 +167,12 @@ def _ingest(calendar, items, lo, hi):
                 if (it.rrule and first >= hi) or (not it.rrule and not _in_window(it, lo, hi, tz_cal)):
                     continue
                 e = e or Event(calendar=calendar, sync_id=it.uid)
+                before = _state(e)
                 e.calendar = calendar
                 _fill(e, it, tz_cal)
-                e.save()
+                if e.rrule and it.uid in cancelled_keys:
+                    e.exdates = sorted(set(e.exdates) | cancelled_keys[it.uid])
+                _save_if_changed(e, before)
                 counts["saved"] += 1
                 if e.rrule:
                     series[it.uid] = e
@@ -163,9 +193,10 @@ def _ingest(calendar, items, lo, hi):
                     if it.status == "cancelled" or not _in_window(it, lo, hi, tz_cal):
                         continue
                     e = existing.get(sid) or Event(calendar=calendar, sync_id=sid)
+                    before = _state(e)
                     e.calendar = calendar
                     _fill(e, Item(it, recurrence_id=None, rrule=""), tz_cal)
-                    e.save()
+                    _save_if_changed(e, before)
                     counts["saved"] += 1
                     continue
                 if it.status == "cancelled":
@@ -176,18 +207,21 @@ def _ingest(calendar, items, lo, hi):
                 o = existing.get(sid) or Event.objects.filter(recurrence_parent=parent,
                                                               original_start=it.recurrence_id).first() \
                     or Event(calendar=calendar)
+                before = _state(o)
                 o.calendar, o.sync_id = calendar, sid
                 o.recurrence_parent, o.original_start = parent, it.recurrence_id
                 _fill(o, it, tz_cal)
                 o.event_category_id = o.event_category_id or parent.event_category_id
-                o.save()
+                _save_if_changed(o, before)
                 counts["overrides"] += 1
             except Exception as ex:
                 counts["skipped"] += 1
                 print(f"Skipped an occurrence of {it.uid!r}: {type(ex).__name__} {ex.args}")
         for parent, keys in cancelled.values():
-            parent.exdates = sorted(set(parent.exdates or []) | keys)
-            parent.save(update_fields=["exdates"])
+            merged = sorted(set(parent.exdates or []) | keys)
+            if merged != list(parent.exdates or []):
+                parent.exdates = merged
+                parent.save(update_fields=["exdates"])
             counts["cancelled_occurrences"] += len(keys)
 
         # Gone from the source: overrides revert to the rule; everything else is marked cancelled.

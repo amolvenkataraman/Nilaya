@@ -343,6 +343,7 @@ class OverviewOut(Schema):
     favorites: int
     assigned: int
     done_this_week: int
+    done_today: int = 0  # completed since local midnight (Tasks > Today's "n of m done")
     inbox_id: uuid.UUID
 
 
@@ -507,9 +508,12 @@ def overview(request, include: str = ""):
     open_ = base.filter(completed=False)
     count = lambda view: _filter(base, user, view=view).count()
     week_ago = timezone.now() - datetime.timedelta(days=7)
+    tz = pytz.timezone(user.timezone) if user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
+    midnight = timezone.localtime(timezone.now(), tz).replace(hour=0, minute=0, second=0, microsecond=0)
     out = {"inbox": open_.filter(project=inbox).count(), "today": count("today"), "overdue": count("overdue"),
            "upcoming": count("upcoming"), "no_date": count("nodate"), "favorites": count("favorites"),
            "assigned": count("assigned"), "done_this_week": base.filter(completed=True, completed_on__gte=week_ago).count(),
+           "done_today": base.filter(completed=True, completed_on__gte=midnight).count(),
            "inbox_id": inbox.id}
     parts = {p.strip() for p in include.split(",") if p.strip()}
     if "projects" in parts:

@@ -614,11 +614,37 @@ def geocode(request, q: str):
     return nominatim_search(request)  # the classic proxy: ONLINE_MODE check, proper User-Agent, 503 when off
 
 
+class PinOut(Schema):
+    """Just what the map draws; the rest comes from GET /places/{id} when a place is opened."""
+    id: uuid.UUID
+    group_id: int
+    name: str
+    latitude: float
+    longitude: float
+    category: str
+    status: str
+    rating: Optional[int]
+
+
+@router.get("/pins", response=list[PinOut], summary="Map pins: like the list (same filters) with only the fields a map needs")
+def list_pins(request, group: Optional[int] = None, category: Optional[str] = None, q: str = "",
+              status: Optional[Status] = None, min_rating: Optional[int] = Query(None, ge=1, le=5),
+              south: Optional[float] = None, west: Optional[float] = None,
+              north: Optional[float] = None, east: Optional[float] = None, visible: bool = False):
+    # About a tenth of the full list's size with thousands of places, and no model objects built.
+    qs = _places(request, group, category, q, status, min_rating, south, west, north, east, visible)
+    return list(qs.order_by("name").values(*PinOut.model_fields))
+
+
 @router.get("", response=list[PlaceOut], summary="Places (optionally one group, a category, a search or a map box)")
 def list_places(request, group: Optional[int] = None, category: Optional[str] = None, q: str = "",
                 status: Optional[Status] = None, min_rating: Optional[int] = Query(None, ge=1, le=5),
                 south: Optional[float] = None, west: Optional[float] = None,
                 north: Optional[float] = None, east: Optional[float] = None, visible: bool = False):
+    return list(_places(request, group, category, q, status, min_rating, south, west, north, east, visible).order_by("name"))
+
+
+def _places(request, group, category, q, status, min_rating, south, west, north, east, visible):
     groups = _visible_groups(request.user)
     if visible:  # only the groups I've turned on (and never archived ones): the map's normal load
         from .models import GroupPreference
@@ -639,7 +665,7 @@ def list_places(request, group: Optional[int] = None, category: Optional[str] = 
         qs = qs.filter(latitude__gte=south, latitude__lte=north)
         qs = qs.filter(longitude__gte=west, longitude__lte=east) if west <= east else \
             qs.filter(Q(longitude__gte=west) | Q(longitude__lte=east))  # box crosses the antimeridian
-    return list(qs.order_by("name"))
+    return qs
 
 
 @router.post("", response={201: PlaceOut})

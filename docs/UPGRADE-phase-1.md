@@ -6,12 +6,17 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 
 | Thing | Action needed |
 |---|---|
-| New Python packages `django-ninja` (V2 API) and `icalendar` (replaces `ics`, which ignored repeating events) | `pip install -r requirements.txt` (step 4); `pip uninstall ics` is optional |
+| New Python packages `django-ninja` (V2 API) and `icalendar` (replaces `ics`, which ignored repeating events); `psycopg[pool]` (database connection pool) and `redis` (shared cache) | `pip install -r requirements.txt` (step 4); `pip uninstall ics` is optional |
+| **Database connection pool**: requests reuse open Postgres connections instead of connecting and authenticating each time | None. If anything looks wrong with database connections, start with `COMPTECH_DB_POOL=0` to turn it off |
+| **Shared cache in Redis** (database 2 of the Redis you already run for Celery and channels): slow photo stats/summary/storage pages are cached and cleared whenever photos change | None; Redis must be running, as it already must be |
+| **Static files get content hashes in their names** (`styles.4f1c2a9b.css`). nginx caches `/static/` forever, so before this, browsers kept old CSS/JS after an upgrade | None beyond `make cs` (step 7), which now also writes `staticfiles.json`. Old cached copies are simply no longer used |
+| **nginx**: gzip for static files, HTTP/2, and cache rules for the new interface | Copy the changes from the repo's `nginx.conf` into your live config (step 9a) |
 | Bootstrap 5.3.3 and Leaflet.markercluster 1.5.3 added to `vendor.lock`; old Bootstrap 5.0-beta and 5.1.3 removed | Run `fetch_vendor.sh`, then delete the old folders (step 5) |
 | New apps: `tasks`, `apikeys`, `feeds`, `analytics`, `habits`, `contacts` | Nothing extra; they come with migrations (step 6) |
-| Migrations: notifications 0003–0004, scheduler 0032–0038, tasks 0001, photos 0024–0028, map 0004–0005, users 0005, apikeys 0001, feeds 0001, analytics 0001, habits and contacts 0001 | `migrate` (step 6) |
+| Migrations: notifications 0003–0004, scheduler 0032–0038, tasks 0001, photos 0024–0029, map 0004–0005, users 0005, apikeys 0001, feeds 0001, analytics 0001, habits and contacts 0001 | `migrate` (step 6) |
 | **Calendar schema overhaul** (scheduler 0034–0038) | Converts every event: kind, all-day dates, your categories (from the old numbers), sync windows, visibility; old priority/completed values are kept in each event's metadata; ownership inconsistencies fixed. Check with `calendar_migration_report` afterwards (step 6) |
 | **Materialized views now live in migrations** (photos 0025–0027) | 0025 drops your hand-made `photos_photo_location_cache` and recreates it (hidden photos left out, plus a unique index); 0026 adds `photos_photo_daily`; 0027 sets the plane cut-off to 2000 m. Runs as your DB user, which owns the view. Nothing manual any more |
+| `photos 0029` leaves photos with a coordinate of exactly 0 out of the heat map (broken phone GPS: the right latitude with longitude 0.0 put Waterloo photos in France) | None (recreates the view in a second or two) |
 | `photos 0028` adds two photo indexes (taken date for the timeline, latitude/longitude for photos near a place) | None. Each builds in about a second on ~300k photos and blocks writes (ingest) only while it runs, so don't run an ingest during `migrate` |
 | `users 0005` removes the `dark_mode` column | None (dark mode is per device now) |
 | Celery beat schedules (reminders, notification clean-up, habits, contacts) | Restart beat (step 9); the schedules register themselves |
@@ -24,7 +29,8 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 - **Deleting photos** (and deleting originals) and **setting photo locations** in the location-entry tool now need owner or editor access to the library; viewers could do both before.
 - **Dark mode** is chosen per device from the user menu (the old per-account switch is gone).
 - **Calendar categories** are now named, per-owner categories made from the old numbers; repeating events from ICS/Google feeds keep their rules.
-- **Heatmaps** leave out photos taken at 2000 m and up (was over 1000 m).
+- **Heatmaps** leave out photos taken at 2000 m and up (was over 1000 m), and photos whose GPS has a coordinate of exactly 0 (broken fix). Those show "Add location" in the new viewer and are listed by the location tool's "Only broken GPS" filter.
+- **Location saves and hiding** update the heat map within about 15 seconds (queued in Celery, once per burst) instead of during the request.
 - **Places in the new interface** start with every group hidden; each person turns on the groups they want (like calendars). Owners can archive groups.
 - **Logging in as before**; new apps (Tasks, Habits, Contacts) and the new interface at `/app/` appear in the app launcher.
 
@@ -98,6 +104,12 @@ frontend/build.sh                     # builds into static_files/static/app/
 rsync -av --delete static_files/static/app/ server:/opt/Comptech/static_files/static/app/
 ```
 On the server, run `make cs` again so it's copied into `/www/static/app/`.
+
+### 9a. nginx
+Copy the `gzip …`, `listen 443 ssl http2;` and the three `location /static/…` blocks from the repo's `nginx.conf` into your live config (keep your real `secure_link_secret`), then:
+```bash
+sudo nginx -t && sudo systemctl reload nginx
+```
 
 ### 9. Start everything
 ```bash

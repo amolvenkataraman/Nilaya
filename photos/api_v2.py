@@ -18,8 +18,9 @@ from ninja import Field
 from ninja.errors import HttpError
 
 from . import browse
+from . import cache as photo_cache
 from . import hidden as hidden_mode
-from .models import Album_Subscriber, Photo, ShareAlbum
+from .models import BROKEN_GPS, Album_Subscriber, Photo, ShareAlbum
 
 router = Router(tags=["photos"])
 
@@ -161,8 +162,15 @@ def daily(request):
     from .models import PhotoDaily
     if hidden_mode.show_hidden(request) or request.user.timezone not in ("", settings.TIME_ZONE, "Canada/Eastern", "America/Toronto"):
         return None
-    albums = Album_Subscriber.objects.filter(user=request.user).values("album_id")
+    albums = Album_Subscriber.objects.filter(user=request.user, visible=True).values("album_id")  # Sources switch, like listing=True
     return PhotoDaily.objects.filter(album_id__in=albums)
+
+
+def _random_pick(qs):
+    """A random row without ORDER BY random() (which sorts the whole library): photo ids are random
+    UUIDs, so take the first one at or after a random UUID, wrapping around."""
+    pivot = uuid.uuid4()
+    return qs.filter(id__gte=pivot).order_by("id").first() or qs.filter(id__lt=pivot).order_by("-id").first()
 
 
 def _page(qs, before, limit, before_id=None):
@@ -206,8 +214,26 @@ def on_this_day(request, per_year: int = 12):
     import pytz
     tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else None
     today = timezone.localdate(timezone=tz)  # the user's date, not the server's
-    qs = (library(request.user, request, listing=True).select_related("album")
-          .filter(date_taken__month=today.month, date_taken__day=today.day, date_taken__year__lt=today.year)
+    per_year = max(1, min(per_year, 50))
+    lib = library(request.user, request, listing=True).select_related("album")
+    rollup = daily(request)
+    if rollup is not None:
+        # Month/day filters can't use an index (every call scanned the library): find the matching
+        # days in the small per-day view, then read each day's photos by date range (indexed).
+        from zoneinfo import ZoneInfo
+        from django.conf import settings
+        server_tz = ZoneInfo(settings.TIME_ZONE)
+        days = sorted(set(rollup.filter(day__month=today.month, day__day=today.day, day__year__lt=today.year)
+                          .values_list("day", flat=True)), reverse=True)
+        at = lambda d: datetime.datetime.combine(d, datetime.time(), tzinfo=server_tz)
+        out = []
+        for d in days:
+            items = list(lib.filter(date_taken__gte=at(d), date_taken__lt=at(d + datetime.timedelta(days=1)))
+                         .order_by("-date_taken")[:per_year])
+            if items:
+                out.append({"year": d.year, "items": items})
+        return out
+    qs = (lib.filter(date_taken__month=today.month, date_taken__day=today.day, date_taken__year__lt=today.year)
           .order_by("-date_taken"))
     groups = {}
     for p in qs[:600]:
@@ -219,6 +245,10 @@ def on_this_day(request, per_year: int = 12):
 
 @router.get("/summary", response=SummaryOut)
 def summary(request):
+    return photo_cache.cached(request, "summary", lambda: _summary(request))
+
+
+def _summary(request):
     qs = library(request.user, request, listing=True)
     agg = qs.aggregate(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True)),
                        size=Sum("size_total"), first=Min("date_taken"), last=Max("date_taken"))
@@ -254,7 +284,7 @@ def points(request, south: float, west: float, north: float, east: float, year: 
            include_planes: bool = False):
     from .models import PhotoLocationCache
     if hidden_mode.show_hidden(request):  # the view leaves hidden photos out: use the live table
-        qs = library(request.user, request).exclude(latitude__isnull=True).exclude(longitude__isnull=True)
+        qs = library(request.user, request).exclude(latitude__isnull=True).exclude(longitude__isnull=True).exclude(BROKEN_GPS)
         qs = qs.filter(latitude__gte=south, latitude__lte=north)
         qs = qs.filter(longitude__gte=west, longitude__lte=east) if west <= east else \
             qs.filter(Q(longitude__gte=west) | Q(longitude__lte=east))
@@ -298,10 +328,26 @@ def days(request, start: datetime.date, end: datetime.date):
 
 @router.get("/libraries", response=list[LibraryOut], summary="Library albums (camera folders) you can see")
 def libraries(request):
-    subs = (Album_Subscriber.objects.filter(user=request.user).select_related("album")
-            .annotate(count=Count("album__photo_album")).order_by("album__name"))
+    subs = list(Album_Subscriber.objects.filter(user=request.user).select_related("album").order_by("album__name"))
+    ids = sorted(s.album_id for s in subs)
+    # Photo counts scan each library: cached (invalidated on photo changes); roles and switches are live.
+    counts = photo_cache.cached(request, "library-counts", lambda: dict(
+        Photo.objects.filter(album_id__in=ids).values_list("album_id").annotate(n=Count("id"))), ids)
     return [{"id": s.album_id, "name": s.album.name, "role": ("owner", "editor", "viewer")[s.subscribe_type],
-             "visible": s.visible, "count": s.count} for s in subs]
+             "visible": s.visible, "count": counts.get(s.album_id, 0)} for s in subs]
+
+
+class SidebarOut(Schema):
+    summary: SummaryOut
+    albums: list[ShareAlbumOut]
+    libraries: list[LibraryOut]
+    hidden_mode: dict
+
+
+@router.get("/sidebar", response=SidebarOut, summary="Summary, shared albums, libraries and show-hidden mode in one request")
+def sidebar(request):
+    return {"summary": summary(request), "albums": albums(request), "libraries": libraries(request),
+            "hidden_mode": get_hidden_mode(request)}
 
 
 @router.get("/albums", response=list[ShareAlbumOut], summary="Shared albums you own or were added to")
@@ -549,7 +595,7 @@ class PhotoDetailOut(PhotoOut):
 def browse_category(request, category: str):
     if category not in ("cities", "countries", "cameras", "objects"):
         raise HttpError(404, "Unknown category")
-    return browse.browse_items(library(request.user, request, listing=True), category)
+    return photo_cache.cached(request, "browse", lambda: browse.browse_items(library(request.user, request, listing=True), category), category)
 
 
 def _local_now(request):
@@ -560,6 +606,10 @@ def _local_now(request):
 
 @router.get("/stats", summary="Library statistics (counts, activity, when you take photos, equipment, places)")
 def stats(request):
+    return photo_cache.cached(request, "stats", lambda: _stats(request))
+
+
+def _stats(request):
     from django.db.models import Avg
     from django.db.models.functions import ExtractHour, ExtractIsoWeekDay, TruncMonth
     qs = library(request.user, request, listing=True)
@@ -605,6 +655,10 @@ def stats(request):
 
 @router.get("/storage", summary="Storage used: optimized vs total (originals/RAW), by type, year, library and camera")
 def storage(request):
+    return photo_cache.cached(request, "storage", lambda: _storage(request))
+
+
+def _storage(request):
     from django.db.models.functions import ExtractYear
     qs = library(request.user, request, listing=True)
     part = lambda q: q.aggregate(count=Count("id"), optimized_kb=Sum("size"), total_kb=Sum("size_total"), length_s=Sum("length"))
@@ -639,7 +693,8 @@ def storage(request):
 @router.get("/game/round", response=PhotoOut, summary="Geoguessr: a random geotagged photo from your libraries")
 def game_round(request):
     p = (library(request.user, request, listing=True).exclude(latitude__isnull=True).exclude(longitude__isnull=True)
-         .exclude(latitude=0, longitude=0).filter(video=False).select_related("album").order_by("?").first())
+         .exclude(BROKEN_GPS).filter(video=False).select_related("album"))
+    p = _random_pick(p)
     if p is None:
         raise HttpError(404, "No geotagged photos yet")
     return p
@@ -655,9 +710,9 @@ def locate_next(request, year: Optional[int] = None, month: Optional[int] = None
         qs = qs.filter(date_taken__year=year)
     if month:
         qs = qs.filter(date_taken__month=month)
-    qs = qs.filter(latitude=0, longitude=0).order_by("-date_taken") if zero else \
-        qs.filter(Q(latitude__isnull=True) | Q(longitude__isnull=True)).order_by("?")
-    p = qs.first()
+    qs = qs.filter(BROKEN_GPS).order_by("-date_taken") if zero else \
+        qs.filter(Q(latitude__isnull=True) | Q(longitude__isnull=True))
+    p = qs.first() if zero else _random_pick(qs)
     if p is None:
         raise HttpError(404, "Every photo here has a location")
     return p
@@ -673,7 +728,6 @@ class LocationIn(Schema):
 def set_location(request, photo_id: uuid.UUID, payload: LocationIn):
     from django.conf import settings
     from django.db import transaction
-    from .models import refresh_photo_matviews
     if (payload.lat is None) != (payload.lng is None):
         raise HttpError(422, "Give both lat and lng, or both null to clear")
     p = get_object_or_404(_editable_library(request.user).select_related("album").distinct(), id=photo_id)
@@ -689,8 +743,9 @@ def set_location(request, photo_id: uuid.UUID, payload: LocationIn):
             f.write(f"{p.id} --> ({payload.lat}, {payload.lng}) [{request.user.username}]\n")
     except OSError:
         pass
-    # Only the heat-map view has locations; photos_photo_daily doesn't change (each refresh scans every photo)
-    transaction.on_commit(lambda: refresh_photo_matviews(("photos_photo_location_cache",)))
+    # Only the heat-map view has locations (photos_photo_daily doesn't change). Queued and coalesced:
+    # saving one location after another refreshes the view once per burst, not once per save.
+    transaction.on_commit(lambda: photo_cache.schedule_matview_refresh(("photos_photo_location_cache",)))
     return p
 
 
@@ -767,8 +822,7 @@ def hide(request, payload: HideIn):
         .update(hidden=payload.hidden)
     if changed:
         from django.db import transaction
-        from .models import refresh_photo_location_cache
-        transaction.on_commit(refresh_photo_location_cache)  # the heat map leaves hidden photos out
+        transaction.on_commit(photo_cache.schedule_matview_refresh)  # both views leave hidden photos out
     return {"changed": changed}
 
 

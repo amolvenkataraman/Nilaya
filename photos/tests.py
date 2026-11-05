@@ -172,6 +172,10 @@ class GeoGamesTests(TestCase):
         self.assertEqual(self.client.get("/api/v2/photos/game/round").json()["id"], str(self.tagged.id))
         self.assertEqual(self.client.get("/api/v2/photos/locate/next").json()["id"], str(self.untagged.id))
         self.assertEqual(self.client.get(f"/api/v2/photos/locate/next?exclude={self.untagged.id}").status_code, 404)  # skipped
+        broken = Photo.objects.create(owner=self.owner, album=self.tagged.album, filepath="b.jpg", orientation="1",
+                                      date_taken=timezone.now(), latitude=43.46, longitude=0.0)  # phone GPS bug
+        self.assertEqual(self.client.get("/api/v2/photos/locate/next?zero=true").json()["id"], str(broken.id))
+        self.assertEqual(self.client.get("/api/v2/photos/points", {"south": 40, "west": -1, "north": 50, "east": 1}).json(), [])
 
     def test_only_owners_and_editors_can_set_a_location(self):
         body = {"lat": 48.85, "lng": 2.35}

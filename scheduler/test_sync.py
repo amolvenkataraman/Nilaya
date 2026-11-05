@@ -72,6 +72,12 @@ class SyncTests(TestCase):
         self.assertEqual(nov, [("Standup", "11-17 09:00")])
         self.assertEqual(Event.objects.filter(calendar=self.cal).count(), 3)  # series, birthday, dentist (no duplicates)
 
+    def test_resyncing_an_unchanged_feed_writes_nothing(self):
+        self.ics("feed.ics")
+        stamps = dict(Event.objects.filter(calendar=self.cal).values_list("id", "updated_on"))
+        self.ics("feed.ics")  # e.g. a feed without ETags: same content again
+        self.assertEqual(dict(Event.objects.filter(calendar=self.cal).values_list("id", "updated_on")), stamps)
+
     def test_ics_not_modified_skips_the_import(self):
         with mock.patch("scheduler.sync.requests.get", return_value=response(b"", status=304)):
             self.assertEqual(sync_ical(self.cal, *WINDOW, conditional=True), "not_modified")

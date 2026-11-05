@@ -606,6 +606,17 @@ def list_tags(request):
     return _tags(request.user)
 
 
+class OverviewOut(Schema):
+    meta: dict
+    tags: list[TagOut]
+    stats: StatsOut
+
+
+@router.get("/overview", response=OverviewOut, summary="Meta, tags and stats in one request (the Contacts page's first load)")
+def overview(request):
+    return {"meta": meta(), "tags": _tags(request.user), "stats": stats(request)}
+
+
 @router.patch("/tags/{int:tag_id}", response=TagOut, summary="Rename a tag or group")
 def rename_tag(request, tag_id: int, payload: TagPatch):
     t = get_object_or_404(Tag, id=tag_id, owner=request.user)

@@ -9,6 +9,14 @@ from notifications.service import notify
 
 logger = get_task_logger(__name__)
 
+
+@shared_task(ignore_result=True)
+def refresh_photo_views(views):
+    """Coalesced refresh queued by photos.cache.schedule_matview_refresh."""
+    from photos.cache import run_scheduled_refresh
+    run_scheduled_refresh(views)
+
+
 @shared_task
 def ingest_all_photos(user_id=None):
     if user_id:

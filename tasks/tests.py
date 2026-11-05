@@ -73,6 +73,7 @@ class TaskApiTests(TestCase):
         self.post(f"{t['id']}/done")
         self.assertEqual(self.client.get("/api/v2/tasks/?done=true&done_after=2000-01-01T00:00:00Z").json()["total"], 1)
         self.assertEqual(self.client.get("/api/v2/tasks/?done=true&done_after=2999-01-01T00:00:00Z").json()["total"], 0)
+        self.assertEqual(self.client.get("/api/v2/tasks/overview").json()["done_today"], 1)
 
     def test_repeating_task_moves_forward_and_stays_open(self):
         due = "2026-11-04T09:00:00+00:00"

@@ -219,6 +219,9 @@ class GroupVisibilityTests(TestCase):
         self.client.post(f"/api/v2/places/groups/{self.old.id}/only")
         self.assertEqual(self.names(visible="true"), ["Old trips spot"])
         self.assertEqual(self.names(q="spot"), ["Food spot", "Old trips spot"])  # search still finds everything
+        pins = self.client.get("/api/v2/places/pins?visible=true").json()  # the map's light load
+        self.assertEqual([(p["name"], sorted(p)) for p in pins], [("Old trips spot", sorted(
+            ["id", "group_id", "name", "latitude", "longitude", "category", "status", "rating"]))])
 
     def test_archived_groups_drop_out_unless_asked_for(self):
         self.client.patch(f"/api/v2/places/groups/{self.old.id}", {"archived": True}, content_type="application/json")
