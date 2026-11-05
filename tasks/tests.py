@@ -157,3 +157,115 @@ class NullPatchTests(TestCase):
                 self.assertEqual(self.client.patch(path, {field: None}, content_type="application/json").status_code, 200)
         self.assertEqual(Todo.objects.get(id=task).name, "T")
         self.assertEqual(self.client.post(f"/api/v2/calendar/events/{event}/duplicate?days=99999999").status_code, 400)
+
+
+class SharingFixTests(TestCase):
+    """Review fixes: project nesting, per-user labels, assignees, view-only writes, removed members."""
+
+    def setUp(self):
+        from .models import ProjectMember
+        self.Role = ProjectMember.Role
+        self.owner = ComptechUser.objects.create_user("own", password="pw")
+        self.other = ComptechUser.objects.create_user("oth", password="pw")
+        self.client.force_login(self.owner)
+        self.project = self.api("post", "projects", {"name": "Shared"}).json()
+
+    def api(self, method, path, body=None, user=None):
+        self.client.force_login(user or self.owner)
+        return getattr(self.client, method)(f"/api/v2/tasks/{path}", body or {}, content_type="application/json")
+
+    def share(self, role):
+        from .models import ProjectMember
+        ProjectMember.objects.update_or_create(project_id=self.project["id"], user=self.other, defaults={"role": role})
+
+    def test_admin_cannot_nest_the_owners_project_and_deleting_a_parent_keeps_others_subprojects(self):
+        from .models import Project
+        self.share(self.Role.ADMIN)
+        mine = self.api("post", "projects", {"name": "Admin's"}, user=self.other).json()
+        r = self.api("patch", f"projects/{self.project['id']}", {"parent_id": mine["id"]}, user=self.other)
+        self.assertEqual(r.status_code, 403)
+        self.assertEqual(self.api("patch", f"projects/{self.project['id']}", {"parent_id": mine["id"]}).status_code, 404)
+        legacy = Project.objects.create(owner=self.other, name="Inside", parent_id=self.project["id"])  # made before the fix
+        self.api("delete", f"projects/{self.project['id']}")
+        self.assertIsNone(Project.objects.get(id=legacy.id).parent_id)
+
+    def test_a_sharee_setting_labels_keeps_the_owners_labels(self):
+        self.share(self.Role.WRITE)
+        mine = self.api("post", "labels", {"name": "urgent"}).json()
+        theirs = self.api("post", "labels", {"name": "later"}, user=self.other).json()
+        t = self.api("post", "", {"title": "T", "project_id": self.project["id"], "labels": [mine["id"]]}).json()
+        r = self.api("patch", t["id"], {"labels": [theirs["id"]]}, user=self.other).json()
+        self.assertEqual(sorted(r["labels"]), sorted([mine["id"], theirs["id"]]))
+
+    def test_assignees_must_be_project_members_and_can_unassign_themselves(self):
+        t = self.api("post", "", {"title": "T", "project_id": self.project["id"]}).json()
+        self.assertEqual(self.api("patch", t["id"], {"assignees": ["oth"]}).status_code, 400)
+        loose = self.api("post", "", {"title": "Mine", "assignees": ["oth"]})
+        self.assertEqual(loose.status_code, 400)
+        self.share(self.Role.READ)
+        self.assertEqual(self.api("patch", t["id"], {"assignees": ["oth"]}).status_code, 200)
+        self.assertEqual(self.api("post", f"{t['id']}/unassign", user=self.other).status_code, 204)
+        self.assertEqual(self.api("get", t["id"]).json()["assignees"], [])
+
+    def test_view_only_cannot_add_relations_subtasks_or_comments_and_hidden_titles_stay_hidden(self):
+        t = self.api("post", "", {"title": "Owner's", "project_id": self.project["id"]}).json()
+        secret = self.api("post", "", {"title": "Secret"}).json()
+        self.api("post", f"{t['id']}/relations", {"other_id": secret["id"], "kind": "related"})
+        self.share(self.Role.READ)
+        own = self.api("post", "", {"title": "Theirs"}, user=self.other).json()
+        self.assertEqual(self.api("post", f"{own['id']}/relations", {"other_id": t["id"], "kind": "blocks"},
+                                  user=self.other).status_code, 403)
+        self.assertEqual(self.api("post", "", {"title": "Sub", "parent_id": t["id"]}, user=self.other).status_code, 403)
+        self.assertEqual(self.api("post", f"{t['id']}/comments", {"body": "hi"}, user=self.other).status_code, 403)
+        rel = self.api("get", t["id"], user=self.other).json()["relations"][0]
+        self.assertEqual((rel["other_name"], rel["other_visible"]), ("Private task", False))
+        self.assertEqual(self.api("get", t["id"]).json()["relations"][0]["other_name"], "Secret")
+
+    def test_a_removed_member_stops_seeing_tasks_they_created(self):
+        from .models import ProjectMember
+        self.share(self.Role.WRITE)
+        t = self.api("post", "", {"title": "Theirs", "project_id": self.project["id"]}, user=self.other).json()
+        ProjectMember.objects.filter(user=self.other).delete()
+        self.assertEqual(self.api("get", t["id"], user=self.other).status_code, 404)
+        self.assertNotIn(t["id"], [x["id"] for x in self.api("get", "?done=false", user=self.other).json()["items"]])
+
+
+class RepeatAndInputTests(TestCase):
+    def setUp(self):
+        self.user = ComptechUser.objects.create_user("rep", password="pw", timezone="America/Toronto")
+        self.client.force_login(self.user)
+
+    def test_repeats_keep_the_day_of_month_and_the_wall_clock_time(self):
+        from unittest import mock
+
+        from . import service as svc
+        local = lambda *a: TZ.localize(datetime.datetime(*a))
+
+        def done_at(todo, now):
+            with mock.patch.object(svc.timezone, "now", return_value=now):
+                svc.set_done(todo, True)
+            return todo.complete_by.astimezone(TZ).strftime("%Y-%m-%d %H:%M")
+
+        monthly = Todo.objects.create(user=self.user, name="Rent", repeat_mode=2, complete_by=local(2026, 1, 31, 9))
+        self.assertEqual(done_at(monthly, local(2026, 1, 31, 10)), "2026-02-28 09:00")
+        self.assertEqual(done_at(monthly, local(2026, 2, 28, 10)), "2026-03-31 09:00")  # not Mar 28; EDT by now
+        daily = Todo.objects.create(user=self.user, name="Walk", repeat_mode=1, repeat_every=86400,
+                                    complete_by=local(2026, 3, 7, 9))
+        self.assertEqual(done_at(daily, local(2026, 3, 7, 10)), "2026-03-08 09:00")  # DST starts Mar 8
+
+    def test_a_repeating_task_dropped_in_done_moves_on_and_stays_open(self):
+        post = lambda path, body=None: self.client.post(f"/api/v2/tasks/{path}", body or {}, content_type="application/json")
+        p = post("projects", {"name": "Chores"}).json()
+        todo, _, done = self.client.get(f"/api/v2/tasks/projects/{p['id']}/buckets").json()
+        t = post("", {"title": "Bins", "project_id": p["id"], "due": "2026-11-04T09:00:00+00:00",
+                      "repeat_mode": 1, "repeat_every": 604800}).json()
+        moved = post(f"{t['id']}/move", {"bucket_id": done["id"]}).json()
+        self.assertEqual((moved["done"], moved["bucket_id"]), (False, todo["id"]))
+        self.assertGreater(moved["due"], t["due"])
+
+    def test_out_of_range_numbers_are_refused_and_unknown_zones_fall_back(self):
+        r = self.client.post("/api/v2/tasks/", {"title": "T", "time_spent": 40000}, content_type="application/json")
+        self.assertEqual(r.status_code, 422)  # smallint column on Postgres
+        ComptechUser.objects.filter(id=self.user.id).update(timezone="Mars/Olympus")
+        r = self.client.post("/api/v2/tasks/quick", {"text": "Stretch every day"}, content_type="application/json")
+        self.assertEqual(r.status_code, 201)

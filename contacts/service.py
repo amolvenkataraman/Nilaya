@@ -100,8 +100,8 @@ def clean(data):
         out["custom_fields"] = [{"key": R.text(c.get("key"), 64), "value": R.text(c.get("value"), 1000)}
                                 for c in data["custom_fields"] or [] if (c.get("key") or "").strip()]
     for k in ("emails", "phones", "addresses", "links", "custom_fields"):
-        if len(out.get(k, ())) > R.LIST_MAX:
-            raise ValueError(f"At most {R.LIST_MAX} {k.replace('_', ' ')} per contact")
+        if len(out.get(k, ())) > _cap(k):
+            raise ValueError(f"At most {_cap(k)} {k.replace('_', ' ')} per contact")
     if "birthday" in data:
         out["birthday_year"], out["birthday_month"], out["birthday_day"] = _birthday(data["birthday"])
     if "anniversary" in data:
@@ -184,7 +184,11 @@ def match_keys(emails, phones, profs):
     return keys
 
 
-def _union(a, b, key):
+def _cap(field):
+    return R.CUSTOM_MAX if field == "custom_fields" else R.LIST_MAX
+
+
+def _union(a, b, key, cap=R.LIST_MAX):
     out = [dict(x) for x in a]
     if key is None:
         seen = {tuple(sorted(x.items())) for x in a}
@@ -196,18 +200,19 @@ def _union(a, b, key):
         else:
             seen = {str(x.get(key, "")).lower() for x in a}
             out += [dict(x) for x in b if str(x.get(key, "")).lower() not in seen]
-    return out[:R.LIST_MAX]
+    return out[:max(cap, len(a))]  # never drops what `a` already has
 
 
 def merge_record(into, rec):
     """Fold one import record into another (same file)."""
     for k, v in rec.items():
         if k in LISTS:
-            into[k] = _union(into.get(k, []), v, LISTS[k])
+            into[k] = _union(into.get(k, []), v, LISTS[k], _cap(k))
         elif k == "profiles":
             into[k] = {**v, **into.get(k, {})}
         elif k in ("tags", "groups"):
-            into[k] = into.get(k, []) + [x for x in v if x not in into.get(k, [])]
+            into.setdefault(k, [])
+            R.add_tags(into, v, k)  # capped at 50 like a single record
         elif k == "related":
             into[k] = into.get(k, []) + v
         elif not into.get(k):
@@ -229,7 +234,7 @@ def fill_from_record(person, rec, tagset=frozenset()):
             setattr(person, k, f"{cur}\n\n{v}"[:R.NOTES_MAX])
             changed = True
     for k, key in LISTS.items():
-        merged = _union(getattr(person, k), rec.get(k, []), key)
+        merged = _union(getattr(person, k), rec.get(k, []), key, _cap(k))
         if len(merged) != len(getattr(person, k)):
             setattr(person, k, merged)
             changed = True
@@ -459,6 +464,12 @@ def merge(keep, other, choices):
     unlisted scalars keep `keep`'s value unless it's empty. Multi-values, tags and history are combined."""
     for f in MERGE_FIELDS:
         pick_other = choices.get(f) == "other"
+        if f == "notes":
+            # Both contacts' notes are kept; the picked side's come first.
+            first, second = (other.notes, keep.notes) if pick_other else (keep.notes, other.notes)
+            first, second = first.strip(), second.strip()
+            keep.notes = (f"{first}\n\n{second}" if first and second and second not in first else first or second)[:R.NOTES_MAX]
+            continue
         if f == "birthday":
             if pick_other or not keep.birthday_month:
                 if other.birthday_month or pick_other:
@@ -469,7 +480,7 @@ def merge(keep, other, choices):
         if (pick_other or not mine) and (theirs or pick_other):
             setattr(keep, f, theirs)
     for k, key in LISTS.items():
-        setattr(keep, k, _union(getattr(keep, k), getattr(other, k), key))
+        setattr(keep, k, _union(getattr(keep, k), getattr(other, k), key, _cap(k)))
     profs = {**other.profiles, **keep.profiles}
     for net, h in other.profiles.items():
         if choices.get(f"profile:{net}") == "other":

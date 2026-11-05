@@ -58,17 +58,29 @@ def _unescape(s):
 
 
 def _logical_lines(text):
-    lines = []
-    qp_open = False
+    """Unfold into logical lines. Each line is gathered as a list of non-empty chunks and joined once, so a
+    long folded value (a photo, a big note) costs linear time instead of a copy per continuation line."""
+    lines, cur = [], None
+    colon = qp = False  # the current line has its ':' yet / its head says QUOTED-PRINTABLE
     for raw in re.split(r"\r\n|\r|\n", text):
-        if lines and qp_open:
-            lines[-1] = lines[-1][:-1] + raw  # quoted-printable soft line break
-        elif lines and raw[:1] in (" ", "\t"):
-            lines[-1] += raw[1:]
+        if cur is not None and qp and cur[-1].endswith("="):
+            cur[-1] = cur[-1][:-1]  # quoted-printable soft line break
+            if not cur[-1] and len(cur) > 1:
+                cur.pop()
+            piece = raw
+        elif cur is not None and raw[:1] in (" ", "\t"):
+            piece = raw[1:]
         else:
-            lines.append(raw)
-        head = lines[-1].split(":", 1)[0].upper()
-        qp_open = "QUOTED-PRINTABLE" in head and ":" in lines[-1] and lines[-1].endswith("=")
+            if cur is not None:
+                lines.append("".join(cur))
+            cur, colon, qp, piece = [], False, False, raw
+        if piece or not cur:
+            if not colon and ":" in piece:
+                colon = True
+                qp = "QUOTED-PRINTABLE" in ("".join(cur) + piece.split(":", 1)[0]).upper()
+            cur.append(piece)
+    if cur is not None:
+        lines.append("".join(cur))
     return lines
 
 

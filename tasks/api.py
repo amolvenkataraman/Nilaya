@@ -5,9 +5,9 @@ import uuid
 from typing import Literal, Optional
 
 import bleach
-import pytz
 from django.db import transaction
-from django.db.models import Count, Max, Prefetch, Q
+from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja import Field, Router, Schema
@@ -21,6 +21,8 @@ from .models import Bucket, Comment, Label, Project, ProjectMember, Relation, Re
 
 router = Router(tags=["tasks"])
 HEX = r"^(#[0-9a-fA-F]{6})?$"
+SMALLINT = 32767        # PositiveSmallIntegerField columns (Postgres smallint)
+INT = 2147483647        # IntegerField / PositiveIntegerField columns (Postgres integer)
 
 
 def _clean(text):
@@ -98,14 +100,14 @@ class BucketOut(Schema):
 class BucketIn(Schema):
     name: str = Field(..., min_length=1, max_length=64)
     position: Optional[float] = None
-    limit: int = Field(0, ge=0)
+    limit: int = Field(0, ge=0, le=SMALLINT)
     is_done: bool = False
 
 
 class BucketPatch(Schema):
     name: Optional[str] = Field(None, min_length=1, max_length=64)
     position: Optional[float] = None
-    limit: Optional[int] = Field(None, ge=0)
+    limit: Optional[int] = Field(None, ge=0, le=SMALLINT)
     is_done: Optional[bool] = None
 
 
@@ -141,7 +143,7 @@ class ReminderOut(Schema):
 class ReminderIn(Schema):
     at: Optional[datetime.datetime] = None
     relative_to: Literal["", "due", "start"] = ""
-    offset: int = 0  # seconds; negative = before
+    offset: int = Field(0, ge=-INT, le=INT)  # seconds; negative = before
 
 
 class RelationOut(Schema):
@@ -150,14 +152,19 @@ class RelationOut(Schema):
     other_id: uuid.UUID
     other_name: str
     other_done: bool
+    other_visible: bool = True  # false: a task you can't open (title shown as "Private task")
+
+    @staticmethod
+    def resolve_other_visible(obj):
+        return getattr(obj, "other_visible", True)
 
     @staticmethod
     def resolve_other_name(obj):
-        return obj.other.name
+        return obj.other.name if getattr(obj, "other_visible", True) else "Private task"
 
     @staticmethod
     def resolve_other_done(obj):
-        return obj.other.completed
+        return obj.other.completed if getattr(obj, "other_visible", True) else False
 
 
 class TaskOut(Schema):
@@ -235,7 +242,7 @@ class TaskDetailOut(TaskOut):
 
     @staticmethod
     def resolve_relations(o):
-        return list(o.relations.select_related("other"))
+        return getattr(o, "relation_rows", None) or list(o.relations.select_related("other"))
 
 
 class TaskIn(Schema):
@@ -250,13 +257,13 @@ class TaskIn(Schema):
     labels: list[int] = []
     assignees: list[str] = []  # usernames
     repeat_mode: int = Field(0, ge=0, le=3)
-    repeat_every: Optional[int] = Field(None, ge=60)
+    repeat_every: Optional[int] = Field(None, ge=60, le=INT)
     favorite: bool = False
     colour: str = Field("", pattern=HEX)
     reminders: list[ReminderIn] = []
     position: Optional[float] = None
     percent: int = Field(0, ge=0, le=100)
-    time_spent: int = Field(0, ge=0)
+    time_spent: int = Field(0, ge=0, le=SMALLINT)
 
 
 class TaskPatch(Schema):
@@ -269,9 +276,9 @@ class TaskPatch(Schema):
     labels: Optional[list[int]] = None
     assignees: Optional[list[str]] = None
     percent: Optional[int] = Field(None, ge=0, le=100)
-    time_spent: Optional[int] = Field(None, ge=0)
+    time_spent: Optional[int] = Field(None, ge=0, le=SMALLINT)
     repeat_mode: Optional[int] = Field(None, ge=0, le=3)
-    repeat_every: Optional[int] = Field(None, ge=60)
+    repeat_every: Optional[int] = Field(None, ge=60, le=INT)
     favorite: Optional[bool] = None
     colour: Optional[str] = Field(None, pattern=HEX)
     reminders: Optional[list[ReminderIn]] = None  # replaces the list
@@ -354,14 +361,22 @@ class TaskPage(Schema):
 
 # ================================================================ helpers
 
+def _count(qs, fk):
+    """COUNT(*) of qs rows pointing at the outer task, as a correlated subquery. Four of these cost a few
+    index lookups per returned row; four COUNT(DISTINCT) over joins made Postgres expect millions of rows
+    and spend about a second JIT-compiling even an empty list."""
+    sub = qs.filter(**{fk: OuterRef("pk")}).order_by().values(fk).annotate(c=Count("*")).values("c")
+    return Coalesce(Subquery(sub, output_field=IntegerField()), 0)
+
+
 def _tasks_qs(user):
     return (svc.visible_tasks(user)
             .select_related("user")
             .prefetch_related("labels", "assignees", "reminders")
-            .annotate(n_sub=Count("todo", distinct=True),
-                      n_sub_done=Count("todo", filter=Q(todo__completed=True), distinct=True),
-                      n_comments=Count("comments", distinct=True),
-                      n_relations=Count("relations", distinct=True)))
+            .annotate(n_sub=_count(Todo.objects.all(), "parent"),
+                      n_sub_done=_count(Todo.objects.filter(completed=True), "parent"),
+                      n_comments=_count(Comment.objects.all(), "todo"),
+                      n_relations=_count(Relation.objects.all(), "todo")))
 
 
 def _task(user, task_id, edit=False):
@@ -388,10 +403,15 @@ def _project_out(p, user, counts):
             "open_count": counts.get(p.id, 0)}
 
 
-def _users(usernames):
+def _assignees(t, usernames):
+    """Assignees must be able to see the task: the project's owner and members (just the owner for a
+    loose task). People already assigned can stay."""
     users = list(ComptechUser.objects.filter(username__in=usernames))
     if len(users) != len(set(usernames)):
         raise HttpError(400, "Unknown user in assignees")
+    allowed = svc.assignable_user_ids(t) | set(t.assignees.values_list("id", flat=True))
+    if any(u.id not in allowed for u in users):
+        raise HttpError(400, "Assignees must be members of the task's project")
     return users
 
 
@@ -404,11 +424,11 @@ def _apply_task(user, t, data):
             setattr(t, field, _clean(data[key]) if key == "title" else data[key])
     if "description" in data:
         t.description = _clean(data["description"])  # plain text; the UIs render it as text
-    if "parent_id" in data:
+    if "parent_id" in data and data["parent_id"] != t.parent_id:  # re-checked only when it changes
         if data["parent_id"] is None:
             t.parent = None
         else:
-            parent = _task(user, data["parent_id"])
+            parent = _task(user, data["parent_id"], edit=True)  # adding a subtask edits the parent
             if parent.id == t.id or (t.id and _is_descendant(parent, t.id)):
                 raise HttpError(400, "A task can't be its own subtask")
             t.parent = parent
@@ -428,10 +448,12 @@ def _is_descendant(task, ancestor_id):
 
 def _set_m2m(user, t, data):
     if data.get("labels") is not None:
+        # Labels are per user: replace the editor's own, keep the ones other people put on the task.
         labels = list(Label.objects.filter(id__in=data["labels"], owner=user))
-        t.labels.set(labels)
+        others = list(t.labels.exclude(owner=user))
+        t.labels.set(labels + others)
     if data.get("assignees") is not None:
-        t.assignees.set(_users(data["assignees"]))
+        t.assignees.set(_assignees(t, data["assignees"]))
     if data.get("reminders") is not None:
         t.reminders.all().delete()
         for r in data["reminders"]:
@@ -445,7 +467,7 @@ def _set_m2m(user, t, data):
 def _filter(qs, user, *, view="", project=None, label="", priority_min=None, q="", done=None,
             due_before=None, due_after=None, parent=None, top_level=False, assignee="", done_after=None):
     now = timezone.now()
-    tz = pytz.timezone(user.timezone) if user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
+    tz = svc.user_tz(user)
     end_today = timezone.localtime(now, tz).replace(hour=23, minute=59, second=59)
     start_today = end_today.replace(hour=0, minute=0, second=0)
     if view == "today":
@@ -508,7 +530,7 @@ def overview(request, include: str = ""):
     open_ = base.filter(completed=False)
     count = lambda view: _filter(base, user, view=view).count()
     week_ago = timezone.now() - datetime.timedelta(days=7)
-    tz = pytz.timezone(user.timezone) if user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
+    tz = svc.user_tz(user)
     midnight = timezone.localtime(timezone.now(), tz).replace(hour=0, minute=0, second=0, microsecond=0)
     out = {"inbox": open_.filter(project=inbox).count(), "today": count("today"), "overdue": count("overdue"),
            "upcoming": count("upcoming"), "no_date": count("nodate"), "favorites": count("favorites"),
@@ -540,8 +562,8 @@ def list_projects(request, include_archived: bool = False):
 @router.post("/projects", response={201: ProjectOut})
 def create_project(request, payload: ProjectIn):
     data = payload.dict()
-    if data["parent_id"]:
-        _project(request.user, data["parent_id"], ProjectMember.Role.ADMIN)
+    if data["parent_id"] and _project(request.user, data["parent_id"]).owner_id != request.user.id:
+        raise HttpError(400, "Sub-projects go inside your own projects")
     data["name"], data["description"] = _clean(data["name"]), _clean(data["description"])
     pos = (Project.objects.filter(owner=request.user).aggregate(m=Max("position"))["m"] or 0) + 1
     p = svc.create_project(request.user, position=pos, **data)
@@ -554,13 +576,20 @@ def update_project(request, project_id: uuid.UUID, payload: ProjectPatch):
     data = {k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None or k in ("parent_id", "description")}
     if p.is_inbox and ("archived" in data or "parent_id" in data):
         raise HttpError(400, "The Inbox can't be archived or nested")
-    if data.get("parent_id"):
-        parent = _project(request.user, data["parent_id"], ProjectMember.Role.ADMIN)
-        node = parent
-        while node:
+    if data.get("parent_id", p.parent_id) == p.parent_id:
+        data.pop("parent_id", None)
+    elif p.owner_id != request.user.id:
+        # Deleting a project deletes what's inside it, so only the owner nests it, under their own projects.
+        raise HttpError(403, "Only the owner can move this project")
+    elif data["parent_id"]:
+        parent = _project(request.user, data["parent_id"])
+        if parent.owner_id != p.owner_id:
+            raise HttpError(400, "Sub-projects go inside your own projects")
+        node, seen = parent, 0
+        while node and seen < 100:
             if node.id == p.id:
                 raise HttpError(400, "A project can't be inside itself")
-            node = node.parent
+            node, seen = node.parent, seen + 1
     for key, value in data.items():
         setattr(p, key, _clean(value) if key in ("name", "description") else value)
     p.save()
@@ -572,7 +601,15 @@ def delete_project(request, project_id: uuid.UUID):
     p = _project(request.user, project_id, ProjectMember.Role.ADMIN)
     if p.is_inbox or p.owner_id != request.user.id:
         raise HttpError(400, "Only the owner can delete a project, and never the Inbox")
-    p.delete()
+    with transaction.atomic():
+        # Sub-projects someone else owns are moved to the top level instead of being deleted with this one.
+        frontier, seen = [p.id], {p.id}
+        while frontier:
+            kids = list(Project.objects.filter(parent_id__in=frontier).values_list("id", "owner_id"))
+            Project.objects.filter(id__in=[k for k, o in kids if o != p.owner_id]).update(parent=None)
+            frontier = [k for k, o in kids if o == p.owner_id and k not in seen]
+            seen.update(frontier)
+        p.delete()
     return 204, None
 
 
@@ -618,7 +655,9 @@ def remove_member(request, project_id: uuid.UUID, member_id: int):
     m = get_object_or_404(ProjectMember, id=member_id, project=p)
     if m.user_id != request.user.id and svc.project_role(request.user, p) < ProjectMember.Role.ADMIN:
         raise HttpError(403, "Only admins can remove other people")
-    m.delete()
+    with transaction.atomic():
+        m.delete()  # they no longer see the project's tasks, assigned ones included
+        Todo.assignees.through.objects.filter(todo__project=p, comptechuser_id=m.user_id).delete()
     return 204, None
 
 
@@ -735,6 +774,9 @@ def list_tasks(request, view: Literal["", "today", "upcoming", "overdue", "nodat
                sort: Literal["position", "due", "priority", "created", "updated", "title", "done"] = "position",
                limit: int = 500, offset: int = 0):
     svc.ensure_inbox(request.user)
+    if priority_min is not None:
+        priority_min = max(-1, min(priority_min, 100))
+    offset = max(0, min(offset, 10 ** 9))
     qs = _filter(_tasks_qs(request.user), request.user, view=view, project=project, label=label,
                  priority_min=priority_min, q=q, done=done, due_before=due_before, due_after=due_after,
                  parent=parent, top_level=top_level, assignee=assignee, done_after=done_after)
@@ -778,8 +820,7 @@ def create_task(request, payload: TaskIn):
 @router.post("/quick", response={201: TaskOut}, summary="Quick add: 'Pay rent tomorrow 5pm *bills +Home !3 every month'")
 def quick_add(request, payload: QuickIn):
     user = request.user
-    tz = pytz.timezone(user.timezone) if user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
-    p = svc.parse_quick_add(payload.text, tz)
+    p = svc.parse_quick_add(payload.text, svc.user_tz(user))
     project_id = payload.project_id
     if p["project"]:
         match = svc.accessible_projects(user).filter(name__iexact=p["project"], archived=False).first()
@@ -819,7 +860,14 @@ def from_event(request, event_id: str, project_id: Optional[uuid.UUID] = None):
 
 @router.get("/{uuid:task_id}", response=TaskDetailOut)
 def get_task(request, task_id: uuid.UUID):
-    return _task(request.user, task_id)
+    t = _task(request.user, task_id)
+    rows = list(t.relations.select_related("other"))
+    if rows:
+        visible = set(svc.visible_tasks(request.user).filter(id__in=[r.other_id for r in rows]).values_list("id", flat=True))
+        for r in rows:
+            r.other_visible = r.other_id in visible
+    t.relation_rows = rows
+    return t
 
 
 @router.patch("/{uuid:task_id}", response=TaskOut)
@@ -859,7 +907,11 @@ def move_task(request, task_id: uuid.UUID, payload: MoveIn):
     if bucket and bucket.limit and not bucket.is_done and bucket.id != t.bucket_id and \
             Todo.objects.filter(bucket=bucket, completed=False, parent__isnull=True).count() >= bucket.limit:
         raise HttpError(400, f"\"{bucket.name}\" is at its limit of {bucket.limit}")
-    svc.move(t, project=project, bucket=bucket, position=payload.position)
+    moved = project is not None and project.id != t.project_id
+    with transaction.atomic():
+        svc.move(t, project=project, bucket=bucket, position=payload.position)
+        if moved:  # assignees who aren't in the new project would keep seeing it
+            t.assignees.remove(*t.assignees.exclude(id__in=svc.assignable_user_ids(t)))
     return _task(request.user, t.id)
 
 
@@ -887,6 +939,13 @@ def delete_task(request, task_id: uuid.UUID):
     return 204, None
 
 
+@router.post("/{uuid:task_id}/unassign", response={204: None}, summary="Take yourself off a task's assignees")
+def unassign_me(request, task_id: uuid.UUID):
+    t = _task(request.user, task_id)
+    t.assignees.remove(request.user)
+    return 204, None
+
+
 # ---------------------------------------------------------------- comments
 
 @router.get("/{uuid:task_id}/comments", response=list[CommentOut])
@@ -894,11 +953,16 @@ def list_comments(request, task_id: uuid.UUID):
     return list(_task(request.user, task_id).comments.select_related("author"))
 
 
-@router.post("/{uuid:task_id}/comments", response={201: CommentOut})
+@router.post("/{uuid:task_id}/comments", response={201: CommentOut}, summary="Comment (needs edit rights, or being an assignee)")
 def add_comment(request, task_id: uuid.UUID, payload: CommentIn):
     t = _task(request.user, task_id)
+    assignees = set(t.assignees.values_list("id", flat=True))
+    if request.user.id not in assignees and not svc.can_edit_task(request.user, t):
+        raise HttpError(403, "You can only view this task")
     c = Comment.objects.create(todo=t, author=request.user, body=_clean(payload.body))
-    people = {t.user_id, *t.assignees.values_list("id", flat=True)} - {request.user.id}
+    people = assignees - {request.user.id}
+    if t.user_id != request.user.id and t.user_id not in people and svc.can_view_task(t.user, t):
+        people.add(t.user_id)  # the creator, while they can still open it
     if people:
         from notifications.service import notify
         for u in ComptechUser.objects.filter(id__in=people):
@@ -926,7 +990,7 @@ def delete_comment(request, comment_id: uuid.UUID):
 @router.post("/{uuid:task_id}/relations", response={201: RelationOut})
 def add_relation(request, task_id: uuid.UUID, payload: RelationIn):
     t = _task(request.user, task_id, edit=True)
-    other = _task(request.user, payload.other_id)
+    other = _task(request.user, payload.other_id, edit=True)  # the inverse link is written on it too
     if other.id == t.id:
         raise HttpError(400, "A task can't relate to itself")
     with transaction.atomic():

@@ -300,6 +300,8 @@ def _validate(h):
             raise HttpError(400, f"Times per {h.period} must be a whole number of days")
     if h.schedule == "weekdays" and not h.weekdays:
         raise HttpError(400, "Pick at least one weekday")
+    if h.start_date < svc.MIN_START:
+        raise HttpError(400, f"The start date can't be before {svc.MIN_START.isoformat()}")
     if h.end_date and h.end_date < h.start_date:
         raise HttpError(400, "The end date is before the start date")
 

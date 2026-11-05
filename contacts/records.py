@@ -13,6 +13,7 @@ from . import profiles
 TEXT_MAX = 200
 NOTES_MAX = 20000
 LIST_MAX = 20
+CUSTOM_MAX = 50  # custom fields per contact (imports bring many: Google's Custom Field n, IM n, Relation n)
 
 EMAIL_RE = re.compile(r"^[^@\s<>\"',;]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$")
 PHONE_RE = re.compile(r"^[0-9+()#*.,;/ xext\-]{3,40}$", re.I)
@@ -35,6 +36,13 @@ def new():
 def text(v, limit=TEXT_MAX):
     v = re.sub(r"[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]", "", str(v or "")).replace("\r\n", "\n").replace("\r", "\n")
     return v.strip()[:limit]
+
+
+def split(v, *seps):
+    """Split on any of the literal separators and strip the parts. (A regex like \\s*:::\\s* backtracks
+    over every run of spaces, which made imports quadratic in the cell size.)"""
+    parts = re.split("|".join(re.escape(s) for s in seps), str(v or "")) if seps else [str(v or "")]
+    return [p.strip() for p in parts]
 
 
 def label(raw):
@@ -84,14 +92,14 @@ def _add(lst, item, key):
 
 
 def add_email(rec, value, lbl=""):
-    for part in re.split(r"\s*:::\s*", str(value or "")):  # Google packs several values into one cell
+    for part in split(value, ":::"):  # Google packs several values into one cell
         v = clean_email(part)
         if v:
             _add(rec["emails"], {"label": label(lbl), "value": v}, "value")
 
 
 def add_phone(rec, value, lbl=""):
-    for part in re.split(r"\s*:::\s*", str(value or "")):
+    for part in split(value, ":::"):
         v = clean_phone(part)
         if v and not any(phone_key(p["value"]) == phone_key(v) and phone_key(v) for p in rec["phones"]):
             _add(rec["phones"], {"label": label(lbl), "value": v}, "value")
@@ -122,7 +130,7 @@ def add_profile(rec, network, raw):
 
 def add_custom(rec, key, value):
     key, value = text(key, 64), text(value, 1000)
-    if key and value and len(rec["custom_fields"]) < 50:
+    if key and value and len(rec["custom_fields"]) < CUSTOM_MAX:
         rec["custom_fields"].append({"key": key, "value": value})
 
 

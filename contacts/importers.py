@@ -177,7 +177,7 @@ def _generic(d, mapping):
             for part in re.split(r"[;,\s]+", v):
                 R.add_email(rec, part, "")
         elif f == "phone":
-            for part in re.split(r"\s*(?:;|:::)\s*", v):
+            for part in R.split(v, ";", ":::"):
                 R.add_phone(rec, part, "")
         elif f in ("street", "city", "region", "postcode", "country"):
             addr[f] = v
@@ -186,7 +186,7 @@ def _generic(d, mapping):
             if d8 and (f == "birthday" or d8[0]):
                 rec[f] = R.fmt_date(d8)
         elif f in ("tags", "groups"):
-            R.add_tags(rec, re.split(r"\s*(?:[;,|]|:::)\s*", v), f)
+            R.add_tags(rec, R.split(v, ":::", ";", ",", "|"), f)
         elif f in ("notes", "how_met"):
             rec[f] = v
         elif f in profiles.NETWORKS:
@@ -221,9 +221,9 @@ def _google(d):
     file_as = _first(d, "File As")
     if file_as and file_as != " ".join(x for x in (rec["first_name"], rec["middle_name"], rec["last_name"]) if x):
         rec["display_name"] = file_as
-    R.add_tags(rec, re.split(r"\s*:::\s*", d.get("Tags", "") or ""))
+    R.add_tags(rec, R.split(d.get("Tags", ""), ":::"))
     rec["birthday"] = R.fmt_date(R.parse_date(d.get("Birthday", "")))
-    for lab in re.split(r"\s*:::\s*", d.get("Labels", "") or d.get("Group Membership", "")):
+    for lab in R.split(d.get("Labels", "") or d.get("Group Membership", ""), ":::"):
         lab = lab.strip()
         if lab == "* starred":
             rec["favorite"] = True
@@ -242,7 +242,7 @@ def _google(d):
         elif kind == "Phone":
             R.add_phone(rec, val, lbl)
         elif kind == "Website":
-            for url in re.split(r"\s*:::\s*", val):
+            for url in R.split(val, ":::"):
                 R.add_url(rec, url, lbl)
         elif kind == "Address":
             street = f.get("Street") or ("" if f.get("City") else f.get("Formatted", ""))
@@ -288,7 +288,7 @@ def _outlook(d):
     for col in ("Web Page", "Personal Web Page", "Business Web Page"):
         if d.get(col):
             R.add_url(rec, d[col], "")
-    R.add_tags(rec, re.split(r"\s*[;,]\s*", d.get("Categories", "") or ""))
+    R.add_tags(rec, R.split(d.get("Categories", ""), ";", ","))
     return R.finish(rec)
 
 

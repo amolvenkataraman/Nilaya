@@ -111,6 +111,16 @@ class LogicTests(TestCase):
         self.assertEqual(Entry.objects.filter(habit=h, skipped=True).count(), 4)
         self.assertEqual(self.stats(h)["current_streak"], 6)
 
+    def test_an_old_start_date_costs_entries_not_days(self):
+        start = D(1950, 1, 1)
+        coffee = mk(self.u, kind="measurable", unit="cups", goal="at_most", target=2, start_date=start)
+        log(coffee, D(1990, 6, 5), value=3)  # the one day over the limit
+        units = service.evaluate(coffee, {D(1990, 6, 5): (3.0, False)}, WED)
+        self.assertLess(len(units), service.DETAIL_DAYS + 10)  # was one Unit per day since 1950
+        s = self.stats(coffee)
+        self.assertEqual((s["current_streak"], s["best_streak"]), ((WED - D(1990, 6, 5)).days, (D(1990, 6, 5) - start).days))
+        self.assertAlmostEqual(s["rates"]["all"], 1 - 1 / ((WED - start).days + 1))
+
 
 class ApiTests(TestCase):
     @classmethod
@@ -169,7 +179,7 @@ class ApiTests(TestCase):
         base = {"name": "Read", "start_date": str(self.today)}
         self.assertEqual(self.call("post", "", base).status_code, 201)
         for bad in ({"target": 0}, {"goal": "at_most", "target": 0}, {"schedule": "weekdays", "weekdays": 0},
-                    {"end_date": str(self.today - dt.timedelta(days=1))}):
+                    {"end_date": str(self.today - dt.timedelta(days=1))}, {"start_date": "1800-01-01"}):
             self.assertEqual(self.call("post", "", {**base, **bad}).status_code, 400, bad)
         for bad in ({"colour": "red"}, {"period": "year"}, {"name": ""}, {"interval": 0}):
             self.assertEqual(self.call("post", "", {**base, **bad}).status_code, 422, bad)

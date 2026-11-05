@@ -442,7 +442,7 @@ def list_people(request, q: str = "", filter: Literal["", "all", "favorites", "o
                 tag: str = "", group: str = "", sort: Literal["name", "recent", "last_contacted", "due"] = "name",
                 limit: int = 200, offset: int = 0):
     today = timezone.localdate()
-    limit, offset = min(max(limit, 1), 5000), max(offset, 0)
+    limit, offset = min(max(limit, 1), 5000), min(max(offset, 0), 10 ** 9)  # bigint OFFSET on Postgres
     qs = _brief_qs(request.user)
     q = q.strip().lower()[:100]
     if q:

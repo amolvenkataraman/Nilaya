@@ -17,9 +17,12 @@ Vocabulary
   (13*sqrt(frequency)), 0-100.
 
 Everything here works on in-memory entry maps ({date: (value, skipped)}) so callers fetch each date
-range once (`fetch_entries`) and the rules never query per day.
+range once (`fetch_entries`) and the rules never query per day. Reads cost O(entries), not O(days):
+day units older than DETAIL_DAYS with nothing logged are judged in bulk (one Unit with `n` scheduled
+days), and week/month periods with nothing logged are counted arithmetically.
 """
 
+import bisect
 import calendar
 import datetime as dt
 import math
@@ -27,6 +30,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 
 import pytz
+from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
@@ -35,6 +39,8 @@ from .models import Entry, Habit
 DONE, MISSED, SKIPPED, OFF, PENDING = "done", "missed", "skipped", "off", "pending"
 ONE_DAY = dt.timedelta(days=1)
 WINDOW_DAYS = 400       # history fetched for the Today view; extended only for streaks longer than this
+DETAIL_DAYS = 450       # day-by-day units this far back (heatmap, trend, rates); older empty runs are bulk units
+MIN_START = dt.date(1900, 1, 1)
 MAX_VALUE = 1_000_000
 EPS = 1e-9
 
@@ -47,6 +53,8 @@ class RuleError(ValueError):
 
 def user_tz(user):
     name = getattr(user, "timezone", "") or ""
+    if name not in pytz.all_timezones_set:
+        name = settings.TIME_ZONE
     return pytz.timezone(name) if name in pytz.all_timezones_set else timezone.get_current_timezone()
 
 
@@ -85,6 +93,32 @@ def matches_rule(h, day):
     if h.schedule == Habit.Schedule.INTERVAL:
         return (day - h.start_date).days % max(1, h.interval) == 0
     return True
+
+
+def weekday_counts(h, a, b):
+    """Scheduled days (by the rule alone) in [a, b] per weekday, Monday first. O(1)."""
+    n = (b - a).days + 1
+    if n <= 0:
+        return [0] * 7
+    if h.schedule == Habit.Schedule.INTERVAL:
+        k = max(1, h.interval)
+        lo, hi = -((a - h.start_date).days // -k), (b - h.start_date).days // k  # multiples of k in range
+        m = hi - lo + 1
+        out = [0] * 7
+        if m <= 0:
+            return out
+        wd0, p = (h.start_date + dt.timedelta(days=lo * k)).weekday(), 7 // math.gcd(k, 7)
+        for r in range(min(p, m)):
+            out[(wd0 + r * k) % 7] += m // p + (1 if r < m % p else 0)
+        return out
+    out = [n // 7 + (1 if (w - a.weekday()) % 7 < n % 7 else 0) for w in range(7)]
+    if h.schedule == Habit.Schedule.WEEKDAYS:
+        out = [c if (h.weekdays >> w) & 1 else 0 for w, c in enumerate(out)]
+    return out
+
+
+def count_rule(h, a, b):
+    return sum(weekday_counts(h, a, b))
 
 
 def is_scheduled(h, day):
@@ -127,6 +161,7 @@ class Unit:
     total: float
     required: float
     credit: float  # 0..1, for the score
+    n: int = 1     # judged units this stands for (an old run of unlogged days is one Unit)
 
 
 def evaluate(h, entries, today, since=None):
@@ -140,29 +175,52 @@ def evaluate(h, entries, today, since=None):
     return _evaluate_periods(h, entries, today, first, last)
 
 
+def _day_unit(h, d, entries, today, paused, at_most, target):
+    value, skipped = entries.get(d, (0.0, False))
+    if skipped:
+        return Unit(d, d, SKIPPED, 0, h.target, 0)
+    ok = meets(h, value)
+    if not matches_rule(h, d) or (paused and d >= paused and d not in entries):
+        # Unscheduled: a met at-least goal is a bonus; nothing else counts either way.
+        status = DONE if ok and not at_most and d in entries else OFF
+        return Unit(d, d, status, value, h.target, 1.0 if status == DONE else 0)
+    if ok:
+        status = DONE
+    elif not at_most and d == today:
+        status = PENDING
+    else:
+        status = MISSED
+    credit = (1.0 if ok else 0.0) if at_most else min(1.0, value / target)
+    return Unit(d, d, status, value, h.target, credit)
+
+
+def _empty_run(h, a, b, paused, at_most):
+    """Days a..b (before today) with nothing logged, as one Unit: each scheduled day is judged the same
+    (missed, or kept for an at_most limit). Paused days are off. None if nothing was scheduled."""
+    if paused:
+        b = min(b, paused - ONE_DAY)
+    n = count_rule(h, a, b) if a <= b else 0
+    if not n:
+        return None
+    ok = meets(h, 0.0)
+    return Unit(a, b, DONE if ok else MISSED, 0.0, h.target, (1.0 if ok else 0.0) if at_most else 0.0, n)
+
+
 def _evaluate_days(h, entries, today, first, last):
     units, paused = [], _paused_from(h)
     at_most = h.goal == Habit.Goal.AT_MOST
     target = h.target or 1
-    for d in _days(first, last):
-        value, skipped = entries.get(d, (0.0, False))
-        if skipped:
-            units.append(Unit(d, d, SKIPPED, 0, h.target, 0))
-            continue
-        ok = meets(h, value)
-        if not matches_rule(h, d) or (paused and d >= paused and d not in entries):
-            # Unscheduled: a met at-least goal is a bonus; nothing else counts either way.
-            status = DONE if ok and not at_most and d in entries else OFF
-            units.append(Unit(d, d, status, value, h.target, 1.0 if status == DONE else 0))
-            continue
-        if ok:
-            status = DONE
-        elif not at_most and d == today:
-            status = PENDING
-        else:
-            status = MISSED
-        credit = (1.0 if ok else 0.0) if at_most else min(1.0, value / target)
-        units.append(Unit(d, d, status, value, h.target, credit))
+    edge = min(max(first, today - dt.timedelta(days=DETAIL_DAYS)), last + ONE_DAY)
+    if edge > first:  # old history: logged days one by one, the runs between them in bulk
+        cur = first
+        for d in sorted(d for d in entries if first <= d < edge) + [edge]:
+            if cur < d and (run := _empty_run(h, cur, d - ONE_DAY, paused, at_most)):
+                units.append(run)
+            if d < edge:
+                units.append(_day_unit(h, d, entries, today, paused, at_most, target))
+            cur = d + ONE_DAY
+    for d in _days(edge, last):
+        units.append(_day_unit(h, d, entries, today, paused, at_most, target))
     return units
 
 
@@ -170,20 +228,29 @@ def _evaluate_periods(h, entries, today, first, last):
     units, paused = [], _paused_from(h)
     at_most = h.goal == Habit.Goal.AT_MOST
     whole = h.kind == Habit.Kind.YESNO
+    dates = sorted(entries)
     ps = period_start(h.period, first)
     while ps <= last:
         pe = period_end(h.period, ps)
         full = avail = 0
         total = 0.0
-        for d in _days(ps, pe):
-            in_range = h.start_date <= d and (not h.end_date or d <= h.end_date)
-            value, skipped = entries.get(d, (0.0, False))
-            if in_range and not skipped:
-                total += value
-            if matches_rule(h, d):
-                full += 1
-                if in_range and not skipped and not (paused and d >= paused and d not in entries):
-                    avail += 1
+        i = bisect.bisect_left(dates, ps)
+        if i == len(dates) or dates[i] > pe:  # nothing logged: count the schedule instead of walking it
+            full = count_rule(h, ps, pe)
+            lo, hi = max(ps, h.start_date), min(pe, h.end_date) if h.end_date else pe
+            if paused:
+                hi = min(hi, paused - ONE_DAY)
+            avail = count_rule(h, lo, hi)
+        else:
+            for d in _days(ps, pe):
+                in_range = h.start_date <= d and (not h.end_date or d <= h.end_date)
+                value, skipped = entries.get(d, (0.0, False))
+                if in_range and not skipped:
+                    total += value
+                if matches_rule(h, d):
+                    full += 1
+                    if in_range and not skipped and not (paused and d >= paused and d not in entries):
+                        avail += 1
         if at_most:
             required = h.target
         else:
@@ -209,7 +276,7 @@ def streaks(units):
     run = best = 0
     for u in units:
         if u.status == DONE:
-            run += 1
+            run += u.n
             if run > best:
                 best = run
         elif u.status == MISSED:
@@ -224,9 +291,9 @@ def completion_rates(units, today, first_day):
         lo = today - dt.timedelta(days=days - 1) if days else first_day
         done = judged = 0
         for u in units:
-            if u.end >= lo and u.status in (DONE, MISSED):
-                judged += 1
-                done += u.status == DONE
+            if u.end >= lo and u.status in (DONE, MISSED):  # bulk runs are all older than 90 days
+                judged += u.n
+                done += u.n if u.status == DONE else 0
         out[key] = done / judged if judged else None
     return out
 
@@ -238,7 +305,7 @@ def score_series(h, units):
     s, out = 0.0, []
     for u in units:
         if u.status in (DONE, MISSED):
-            s = s * m + u.credit * (1 - m)
+            s = s * m + u.credit * (1 - m) if u.n == 1 else u.credit + (s - u.credit) * m ** u.n
             out.append((u.end, s * 100))
     return out
 
@@ -408,9 +475,13 @@ def habit_stats(h, today):
     if h.period == Habit.Period.DAY:
         for u in units:
             if u.status in (DONE, MISSED):
-                w = weekdays[u.start.weekday()]
-                w["judged"] += 1
-                w["done"] += u.status == DONE
+                if u.start == u.end:
+                    counts_by_day = [int(n == u.start.weekday()) for n in range(7)]
+                else:  # a bulk run of old unlogged days
+                    counts_by_day = weekday_counts(h, u.start, u.end)
+                for n, c in enumerate(counts_by_day):
+                    weekdays[n]["judged"] += c
+                    weekdays[n]["done"] += c if u.status == DONE else 0
     for d, (v, sk) in entries.items():
         if not sk and d <= today:
             sums[d.weekday()] += v

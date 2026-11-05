@@ -147,6 +147,17 @@ class ParserTests(TestCase):
             importers.parse("many.vcf", many.encode())
 
 
+    def test_parsing_stays_linear_in_the_input_size(self):
+        import time
+        spaces = "Name,Phone,Tags\r\n" + "".join(f'P{i},"1{" " * 19000}2","a{" " * 19000}b"\r\n' for i in range(5))
+        fold = "\r\n ".join(["A" * 74] * 60000)  # one 4.4 MB folded NOTE
+        start = time.monotonic()
+        importers.parse("spaces.csv", spaces.encode())  # was ~2 s per cell (\\s*;\\s* backtracking)
+        [rec] = parse_vcards(f"BEGIN:VCARD\r\nFN:X\r\nNOTE:{fold}\r\nEND:VCARD\r\n")  # was ~13 s
+        self.assertLess(time.monotonic() - start, 3)
+        self.assertEqual(len(rec["notes"]), 20000)
+
+
 class ProfileTests(TestCase):
     def test_handles_and_urls_normalise_to_canonical_links(self):
         cases = [
@@ -242,6 +253,11 @@ class ApiTests(Base):
         linus = Person.objects.get(first_name="Linus")
         self.assertEqual(linus.profiles, {"github": "torvalds"})
         self.assertIn("google", linus.sources)
+        many = "Name,E-mail 1 - Value," + ",".join(f"Custom Field {i} - Label,Custom Field {i} - Value" for i in range(1, 51))
+        many += "\r\nMany,many@example.com," + ",".join(f"k{i},v{i}" for i in range(1, 51)) + "\r\n"
+        for _ in range(2):  # re-importing used to cut the 50 imported custom fields to 20
+            self.client.post(API + "import/commit", {"file": upload("m.csv", many)})
+            self.assertEqual(len(Person.objects.get(first_name="Many").custom_fields), 50)
         r = self.client.post(API + "import/commit", {"file": upload("o.csv", OUTLOOK_CSV), "mode": "skip"}).json()
         self.assertEqual((r["created"], r["duplicates"]), (0, 1))
         self.assertEqual(self.client.post(API + "import/preview", {"file": upload("x.vcf", b"\x00\xff garbage")}).status_code, 400)
@@ -267,7 +283,7 @@ class ApiTests(Base):
         [pair] = self.client.get(API + "duplicates").json()
         self.assertEqual({pair["a"]["id"], pair["b"]["id"]}, {a["id"], b["id"]})
         r = self.post("merge", {"keep_id": a["id"], "other_id": b["id"], "fields": {"first_name": "other"}}).json()
-        self.assertEqual((r["first_name"], r["notes"]), ("Ada L", "A"))
+        self.assertEqual((r["first_name"], r["notes"]), ("Ada L", "A\n\nB"))  # both notes kept
         self.assertEqual([e["value"] for e in r["emails"]], ["ada@x.io", "b@x.io"])
         self.assertFalse(Person.objects.filter(id=b["id"]).exists())
         self.assertEqual(Interaction.objects.get().person_id.hex, a["id"].replace("-", ""))
