@@ -49,7 +49,6 @@ DEBUG = False # True in development, False in production
 
 ONLINE_MODE = True # Change to False to disable all external requests
 
-ALLOWED_HOSTS = ['*']
 
 INTERNAL_IPS = ['127.0.0.1', '192.168.50.11']
 
@@ -161,6 +160,10 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = 'users.ComptechUser'
 
 CSRF_TRUSTED_ORIGINS = ['http://192.168.50.11', 'https://192.168.50.11', 'http://app.home.lan', 'https://app.home.lan', 'https://app.example.com', 'https://lab.example.com']
+# Hosts this site answers to: the ones above plus localhost (was '*', which
+# accepted any Host header). Add a hostname to CSRF_TRUSTED_ORIGINS to allow it.
+from urllib.parse import urlsplit as _urlsplit
+ALLOWED_HOSTS = sorted({_urlsplit(o).hostname for o in CSRF_TRUSTED_ORIGINS} | {'localhost', '127.0.0.1'})
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/
