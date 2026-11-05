@@ -54,6 +54,8 @@ class GroupOut(Schema):
     is_public: bool
     mine: bool
     count: int
+    visible: bool = False   # shown on my map (per person; hidden by default)
+    archived: bool = False  # set by the owner
 
 
 class GroupIn(Schema):
@@ -66,6 +68,11 @@ class GroupPatch(Schema):
     name: Optional[str] = Field(None, min_length=1, max_length=200)
     description: Optional[str] = None
     is_public: Optional[bool] = None
+    archived: Optional[bool] = None
+
+
+class VisibilityIn(Schema):
+    visible: bool
 
 
 class PlaceOut(Schema):
@@ -288,10 +295,34 @@ def categories(request):
 
 
 @router.get("/groups", response=list[GroupOut])
-def list_groups(request):
+def list_groups(request, include_archived: bool = False):
+    from .models import GroupPreference
     groups = _visible_groups(request.user).annotate(count=Count("locations")).order_by("name")
-    return [{**{f: getattr(g, f) for f in ("id", "name", "description", "is_public", "count")},
-             "mine": g.owner_id == request.user.id} for g in groups]
+    if not include_archived:
+        groups = groups.filter(archived=False)
+    shown = set(GroupPreference.objects.filter(user=request.user, visible=True).values_list("group_id", flat=True))
+    return [{**{f: getattr(g, f) for f in ("id", "name", "description", "is_public", "count", "archived")},
+             "mine": g.owner_id == request.user.id, "visible": g.id in shown} for g in groups]
+
+
+def _set_visible(user, group_id, visible):
+    from .models import GroupPreference
+    get_object_or_404(_visible_groups(user), id=group_id)
+    GroupPreference.objects.update_or_create(user=user, group_id=group_id, defaults={"visible": visible})
+
+
+@router.put("/groups/{int:group_id}/visibility", summary="Show or hide a group's places on your map")
+def set_group_visibility(request, group_id: int, payload: VisibilityIn):
+    _set_visible(request.user, group_id, payload.visible)
+    return {"id": group_id, "visible": payload.visible}
+
+
+@router.post("/groups/{int:group_id}/only", summary="Show only this group on your map")
+def only_group(request, group_id: int):
+    from .models import GroupPreference
+    _set_visible(request.user, group_id, True)
+    GroupPreference.objects.filter(user=request.user).exclude(group_id=group_id).update(visible=False)
+    return {"id": group_id, "visible": True}
 
 
 @router.post("/groups", response={201: GroupOut})
@@ -306,8 +337,10 @@ def update_group(request, group_id: int, payload: GroupPatch):
     for key, value in payload.dict(exclude_unset=True).items():
         setattr(g, key, value)
     g.save()
-    return {**{f: getattr(g, f) for f in ("id", "name", "description", "is_public")},
-            "mine": True, "count": g.locations.count()}
+    from .models import GroupPreference
+    shown = GroupPreference.objects.filter(user=request.user, group=g, visible=True).exists()
+    return {**{f: getattr(g, f) for f in ("id", "name", "description", "is_public", "archived")},
+            "mine": True, "count": g.locations.count(), "visible": shown}
 
 
 @router.delete("/groups/{int:group_id}", response={204: None})
@@ -585,8 +618,13 @@ def geocode(request, q: str):
 def list_places(request, group: Optional[int] = None, category: Optional[str] = None, q: str = "",
                 status: Optional[Status] = None, min_rating: Optional[int] = Query(None, ge=1, le=5),
                 south: Optional[float] = None, west: Optional[float] = None,
-                north: Optional[float] = None, east: Optional[float] = None):
-    qs = Location.objects.filter(group__in=_visible_groups(request.user))
+                north: Optional[float] = None, east: Optional[float] = None, visible: bool = False):
+    groups = _visible_groups(request.user)
+    if visible:  # only the groups I've turned on (and never archived ones): the map's normal load
+        from .models import GroupPreference
+        groups = groups.filter(archived=False, id__in=GroupPreference.objects.filter(
+            user=request.user, visible=True).values("group_id"))
+    qs = Location.objects.filter(group__in=groups)
     if group is not None:
         qs = qs.filter(group_id=group)
     if category:

@@ -192,3 +192,38 @@ class GeocodeSearchTests(TestCase):
         self.client.force_login(u)
         with override_settings(ONLINE_MODE=False):
             self.assertEqual(self.client.get("/api/v2/places/geocode?q=Toronto").status_code, 503)
+
+
+
+class GroupVisibilityTests(TestCase):
+    """Places scale by group: per-person visibility (hidden by default), owner archiving, visible-only loading."""
+
+    def setUp(self):
+        from .models import Location, LocationGroup
+        self.me = ComptechUser.objects.create_user("gv", password="pw")
+        self.food = LocationGroup.objects.create(name="Food", owner=self.me)
+        self.old = LocationGroup.objects.create(name="Old trips", owner=self.me)
+        for g in (self.food, self.old):
+            Location.objects.create(group=g, name=f"{g.name} spot", latitude=1, longitude=1)
+        self.client.force_login(self.me)
+
+    def names(self, **params):
+        return sorted(p["name"] for p in self.client.get("/api/v2/places/", params).json())
+
+    def test_groups_start_hidden_and_visible_only_loads_shown_groups(self):
+        groups = {g["name"]: g["visible"] for g in self.client.get("/api/v2/places/groups").json()}
+        self.assertEqual(groups, {"Food": False, "Old trips": False})
+        self.assertEqual(self.names(visible="true"), [])
+        self.client.put(f"/api/v2/places/groups/{self.food.id}/visibility", {"visible": True}, content_type="application/json")
+        self.assertEqual(self.names(visible="true"), ["Food spot"])
+        self.client.post(f"/api/v2/places/groups/{self.old.id}/only")
+        self.assertEqual(self.names(visible="true"), ["Old trips spot"])
+        self.assertEqual(self.names(q="spot"), ["Food spot", "Old trips spot"])  # search still finds everything
+
+    def test_archived_groups_drop_out_unless_asked_for(self):
+        self.client.patch(f"/api/v2/places/groups/{self.old.id}", {"archived": True}, content_type="application/json")
+        self.assertEqual([g["name"] for g in self.client.get("/api/v2/places/groups").json()], ["Food"])
+        listed = self.client.get("/api/v2/places/groups?include_archived=true").json()
+        self.assertEqual({g["name"]: g["archived"] for g in listed}, {"Food": False, "Old trips": True})
+        self.client.post(f"/api/v2/places/groups/{self.old.id}/only")
+        self.assertEqual(self.names(visible="true"), [])  # archived groups never load
