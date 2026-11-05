@@ -9,17 +9,20 @@ import { Icon } from '../../components/Icon'
 import { useMediaQuery } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { get, post, safeHref } from '../../lib/api'
-import { fmtDate, fmtTime, isSameDay, relTime } from '../../lib/dates'
+import { fmtDate, isSameDay, relTime } from '../../lib/dates'
 import type { CalEvent, Calendar, EventDetail } from '../../lib/types'
 import { Menu, MenuItem } from '../../components/ui'
 import { eventDayKey, eventDays } from './util'
+import { HOME_ZONE, fmtDateIn, fmtTimeIn, gmtLabel, useCalPrefs, zoneCity, zoneDayKey, type Zone } from './zone'
 import { useDeleteEvent, useDuplicateEvent, useTaskFromEvent, useUpdateEvent, type Scope } from './api'
 
 const MEETING_RE = /https:\/\/[^\s<>"]*(meet\.google\.com|zoom\.us|teams\.microsoft\.com|whereby\.com|jit\.si)[^\s<>"]*/i
 
-export function whenLine(e: CalEvent): string {
+/** When an event happens, in the display zone `tz` (all-day events by their own dates). */
+export function whenLine(e: CalEvent, tz?: Zone): string {
   const s = new Date(e.start)
-  const day = fmtDate(s, { weekday: 'long', month: 'long', day: 'numeric' })
+  const fmtTime = (d: Date) => fmtTimeIn(d, tz)
+  const day = fmtDateIn(s, { weekday: 'long', month: 'long', day: 'numeric' }, tz)
   if (e.kind === 'deadline') return `Due ${day} at ${fmtTime(s)}`
   if (e.all_day) {
     // By its calendar dates, not the instants (another zone's midnight is another day here).
@@ -28,8 +31,17 @@ export function whenLine(e: CalEvent): string {
     return isSameDay(first, last) ? fday : `${fmtDate(first, { month: 'short', day: 'numeric' })} – ${fmtDate(last, { month: 'short', day: 'numeric' })}`
   }
   const en = e.end ? new Date(e.end) : null
-  if (en && !isSameDay(s, en)) return `${fmtDate(s, { month: 'short', day: 'numeric' })}, ${fmtTime(s)} – ${fmtDate(en, { month: 'short', day: 'numeric' })}, ${fmtTime(en)}`
+  if (en && zoneDayKey(s.getTime(), tz) !== zoneDayKey(en.getTime(), tz)) return `${fmtDateIn(s, { month: 'short', day: 'numeric' }, tz)}, ${fmtTime(s)} – ${fmtDateIn(en, { month: 'short', day: 'numeric' }, tz)}, ${fmtTime(en)}`
   return `${day} · ${fmtTime(s)}${en ? ` – ${fmtTime(en)}` : ''}`
+}
+
+/** The same times on the home clock, shown under the main line while another zone is displayed. */
+function homeWhen(e: CalEvent): string {
+  const s = new Date(e.start)
+  const en = e.end && e.kind !== 'deadline' ? new Date(e.end) : null
+  const day = (d: Date) => fmtDateIn(d, { weekday: 'short', month: 'short', day: 'numeric' }, undefined)
+  const span = en ? (zoneDayKey(s.getTime(), undefined) === zoneDayKey(en.getTime(), undefined) ? `${fmtTimeIn(s, undefined)} – ${fmtTimeIn(en, undefined)}` : `${fmtTimeIn(s, undefined)} – ${day(en)}, ${fmtTimeIn(en, undefined)}`) : fmtTimeIn(s, undefined)
+  return `${zoneCity(HOME_ZONE)} (${gmtLabel(s.getTime(), HOME_ZONE)}): ${day(s)}, ${span}`
 }
 
 export function EventPeek({ event, calendar, anchor, onClose, onEdit }: {
@@ -40,6 +52,7 @@ export function EventPeek({ event, calendar, anchor, onClose, onEdit }: {
   onEdit: (e: CalEvent) => void
 }) {
   const phone = useMediaQuery('(max-width: 760px)')
+  const { tz } = useCalPrefs()
   const ref = useRef<HTMLDivElement>(null)
   const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden' })
   const navigate = useNavigate()
@@ -199,7 +212,8 @@ export function EventPeek({ event, calendar, anchor, onClose, onEdit }: {
           <span className="peek-swatch" aria-hidden="true">{e.icon || e.category?.icon ? <Icon name={(e.icon || e.category?.icon)!} size={11} /> : null}</span>
           <div className="grow">
             <h2 className={e.completed ? 'done' : ''}>{e.name}</h2>
-            <p className="peek-when">{whenLine(e)}{upcoming && <span className="muted"> · {upcoming}</span>}</p>
+            <p className="peek-when">{whenLine(e, tz)}{upcoming && <span className="muted"> · {upcoming}</span>}</p>
+            {tz && !e.all_day && <p className="peek-sub"><Icon name="globe" size={12} /> {homeWhen(e)}</p>}
             {e.recurrence_text && <p className="peek-sub"><Icon name="repeat" size={12} /> {e.recurrence_text}</p>}
             {e.status && e.status !== 'confirmed' && <p className="peek-sub">{e.status === 'tentative' ? 'Tentative' : 'Cancelled'}</p>}
           </div>

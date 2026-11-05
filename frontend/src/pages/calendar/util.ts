@@ -1,6 +1,7 @@
 // Pure helpers for the Calendar page: view ranges, per-day event placement and overlap layout.
 import { addDays, dayKey, parseDayKey, startOfDay, startOfWeek, monthGrid, addMonths, fmtDate } from '../../lib/dates'
 import type { CalEvent } from '../../lib/types'
+import { atZoneMin, dayStartIn, zoneDay, zoneDayKey, zoneMinutes, type WeekStart, type Zone } from './zone'
 
 export type CalView = 'month' | 'week' | 'day' | 'agenda'
 
@@ -15,17 +16,26 @@ export function parseCalState(search: URLSearchParams, today = new Date()): CalS
   return { view, date, insights: i === 'week' || i === 'month' ? i : null, isNew: search.get('new') === '1' }
 }
 
-/** Visible [start, end) for a view. `days` is the week view's width (7 on desktop, 3 or 1 on phones). */
-export function viewRange(view: CalView, date: Date, days = 7): { start: Date; end: Date; days: Date[] } {
+/** Visible [start, end) for a view. `days` is the week view's width (7 on desktop, 3 or 1 on phones);
+ *  `weekStart` the first day of a week (0 Sunday, 1 Monday). */
+export function viewRange(view: CalView, date: Date, days = 7, weekStart: WeekStart = 1): { start: Date; end: Date; days: Date[] } {
   if (view === 'month') {
-    const grid = monthGrid(date)
+    const grid = monthGrid(date, weekStart)
     const start = grid[0][0]
     return { start, end: addDays(grid[5][6], 1), days: grid.flat() }
   }
   if (view === 'day') days = 1
-  const start = days === 7 ? startOfWeek(date) : startOfDay(date)
+  const start = days === 7 ? startOfWeek(date, weekStart) : startOfDay(date)
   const list = Array.from({ length: days }, (_, i) => addDays(start, i))
   return { start, end: addDays(start, days), days: list }
+}
+
+/** The instants to fetch for visible days [start, end): their midnights in the display zone, widened
+ *  to the browser's own midnights so all-day items (filed by date) at the edges still come. */
+export function fetchRange(range: { start: Date; end: Date }, tz: Zone): { start: string; end: string } {
+  const s = Math.min(range.start.getTime(), dayStartIn(range.start, tz))
+  const e = Math.max(range.end.getTime(), dayStartIn(range.end, tz))
+  return { start: new Date(s).toISOString(), end: new Date(e).toISOString() }
 }
 
 /** Move the anchor date one step (month / week-or-days) forward (+1) or back (-1). */
@@ -37,9 +47,9 @@ export function stepDate(view: CalView, date: Date, dir: number, days = 7): Date
   return addDays(date, dir * (view === 'day' ? 1 : days))
 }
 
-export function rangeTitle(view: CalView, date: Date, days = 7): string {
-  if (view === 'month' || view === 'agenda') return fmtDate(view === 'agenda' ? new Date() : date, { month: 'long', year: 'numeric' })
-  const { start, end } = viewRange(view, date, days)
+export function rangeTitle(view: CalView, date: Date, days = 7, weekStart: WeekStart = 1, today = new Date()): string {
+  if (view === 'month' || view === 'agenda') return fmtDate(view === 'agenda' ? today : date, { month: 'long', year: 'numeric' })
+  const { start, end } = viewRange(view, date, days, weekStart)
   const last = addDays(end, -1)
   if (view === 'day' || days === 1) return fmtDate(start, { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })
   if (start.getMonth() === last.getMonth()) return fmtDate(start, { month: 'long', year: 'numeric' })
@@ -57,29 +67,28 @@ export function allDayRange(e: Pick<CalEvent, 'all_day' | 'start_date' | 'end_da
   return { first, last: e.end_date && e.end_date > e.start_date ? addDays(parseDayKey(e.end_date), -1) : first }
 }
 
-/** The local day key an event is filed under (its first day). */
-export const eventDayKey = (e: CalEvent) => (e.all_day && e.start_date ? e.start_date : dayKey(new Date(e.start)))
+/** The day key an event is filed under (its first day; timed events by the display zone's date). */
+export const eventDayKey = (e: CalEvent, tz?: Zone) => (e.all_day && e.start_date ? e.start_date : zoneDayKey(new Date(e.start).getTime(), tz))
 
-/** All-day events and multi-day timed events cover every day they touch; [start, end) with end exclusive. */
-export function eventDays(e: CalEvent): { first: Date; last: Date } {
+/** All-day events and multi-day timed events cover every day they touch; [start, end) with end exclusive.
+ *  Timed events by their dates in the display zone; all-day events by their own dates, in any zone. */
+export function eventDays(e: CalEvent, tz?: Zone): { first: Date; last: Date } {
   const dates = allDayRange(e)
   if (dates) return dates
-  const s = new Date(e.start)
-  const first = startOfDay(s)
+  const s = new Date(e.start).getTime()
+  const first = zoneDay(s, tz)
   if (!e.end) return { first, last: first }
-  const end = new Date(e.end)
   // Exclusive end: an event ending exactly at midnight doesn't touch the next day.
-  const lastMoment = new Date(Math.max(s.getTime(), end.getTime() - 1))
-  return { first, last: startOfDay(lastMoment) }
+  return { first, last: zoneDay(Math.max(s, new Date(e.end).getTime() - 1), tz) }
 }
 
 export const isAllDayLike = (e: CalEvent) => e.all_day
 
-/** Events per local day key, sorted: all-day first, then by start time. */
-export function eventsByDay(events: CalEvent[]): Map<string, CalEvent[]> {
+/** Events per day key (in the display zone), sorted: all-day first, then by start time. */
+export function eventsByDay(events: CalEvent[], tz?: Zone): Map<string, CalEvent[]> {
   const map = new Map<string, CalEvent[]>()
   for (const e of events) {
-    const { first, last } = eventDays(e)
+    const { first, last } = eventDays(e, tz)
     for (let d = first, n = 0; d <= last && n < 62; d = addDays(d, 1), n++) {
       const k = dayKey(d)
       let list = map.get(k)
@@ -93,17 +102,16 @@ export function eventsByDay(events: CalEvent[]): Map<string, CalEvent[]> {
   return map
 }
 
-/** Minutes past local midnight on the wall clock (0 before the day, 1440 after it). On a DST change
- *  day the day is 23 or 25 hours long, so elapsed time since midnight would put events an hour off. */
-export function wallMin(t: number, dayStart: number, dayEnd: number): number {
+/** Minutes past midnight on the display zone's wall clock (0 before the day, 1440 after it). On a DST
+ *  change day the day is 23 or 25 hours long, so elapsed time since midnight would put events an hour off. */
+export function wallMin(t: number, dayStart: number, dayEnd: number, tz?: Zone): number {
   if (t <= dayStart) return 0
   if (t >= dayEnd) return 1440
-  const d = new Date(t)
-  return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60
+  return zoneMinutes(t, tz)
 }
 
-/** The local time `min` wall-clock minutes into `day` (the inverse of wallMin; 1440 = next midnight). */
-export const atWallMin = (day: Date, min: number) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, min)
+/** The instant `min` wall-clock minutes into `day` in the display zone (the inverse of wallMin; 1440 = next midnight). */
+export const atWallMin = (day: Date, min: number, tz?: Zone) => atZoneMin(day, min, tz)
 
 export interface Placed { event: CalEvent; startMin: number; endMin: number; col: number; cols: number }
 
@@ -112,16 +120,16 @@ export interface Placed { event: CalEvent; startMin: number; endMin: number; col
  * (greedy column assignment within each cluster of mutually overlapping events).
  * Minutes are clipped to the day; deadlines get a nominal 30-minute block for layout.
  */
-export function layoutDay(events: CalEvent[], day: Date): Placed[] {
-  const dayStart = startOfDay(day).getTime()
-  const dayEnd = addDays(startOfDay(day), 1).getTime()
+export function layoutDay(events: CalEvent[], day: Date, tz?: Zone): Placed[] {
+  const dayStart = dayStartIn(day, tz)
+  const dayEnd = dayStartIn(addDays(day, 1), tz)
   const items = events
     .filter((e) => !e.all_day)
     .map((e) => {
       const s = new Date(e.start).getTime()
       const en = e.end ? new Date(e.end).getTime() : s
-      const startMin = wallMin(s, dayStart, dayEnd)
-      const endMin = wallMin(Math.max(en, s), dayStart, dayEnd)
+      const startMin = wallMin(s, dayStart, dayEnd, tz)
+      const endMin = wallMin(Math.max(en, s), dayStart, dayEnd, tz)
       return { event: e, startMin, endMin: Math.max(endMin, startMin + (e.end ? 20 : 30)), raw: [s, en] as const }
     })
     .filter((x) => x.raw[0] < dayEnd && (x.raw[1] > dayStart || x.raw[0] >= dayStart))

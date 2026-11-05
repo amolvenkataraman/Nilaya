@@ -5,8 +5,9 @@ import { Icon } from '../../components/Icon'
 import { Drawer, Menu, MenuItem, useHotkey, useMediaQuery, useNow } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { get } from '../../lib/api'
-import { addMonths, dayKey, fmtDate, fmtTime, isSameDay, monthGrid, parseDayKey, startOfDay } from '../../lib/dates'
-import { keys, useCalendars, useCreateTask, useEvents } from '../../lib/queries'
+import { addMonths, dayKey, fmtDate, isSameDay, monthGrid, parseDayKey } from '../../lib/dates'
+import { keys, useCalendars, useCreateTask, useEvents, useMe } from '../../lib/queries'
+import { ownerId } from '../../lib/owner'
 import { useQueries, useQueryClient } from '@tanstack/react-query'
 import type { AgendaItem, CalEvent, Calendar, Task } from '../../lib/types'
 import { Switch } from '../../components/ui'
@@ -24,7 +25,8 @@ import { WeekView } from './WeekView'
 import { useUpdateCalendar, useUpdateEvent } from './api'
 import { CategoriesDialog } from './Categories'
 import { PersonDialog, SubscribeDialog } from './Sharing'
-import { eventDayKey, eventsByDay, parseCalState, rangeTitle, stepDate, viewRange, type CalView } from './util'
+import { atWallMin, eventDayKey, eventsByDay, fetchRange, parseCalState, rangeTitle, stepDate, viewRange, type CalView } from './util'
+import { CalPrefsContext, HOME_ZONE, fmtDateIn, fmtTimeIn, gmtLabel, useDisplayZone, useWeekStart, zoneCity, zoneDay, zoneMinutes, type WeekStart, type Zone } from './zone'
 import './calendar.css'
 
 const FALLBACK = '#64748b'
@@ -35,6 +37,7 @@ const AvailabilityPage = lazy(() => import('./Availability'))
 const CalendarSettings = lazy(() => import('./CalendarSettings').then((m) => ({ default: m.CalendarSettings })))
 const NewCalendarDialog = lazy(() => import('./CalendarSettings').then((m) => ({ default: m.NewCalendarDialog })))
 const InsightsPanel = lazy(() => import('./Insights').then((m) => ({ default: m.InsightsPanel })))
+const ZonePicker = lazy(() => import('./ZonePicker'))
 
 /** /calendar/* : the calendar, or someone's availability at /calendar/availability/:username. */
 export default function CalendarPage() {
@@ -50,10 +53,18 @@ type Dlg = 'subscribe' | 'categories' | 'person' | null
 
 function CalendarMain() {
   const [params, setParams] = useSearchParams()
-  const state = parseCalState(params)
+  // Display zone (temporary, this window) and first day of the week (per user).
+  const [tz, setTz] = useDisplayZone()
+  const me = useMe().data
+  const [weekStart, setWeekStart] = useWeekStart(me?.id ?? ownerId())
+  const prefs = useMemo(() => ({ tz, weekStart }), [tz, weekStart])
+  const [zoneOpen, setZoneOpen] = useState(false)
+  const now = useNow(60_000)
+  const todayZ = zoneDay(now.getTime(), tz) // today's date in the display zone
+  const state = parseCalState(params, todayZ)
   const phone = useMediaQuery('(max-width: 760px)')
   const narrow = useMediaQuery('(max-width: 1100px)')
-  const now = useNow(60_000)
+  const roomyTop = useMediaQuery('(min-width: 1500px)') // room for the zone chip beside the title
   const weekDays = phone ? 3 : 7
   const [draft, setDraft] = useState<EventDraft | null>(null)
 
@@ -64,14 +75,14 @@ function CalendarMain() {
           const next = new URLSearchParams(p)
           next.delete('new')
           if (change.view) change.view === 'month' ? next.delete('view') : next.set('view', change.view)
-          if (change.date) isSameDay(change.date, new Date()) ? next.delete('date') : next.set('date', dayKey(change.date))
+          if (change.date) isSameDay(change.date, zoneDay(Date.now(), tz)) ? next.delete('date') : next.set('date', dayKey(change.date))
           if (change.insights !== undefined) change.insights ? next.set('insights', change.insights) : next.delete('insights')
           return next
         },
         { replace: true },
       )
     },
-    [setParams],
+    [setParams, tz],
   )
 
   // ?new=1 (from the app's "New event" menus) opens the create dialog once.
@@ -84,7 +95,9 @@ function CalendarMain() {
     }
   }, [state.isNew, update])
 
-  const range = viewRange(state.view === 'agenda' ? 'week' : state.view, state.date, weekDays)
+  const range = viewRange(state.view === 'agenda' ? 'week' : state.view, state.date, weekDays, weekStart)
+  // Instants to load: the visible days' midnights in the display zone (one request, as before).
+  const span = fetchRange(range, tz)
   const calendars = useCalendars()
   const [showDisabled, setShowDisabledState] = useState(() => { try { return localStorage.getItem('app.calendar.showDisabled') === '1' } catch { return false } })
   const setShowDisabled = (v: boolean) => { setShowDisabledState(v); try { localStorage.setItem('app.calendar.showDisabled', v ? '1' : '0') } catch { /* ignore */ } }
@@ -112,13 +125,13 @@ function CalendarMain() {
   const [newCal, setNewCal] = useState(false)
   const [dlg, setDlg] = useState<Dlg>(null)
   // Events, photo counts and (optionally) tasks for the visible range load in parallel.
-  const events = useEvents(range.start.toISOString(), range.end.toISOString())
+  const events = useEvents(span.start, span.end)
   // Disabled calendars whose events someone asked to see ("Show events"): one request each, only then.
   const [peekCals, setPeekCals] = useState<number[]>([])
   const togglePeek = useCallback((id: number) => setPeekCals((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id])), [])
   const peeked = useQueries({
     queries: peekCals.map((id) => {
-      const [start, end] = [range.start.toISOString(), range.end.toISOString()]
+      const { start, end } = span
       return {
         queryKey: [...keys.events(start, end), { calendar: id }],
         queryFn: ({ signal }: { signal: AbortSignal }) => get<CalEvent[]>('calendar/events', { start, end, calendar: id }, signal),
@@ -138,9 +151,9 @@ function CalendarMain() {
   const nextKey = state.view === 'agenda' ? '' : dayKey(stepDate(state.view, state.date, 1, weekDays))
   useEffect(() => {
     if (!nextKey || !events.isSuccess) return
-    const next = viewRange(state.view === 'agenda' ? 'week' : state.view, parseDayKey(nextKey), weekDays)
+    const next = viewRange(state.view === 'agenda' ? 'week' : state.view, parseDayKey(nextKey), weekDays, weekStart)
     const run = () => {
-      const [s0, e0] = [next.start.toISOString(), next.end.toISOString()]
+      const { start: s0, end: e0 } = fetchRange(next, tz)
       qc.prefetchQuery({ queryKey: keys.events(s0, e0), queryFn: () => get<CalEvent[]>('calendar/events', { start: s0, end: e0 }), staleTime: 2 * 60_000 })
     }
     const w = window as Window & { requestIdleCallback?: (cb: () => void, o?: { timeout: number }) => number; cancelIdleCallback?: (id: number) => void }
@@ -150,9 +163,9 @@ function CalendarMain() {
     }
     const t = setTimeout(run, 1500)
     return () => clearTimeout(t)
-  }, [nextKey, events.isSuccess])
+  }, [nextKey, events.isSuccess, weekStart, tz])
   const [showTasks, setShowTasks] = useShowTasks()
-  const rangeTasks = useRangeTasks(range.start, range.end, showTasks && state.view !== 'agenda')
+  const rangeTasks = useRangeTasks(span.start, span.end, showTasks && state.view !== 'agenda', tz)
   const [showBirthdays, setShowBirthdays] = useShowBirthdays()
   const birthdays = useBirthdays(range.days, showBirthdays && state.view !== 'agenda')
   const taskId = params.get('task')
@@ -169,7 +182,7 @@ function CalendarMain() {
     (e: CalEvent) => (e.display_colour ? readable(e.display_colour, dark ? SURFACE.dark : SURFACE.light) : colours.get(e.calendar_id) ?? FALLBACK),
     [colours, dark],
   )
-  const byDay = useMemo(() => eventsByDay(allEvents), [allEvents])
+  const byDay = useMemo(() => eventsByDay(allEvents, tz), [allEvents, tz])
 
   const go = (dir: number) => update({ date: stepDate(state.view, state.date, dir, weekDays) })
   // Drag in the week/day grid: move or resize (an occurrence of a repeating event moves alone).
@@ -181,23 +194,20 @@ function CalendarMain() {
     const body = end ? { start: start.toISOString(), end: end.toISOString() } : { start: start.toISOString() }
     updateEvent.mutate({ id: e.id, scope: recurring ? 'this' : undefined, body }, {
       onSuccess: () => toast.show(start.getTime() === new Date(e.start).getTime() && end
-        ? `"${e.name}" now ends at ${fmtTime(end)}`
-        : `Moved "${e.name}" to ${fmtDate(start, { weekday: 'short', month: 'short', day: 'numeric' })}, ${fmtTime(start)}`, recurring ? {} : {
+        ? `"${e.name}" now ends at ${fmtTimeIn(end, tz)}`
+        : `Moved "${e.name}" to ${fmtDateIn(start, { weekday: 'short', month: 'short', day: 'numeric' }, tz)}, ${fmtTimeIn(start, tz)}`, recurring ? {} : {
         action: { label: 'Undo', run: () => updateEvent.mutate({ id: e.id, body: before.end ? before : { start: before.start } }) },
       }),
     })
   }
-  const today = () => update({ date: startOfDay(new Date()) })
+  const today = () => update({ date: zoneDay(Date.now(), tz) })
+  /** `start`/`end` are instants, except for all-day drafts (local-midnight dates). With no start: the
+   *  next hour today, else 9 AM on the selected day, on the display zone's clock. */
   const newEvent = (start?: Date, end?: Date, allDay?: boolean) => {
     let s = start
     if (!s) {
-      s = new Date(state.date)
-      const n = new Date()
-      if (isSameDay(s, n)) s.setHours(n.getHours() + 1, 0, 0, 0)
-      else s.setHours(9, 0, 0, 0)
-    } else if (!end && !allDay && s.getHours() === 0 && s.getMinutes() === 0) {
-      s = new Date(s)
-      s.setHours(9, 0, 0, 0) // a click on a month day: default to 9 AM
+      const n = Date.now()
+      s = isSameDay(state.date, zoneDay(n, tz)) ? atWallMin(state.date, (Math.floor(zoneMinutes(n, tz) / 60) + 1) * 60, tz) : atWallMin(state.date, 540, tz)
     }
     setDraft({ start: s, end, allDay })
   }
@@ -240,7 +250,7 @@ function CalendarMain() {
     else if (state.view !== 'agenda') go(dir)
   })
 
-  const title = rangeTitle(state.view, state.date, weekDays)
+  const title = rangeTitle(state.view, state.date, weekDays, weekStart, todayZ)
   const viewSeg = (
     <div className="seg cal-views" role="group" aria-label="View">
       {(['month', 'week', 'day', 'agenda'] as const).map((v) => (
@@ -277,11 +287,12 @@ function CalendarMain() {
       {!phone && todayBtn}
       {!phone && nav}
       {!phone && <h1 className="cal-title" aria-live="polite">{title}</h1>}
+      {roomyTop && tz && <ZoneChip tz={tz} now={now} onOpen={() => setZoneOpen(true)} onReset={() => setTz(undefined)} />}
       <span className="spacer" />
       <EventSearch calendars={calendars.data} onPick={(e) => {
         setPeek({ event: e, anchor: null })
         // One URL update for both, so neither overwrites the other.
-        setParams((p) => { const n = new URLSearchParams(p); n.set('date', eventDayKey(e)); n.set('event', e.id); n.delete('new'); return n }, { replace: true })
+        setParams((p) => { const n = new URLSearchParams(p); n.set('date', eventDayKey(e, tz)); n.set('event', e.id); n.delete('new'); return n }, { replace: true })
       }} />
       {!phone && viewSeg}
       {!phone && insightsBtn}
@@ -295,6 +306,7 @@ function CalendarMain() {
     <Suspense fallback={null}><InsightsPanel
       period={state.insights}
       date={state.date}
+      weekStart={weekStart}
       onPeriod={(p) => update({ insights: p })}
       onDate={(d) => update({ date: d })}
       onClose={() => update({ insights: null })}
@@ -302,7 +314,9 @@ function CalendarMain() {
   )
 
   return (
-    <AppShell app="calendar" fullHeight topbar={topbar} sidebar={<Sidebar date={state.date} onDate={(d) => update({ date: d })} calendars={(showDisabled ? allCalendars.data : null) ?? calendars.data} showTasks={showTasks} onShowTasks={setShowTasks} showBirthdays={showBirthdays} onShowBirthdays={setShowBirthdays}
+    <CalPrefsContext.Provider value={prefs}>
+    <AppShell app="calendar" fullHeight topbar={topbar} sidebar={<Sidebar date={state.date} today={todayZ} onDate={(d) => update({ date: d })}
+      weekStart={weekStart} onWeekStart={setWeekStart} tz={tz} now={now} onZone={() => setZoneOpen(true)} calendars={(showDisabled ? allCalendars.data : null) ?? calendars.data} showTasks={showTasks} onShowTasks={setShowTasks} showBirthdays={showBirthdays} onShowBirthdays={setShowBirthdays}
       showDisabled={showDisabled} onShowDisabled={setShowDisabled} peekCals={peekCals} onPeek={togglePeek} onSettings={setSettingsFor} onNew={() => setNewCal(true)} onDialog={setDlg}
       updatedAt={events.dataUpdatedAt} refreshing={events.isFetching} onRefresh={() => (qc.invalidateQueries({ queryKey: ['calendar'] }), qc.invalidateQueries({ queryKey: ['photos', 'counts'] }), showTasks && qc.invalidateQueries({ queryKey: ['tasks', 'list'] }))} />}>
       <div className={'cal' + (events.isPlaceholderData ? ' loading' : '')}>
@@ -315,7 +329,11 @@ function CalendarMain() {
               {insightsBtn}
             </div>
             {viewSeg}
+            {tz && <ZoneChip tz={tz} now={now} onOpen={() => setZoneOpen(true)} onReset={() => setTz(undefined)} />}
           </div>
+        )}
+        {!phone && !roomyTop && tz && (
+          <div className="cal-zone-strip"><ZoneChip tz={tz} now={now} onOpen={() => setZoneOpen(true)} onReset={() => setTz(undefined)} /><span className="xsmall muted">Times in this window only</span></div>
         )}
         {(events.isFetching || rangeTasks.isFetching) && <div className="cal-progress" role="progressbar" aria-label="Loading events" />}
         <div className="cal-main">
@@ -337,12 +355,12 @@ function CalendarMain() {
                   month={state.date.getMonth()}
                   byDay={byDay}
                   colour={colour}
-                  today={now}
+                  today={todayZ}
                   selected={state.date}
                   compact={phone}
                   onSelect={(d) => update({ date: d })}
                   onOpenDay={(d) => update({ view: 'week', date: d })}
-                  onCreate={(d) => newEvent(d)}
+                  onCreate={(d) => newEvent(atWallMin(d, 540, tz))}
                   onEvent={showPeek}
                   tasksByDay={rangeTasks.byDay}
                   photos={photoCounts}
@@ -365,6 +383,7 @@ function CalendarMain() {
                 onCreate={newEvent}
                 onEvent={showPeek}
                 onOpenDay={(d) => update({ date: d, view: 'day' })}
+                onZone={() => setZoneOpen(true)}
                 tasksByDay={rangeTasks.byDay}
                 photos={photoCounts}
                 onTask={openTask}
@@ -396,12 +415,32 @@ function CalendarMain() {
       {dlg === 'categories' && <CategoriesDialog open onClose={() => setDlg(null)} />}
       <PersonDialog open={dlg === 'person'} onClose={() => setDlg(null)} />
       {draft && <EventDialog key={'event' in draft ? draft.event.id : draft.start.getTime()} draft={draft} onClose={() => setDraft(null)} />}
+      {zoneOpen && <Suspense fallback={null}><ZonePicker tz={tz} onPick={setTz} onClose={() => setZoneOpen(false)} profileZone={me?.timezone} /></Suspense>}
     </AppShell>
+    </CalPrefsContext.Provider>
   )
 }
 
-function Sidebar({ date, onDate, calendars, showTasks, onShowTasks, showBirthdays, onShowBirthdays, showDisabled, onShowDisabled, peekCals, onPeek, onSettings, onNew, onDialog, updatedAt, refreshing, onRefresh }: {
-  date: Date; onDate: (d: Date) => void; calendars?: Calendar[]; showTasks: boolean; onShowTasks: (v: boolean) => void
+/** The temporary display zone, shown while it's on: "Tokyo · GMT+9", click to change, × to go home. */
+function ZoneChip({ tz, now, onOpen, onReset }: { tz: string; now: Date; onOpen: () => void; onReset: () => void }) {
+  const home = zoneCity(HOME_ZONE)
+  return (
+    <span className="cal-zone-chip" role="group" aria-label="Display time zone">
+      <button type="button" className="cal-zone-main" onClick={onOpen} title={`Times are shown in ${tz} (${gmtLabel(now.getTime(), tz)}), for this window only. Click to change.`}>
+        <Icon name="globe" size={14} />
+        <span>{zoneCity(tz)}</span>
+        <span className="cal-zone-off tabular">{gmtLabel(now.getTime(), tz)}</span>
+      </button>
+      <button type="button" className="cal-zone-reset" onClick={onReset} aria-label={`Back to ${home}`} title={`Back to ${home} (${gmtLabel(now.getTime(), HOME_ZONE)})`}>
+        <span className="cal-zone-back">Back to {home}</span><Icon name="x" size={13} />
+      </button>
+    </span>
+  )
+}
+
+function Sidebar({ date, today, onDate, weekStart, onWeekStart, tz, now, onZone, calendars, showTasks, onShowTasks, showBirthdays, onShowBirthdays, showDisabled, onShowDisabled, peekCals, onPeek, onSettings, onNew, onDialog, updatedAt, refreshing, onRefresh }: {
+  date: Date; today: Date; onDate: (d: Date) => void; weekStart: WeekStart; onWeekStart: (v: WeekStart) => void; tz: Zone; now: Date; onZone: () => void
+  calendars?: Calendar[]; showTasks: boolean; onShowTasks: (v: boolean) => void
   showBirthdays: boolean; onShowBirthdays: (v: boolean) => void
   showDisabled: boolean; onShowDisabled: (v: boolean) => void; peekCals: number[]; onPeek: (id: number) => void; onSettings: (c: Calendar) => void; onNew: () => void
   onDialog: (d: Dlg) => void; updatedAt: number; refreshing: boolean; onRefresh: () => void
@@ -430,7 +469,7 @@ function Sidebar({ date, onDate, calendars, showTasks, onShowTasks, showBirthday
     ))
   return (
     <div className="cal-side">
-      <MiniMonth date={date} onDate={onDate} />
+      <MiniMonth date={date} today={today} weekStart={weekStart} onDate={onDate} />
       <SideSection title="My calendars" action={
         <Menu align="end" label="Add calendar" trigger={(p) => <button {...p} className="btn ghost icon sm" aria-label="Add calendar" title="Add calendar (S: subscribe)"><Icon name="plus" size={14} /></button>}>
           {(close) => (
@@ -457,8 +496,23 @@ function Sidebar({ date, onDate, calendars, showTasks, onShowTasks, showBirthday
         <div className="side-switch"><Switch checked={showBirthdays} onChange={onShowBirthdays} label="Birthdays" /></div>
         <div className="side-switch"><Switch checked={showDisabled} onChange={onShowDisabled} label="Disabled calendars" /></div>
       </SideSection>
+      <SideSection title="View">
+        <div className="side-opt">
+          <span className="small" id="cal-ws-label">Week starts on</span>
+          <div className="seg" role="group" aria-labelledby="cal-ws-label">
+            {([[0, 'Sun', 'Sunday'], [1, 'Mon', 'Monday']] as const).map(([v, short, long]) => (
+              <button key={v} type="button" aria-pressed={weekStart === v} onClick={() => onWeekStart(v)} title={long}>{short}</button>
+            ))}
+          </div>
+        </div>
+        <button type="button" className="side-item cal-tz-row" onClick={onZone} title="Show the calendar in another time zone (this window only)">
+          <Icon name="globe" size={16} />
+          <span className="grow truncate">{tz ? zoneCity(tz) : `${zoneCity(HOME_ZONE)} (yours)`}</span>
+          <span className="xsmall muted tabular">{gmtLabel(now.getTime(), tz ?? HOME_ZONE)}</span>
+        </button>
+      </SideSection>
       <button className="cal-refresh xsmall muted" onClick={onRefresh} disabled={refreshing} title="Refresh now">
-        <Icon name="refresh" size={12} className={refreshing ? 'spin' : ''} />{updatedAt ? `Refreshed ${fmtTime(new Date(updatedAt))}` : 'Refresh'}
+        <Icon name="refresh" size={12} className={refreshing ? 'spin' : ''} />{updatedAt ? `Refreshed ${fmtTimeIn(updatedAt, tz)}` : 'Refresh'}
       </button>
       <p className="cal-keys xsmall muted">
         <span className="kbd">T</span> today <span className="kbd">J</span>/<span className="kbd">K</span> move <span className="kbd">M</span>
@@ -490,13 +544,12 @@ function QuickTask() {
   )
 }
 
-function MiniMonth({ date, onDate }: { date: Date; onDate: (d: Date) => void }) {
+function MiniMonth({ date, today, weekStart, onDate }: { date: Date; today: Date; weekStart: WeekStart; onDate: (d: Date) => void }) {
   const [shown, setShown] = useState(() => new Date(date.getFullYear(), date.getMonth(), 1))
   useEffect(() => {
     setShown(new Date(date.getFullYear(), date.getMonth(), 1))
   }, [date])
-  const grid = monthGrid(shown)
-  const today = new Date()
+  const grid = monthGrid(shown, weekStart)
   return (
     <div className="mini">
       <div className="mini-head">

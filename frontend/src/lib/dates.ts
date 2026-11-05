@@ -1,4 +1,5 @@
-// Date helpers in the browser's local time. Weeks start on Monday (same as /calendar/insights).
+// Date helpers in the browser's local time. Weeks start on Monday (same as /calendar/insights) unless
+// a caller passes another first day (the calendar's Sunday/Monday setting).
 
 export const DAY_MS = 86_400_000
 
@@ -29,15 +30,16 @@ export function parseDayKey(key: string): Date {
   const [y, m, d] = key.split('-').map(Number)
   return new Date(y, (m || 1) - 1, d || 1)
 }
-export function startOfWeek(d: Date): Date {
+/** The first day of d's week; `weekStart` 0 = Sunday, 1 = Monday. */
+export function startOfWeek(d: Date, weekStart = 1): Date {
   const x = startOfDay(d)
-  return addDays(x, -((x.getDay() + 6) % 7))
+  return addDays(x, -((x.getDay() - weekStart + 7) % 7))
 }
 
 /** The 6x7 grid of days shown for the month containing `d`. */
-export function monthGrid(d: Date): Date[][] {
+export function monthGrid(d: Date, weekStart = 1): Date[][] {
   const first = new Date(d.getFullYear(), d.getMonth(), 1)
-  let cur = startOfWeek(first)
+  let cur = startOfWeek(first, weekStart)
   const weeks: Date[][] = []
   for (let w = 0; w < 6; w++) {
     const row: Date[] = []

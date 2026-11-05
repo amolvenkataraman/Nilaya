@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
+import { useMediaQuery } from '../../components/ui'
 import { dayKey, fmtDate, fmtTime, isSameDay } from '../../lib/dates'
 import type { CalEvent, Task } from '../../lib/types'
 import { BirthdayChip, PhotoBadge, TaskChip, isAllDayTask, type Birthday } from './extras'
 import { EventChip } from './MonthView'
 import { atWallMin, layoutDay, snap } from './util'
+import { HOME_ZONE, dayStartIn, fmtTimeIn, gmtLabel, shiftWall, useCalPrefs, wallParts, zoneDay, zoneDayKey, zoneMinutes, type Zone } from './zone'
 
 interface Props {
   days: Date[]
@@ -22,6 +24,8 @@ interface Props {
   canEdit?: (e: CalEvent) => boolean
   /** Drag-moved or resized: the new start and end. */
   onMove?: (e: CalEvent, start: Date, end: Date | null) => void
+  /** The time zone label in the corner was clicked (pick a display zone). */
+  onZone?: () => void
 }
 
 // Mouse/pen drag on the time grid: drag empty space to create a range, drag an event to move it
@@ -34,14 +38,26 @@ const minLabel = (m: number) => fmtTime(new Date(2000, 0, 1, 0, m))
 const hourFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric' })
 const HOURS = Array.from({ length: 24 }, (_, h) => h)
 
-export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDay, tasksByDay, photos, onTask, birthdaysByDay, canEdit, onMove }: Props) {
+/** The home zone's time at each display-zone hour of `day` ("9 PM", "8:30 PM"), for the second gutter. */
+function homeHours(day: Date, tz: Zone): string[] {
+  return HOURS.map((h) => {
+    const t = atWallMin(day, h * 60, tz).getTime()
+    return wallParts(t, undefined).mi ? fmtTime(new Date(t)) : hourFmt.format(t)
+  })
+}
+
+export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDay, tasksByDay, photos, onTask, birthdaysByDay, canEdit, onMove, onZone }: Props) {
+  const { tz } = useCalPrefs()
+  // A second gutter with the home zone's hours while another zone is shown (not on phones: too narrow).
+  const narrowView = useMediaQuery('(max-width: 760px)')
+  const dual = !!tz && !narrowView
   const scroller = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
   const [drag, setDrag] = useState<Drag | null>(null)
   const dragRef = useRef<Drag | null>(null)
   const suppress = useRef(false)
-  const cb = useRef({ days, onCreate, onMove })
-  cb.current = { days, onCreate, onMove }
+  const cb = useRef({ days, onCreate, onMove, tz })
+  cb.current = { days, onCreate, onMove, tz }
   const stop = useRef<() => void>(() => {})
   useEffect(() => () => stop.current(), [])
 
@@ -98,16 +114,14 @@ export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDa
       if (!c?.moved) return
       suppress.current = true
       setTimeout(() => (suppress.current = false), 0)
-      const { days: ds, onCreate: create, onMove: moved } = cb.current
-      // Wall-clock minutes → local times (right on DST change days too).
+      const { days: ds, onCreate: create, onMove: moved, tz: zone } = cb.current
+      // Wall-clock minutes in the display zone → instants (right on DST change days too).
       const day = ds[c.day]
-      if (c.mode === 'create') return create(atWallMin(day, c.a), atWallMin(day, c.b))
+      if (c.mode === 'create') return create(atWallMin(day, c.a, zone), atWallMin(day, c.b, zone))
       const ev = c.ev!
       const s = new Date(ev.start)
-      if (c.mode === 'resize') return moved?.(ev, s, atWallMin(day, c.b))
-      const ns = new Date(s)
-      ns.setDate(ns.getDate() + (c.day - c.origDay))
-      ns.setMinutes(ns.getMinutes() + (c.a - c.origStart))
+      if (c.mode === 'resize') return moved?.(ev, s, atWallMin(day, c.b, zone))
+      const ns = shiftWall(s.getTime(), c.day - c.origDay, c.a - c.origStart, zone)
       if (ns.getTime() === s.getTime()) return
       moved?.(ev, ns, ev.end ? new Date(ns.getTime() + (new Date(ev.end).getTime() - s.getTime())) : null)
     }
@@ -124,29 +138,40 @@ export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDa
     window.addEventListener('keydown', key, true)
   }
   const rangeKey = dayKey(days[0]) + days.length
-  const showsToday = days.some((d) => isSameDay(d, now))
+  const nowDay = zoneDay(now.getTime(), tz) // today in the display zone
+  const showsToday = days.some((d) => isSameDay(d, nowDay))
+  const nowMin = zoneMinutes(now.getTime(), tz)
 
-  // Scroll to the working day (or to just before now) when the range changes.
+  // Scroll to the working day (or to just before now) when the range or zone changes.
   useLayoutEffect(() => {
     const el = scroller.current
     if (!el) return
-    const hour = showsToday ? Math.max(0, Math.min(now.getHours() - 1.5, 16)) : 7.5
+    const hour = showsToday ? Math.max(0, Math.min(Math.floor(nowMin / 60) - 1.5, 16)) : 7.5
     el.scrollTop = (el.scrollHeight / 24) * hour - 4
-  }, [rangeKey])
+  }, [rangeKey, tz])
 
   const allDay = useMemo(() => days.map((d) => (byDay.get(dayKey(d)) ?? []).filter((e) => e.all_day)), [days, byDay])
-  const placed = useMemo(() => days.map((d) => layoutDay(byDay.get(dayKey(d)) ?? [], d)), [days, byDay])
+  const placed = useMemo(() => days.map((d) => layoutDay(byDay.get(dayKey(d)) ?? [], d, tz)), [days, byDay, tz])
+  const home = useMemo(() => (dual ? homeHours(days[0], tz) : null), [dual, days, tz])
+  // The zone label: its offset now (or midday of the first day shown, if today isn't in view).
+  const at = showsToday ? now.getTime() : dayStartIn(days[0], tz) + 12 * 3600_000
+  const zoneLabel = gmtLabel(at, tz ?? HOME_ZONE)
   const dayTasks = useMemo(() => days.map((d) => tasksByDay?.get(dayKey(d)) ?? []), [days, tasksByDay])
   const dayBdays = useMemo(() => days.map((d) => birthdaysByDay?.get(dayKey(d)) ?? []), [days, birthdaysByDay])
   const anyAllDay = allDay.some((l) => l.length) || dayTasks.some((l) => l.some(isAllDayTask)) || dayBdays.some((l) => l.length)
-  const nowMin = now.getHours() * 60 + now.getMinutes()
+  const zoneTitle = `${tz ? `Showing ${tz} (${zoneLabel}) for this window; yours is ${HOME_ZONE}` : `Time zone: ${HOME_ZONE} (${zoneLabel})`}. Click to show another zone.`
 
   return (
-    <div className="week" style={{ '--cols': days.length } as React.CSSProperties}>
+    <div className={'week' + (dual ? ' dual' : '')} style={{ '--cols': days.length } as React.CSSProperties}>
       <div className="week-head">
-        <div className="gutter" aria-hidden="true" />
+        {onZone ? (
+          <button type="button" className={'gutter week-zone' + (tz ? ' on' : '')} onClick={onZone} title={zoneTitle} aria-label={zoneTitle}>
+            {dual && <span className="home tabular">{gmtLabel(at, undefined)}</span>}
+            <span className="tabular">{zoneLabel.replace('GMT', 'GMT\u200b') /* may wrap after "GMT" in a phone's narrow gutter */}</span>
+          </button>
+        ) : <div className="gutter" aria-hidden="true" />}
         {days.map((d) => {
-          const t = isSameDay(d, now)
+          const t = isSameDay(d, nowDay)
           return (
             <div key={d.getTime()} className="week-day-wrap">
               <button type="button" className={'week-day' + (t ? ' today' : '')} onClick={() => onOpenDay(d)} aria-label={fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}>
@@ -175,9 +200,10 @@ export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDa
             {HOURS.map((h) => (
               <span key={h} style={{ top: `${(h / 24) * 100}%` }}>{h === 0 ? '' : hourFmt.format(new Date(2000, 0, 1, h))}</span>
             ))}
+            {home?.map((label, h) => h > 0 && <span key={'h' + h} className="home" style={{ top: `${(h / 24) * 100}%` }}>{label}</span>)}
           </div>
           {days.map((d, i) => (
-            <DayColumn key={d.getTime()} day={d} items={placed[i]} colour={colour} onEvent={onEvent} onCreate={onCreate} nowMin={isSameDay(d, now) ? nowMin : null}
+            <DayColumn key={d.getTime()} day={d} tz={tz} items={placed[i]} colour={colour} onEvent={onEvent} onCreate={onCreate} nowMin={isSameDay(d, nowDay) ? nowMin : null}
               tasks={dayTasks[i].filter((t) => !isAllDayTask(t))} onTask={onTask} canEdit={onMove ? canEdit : undefined}
               ghost={drag?.moved && drag.day === i ? { a: drag.a, b: drag.b, colour: drag.ev ? colour(drag.ev) : 'var(--app-accent)', name: drag.ev?.name ?? '' } : null}
               draggingId={drag?.moved && drag.mode === 'move' ? drag.ev?.id : undefined} />
@@ -188,8 +214,8 @@ export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDa
   )
 }
 
-function DayColumn({ day, items, colour, onEvent, onCreate, nowMin, tasks, onTask, canEdit, ghost, draggingId }: {
-  day: Date; items: ReturnType<typeof layoutDay>; colour: (e: CalEvent) => string; onEvent: (e: CalEvent) => void
+function DayColumn({ day, tz, items, colour, onEvent, onCreate, nowMin, tasks, onTask, canEdit, ghost, draggingId }: {
+  day: Date; tz: Zone; items: ReturnType<typeof layoutDay>; colour: (e: CalEvent) => string; onEvent: (e: CalEvent) => void
   onCreate: (start: Date, end?: Date) => void; nowMin: number | null; tasks: Task[]; onTask?: (t: Task) => void
   canEdit?: (e: CalEvent) => boolean; ghost: { a: number; b: number; colour: string; name: string } | null; draggingId?: string
 }) {
@@ -201,14 +227,14 @@ function DayColumn({ day, items, colour, onEvent, onCreate, nowMin, tasks, onTas
       onClick={(e) => {
         const r = col.current!.getBoundingClientRect()
         const min = snap(((e.clientY - r.top) / r.height) * 1440 - 15)
-        const start = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, min)
-        onCreate(start, new Date(start.getTime() + 3600_000))
+        // Wall-clock time in the display zone; the end is an hour later on that clock too.
+        onCreate(atWallMin(day, min, tz), atWallMin(day, min + 60, tz))
       }}
     >
       {items.map(({ event: e, startMin, endMin, col: c, cols }) => {
         const dur = endMin - startMin
         const s = new Date(e.start)
-        const label = `${e.name}, ${e.kind === 'deadline' ? 'due ' : ''}${fmtTime(s)}${e.end ? ` to ${fmtTime(new Date(e.end))}` : ''}${e.location ? `, ${e.location}` : ''}`
+        const label = `${e.name}, ${e.kind === 'deadline' ? 'due ' : ''}${fmtTimeIn(s, tz)}${e.end ? ` to ${fmtTimeIn(new Date(e.end), tz)}` : ''}${e.location ? `, ${e.location}` : ''}`
         return (
           <button
             key={e.id}
@@ -229,23 +255,23 @@ function DayColumn({ day, items, colour, onEvent, onCreate, nowMin, tasks, onTas
             {e.kind === 'deadline' ? (
               <span className="ev-line"><Icon name="flag" size={11} /> <span className="truncate">{e.name}</span></span>
             ) : dur < 45 ? (
-              <span className="ev-line"><span className="truncate"><strong>{e.name}</strong> <span className="ev-time">{fmtTime(s)}</span></span></span>
+              <span className="ev-line"><span className="truncate"><strong>{e.name}</strong> <span className="ev-time">{fmtTimeIn(s, tz)}</span></span></span>
             ) : (
               <>
                 <strong className="ev-name">{(e.icon || e.category?.icon) && <Icon name={(e.icon || e.category?.icon)!} size={11} />} {e.name}{e.recurring && <Icon name="repeat" size={10} />}</strong>
-                <span className="ev-time tabular">{fmtTime(s)} – {e.end ? fmtTime(new Date(e.end)) : ''}</span>
+                <span className="ev-time tabular">{fmtTimeIn(s, tz)} – {e.end ? fmtTimeIn(new Date(e.end), tz) : ''}</span>
                 {e.location && dur >= 75 && <span className="ev-time truncate">{e.location}</span>}
                 {e.category && e.category.name !== 'Uncategorized' && dur >= 100 && <span className="ev-time truncate">{e.category.name}</span>}
               </>
             )}
-            {e.kind !== 'deadline' && e.end && canEdit?.(e) && isSameDay(s, new Date(new Date(e.end).getTime() - 1)) && <span className="ev-resize" aria-hidden="true" />}
+            {e.kind !== 'deadline' && e.end && canEdit?.(e) && zoneDayKey(s.getTime(), tz) === zoneDayKey(new Date(e.end).getTime() - 1, tz) && <span className="ev-resize" aria-hidden="true" />}
           </button>
         )
       })}
       {tasks.map((t) => {
-        const due = new Date(t.due!)
+        const due = new Date(t.due!).getTime()
         return (
-          <div key={t.id} className="ev-task" style={{ top: `${((due.getHours() * 60 + due.getMinutes()) / 1440) * 100}%` }}>
+          <div key={t.id} className="ev-task" style={{ top: `${(Math.floor(zoneMinutes(due, tz)) / 1440) * 100}%` }}>
             <TaskChip task={t} onOpen={(x) => onTask?.(x)} />
           </div>
         )

@@ -4,9 +4,10 @@ import { useQuery } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { useDebounced, useHotkey } from '../../components/ui'
 import { get } from '../../lib/api'
-import { addDays, fmtDate, fmtTime, startOfDay } from '../../lib/dates'
+import { addDays, startOfDay } from '../../lib/dates'
 import type { CalEvent, Calendar } from '../../lib/types'
 import { eventDays } from './util'
+import { fmtDateIn, fmtTimeIn, useCalPrefs } from './zone'
 
 export function EventSearch({ calendars, onPick }: { calendars?: Calendar[]; onPick: (e: CalEvent) => void }) {
   const [open, setOpen] = useState(false)
@@ -14,6 +15,7 @@ export function EventSearch({ calendars, onPick }: { calendars?: Calendar[]; onP
   const [active, setActive] = useState(0)
   const q = useDebounced(text.trim(), 300)
   const box = useRef<HTMLDivElement>(null)
+  const { tz } = useCalPrefs()
   const today = startOfDay(new Date())
   const start = addDays(today, -200).toISOString()
   const end = addDays(today, 200).toISOString()
@@ -55,12 +57,13 @@ export function EventSearch({ calendars, onPick }: { calendars?: Calendar[]; onP
           {items.length === 0 && <li className="muted small" style={{ padding: '0.5rem' }}>No events match "{q}".</li>}
           {items.map((e, i) => {
             const s = e.all_day ? eventDays(e).first : new Date(e.start) // all-day: its calendar date
+            const z = e.all_day ? undefined : tz // timed: in the display zone
             return (
               <li key={e.id}>
                 <button role="option" aria-selected={i === active} className={i === active ? 'on' : ''} onMouseMove={() => setActive(i)} onClick={() => pick(e)}>
                   <span className="dot" style={{ background: e.display_colour || colour(e.calendar_id) }} />
                   <span className="grow truncate">{e.name}{e.location && <span className="muted"> · {e.location}</span>}</span>
-                  <span className="muted xsmall tabular">{fmtDate(s, { month: 'short', day: 'numeric', year: s.getFullYear() !== today.getFullYear() ? 'numeric' : undefined })}{e.all_day ? '' : (e.kind === 'deadline' ? ' · due ' : ' · ') + fmtTime(s)}</span>
+                  <span className="muted xsmall tabular">{fmtDateIn(s, { month: 'short', day: 'numeric', year: s.getFullYear() !== today.getFullYear() ? 'numeric' : undefined }, z)}{e.all_day ? '' : (e.kind === 'deadline' ? ' · due ' : ' · ') + fmtTimeIn(s, z)}</span>
                 </button>
               </li>
             )

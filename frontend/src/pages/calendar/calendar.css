@@ -449,3 +449,45 @@ a.agenda-item:hover { text-decoration: none; }
 .cal-preview-list li > .muted { flex: none; min-width: 7.5rem; font-size: var(--fs-xs); }
 /* Events of a disabled calendar shown on request ("Show events"): greyed and dashed, read-only. */
 .chip-ev.ghost, .ev.ghost, .agenda-item.ghost { opacity: 0.6; outline: 1px dashed currentColor; outline-offset: -1px; filter: grayscale(0.6); }
+
+/* ---------- Display time zone (temporary, this window) and week start */
+.cal-zone-chip { display: inline-flex; flex: none; align-items: stretch; height: 1.75rem; margin-left: 0.5rem; border-radius: 999px; background: var(--app-accent-soft); color: var(--app-accent); font-size: var(--fs-sm); }
+.cal-zone-chip button { display: inline-flex; align-items: center; gap: 0.375rem; border: 0; background: none; color: inherit; font: inherit; cursor: pointer; white-space: nowrap; }
+.cal-zone-main { padding: 0 0.375rem 0 0.625rem; border-radius: 999px 0 0 999px; font-weight: 600; }
+.cal-zone-off { font-weight: 500; opacity: 0.8; }
+.cal-zone-reset { padding: 0 0.625rem 0 0.5rem; border-left: 1px solid color-mix(in srgb, currentColor 25%, transparent) !important; border-radius: 0 999px 999px 0; white-space: nowrap; }
+.cal-zone-chip button:hover { background: color-mix(in srgb, currentColor 10%, transparent); }
+.cal-zone-chip button:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 1px; }
+/* Beside the title (1500px+): "Back to …" only with room to spare; elsewhere (strip, phone bar) in full. */
+@media (max-width: 1599px) { .topbar-app .cal-zone-back { display: none; } .topbar-app .cal-zone-reset { padding: 0 0.5rem 0 0.375rem; } }
+.cal-zone-strip { display: flex; align-items: center; gap: 0.75rem; padding: 0.375rem 0.75rem; border-bottom: var(--hairline); }
+.cal-zone-strip .cal-zone-chip, .cal-subbar .cal-zone-chip { margin: 0; justify-self: start; }
+
+.week-zone { border: 0; background: none; padding: 0 0.5rem 0.375rem 0; display: flex; align-items: flex-end; justify-content: flex-end; gap: 0.375rem; font-size: 0.625rem; color: var(--app-muted); cursor: pointer; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.week-zone:hover { color: var(--app-fg); background: var(--hover); }
+.week-zone.on { color: var(--app-accent); font-weight: 600; }
+.week-zone .home { color: var(--app-muted); font-weight: 400; opacity: 0.8; }
+.week.dual { --gutter: 6.5rem; }
+@media (max-width: 760px) { .week-zone { padding: 0 0.25rem 0.375rem 0; white-space: normal; text-align: right; line-height: 1.15; } }
+.gutter.hours span.home { right: auto; left: 0.375rem; opacity: 0.7; }
+
+.side-opt { display: flex; align-items: center; gap: 0.5rem; justify-content: space-between; padding: 0.25rem 0.5rem; }
+.side-opt .seg button { min-width: 2.75rem; justify-content: center; }
+.cal-tz-row .xsmall { flex: none; }
+
+.ev-zone-note { display: flex; align-items: center; gap: 0.375rem; margin: 0; color: var(--app-accent); }
+
+.tz-pick { display: grid; gap: 0.625rem; }
+.tz-pick > p { margin: 0; }
+.tz-back { justify-self: start; gap: 0.375rem; }
+.tz-search { display: flex; align-items: center; gap: 0.5rem; height: 2.25rem; padding: 0 0.625rem; border: var(--hairline); border-radius: var(--r-sm); background: var(--app-surface); color: var(--app-muted); }
+.tz-search:focus-within { border-color: var(--app-accent); box-shadow: 0 0 0 3px var(--app-accent-soft); }
+.tz-search input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--app-fg); font: inherit; }
+.tz-list { max-height: min(24rem, 55vh); overflow-y: auto; margin: 0 -0.25rem; padding: 0 0.25rem; overscroll-behavior: contain; }
+.tz-row { display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.375rem 0.5rem; border: 0; border-radius: var(--r-sm); background: none; color: var(--app-fg); text-align: left; font: inherit; cursor: pointer; }
+.tz-row.on { background: var(--hover); }
+.tz-check { width: 1rem; flex: none; color: var(--app-accent); display: grid; place-items: center; }
+.tz-name { display: grid; min-width: 0; font-size: var(--fs-sm); }
+.tz-tag { margin-left: 0.375rem; font-size: 0.625rem; padding: 0 0.375rem; vertical-align: 1px; }
+.tz-time { display: grid; justify-items: end; flex: none; font-size: var(--fs-sm); }
+.tz-empty { padding: 0.5rem; margin: 0; }

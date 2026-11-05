@@ -5,10 +5,11 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { TaskCheck } from '../../components/TaskRow'
 import { get } from '../../lib/api'
-import { dayKey, fmtDate, fmtTime, isEndOfDay } from '../../lib/dates'
+import { dayKey, fmtDate, isEndOfDay } from '../../lib/dates'
 import { useSetDone, useTasks } from '../../lib/queries'
 import type { Task } from '../../lib/types'
 import { CACHE_PREFIX, ownerId } from '../../lib/owner'
+import { chipTime, fmtTimeIn, useCalPrefs, zoneDayKey, type Zone } from './zone'
 
 /** {"2026-11-05": 12, ...} for the visible days, in the user's time zone. */
 export function usePhotoCounts(days: Date[]) {
@@ -40,14 +41,15 @@ export function useShowTasks(): [boolean, (v: boolean) => void] {
   return [on, set]
 }
 
-/** Open tasks due in [start, end), grouped by local day. 23:59 ("date only") tasks go in the all-day lane. */
-export function useRangeTasks(start: Date, end: Date, enabled: boolean) {
-  const q = useTasks({ due_after: start.toISOString(), due_before: end.toISOString(), done: false, sort: 'due', limit: 500 }, enabled)
+/** Open tasks due in [start, end) (ISO instants), grouped by day. 23:59 ("date only") tasks go in the
+ *  all-day lane on their own date; timed ones on their date in the display zone. */
+export function useRangeTasks(start: string, end: string, enabled: boolean, tz?: Zone) {
+  const q = useTasks({ due_after: start, due_before: end, done: false, sort: 'due', limit: 500 }, enabled)
   const byDay = new Map<string, Task[]>()
   if (enabled) {
     for (const t of q.data?.items ?? []) {
       if (!t.due) continue
-      const k = dayKey(new Date(t.due))
+      const k = isAllDayTask(t) ? dayKey(new Date(t.due)) : zoneDayKey(new Date(t.due).getTime(), tz)
       byDay.set(k, [...(byDay.get(k) ?? []), t])
     }
   }
@@ -58,12 +60,13 @@ export const isAllDayTask = (t: Task) => !t.due || isEndOfDay(new Date(t.due))
 
 export function TaskChip({ task, onOpen, big }: { task: Task; onOpen: (t: Task) => void; big?: boolean }) {
   const setDone = useSetDone()
+  const { tz } = useCalPrefs()
   const timed = !isAllDayTask(task)
-  const label = `Task: ${task.title}${timed ? `, due ${fmtTime(new Date(task.due!))}` : ''}`
+  const label = `Task: ${task.title}${timed ? `, due ${fmtTimeIn(new Date(task.due!), tz)}` : ''}`
   return (
     <div className={'chip-task' + (big ? ' big' : '') + (task.done ? ' done' : '')} title={label} onClick={(e) => e.stopPropagation()}>
       <TaskCheck task={task} onToggle={() => setDone.mutate({ task, done: !task.done })} />
-      {timed && <span className="chip-time tabular">{fmtTime(new Date(task.due!)).replace(/:00(?=\s|$)/, '').replace(/\s/g, '').toLowerCase()}</span>}
+      {timed && <span className="chip-time tabular">{chipTime(new Date(task.due!), tz)}</span>}
       <button type="button" className="chip-task-title truncate" onClick={() => onOpen(task)} aria-label={`Open ${label}`}>{task.title}</button>
     </div>
   )

@@ -111,9 +111,11 @@ function Bars({ rows }: { rows: { label: string; value: number; colour?: string;
 }
 
 const WEEKDAYS = Array.from({ length: 7 }, (_, i) => fmtDate(new Date(2026, 10, 2 + i), { weekday: 'short' }))
+/** Monday-first weekday data (as the server sends it) in the user's week order. */
+const inWeekOrder = <T,>(a: T[], weekStart: 0 | 1): T[] => (weekStart === 0 && a.length === 7 ? [a[6], ...a.slice(0, 6)] : a)
 const hourFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric' })
 
-function Heat({ heat }: { heat: number[][] }) {
+function Heat({ heat, labels }: { heat: number[][]; labels: string[] }) {
   const [ref, { w }] = useSize<HTMLDivElement>()
   const [tip, setTip] = useState<Tip | null>(null)
   const max = Math.max(0.0001, ...heat.flat())
@@ -124,7 +126,7 @@ function Heat({ heat }: { heat: number[][] }) {
   return (
     <div className="ins-heat">
       <div className="ins-heat-days" aria-hidden="true" style={{ gridTemplateRows: `repeat(7, ${ch}px)`, rowGap: gap }}>
-        {WEEKDAYS.map((d) => <span key={d}>{d}</span>)}
+        {labels.map((d) => <span key={d}>{d}</span>)}
       </div>
       <div className="ins-heat-plot">
         <div ref={ref} style={{ position: 'relative' }} onMouseLeave={() => setTip(null)}>
@@ -132,7 +134,7 @@ function Heat({ heat }: { heat: number[][] }) {
             <svg width={w} height={7 * ch + 6 * gap} role="img" aria-label="Busy hours by weekday">
               {heat.map((row, d) =>
                 row.map((v, hr) => {
-                  const text = `${WEEKDAYS[d]} ${hourFmt.format(new Date(2000, 0, 1, hr))}: ${hours(v)}`
+                  const text = `${labels[d]} ${hourFmt.format(new Date(2000, 0, 1, hr))}: ${hours(v)}`
                   const x = hr * (cw + gap)
                   const y = d * (ch + gap)
                   return (
@@ -194,8 +196,8 @@ function periodLabel(d: InsightsData): string {
   return `${fmtDate(s, { month: 'short', day: 'numeric' })} – ${fmtDate(e, sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`
 }
 
-export function InsightsPanel({ period, date, onPeriod, onDate, onClose }: {
-  period: 'week' | 'month'; date: Date; onPeriod: (p: 'week' | 'month') => void; onDate: (d: Date) => void; onClose: () => void
+export function InsightsPanel({ period, date, weekStart = 1, onPeriod, onDate, onClose }: {
+  period: 'week' | 'month'; date: Date; weekStart?: 0 | 1; onPeriod: (p: 'week' | 'month') => void; onDate: (d: Date) => void; onClose: () => void
 }) {
   const q = useInsights(period, dayKey(date))
   const d = q.data
@@ -256,7 +258,7 @@ export function InsightsPanel({ period, date, onPeriod, onDate, onClose }: {
 
             {period === 'month' && (
               <Section title="By weekday">
-                <Columns values={d.by_weekday} labels={WEEKDAYS} tips={d.by_weekday.map((h, i) => `${WEEKDAYS[i]}: ${hours(h)}`)} />
+                <Columns values={inWeekOrder(d.by_weekday, weekStart)} labels={inWeekOrder(WEEKDAYS, weekStart)} tips={inWeekOrder(d.by_weekday.map((h, i) => `${WEEKDAYS[i]}: ${hours(h)}`), weekStart)} />
               </Section>
             )}
 
@@ -273,7 +275,7 @@ export function InsightsPanel({ period, date, onPeriod, onDate, onClose }: {
             )}
 
             <Section title="When you're busy" aside={d.totals.typical_start && <span className="muted xsmall">Typical day {d.totals.typical_start}–{d.totals.typical_end}</span>}>
-              <Heat heat={d.heat} />
+              <Heat heat={inWeekOrder(d.heat, weekStart)} labels={inWeekOrder(WEEKDAYS, weekStart)} />
             </Section>
 
             <Section title="More">

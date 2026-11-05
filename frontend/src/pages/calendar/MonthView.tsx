@@ -1,10 +1,11 @@
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Dialog } from '../../components/ui'
 import { Icon } from '../../components/Icon'
-import { dayKey, fmtDate, fmtTime, isSameDay } from '../../lib/dates'
+import { dayKey, fmtDate, isSameDay } from '../../lib/dates'
 import type { CalEvent, Task } from '../../lib/types'
 import { BirthdayChip, PhotoBadge, TaskChip, isAllDayTask, type Birthday } from './extras'
 import { eventDays } from './util'
+import { chipTime, fmtTimeIn, useCalPrefs } from './zone'
 
 interface Props {
   days: Date[]
@@ -37,8 +38,9 @@ export function dayEntries(events: CalEvent[], tasks: Task[] = [], bdays: Birthd
 }
 
 export function EventChip({ e, colour, day, onClick }: { e: CalEvent; colour: string; day?: Date; onClick: () => void }) {
+  const { tz } = useCalPrefs()
   const style = { '--c': colour } as React.CSSProperties
-  const label = `${e.name}${e.all_day ? ', all day' : `, ${fmtTime(new Date(e.start))}${e.end && e.kind === 'event' ? ` – ${fmtTime(new Date(e.end))}` : ''}`}${e.category && e.category.name !== 'Uncategorized' ? ` · ${e.category.name}` : ''}${e.location ? ` · ${e.location}` : ''}${e.recurrence_text ? ` · ${e.recurrence_text}` : ''}`
+  const label = `${e.name}${e.all_day ? ', all day' : `, ${fmtTimeIn(new Date(e.start), tz)}${e.end && e.kind === 'event' ? ` – ${fmtTimeIn(new Date(e.end), tz)}` : ''}`}${e.category && e.category.name !== 'Uncategorized' ? ` · ${e.category.name}` : ''}${e.location ? ` · ${e.location}` : ''}${e.recurrence_text ? ` · ${e.recurrence_text}` : ''}`
   if (e.all_day) {
     const { first, last } = eventDays(e)
     const cont = day && !isSameDay(first, day)
@@ -53,7 +55,7 @@ export function EventChip({ e, colour, day, onClick }: { e: CalEvent; colour: st
     <button type="button" data-ev={e.id} className={'chip-ev' + (e.completed ? ' done' : '') + (e.ghost ? ' ghost' : '')} style={style} onClick={(ev) => (ev.stopPropagation(), onClick())} title={label} aria-label={label}>
       {e.kind === 'deadline' ? <Icon name="flag" size={11} className="chip-flag" /> : (e.icon || e.category?.icon) ? <Icon name={(e.icon || e.category?.icon)!} size={11} className="chip-flag" /> : <span className="chip-dot" />}
       {e.recurring && <Icon name="repeat" size={9} className="chip-rep" />}
-      <span className="chip-time tabular">{fmtTime(new Date(e.start)).replace(/:00(?=\s|$)/, '').replace(/\s/g, '').toLowerCase()}</span>
+      <span className="chip-time tabular">{chipTime(new Date(e.start), tz)}</span>
       <span className="truncate">{e.name}</span>
     </button>
   )
@@ -159,6 +161,7 @@ export function DayList({ day, events, colour, onEvent, onCreate, tasks = [], on
   day: Date; events: CalEvent[]; colour: (e: CalEvent) => string; onEvent: (e: CalEvent) => void; onCreate: () => void
   tasks?: Task[]; onTask?: (t: Task) => void; photos?: number; birthdays?: Birthday[]
 }) {
+  const { tz } = useCalPrefs()
   return (
     <section className="day-list" aria-label={fmtDate(day, { weekday: 'long', month: 'long', day: 'numeric' })}>
       <div className="day-list-head">
@@ -178,7 +181,7 @@ export function DayList({ day, events, colour, onEvent, onCreate, tasks = [], on
             <li key={e.id}>
               <button className="agenda-item" data-ev={e.id} onClick={() => onEvent(e)}>
                 <span className="agenda-bar" style={{ background: colour(e) }} />
-                <span className="agenda-time tabular">{e.all_day ? 'All day' : fmtTime(new Date(e.start))}</span>
+                <span className="agenda-time tabular">{e.all_day ? 'All day' : fmtTimeIn(new Date(e.start), tz)}</span>
                 <span className="grow">
                   <span className={'agenda-title' + (e.completed ? ' done' : '')}>{e.kind === 'deadline' && <Icon name="flag" size={12} />} {e.name}</span>
                   {e.location && <span className="agenda-sub truncate">{e.location}</span>}

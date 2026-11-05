@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Confirm, Dialog } from '../../components/ui'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
-import { addDays, dayKey, fromLocalInput, parseDayKey, toLocalInput } from '../../lib/dates'
+import { addDays, dayKey, parseDayKey } from '../../lib/dates'
 import { keys, useCalendars, useCategories } from '../../lib/queries'
 import type { CalEvent, Calendar, Category, EventDetail, EventIn } from '../../lib/types'
 import { useQuery } from '@tanstack/react-query'
@@ -11,6 +11,7 @@ import { Attendees, type AttendeeDraft } from './Attendees'
 import { CAL_COLOURS } from './calendarCommon'
 import { minutesText } from './EventPeek'
 import { allDayRange } from './util'
+import { HOME_ZONE, fromZoneInput, gmtLabel, toZoneInput, useCalPrefs, zoneCity, zoneDay, zoneDayKey, type Zone } from './zone'
 import { useCreateEvent, useDeleteEvent, useDuplicateEvent, useTaskFromEvent, useUpdateEvent, type Scope } from './api'
 
 export type EventDraft = { event: CalEvent } | { start: Date; end?: Date; allDay?: boolean }
@@ -40,14 +41,17 @@ function defaultCalendar(cals: Calendar[]): number | undefined {
   return (editable.find((c) => c.id === last) ?? editable.find((c) => !c.synced) ?? editable[0])?.id
 }
 
-function initial(draft: EventDraft) {
+/** Form values. Times are wall-clock times in the display zone `tz` (the inputs show that clock). */
+function initial(draft: EventDraft, tz: Zone) {
+  const toLocalInput = (iso: string | null | undefined) => toZoneInput(iso, tz)
   if ('event' in draft) {
     const e = draft.event
     const kind: Kind = e.kind
     const s = new Date(e.start)
     // All-day events keep their calendar dates as sent (start_date/end_date): converting the
     // instants would shift them in a browser outside the calendar's zone.
-    const days = allDayRange(e) ?? { first: s, last: s }
+    const sDay = zoneDay(s.getTime(), tz)
+    const days = allDayRange(e) ?? { first: sDay, last: sDay }
     return {
       kind, name: e.name, calendar: e.calendar_id, category: e.category_id ?? '' as number | '', location: e.location ?? '', description: e.description ?? '',
       colour: e.colour ?? '', icon: e.icon ?? '', tags: (e.tags ?? []).join(', '), repeat: repeatPreset(e.rrule), reminders: null as number[] | null,
@@ -62,7 +66,9 @@ function initial(draft: EventDraft) {
     kind: (draft.allDay ? 'all_day' : 'event') as Kind, name: '', calendar: undefined as number | undefined, category: '' as number | '', location: '', description: '',
     colour: '', icon: '', tags: '', repeat: '', reminders: null as number[] | null,
     rrule: '', meeting: '', place: '', status: 'confirmed' as const, busy: true, visibility: 'default' as const,
-    start: toLocalInput(s.toISOString()), end: toLocalInput(en.toISOString()), startDate: dayKey(s), endDate: dayKey(draft.allDay && draft.end ? addDays(draft.end, -1) : s),
+    // All-day drafts carry dates (local midnights); timed ones carry instants (their date in tz).
+    start: toLocalInput(s.toISOString()), end: toLocalInput(en.toISOString()),
+    startDate: draft.allDay ? dayKey(s) : zoneDayKey(s.getTime(), tz), endDate: draft.allDay ? dayKey(draft.end ? addDays(draft.end, -1) : s) : zoneDayKey(s.getTime(), tz),
     completed: false,
   }
 }
@@ -71,7 +77,10 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
   const cals = useCalendars().data ?? []
   const ownCats = useCategories().data
   const editing = 'event' in draft ? draft.event : null
-  const [f, setF] = useState(() => initial(draft))
+  const { tz } = useCalPrefs()
+  const fromLocalInput = (v: string) => fromZoneInput(v, tz)
+  const toLocalInput = (iso: string | null | undefined) => toZoneInput(iso, tz)
+  const [f, setF] = useState(() => initial(draft, tz))
   const [error, setError] = useState('')
   const [confirm, setConfirm] = useState(false)
   const [more, setMore] = useState(() => !!(editing && (editing.colour || editing.icon || editing.tags?.length || editing.place || editing.meeting_url || editing.status === 'tentative' || editing.visibility === 'private')))
@@ -237,6 +246,9 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
               ))}
             </div>
 
+            {tz && f.kind !== 'all_day' && (
+              <p className="help ev-zone-note"><Icon name="globe" size={12} /> Times are in {zoneCity(tz)} ({gmtLabel(new Date(fromLocalInput(f.start) ?? Date.now()).getTime(), tz)}), the zone shown in this window. Yours is {zoneCity(HOME_ZONE)}.</p>
+            )}
             {f.kind === 'event' && (
               <div className="field-row">
                 <label className="field">
