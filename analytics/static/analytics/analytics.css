@@ -20,4 +20,4 @@
 .an-table { width: 100%; border-collapse: collapse; font-size: 0.85rem; font-variant-numeric: tabular-nums; }
 .an-table th, .an-table td { text-align: left; padding: 6px 8px; border-top: 1px solid var(--app-border); white-space: nowrap; }
 .an-table th { color: var(--app-muted); font-weight: 600; font-size: 0.75rem; }
-.an-table td.route { font-family: var(--app-font-mono); font-size: 0.78rem; white-space: normal; overflow-wrap: anywhere; }
+.an-table td.an-zero { color: var(--app-muted); }
