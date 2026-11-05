@@ -102,6 +102,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'django.middleware.gzip.GZipMiddleware',  # compress JSON/HTML; nginx only gzips static files. BREACH: Django masks CSRF tokens per request
+    'django.middleware.http.ConditionalGetMiddleware',  # ETag/If-None-Match: unchanged GETs become tiny 304s
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
