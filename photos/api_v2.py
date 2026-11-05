@@ -94,6 +94,7 @@ class ShareAlbumOut(Schema):
     public: bool
     mine: bool
     count: int
+    size_kb: int = 0
     cover: Optional[PhotoOut]
 
 
@@ -213,6 +214,52 @@ def counts(request, start: datetime.date, end: datetime.date):
     return {r["day"].isoformat(): r["n"] for r in rows}
 
 
+@router.get("/points", summary="Photo locations in a map box, pre-aggregated (for heatmaps); [{lat, lng, count}]")
+def points(request, south: float, west: float, north: float, east: float, year: Optional[int] = None,
+           include_planes: bool = False):
+    from .models import PhotoLocationCache
+    if hidden_mode.show_hidden(request):  # the view leaves hidden photos out: use the live table
+        qs = library(request.user, request).exclude(latitude__isnull=True).exclude(longitude__isnull=True)
+        qs = qs.filter(latitude__gte=south, latitude__lte=north)
+        qs = qs.filter(longitude__gte=west, longitude__lte=east) if west <= east else \
+            qs.filter(Q(longitude__gte=west) | Q(longitude__lte=east))
+        if year:
+            qs = qs.filter(date_taken__year=year)
+        if not include_planes:
+            qs = qs.exclude(altitude__gt=1000)
+        rows = qs.values("latitude", "longitude").annotate(n=Count("id"))[:20000]
+        return [{"lat": round(r["latitude"], 5), "lng": round(r["longitude"], 5), "count": r["n"]} for r in rows]
+    albums = Album_Subscriber.objects.filter(user=request.user).values("album_id")
+    qs = PhotoLocationCache.objects.filter(album_id__in=albums, lat__gte=south, lat__lte=north)
+    qs = qs.filter(lng__gte=west, lng__lte=east) if west <= east else qs.filter(Q(lng__gte=west) | Q(lng__lte=east))
+    if year:
+        qs = qs.filter(dt_year=year)
+    if not include_planes:
+        qs = qs.exclude(on_plane=True)  # NULL altitude means unknown, not "on a plane"
+    rows = qs.values("lat", "lng").annotate(n=Sum("cnt"))[:20000]
+    return [{"lat": float(r["lat"]), "lng": float(r["lng"]), "count": int(r["n"])} for r in rows]
+
+
+@router.get("/days", summary="Per local day in [start, end]: photos, videos, size_kb (day headers)")
+def days(request, start: datetime.date, end: datetime.date):
+    if end < start or (end - start).days > 400:
+        raise HttpError(400, "Pick a range of up to 400 days")
+    rollup = daily(request)
+    if rollup is not None:
+        rows = rollup.filter(day__gte=start, day__lte=end).values("day").annotate(
+            photos=Sum("photos"), videos=Sum("videos"), size_kb=Sum("size_total_kb"))
+        return {r["day"].isoformat(): {"photos": r["photos"], "videos": r["videos"], "size_kb": r["size_kb"]} for r in rows}
+    import pytz
+    from django.db.models.functions import TruncDate
+    tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
+    lo = tz.localize(datetime.datetime.combine(start, datetime.time())) if hasattr(tz, "localize") else datetime.datetime.combine(start, datetime.time(), tzinfo=tz)
+    hi = lo + datetime.timedelta(days=(end - start).days + 1)
+    rows = (library(request.user, request).filter(date_taken__gte=lo, date_taken__lt=hi)
+            .annotate(day=TruncDate("date_taken", tzinfo=tz)).values("day")
+            .annotate(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True)), size_kb=Sum("size_total")))
+    return {r["day"].isoformat(): {"photos": r["photos"], "videos": r["videos"], "size_kb": r["size_kb"] or 0} for r in rows}
+
+
 @router.get("/libraries", response=list[LibraryOut], summary="Library albums (camera folders) you can see")
 def libraries(request):
     subs = (Album_Subscriber.objects.filter(user=request.user).select_related("album")
@@ -224,7 +271,8 @@ def libraries(request):
 @router.get("/albums", response=list[ShareAlbumOut], summary="Shared albums you own or were added to")
 def albums(request):
     qs = (ShareAlbum.objects.filter(Q(owner=request.user) | Q(sharealbum_users_subscribed__user=request.user))
-          .distinct().select_related("cover_photo__album").annotate(count=Count("sharealbum_photos", distinct=True))
+          .distinct().select_related("cover_photo__album").annotate(count=Count("sharealbum_photos", distinct=True),
+                                                                    size_kb=Sum("sharealbum_photos__photo__size_total"))
           .order_by("name"))
     out = []
     for a in qs:
@@ -232,7 +280,7 @@ def albums(request):
             Photo.objects.filter(photo_in_sharealbum__sharealbum=a, hidden=False)
             .select_related("album").order_by("-date_taken").first())
         out.append({"id": a.id, "name": a.name, "description": a.description, "public": a.public,
-                    "mine": a.owner_id == request.user.id, "count": a.count, "cover": cover})
+                    "mine": a.owner_id == request.user.id, "count": a.count, "size_kb": a.size_kb or 0, "cover": cover})
     return out
 
 

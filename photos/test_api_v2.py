@@ -75,6 +75,19 @@ class PhotosApiTests(TestCase):
         r = self.client.get("/api/v2/photos/counts", {"start": day, "end": day}).json()
         self.assertEqual(sum(r.values()), sum(1 for p in self.photos if timezone.localdate(p.date_taken).isoformat() == day))
 
+    def test_points_days_and_album_size(self):
+        p = self.photos[0]
+        Photo.objects.filter(id=p.id).update(latitude=43.47, longitude=-80.54, size_total=500, size=400)
+        self.client.force_login(self.user)
+        pts = self.client.get("/api/v2/photos/points", {"south": 43, "west": -81, "north": 44, "east": -80}).json()
+        self.assertEqual([(round(x["lat"], 2), x["count"]) for x in pts], [(43.47, 1)])
+        self.assertEqual(self.client.get("/api/v2/photos/points", {"south": 0, "west": 0, "north": 1, "east": 1}).json(), [])
+        day = timezone.localdate(p.date_taken).isoformat()
+        days = self.client.get("/api/v2/photos/days", {"start": day, "end": day}).json()
+        self.assertEqual(days[day]["size_kb"] >= 500, True)
+        self.client.force_login(self.stranger)
+        self.assertEqual(self.client.get("/api/v2/photos/points", {"south": 43, "west": -81, "north": 44, "east": -80}).json(), [])
+
     def test_other_users_cannot_see_the_library(self):
         self.client.force_login(self.stranger)
         self.assertEqual(self.client.get(f"/api/v2/photos/{self.photos[0].id}").status_code, 404)
