@@ -7,7 +7,7 @@ import { toast } from '../../components/toast'
 import { get } from '../../lib/api'
 import { addMonths, dayKey, fmtDate, fmtTime, isSameDay, monthGrid, parseDayKey, startOfDay } from '../../lib/dates'
 import { keys, useCalendars, useCreateTask, useEvents } from '../../lib/queries'
-import { useQueryClient } from '@tanstack/react-query'
+import { useQueries, useQueryClient } from '@tanstack/react-query'
 import type { AgendaItem, CalEvent, Calendar, Task } from '../../lib/types'
 import { Switch } from '../../components/ui'
 import { useBirthdays, usePhotoCounts, useRangeTasks, useShowBirthdays, useShowTasks } from './extras'
@@ -113,6 +113,25 @@ function CalendarMain() {
   const [dlg, setDlg] = useState<Dlg>(null)
   // Events, photo counts and (optionally) tasks for the visible range load in parallel.
   const events = useEvents(range.start.toISOString(), range.end.toISOString())
+  // Disabled calendars whose events someone asked to see ("Show events"): one request each, only then.
+  const [peekCals, setPeekCals] = useState<number[]>([])
+  const togglePeek = useCallback((id: number) => setPeekCals((l) => (l.includes(id) ? l.filter((x) => x !== id) : [...l, id])), [])
+  const peeked = useQueries({
+    queries: peekCals.map((id) => {
+      const [start, end] = [range.start.toISOString(), range.end.toISOString()]
+      return {
+        queryKey: [...keys.events(start, end), { calendar: id }],
+        queryFn: ({ signal }: { signal: AbortSignal }) => get<CalEvent[]>('calendar/events', { start, end, calendar: id }, signal),
+        staleTime: 2 * 60_000,
+      }
+    }),
+  })
+  const peekedData = peeked.map((q) => q.data)
+  const allEvents = useMemo(() => {
+    const base = events.data ?? []
+    const extra = peekedData.flatMap((d) => d ?? []).filter((e) => peekCals.includes(e.calendar_id)).map((e) => ({ ...e, ghost: true }))
+    return extra.length ? [...base, ...extra] : base
+  }, [events.data, ...peekedData, peekCals]) // eslint-disable-line react-hooks/exhaustive-deps
   const photoCounts = usePhotoCounts(range.days).data
   // When the browser is idle, warm the next range's events so stepping forward is instant (one request, cached 2 min).
   const qc = useQueryClient()
@@ -150,7 +169,7 @@ function CalendarMain() {
     (e: CalEvent) => (e.display_colour ? readable(e.display_colour, dark ? SURFACE.dark : SURFACE.light) : colours.get(e.calendar_id) ?? FALLBACK),
     [colours, dark],
   )
-  const byDay = useMemo(() => eventsByDay(events.data ?? []), [events.data])
+  const byDay = useMemo(() => eventsByDay(allEvents), [allEvents])
 
   const go = (dir: number) => update({ date: stepDate(state.view, state.date, dir, weekDays) })
   // Drag in the week/day grid: move or resize (an occurrence of a repeating event moves alone).
@@ -284,7 +303,7 @@ function CalendarMain() {
 
   return (
     <AppShell app="calendar" fullHeight topbar={topbar} sidebar={<Sidebar date={state.date} onDate={(d) => update({ date: d })} calendars={(showDisabled ? allCalendars.data : null) ?? calendars.data} showTasks={showTasks} onShowTasks={setShowTasks} showBirthdays={showBirthdays} onShowBirthdays={setShowBirthdays}
-      showDisabled={showDisabled} onShowDisabled={setShowDisabled} onSettings={setSettingsFor} onNew={() => setNewCal(true)} onDialog={setDlg}
+      showDisabled={showDisabled} onShowDisabled={setShowDisabled} peekCals={peekCals} onPeek={togglePeek} onSettings={setSettingsFor} onNew={() => setNewCal(true)} onDialog={setDlg}
       updatedAt={events.dataUpdatedAt} refreshing={events.isFetching} onRefresh={() => (qc.invalidateQueries({ queryKey: ['calendar'] }), qc.invalidateQueries({ queryKey: ['photos', 'counts'] }), showTasks && qc.invalidateQueries({ queryKey: ['tasks', 'list'] }))} />}>
       <div className={'cal' + (events.isPlaceholderData ? ' loading' : '')}>
         {phone && (
@@ -305,7 +324,7 @@ function CalendarMain() {
             onClickCapture={(ev) => { lastClicked.current = ev.target as HTMLElement }}
             onDoubleClick={(ev) => {
               const id = (ev.target as HTMLElement).closest<HTMLElement>('[data-ev]')?.dataset.ev
-              const e = id && events.data?.find((x) => x.id === id)
+              const e = id && allEvents.find((x) => x.id === id)
               if (e && colours.has(e.calendar_id) && calendars.data?.find((c) => c.id === e.calendar_id)?.can_edit) editEvent(e)
             }}
           >
@@ -381,10 +400,10 @@ function CalendarMain() {
   )
 }
 
-function Sidebar({ date, onDate, calendars, showTasks, onShowTasks, showBirthdays, onShowBirthdays, showDisabled, onShowDisabled, onSettings, onNew, onDialog, updatedAt, refreshing, onRefresh }: {
+function Sidebar({ date, onDate, calendars, showTasks, onShowTasks, showBirthdays, onShowBirthdays, showDisabled, onShowDisabled, peekCals, onPeek, onSettings, onNew, onDialog, updatedAt, refreshing, onRefresh }: {
   date: Date; onDate: (d: Date) => void; calendars?: Calendar[]; showTasks: boolean; onShowTasks: (v: boolean) => void
   showBirthdays: boolean; onShowBirthdays: (v: boolean) => void
-  showDisabled: boolean; onShowDisabled: (v: boolean) => void; onSettings: (c: Calendar) => void; onNew: () => void
+  showDisabled: boolean; onShowDisabled: (v: boolean) => void; peekCals: number[]; onPeek: (id: number) => void; onSettings: (c: Calendar) => void; onNew: () => void
   onDialog: (d: Dlg) => void; updatedAt: number; refreshing: boolean; onRefresh: () => void
 }) {
   const toggle = useUpdateCalendar()
@@ -402,11 +421,11 @@ function Sidebar({ date, onDate, calendars, showTasks, onShowTasks, showBirthday
             style={{ '--c': readable(c.colour || FALLBACK, document.documentElement.getAttribute('data-bs-theme') === 'dark' ? SURFACE.dark : SURFACE.light) } as React.CSSProperties}
           />
           <span className="grow truncate">{c.name}</span>
-          {!c.active && <span className="chip">Disabled</span>}
+          {!c.active && <span className="chip">{peekCals.includes(c.id) ? 'Shown' : 'Disabled'}</span>}
           {c.synced && <Icon name="refresh" size={12} className="muted" title="Synced" />}
           {c.public && <Icon name="link" size={12} className="muted" title="Public" />}
         </label>
-        <CalendarMenu calendar={c} onSettings={() => onSettings(c)} onOnly={() => (calendars ?? []).forEach((o) => o.visible !== (o.id === c.id) && toggle.mutate({ id: o.id, visible: o.id === c.id }))} />
+        <CalendarMenu calendar={c} onSettings={() => onSettings(c)} onPeek={c.active ? undefined : () => onPeek(c.id)} peeking={peekCals.includes(c.id)} onOnly={() => (calendars ?? []).forEach((o) => o.visible !== (o.id === c.id) && toggle.mutate({ id: o.id, visible: o.id === c.id }))} />
       </div>
     ))
   return (

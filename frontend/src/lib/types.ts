@@ -44,6 +44,8 @@ export interface CalEvent {
   category_id?: number | null; category?: CategoryRef | null; legacy_category?: number
   place?: { id: string; name: string; address: string | null; latitude: number; longitude: number } | null
   meeting_url?: string; status?: 'confirmed' | 'tentative' | 'cancelled'; transparency?: 'busy' | 'free'
+  /** Client-only: from a disabled calendar shown on request (drawn greyed, read-only). */
+  ghost?: boolean
   visibility?: 'default' | 'public' | 'private'; colour?: string | null; icon?: string | null; display_colour?: string
   tags?: string[]; rrule?: string | null; recurrence_text?: string
 }

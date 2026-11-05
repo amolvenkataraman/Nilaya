@@ -44,13 +44,13 @@ export function EventChip({ e, colour, day, onClick }: { e: CalEvent; colour: st
     const cont = day && !isSameDay(first, day)
     const more = day && !isSameDay(last, day)
     return (
-      <button type="button" data-ev={e.id} className={'chip-ev allday' + (cont ? ' cont' : '') + (more ? ' more' : '')} style={style} onClick={(ev) => (ev.stopPropagation(), onClick())} title={label} aria-label={label}>
+      <button type="button" data-ev={e.id} className={'chip-ev allday' + (cont ? ' cont' : '') + (more ? ' more' : '') + (e.ghost ? ' ghost' : '')} style={style} onClick={(ev) => (ev.stopPropagation(), onClick())} title={label} aria-label={label}>
         {(e.icon || e.category?.icon) && <Icon name={(e.icon || e.category?.icon)!} size={11} />}<span className="truncate">{e.name}</span>
       </button>
     )
   }
   return (
-    <button type="button" data-ev={e.id} className={'chip-ev' + (e.completed ? ' done' : '')} style={style} onClick={(ev) => (ev.stopPropagation(), onClick())} title={label} aria-label={label}>
+    <button type="button" data-ev={e.id} className={'chip-ev' + (e.completed ? ' done' : '') + (e.ghost ? ' ghost' : '')} style={style} onClick={(ev) => (ev.stopPropagation(), onClick())} title={label} aria-label={label}>
       {e.kind === 'deadline' ? <Icon name="flag" size={11} className="chip-flag" /> : (e.icon || e.category?.icon) ? <Icon name={(e.icon || e.category?.icon)!} size={11} className="chip-flag" /> : <span className="chip-dot" />}
       {e.recurring && <Icon name="repeat" size={9} className="chip-rep" />}
       <span className="chip-time tabular">{fmtTime(new Date(e.start)).replace(/:00(?=\s|$)/, '').replace(/\s/g, '').toLowerCase()}</span>

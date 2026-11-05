@@ -12,6 +12,7 @@ import { ApiError, del, get, patch, post } from '../../lib/api'
 import { fmtDate, parseDayKey, shortStamp } from '../../lib/dates'
 import type { Calendar } from '../../lib/types'
 import { CAL_COLOURS, copyText, personName, publicUrl, type Person } from './calendarCommon'
+import { RangeSyncDialog, SOURCES, SourceFields, sourceProblem, syncError, useRunSync, type SourceType, type SyncResult } from './SyncSetup'
 
 export interface CalendarDetail extends Calendar {
   calendar_colour: string // the calendar's own colour (PATCH calendar_colour)
@@ -26,6 +27,7 @@ type CalendarPatchBody = Partial<{
   name: string; calendar_colour: string; my_colour: string | null; icon: string; description: string; active: boolean; public: boolean
   time_zone: string; tags: string[]
   visible: boolean; notify: boolean; display_busy: number; sync: Partial<{ url: string; auto_sync: boolean; past_months: number; future_months: number }>
+  calendar_type: number; calendar_url: string; auto_sync: boolean
 }>
 export interface Subscriber { id: number; user: Person; role: 'owner' | 'admin' | 'subscriber'; display_busy: number }
 export interface Invite { id: number; code: string; role: 'admin' | 'subscriber'; expires_on: string | null; max_uses: number | null; uses: number; active: boolean; usable: boolean }
@@ -249,7 +251,7 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
 
             {manage && full && <Subscribers cal={cal} />}
             {manage && full && <Invites cal={cal} />}
-            {(d.synced || d.sync?.url) && <Sync cal={d} canSync={manage} />}
+            {(d.synced || d.sync?.url || manage) && <Sync cal={d} canSync={manage} />}
             <Danger cal={d} onDone={onClose} />
           </>
         ) : null}
@@ -342,53 +344,103 @@ function Invites({ cal }: { cal: Calendar }) {
 }
 
 function Sync({ cal, canSync }: { cal: CalendarDetail; canSync: boolean }) {
-  const qc = useQueryClient()
   const save = useSaveCalendar(cal.id)
-  const sync = useMutation({
-    mutationFn: () => post<{ ok: boolean; not_modified?: boolean; last_synced_at?: string | null; last_sync_error?: string }>(`calendar/calendars/${cal.id}/sync`),
-    onSuccess: (r) => (r.ok ? toast.show(r.not_modified ? 'Already up to date' : 'Synced') : toast.error(r.last_sync_error || 'Sync failed')),
-    onError: (e) => toast.error(e instanceof ApiError && e.status === 503 ? 'Syncing is off on this server (offline mode).' : (e as Error).message),
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['calendar', 'detail', cal.id] })
-      qc.invalidateQueries({ queryKey: ['calendar', 'events'] })
-    },
-  })
+  const run = useRunSync(cal.id, cal.name)
+  const [ranging, setRanging] = useState(false)
+  const [disconnecting, setDisconnecting] = useState(false)
   const s = cal.sync
   const err = s?.last_sync_error || s?.last_error
+  const type = (cal.calendar_type === 2 || cal.calendar_type === 50 ? cal.calendar_type : 1) as SourceType
+  if (!cal.synced && canSync) return <SetupSync cal={cal} />
   return (
     <section className="cal-sec" aria-labelledby="cs-sync">
       <h3 id="cs-sync">Sync</h3>
-      {canSync ? <SyncUrl url={s?.url ?? ''} onSave={(url) => save.mutate({ sync: { url } })} /> : s?.url && <p className="small truncate muted" title={s.url}>{s.url}</p>}
+      {canSync && (
+        <div className="field"><span>Source</span>
+          <div className="seg cal-src-seg" role="group" aria-label="Source type">
+            {SOURCES.map((x) => <button key={x.type} type="button" aria-pressed={type === x.type} disabled={save.isPending}
+              onClick={() => x.type !== type && save.mutate({ calendar_type: x.type, ...(s?.url ? { calendar_url: s.url } : {}) })}>{x.label}</button>)}
+          </div>
+        </div>
+      )}
+      {canSync ? <SyncUrl url={s?.url ?? ''} type={type} onSave={(url) => save.mutate({ sync: { url } })} /> : s?.url && <p className="small truncate muted" title={s.url}>{s.url}</p>}
       <p className="small">{s?.last_synced_at ? <>Last synced {shortStamp(s.last_synced_at)}</> : 'Not synced yet'}</p>
       {err && <p className="error-text">{err}</p>}
       {canSync && s && (
         <>
           <div className="cal-row"><div><strong>Sync automatically</strong></div>
             <Switch checked={s.auto_sync} onChange={(v) => save.mutate({ sync: { auto_sync: v } })} label={<span className="sr-only">Auto sync</span>} /></div>
-          <div className="field-row">
+          {/* key: the fields restart from the saved values after each save */}
+          <div className="field-row" key={`${s.past_months}-${s.future_months}`}>
             <label className="field"><span>Months back</span>
-              <input className="input" type="number" min={0} max={60} defaultValue={s.past_months} onBlur={(e) => Number(e.target.value) !== s.past_months && save.mutate({ sync: { past_months: Number(e.target.value) } })} />
+              <input className="input" type="number" min={0} max={120} defaultValue={s.past_months}
+                onBlur={(e) => { const v = Math.max(0, Math.min(120, Number(e.target.value) || 0)); if (v !== s.past_months) save.mutate({ sync: { past_months: v } }) }} />
             </label>
             <label className="field"><span>Months ahead</span>
-              <input className="input" type="number" min={1} max={60} defaultValue={s.future_months} onBlur={(e) => Number(e.target.value) !== s.future_months && save.mutate({ sync: { future_months: Number(e.target.value) } })} />
+              <input className="input" type="number" min={0} max={120} defaultValue={s.future_months}
+                onBlur={(e) => { const v = Math.max(0, Math.min(120, Number(e.target.value) || 0)); if (v !== s.future_months) save.mutate({ sync: { future_months: v } }) }} />
             </label>
           </div>
         </>
       )}
-      {canSync && <button className="btn sm" onClick={() => sync.mutate()} disabled={sync.isPending}><Icon name="refresh" size={14} />{sync.isPending ? 'Syncing…' : 'Sync now'}</button>}
+      {canSync && (
+        <div className="row" style={{ gap: '0.375rem', flexWrap: 'wrap' }}>
+          <button className="btn sm" onClick={() => run.mutate(undefined)} disabled={run.isPending}><Icon name="refresh" size={14} />{run.isPending ? 'Syncing…' : 'Sync now'}</button>
+          <button className="btn sm" onClick={() => setRanging(true)}><Icon name="calendar" size={14} />Sync a range…</button>
+          <span className="spacer" />
+          <button className="btn ghost sm" onClick={() => setDisconnecting(true)}>Disconnect</button>
+        </div>
+      )}
+      {ranging && <RangeSyncDialog id={cal.id} name={cal.name} google={type === 2} open onClose={() => setRanging(false)} />}
+      <Dialog open={disconnecting} onClose={() => setDisconnecting(false)} title={`Disconnect "${cal.name}"?`} width="26rem"
+        footer={<><span className="spacer" /><button className="btn" onClick={() => setDisconnecting(false)}>Cancel</button>
+          <button className="btn primary" onClick={() => save.mutate({ calendar_type: 0 }, { onSuccess: () => (setDisconnecting(false), toast.show(`"${cal.name}" is a local calendar now`)) })} disabled={save.isPending}>Disconnect</button></>}>
+        <p className="small">It becomes a local calendar: the events already synced stay, and automatic syncing stops. You can connect it again later.</p>
+      </Dialog>
     </section>
   )
 }
 
-function SyncUrl({ url, onSave }: { url: string; onSave: (u: string) => void }) {
+/** A local calendar (owners/admins): connect it to a source. */
+function SetupSync({ cal }: { cal: CalendarDetail }) {
+  const save = useSaveCalendar(cal.id)
+  const run = useRunSync(cal.id, cal.name)
+  const [open, setOpen] = useState(false)
+  const [type, setType] = useState<SourceType>(1)
+  const [url, setUrl] = useState('')
+  const [auto, setAuto] = useState(true)
+  const connect = () => save.mutate({ calendar_type: type, calendar_url: url.trim(), auto_sync: auto }, { onSuccess: () => run.mutate(undefined) })
+  return (
+    <section className="cal-sec" aria-labelledby="cs-sync">
+      <h3 id="cs-sync">Sync</h3>
+      {!open ? (
+        <div className="cal-row"><div><strong>Local calendar</strong><p className="muted xsmall">Fill it from an iCalendar link, a public Google calendar or UWaterloo WCMS.</p></div>
+          <button className="btn sm" onClick={() => setOpen(true)}><Icon name="refresh" size={14} />Set up sync</button></div>
+      ) : (
+        <div className="stack" style={{ gap: '0.75rem' }}>
+          <SourceFields type={type} url={url} onType={setType} onUrl={setUrl} autoFocus />
+          <div className="cal-row"><div><strong>Sync automatically</strong></div><Switch checked={auto} onChange={setAuto} label={<span className="sr-only">Sync automatically</span>} /></div>
+          <div className="row" style={{ gap: '0.375rem' }}>
+            <span className="spacer" />
+            <button className="btn sm" onClick={() => setOpen(false)}>Cancel</button>
+            <button className="btn primary sm" onClick={connect} disabled={!!sourceProblem(type, url) || save.isPending || run.isPending}>{save.isPending || run.isPending ? 'Connecting…' : 'Connect'}</button>
+          </div>
+        </div>
+      )}
+    </section>
+  )
+}
+
+function SyncUrl({ url, type, onSave }: { url: string; type: SourceType; onSave: (u: string) => void }) {
   const [v, setV] = useState(url)
   useEffect(() => setV(url), [url])
-  const ok = !v.trim() || /^(https?|webcal):\/\//i.test(v.trim())
+  const problem = sourceProblem(type, v)
+  const src = SOURCES.find((x) => x.type === type)!
   return (
-    <label className="field"><span>Source (iCal link)</span>
-      <input className="input" type="url" value={v} maxLength={256} placeholder="https://…/calendar.ics" aria-invalid={!ok}
-        onChange={(e) => setV(e.target.value)} onBlur={() => ok && v.trim() !== url && onSave(v.trim())} />
-      {!ok && <span className="error-text">Use an http(s) or webcal link.</span>}
+    <label className="field"><span>{src.field}</span>
+      <input className="input" value={v} maxLength={256} placeholder={src.placeholder} aria-invalid={!!problem} spellCheck={false}
+        onChange={(e) => setV(e.target.value)} onBlur={() => !problem && v.trim() !== url && onSave(v.trim())} />
+      {problem && <span className="error-text">{problem}</span>}
     </label>
   )
 }
@@ -442,20 +494,63 @@ function Danger({ cal, onDone }: { cal: CalendarDetail; onDone: () => void }) {
 export function NewCalendarDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (c: Calendar) => void }) {
   const qc = useQueryClient()
   const icons = useIcons().data ?? FALLBACK_ICONS
+  const [mode, setMode] = useState<'blank' | 'sync'>('blank')
   const [name, setName] = useState('')
   const [colour, setColour] = useState(CAL_COLOURS[0])
   const [icon, setIcon] = useState('calendar')
-  useEffect(() => { if (open) { setName(''); setColour(CAL_COLOURS[0]); setIcon('calendar') } }, [open])
+  const [type, setType] = useState<SourceType>(1)
+  const [url, setUrl] = useState('')
+  const [auto, setAuto] = useState(true)
+  const [back, setBack] = useState(1)
+  const [ahead, setAhead] = useState(6)
+  useEffect(() => {
+    if (open) { setMode('blank'); setName(''); setColour(CAL_COLOURS[0]); setIcon('calendar'); setType(1); setUrl(''); setAuto(true); setBack(1); setAhead(6) }
+  }, [open])
+  const syncing = mode === 'sync'
   const create = useMutation({
-    mutationFn: () => post<Calendar>('calendar/calendars', { name: name.trim(), colour, icon }),
-    onSuccess: (c) => (qc.invalidateQueries({ queryKey: ['calendar'] }), toast.show(`Created "${c.name}"`), onClose(), onCreated(c)),
+    mutationFn: () => post<Calendar>('calendar/calendars', {
+      name: name.trim(), colour, icon,
+      ...(syncing ? { calendar_type: type, calendar_url: url.trim(), auto_sync: auto, sync_past_months: back, sync_future_months: ahead } : {}),
+    }),
+    onSuccess: async (c) => {
+      qc.invalidateQueries({ queryKey: ['calendar'] })
+      onClose()
+      onCreated(c)
+      if (!syncing) return void toast.show(`Created "${c.name}"`)
+      // First sync right away: its result is the toast.
+      try {
+        const r = await post<SyncResult>(`calendar/calendars/${c.id}/sync`)
+        if (r.ok) toast.show(`Created and synced "${c.name}"`)
+        else toast.error(`Created "${c.name}", but the first sync failed: ${r.last_sync_error || 'unknown error'}`)
+      } catch (e) {
+        toast.error(`Created "${c.name}", but it didn't sync: ${syncError(e)}`)
+      } finally {
+        qc.invalidateQueries({ queryKey: ['calendar'] })
+      }
+    },
     onError,
   })
+  const ok = !!name.trim() && (!syncing || !sourceProblem(type, url))
   return (
-    <Dialog open={open} onClose={onClose} title="New calendar" width="28rem"
-      footer={<><span className="spacer" /><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!name.trim() || create.isPending} onClick={() => create.mutate()}>Create calendar</button></>}>
-      <form className="stack" style={{ gap: '0.75rem' }} onSubmit={(e) => (e.preventDefault(), name.trim() && create.mutate())}>
-        <label className="field"><span>Name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={100} autoFocus /></label>
+    <Dialog open={open} onClose={onClose} title="New calendar" width="32rem"
+      footer={<><span className="spacer" /><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!ok || create.isPending} onClick={() => create.mutate()}>{syncing ? 'Create and sync' : 'Create calendar'}</button></>}>
+      <form className="stack" style={{ gap: '0.75rem' }} onSubmit={(e) => (e.preventDefault(), ok && create.mutate())}>
+        <div className="seg cal-mode-seg" role="group" aria-label="Kind of calendar">
+          <button type="button" aria-pressed={!syncing} onClick={() => setMode('blank')}><Icon name="calendar" size={14} />Blank calendar</button>
+          <button type="button" aria-pressed={syncing} onClick={() => setMode('sync')}><Icon name="refresh" size={14} />Sync from a link</button>
+        </div>
+        {syncing && <SourceFields type={type} url={url} onType={setType} onUrl={setUrl} onName={(n) => setName((cur) => cur.trim() ? cur : n.slice(0, 64))} autoFocus />}
+        <label className="field"><span>Name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={64} autoFocus={!syncing} /></label>
+        {syncing && (
+          <>
+            <div className="cal-row"><div><strong>Sync automatically</strong><p className="muted xsmall">Keeps it up to date in the background.</p></div>
+              <Switch checked={auto} onChange={setAuto} label={<span className="sr-only">Sync automatically</span>} /></div>
+            <div className="field-row">
+              <label className="field"><span>Months back</span><input className="input" type="number" min={0} max={120} value={back} onChange={(e) => setBack(Math.max(0, Math.min(120, Number(e.target.value) || 0)))} /></label>
+              <label className="field"><span>Months ahead</span><input className="input" type="number" min={0} max={120} value={ahead} onChange={(e) => setAhead(Math.max(0, Math.min(120, Number(e.target.value) || 0)))} /></label>
+            </div>
+          </>
+        )}
         <Picker label="Colour" custom value={colour} options={CAL_COLOURS} onPick={setColour} render={(c) => <span className="cal-swatch" style={{ background: c }}>{c === colour && <Icon name="check" size={12} />}</span>} />
         <Picker label="Icon" value={icon} options={icons} onPick={setIcon} render={(i) => <Icon name={i} size={15} />} />
       </form>

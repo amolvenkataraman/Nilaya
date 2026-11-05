@@ -20,7 +20,11 @@ export function copyText(text: string, done = 'Copied') {
 const onError = (e: unknown) => toast.error((e as Error).message)
 
 /** "…" menu next to a calendar in the sidebar. */
-export function CalendarMenu({ calendar, onSettings, onOnly }: { calendar: Calendar; onSettings: () => void; onOnly?: () => void }) {
+export function CalendarMenu({ calendar, onSettings, onOnly, onPeek, peeking }: {
+  calendar: Calendar; onSettings: () => void; onOnly?: () => void
+  /** Disabled calendars: show (or hide) its events without enabling it. */
+  onPeek?: () => void; peeking?: boolean
+}) {
   const qc = useQueryClient()
   const editor = calendar.role === 'owner' || calendar.role === 'admin'
   const sync = useMutation({
@@ -45,7 +49,8 @@ export function CalendarMenu({ calendar, onSettings, onOnly }: { calendar: Calen
     )}>
       {(close) => (
         <>
-          {onOnly && <MenuItem icon="calendar" onClick={() => (close(), onOnly())}>Display this only</MenuItem>}
+          {onPeek && <MenuItem icon={peeking ? 'eyeOff' : 'eye'} onClick={() => (close(), onPeek())}>{peeking ? 'Hide its events' : 'Show events (read-only)'}</MenuItem>}
+          {onOnly && calendar.active && <MenuItem icon="calendar" onClick={() => (close(), onOnly())}>Display this only</MenuItem>}
           <MenuItem icon="settings" onClick={() => (close(), onSettings())}>Settings and sharing</MenuItem>
           {calendar.synced && editor && <MenuItem icon="refresh" onClick={() => (close(), sync.mutate())}>Sync now</MenuItem>}
           {calendar.public && <MenuItem icon="link" onClick={() => (close(), copyText(publicUrl(calendar.id), 'Public link copied'))}>Copy public link</MenuItem>}

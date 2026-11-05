@@ -213,7 +213,7 @@ function DayColumn({ day, items, colour, onEvent, onCreate, nowMin, tasks, onTas
             key={e.id}
             type="button"
             data-ev={e.id}
-            className={'ev' + (e.kind === 'deadline' ? ' deadline' : '') + (dur < 45 ? ' short' : dur < 80 ? ' mid' : '') + (e.completed ? ' done' : '') + (draggingId === e.id ? ' drag-src' : '') + (canEdit?.(e) ? ' movable' : '')}
+            className={'ev' + (e.kind === 'deadline' ? ' deadline' : '') + (dur < 45 ? ' short' : dur < 80 ? ' mid' : '') + (e.completed ? ' done' : '') + (draggingId === e.id ? ' drag-src' : '') + (canEdit?.(e) ? ' movable' : '') + (e.ghost ? ' ghost' : '')}
             style={{
               '--c': colour(e),
               top: `${(startMin / 1440) * 100}%`,

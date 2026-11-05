@@ -140,3 +140,23 @@ export function hours(h: number): string {
   if (h < 1) return `${Math.round(h * 60)} min`
   return `${Math.round(h * 10) / 10} h`
 }
+
+// ---------------------------------------------------------------- manual range sync (V1's "Sync events")
+/** A month range for syncing: 0-based months, end exclusive (the first of the end month), as in V1. */
+export interface MonthRange { sm: number; sy: number; em: number; ey: number }
+
+/** V1's term presets. "This term" (T) starts this month; "Full term" (TF) starts at the term's first month.
+ *  Terms: Sep–Dec (ends Jan 1 next year), Jan–Apr (ends May 1), May–Aug (ends Oct 1). */
+export function termRange(today: Date, full: boolean): MonthRange {
+  const m = today.getMonth()
+  const y = today.getFullYear()
+  if (m >= 8) return { sm: full ? 8 : m, sy: y, em: 0, ey: y + 1 }
+  if (m <= 3) return { sm: full ? 0 : m, sy: y, em: 4, ey: y }
+  return { sm: full ? 4 : m, sy: y, em: 9, ey: y }
+}
+
+/** POST /calendar/calendars/{id}/sync body: the first day of each month, [start, end). */
+export function rangeBody(r: MonthRange): { start: string; end: string } {
+  const d = (y: number, m: number) => `${y}-${String(m + 1).padStart(2, '0')}-01`
+  return { start: d(r.sy, r.sm), end: d(r.ey, r.em) }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { eventsByDay, layoutDay, parseCalState, viewRange } from './util'
+import { eventsByDay, layoutDay, parseCalState, rangeBody, termRange, viewRange } from './util'
 import type { CalEvent } from '../../lib/types'
 
 const ev = (id: string, s: Date, e: Date | null, all_day = false): CalEvent => ({
@@ -33,5 +33,18 @@ describe('calendar layout', () => {
     expect(r.start.getDay()).toBe(1)
     expect(r.days).toHaveLength(7)
     expect(viewRange('week', s.date, 3).start.getDate()).toBe(4)
+  })
+})
+
+describe('range sync presets (V1)', () => {
+  it('matches V1 "This term" and "Full term" in each term', () => {
+    const nov = new Date(2026, 10, 5), feb = new Date(2026, 1, 9), jun = new Date(2026, 5, 1)
+    expect(termRange(nov, false)).toEqual({ sm: 10, sy: 2026, em: 0, ey: 2027 })
+    expect(termRange(nov, true)).toEqual({ sm: 8, sy: 2026, em: 0, ey: 2027 })
+    expect(termRange(feb, false)).toEqual({ sm: 1, sy: 2026, em: 4, ey: 2026 })
+    expect(termRange(feb, true)).toEqual({ sm: 0, sy: 2026, em: 4, ey: 2026 })
+    expect(termRange(jun, false)).toEqual({ sm: 5, sy: 2026, em: 9, ey: 2026 })
+    expect(termRange(jun, true)).toEqual({ sm: 4, sy: 2026, em: 9, ey: 2026 })
+    expect(rangeBody({ sm: 8, sy: 2026, em: 0, ey: 2027 })).toEqual({ start: '2026-09-01', end: '2027-01-01' })
   })
 })
