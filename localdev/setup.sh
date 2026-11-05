@@ -20,7 +20,10 @@ for f in secret.txt salt.txt; do
 done
 chmod 700 "$DATA/secrets"; chmod 600 "$DATA/secrets"/*
 
-# 3. DB + dummy data
+# 3. third-party front-end files (downloaded + checksum-verified, not committed)
+static_files/fetch_vendor.sh > /dev/null
+
+# 4. DB + dummy data
 export DJANGO_SETTINGS_MODULE=Comptech.settings_local
 .venv/bin/python manage.py migrate -v0
 .venv/bin/python manage.py seed_local "$@"

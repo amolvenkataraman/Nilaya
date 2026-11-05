@@ -24,6 +24,7 @@ Reseed from scratch: `DJANGO_SETTINGS_MODULE=Comptech.settings_local .venv/bin/p
 | Secrets in `Comptech/*.txt` | Generated in `localdev/data/secrets/` (`COMPTECH_SECRETS_DIR`) |
 | Ingest copies files | Ingest **hardlinks** (`PHOTOS_INGEST_HARDLINK`): no extra disk, and the originals are never modified (no app code writes library files in place; video compression writes a new `_cmp.mp4`). Don't run the one-off `scripts/` that rewrite EXIF against this library |
 | AI indexing (ultralytics/torch) | Off, and not installed |
+| Third-party JS/CSS (`static_files/fetch_vendor.sh`) | Same: downloaded and SHA-256-verified from `static_files/vendor.lock`, not committed |
 | `ONLINE_MODE = True` | `False` (no calendar sync or Nominatim calls) |
 
 `localdev/data/` and `.venv/` are gitignored.
