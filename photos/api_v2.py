@@ -13,6 +13,10 @@ from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja import Router, Schema
 
+from ninja import Field
+from ninja.errors import HttpError
+
+from . import hidden as hidden_mode
 from .models import Album_Subscriber, Photo, ShareAlbum
 
 router = Router(tags=["photos"])
@@ -107,9 +111,11 @@ class SummaryOut(Schema):
     per_year: list[dict]
 
 
-def library(user):
-    """Every photo the user can see through the library albums they subscribe to."""
-    return Photo.objects.filter(album__users_subscribed__user=user, file_not_available=False)
+def library(user, request=None):
+    """Every photo the user can see through the library albums they subscribe to.
+    Hidden photos are left out unless the owner has show-hidden mode on (pass the request)."""
+    qs = Photo.objects.filter(album__users_subscribed__user=user, file_not_available=False)
+    return hidden_mode.visible(qs, request)
 
 
 def _page(qs, before, limit):
@@ -125,7 +131,7 @@ def _page(qs, before, limit):
 @router.get("/timeline", response=PageOut, summary="Newest first; pass next_before to get the next page")
 def timeline(request, before: Optional[datetime.datetime] = None, limit: int = 120,
              video: Optional[bool] = None, country: str = "", city: str = ""):
-    qs = library(request.user)
+    qs = library(request.user, request)
     if video is not None:
         qs = qs.filter(video=video)
     if country:
@@ -138,7 +144,7 @@ def timeline(request, before: Optional[datetime.datetime] = None, limit: int = 1
 @router.get("/on-this-day", response=list[YearGroup], summary="Photos from today's date in earlier years")
 def on_this_day(request, per_year: int = 12):
     today = timezone.localdate()
-    qs = (library(request.user).select_related("album")
+    qs = (library(request.user, request).select_related("album")
           .filter(date_taken__month=today.month, date_taken__day=today.day, date_taken__year__lt=today.year)
           .order_by("-date_taken"))
     groups = {}
@@ -151,7 +157,7 @@ def on_this_day(request, per_year: int = 12):
 
 @router.get("/summary", response=SummaryOut)
 def summary(request):
-    qs = library(request.user)
+    qs = library(request.user, request)
     agg = qs.aggregate(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True)),
                        size=Sum("size_total"), first=Min("date_taken"), last=Max("date_taken"))
     top = lambda field: [{"name": r[field], "count": r["n"]} for r in
@@ -178,8 +184,9 @@ def albums(request):
           .order_by("name"))
     out = []
     for a in qs:
-        cover = a.cover_photo or (Photo.objects.filter(photo_in_sharealbum__sharealbum=a)
-                                  .select_related("album").order_by("-date_taken").first())
+        cover = a.cover_photo if a.cover_photo and not a.cover_photo.hidden else (
+            Photo.objects.filter(photo_in_sharealbum__sharealbum=a, hidden=False)
+            .select_related("album").order_by("-date_taken").first())
         out.append({"id": a.id, "name": a.name, "description": a.description, "public": a.public,
                     "mine": a.owner_id == request.user.id, "count": a.count, "cover": cover})
     return out
@@ -190,9 +197,44 @@ def album_photos(request, album_id: uuid.UUID, before: Optional[datetime.datetim
     album = get_object_or_404(ShareAlbum.objects.filter(
         Q(owner=request.user) | Q(sharealbum_users_subscribed__user=request.user) | Q(public=True)).distinct(),
         id=album_id)
-    return _page(Photo.objects.filter(photo_in_sharealbum__sharealbum=album), before, limit)
+    return _page(hidden_mode.visible(Photo.objects.filter(photo_in_sharealbum__sharealbum=album), request), before, limit)
 
 
 @router.get("/{uuid:photo_id}", response=PhotoOut)
 def photo(request, photo_id: uuid.UUID):
-    return get_object_or_404(library(request.user).select_related("album"), id=photo_id)
+    return get_object_or_404(library(request.user, request).select_related("album"), id=photo_id)
+
+
+# ---------------------------------------------------------------- hidden photos
+
+class HideIn(Schema):
+    ids: list[uuid.UUID] = Field(..., max_length=1000)
+    hidden: bool = True
+
+
+class HiddenModeIn(Schema):
+    show: bool
+
+
+@router.post("/hide", summary="Hide or unhide your own photos")
+def hide(request, payload: HideIn):
+    changed = Photo.objects.filter(id__in=payload.ids, owner=request.user).exclude(hidden=payload.hidden) \
+        .update(hidden=payload.hidden)
+    if changed:
+        from django.db import transaction
+        from .models import refresh_photo_location_cache
+        transaction.on_commit(refresh_photo_location_cache)  # the heat map leaves hidden photos out
+    return {"changed": changed}
+
+
+@router.get("/hidden-mode", summary="Whether show-hidden mode is on for this browser session")
+def get_hidden_mode(request):
+    return {"show": hidden_mode.show_hidden(request), "minutes": int(hidden_mode.WINDOW.total_seconds() // 60)}
+
+
+@router.post("/hidden-mode", summary="Turn show-hidden mode on or off (browser session only; off after 30 minutes)")
+def set_hidden_mode(request, payload: HiddenModeIn):
+    from apikeys.models import ApiKey
+    if isinstance(getattr(request, "auth", None), ApiKey):
+        raise HttpError(403, "Show-hidden mode can only be turned on from a signed-in browser")
+    return {"show": hidden_mode.set_show_hidden(request, payload.show)}

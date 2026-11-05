@@ -63,7 +63,7 @@ def get_events(request):
     ).order_by('complete_by')]
 
     # Photos per local day, counted in the database (not by loading every photo).
-    per_day = (Photo.objects.filter(album__in=albums, date_taken__gte=month_start, date_taken__lt=month_end)
+    per_day = (Photo.objects.filter(album__in=albums, hidden=False, date_taken__gte=month_start, date_taken__lt=month_end)
                .annotate(day=ExtractDay('date_taken', tzinfo=tz)).values('day').annotate(n=Count('id')))
     ans["data"]["photos"] = {row['day']: row['n'] for row in per_day}
 

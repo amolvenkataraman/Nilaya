@@ -157,6 +157,7 @@ class Photo(models.Model):
     metadata = models.JSONField(default=dict, null=True, blank=True)
     ai_index_info = models.JSONField(default=dict, null=True, blank=True)
     file_not_available = models.BooleanField(default=False)
+    hidden = models.BooleanField(default=False, db_index=True, help_text="Hidden from everyone; the owner sees it only in show-hidden mode")
 
     # Duplicate detection — stored as flat columns for fast DB-level lookups
     md5_hash = models.CharField(max_length=32, null=True, blank=True, help_text="MD5 of the file bytes — exact duplicate detection")
