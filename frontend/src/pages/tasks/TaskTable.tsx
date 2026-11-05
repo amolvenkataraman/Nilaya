@@ -1,25 +1,28 @@
 // Table layout for tasks: every field as a column, sortable by clicking a header, columns can be
-// shown or hidden (remembered on this device).
-import { useMemo, useState } from 'react'
+// shown or hidden (remembered on this device). Rows can be multi-selected (checkbox, Shift, Ctrl/Cmd).
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { Menu, MenuItem } from '../../components/ui'
 import { Ring, TaskCheck, dueTone, fmtMinutes } from '../../components/TaskRow'
 import { dueLabel, shortStamp } from '../../lib/dates'
 import type { Label, Task } from '../../lib/types'
+import type { Selection } from './selection'
+import { labelStyle } from './Labels'
 
 type Col = { key: string; label: string; get: (t: Task) => string | number; render?: (t: Task) => React.ReactNode }
 const COLS_KEY = 'app.tasks.tableCols'
 
-export function TaskTable({ tasks, labels, pathOf, onOpen, onToggle, selected }: {
+export function TaskTable({ tasks, labels, pathOf, onOpen, onToggle, selected, sel }: {
   tasks: Task[]; labels?: Label[]; pathOf: Map<string, string>; onOpen: (t: Task) => void; onToggle: (t: Task) => void; selected: string | null
+  sel?: Selection
 }) {
   const labelName = useMemo(() => new Map((labels ?? []).map((l) => [l.id, l])), [labels])
   const cols: Col[] = [
     { key: 'project', label: 'Project', get: (t) => (t.project_id ? pathOf.get(t.project_id) ?? '' : '') },
     { key: 'due', label: 'Due', get: (t) => t.due ?? '9999', render: (t) => (t.due ? <span className={'meta-due ' + dueTone(t.due, t.done)}>{dueLabel(t.due)}</span> : '') },
     { key: 'start', label: 'Start', get: (t) => t.start ?? '9999', render: (t) => (t.start ? dueLabel(t.start) : '') },
-    { key: 'priority', label: 'Priority', get: (t) => -t.priority, render: (t) => <span className={t.priority >= 20 ? 'danger-text' : t.priority >= 15 ? 'warn-text' : ''}>{t.priority_label}</span> },
-    { key: 'labels', label: 'Labels', get: (t) => t.labels.map((id) => labelName.get(id)?.name ?? '').join(','), render: (t) => <span className="tt-chips">{t.labels.map((id) => labelName.get(id)).filter(Boolean).map((l) => <span key={l!.id} className="chip">{l!.name}</span>)}</span> },
+    { key: 'priority', label: 'Priority', get: (t) => -t.priority, render: (t) => <span className={t.priority >= 20 ? 'danger-text' : t.priority >= 15 ? 'warn-text' : ''}>{t.priority ? t.priority_label : 'None'}</span> },
+    { key: 'labels', label: 'Labels', get: (t) => t.labels.map((id) => labelName.get(id)?.name ?? '').join(','), render: (t) => <span className="tt-chips">{t.labels.map((id) => labelName.get(id)).filter(Boolean).map((l) => <span key={l!.id} className="label-chip" style={labelStyle(l!.colour)}>{l!.name}</span>)}</span> },
     { key: 'assignees', label: 'Assignees', get: (t) => t.assignees.map((a) => a.name || a.username).join(', ') },
     { key: 'progress', label: 'Progress', get: (t) => t.percent, render: (t) => (t.percent ? <span className="row" style={{ gap: '0.25rem' }}><Ring value={t.percent} />{t.percent}%</span> : '') },
     { key: 'time', label: 'Time spent', get: (t) => t.time_spent, render: (t) => (t.time_spent ? fmtMinutes(t.time_spent) : '') },
@@ -55,6 +58,16 @@ export function TaskTable({ tasks, labels, pathOf, onOpen, onToggle, selected }:
       return (x < y ? -1 : x > y ? 1 : 0) * sort.dir
     })
   }, [tasks, sort])
+  const order = rows.map((t) => t.id)
+  const picked = sel ? rows.filter((t) => sel.has(t.id)).length : 0
+  const allBox = useRef<HTMLInputElement>(null)
+  useEffect(() => { if (allBox.current) allBox.current.indeterminate = picked > 0 && picked < rows.length }, [picked, rows.length])
+  /** Modifier clicks select instead of opening; a plain click on a row clears the selection. */
+  const rowClick = (e: React.MouseEvent, t: Task) => {
+    if (sel?.click(e, t.id, order)) return e.preventDefault()
+    sel?.clear()
+    onOpen(t)
+  }
   const head = (key: string, label: string) => (
     <th key={key} scope="col">
       <button className="tt-sort" onClick={() => setSort((s) => (s?.key === key ? (s.dir === 1 ? { key, dir: -1 } : null) : { key, dir: 1 }))} aria-sort={sort?.key === key ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
@@ -73,16 +86,22 @@ export function TaskTable({ tasks, labels, pathOf, onOpen, onToggle, selected }:
       </div>
       <div className="tt-scroll">
         <table className="tt">
-          <thead><tr><th scope="col" className="tt-check" aria-label="Done" />{head('title', 'Title')}{visible.map((c) => head(c.key, c.label))}</tr></thead>
+          <thead><tr>{sel && <th scope="col" className="tt-sel"><input ref={allBox} type="checkbox" className="sel-box" checked={rows.length > 0 && picked === rows.length} onChange={() => (picked === rows.length ? sel.clear() : sel.set(order))} aria-label="Select all" /></th>}<th scope="col" className="tt-check" aria-label="Done" />{head('title', 'Title')}{visible.map((c) => head(c.key, c.label))}</tr></thead>
           <tbody>
             {rows.map((t) => (
-              <tr key={t.id} className={(t.done ? 'done ' : '') + (t.id === selected ? 'sel' : '')} onClick={() => onOpen(t)}>
+              <tr key={t.id} data-task={t.id} className={(t.done ? 'done ' : '') + (t.id === selected ? 'sel ' : '') + (sel?.has(t.id) ? 'picked' : '')} onClick={(e) => rowClick(e, t)}>
+                {sel && (
+                  <td className="tt-sel" onClick={(e) => e.stopPropagation()}>
+                    <input type="checkbox" className="sel-box" checked={sel.has(t.id)} aria-label={`Select "${t.title}"`}
+                      onChange={(e) => ((e.nativeEvent as MouseEvent).shiftKey ? sel.range(order, t.id) : sel.toggle(t.id))} />
+                  </td>
+                )}
                 <td className="tt-check" onClick={(e) => e.stopPropagation()}><TaskCheck task={t} onToggle={() => onToggle(t)} /></td>
-                <td className="tt-title"><button onClick={(e) => (e.stopPropagation(), onOpen(t))}>{t.title}</button></td>
+                <td className="tt-title"><button onClick={(e) => (e.stopPropagation(), rowClick(e, t))}>{t.title}</button></td>
                 {visible.map((c) => <td key={c.key}>{c.render ? c.render(t) : String(c.get(t) || '')}</td>)}
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={visible.length + 2} className="empty">No tasks here.</td></tr>}
+            {rows.length === 0 && <tr><td colSpan={visible.length + (sel ? 3 : 2)} className="empty">No tasks here.</td></tr>}
           </tbody>
         </table>
       </div>

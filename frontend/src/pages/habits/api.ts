@@ -19,7 +19,11 @@ export interface TodayRow {
   habit: Habit; due: boolean; done: boolean; over: boolean; value: number; skipped: boolean; note: string
   period_value: number; period_required: number; streak: number; streak_unit: Period
 }
-export interface Today { date: string; done: number; total: number; left: number; over: number; habits: TodayRow[] }
+export interface Today {
+  date: string; done: number; total: number; left: number; over: number
+  /** Days/periods met and judged in the last 7 days, all active habits. */
+  week_done: number; week_judged: number; habits: TodayRow[]
+}
 export interface Entry { habit_id: string; date: string; value: number; note: string; skipped: boolean }
 export interface Streak { habit_id: string; name: string; colour: string; current: number; best: number; unit: Period }
 export interface Overview { date: string; done: number; total: number; left: number; over: number; week_rate: number | null; streaks: Streak[] }
@@ -42,7 +46,8 @@ export const hk = {
   list: (archived: boolean) => ['habits', 'list', archived] as const,
   entries: (start: string, end: string) => ['habits', 'entries', start, end] as const,
   stats: (id: string) => ['habits', 'stats', id] as const,
-  settings: ['habits', 'settings'] as const,
+  // Shared with Notifications › Reminders (one cached copy); outside ['habits'], so check-ins never refetch it.
+  settings: ['settings', 'habits/settings'] as const,
 }
 
 const onError = (e: unknown) => toast.error((e as Error).message)
@@ -62,8 +67,8 @@ function refreshDerived(qc: QueryClient) {
   qc.invalidateQueries({ queryKey: hk.all, predicate: (q) => q.queryKey[1] !== 'settings' })
 }
 
-/** Optimistically reflect a new day value in Today and in every cached entries range. */
-function patchCaches(qc: QueryClient, habit: Habit, day: string, value: number | null, skipped = false) {
+/** Optimistically reflect a new day value (and note; undefined keeps it) in Today and in every cached entries range. */
+function patchCaches(qc: QueryClient, habit: Habit, day: string, value: number | null, skipped = false, note?: string) {
   const today = qc.getQueryData<Today>(hk.today)
   if (today && today.date === day) {
     qc.setQueryData<Today>(hk.today, {
@@ -73,14 +78,16 @@ function patchCaches(qc: QueryClient, habit: Habit, day: string, value: number |
         const v = value ?? 0
         const periodValue = r.period_value - r.value + v
         const done = habit.goal === 'at_least' ? periodValue >= r.period_required : periodValue <= r.period_required
-        return { ...r, value: v, skipped, period_value: periodValue, done, over: habit.goal === 'at_most' && periodValue > r.period_required }
+        return { ...r, value: v, skipped, note: note ?? r.note, period_value: periodValue, done, over: habit.goal === 'at_most' && periodValue > r.period_required }
       }),
     })
   }
   for (const [key, data] of qc.getQueriesData<Entry[]>({ queryKey: ['habits', 'entries'] })) {
     if (!data) continue
-    const rest = data.filter((e) => !(e.habit_id === habit.id && e.date === day))
-    qc.setQueryData<Entry[]>(key, value === null && !skipped ? rest : [...rest, { habit_id: habit.id, date: day, value: value ?? 0, note: '', skipped }])
+    const old = data.find((e) => e.habit_id === habit.id && e.date === day)
+    const rest = old ? data.filter((e) => e !== old) : data
+    const n = note ?? old?.note ?? ''
+    qc.setQueryData<Entry[]>(key, !value && !skipped && !n ? rest : [...rest, { habit_id: habit.id, date: day, value: value ?? 0, note: n, skipped }])
   }
 }
 
@@ -110,21 +117,24 @@ export function useCheck() {
   })
 }
 
-/** Set a day's value / skip, or clear it (value null and not skipped). */
+/** Set a day's value / skip / note (undefined keeps the stored note). The server drops a day left empty. */
 export function useSetEntry() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ habit, day, value, skipped, note }: { habit: Habit; day: string; value: number | null; skipped?: boolean; note?: string }) =>
-      value === null && !skipped && !note
-        ? del(`habits/entries/${habit.id}/${day}`)
-        : api(`habits/entries/${habit.id}/${day}`, { method: 'PUT', body: { value: value ?? 0, skipped: !!skipped, ...(note !== undefined ? { note } : {}) } }),
-    onMutate: async ({ habit, day, value, skipped }) => {
+      api<Entry & { today: TodayRow }>(`habits/entries/${habit.id}/${day}`, {
+        method: 'PUT', body: { value: value ?? 0, skipped: !!skipped, ...(note !== undefined ? { note } : {}) },
+      }),
+    onMutate: async ({ habit, day, value, skipped, note }) => {
       await qc.cancelQueries({ queryKey: hk.all })
       const snaps = qc.getQueriesData({ queryKey: hk.all })
-      patchCaches(qc, habit, day, value, !!skipped)
+      patchCaches(qc, habit, day, value, !!skipped, note)
       return { rollback: () => snaps.forEach(([k, d]) => qc.setQueryData(k, d)) }
     },
     onError: (e, _v, ctx) => (ctx?.rollback(), onError(e)),
+    onSuccess: ({ today: row }) => {
+      qc.setQueryData<Today>(hk.today, (old) => old && { ...old, habits: old.habits.map((r) => (r.habit.id === row.habit.id ? row : r)) })
+    },
     onSettled: () => refreshDerived(qc),
   })
 }
@@ -140,9 +150,25 @@ export function useSaveHabit() {
 
 export function useArchiveHabit() {
   const qc = useQueryClient()
+  // Undo runs outside the hook: the row that archived may be gone by then.
+  const undo = (h: Habit) => post<Habit>(`habits/${h.id}/archive`, { archived: false })
+    .then(() => (refreshDerived(qc), toast.show(`Restored "${h.name}"`)), onError)
   return useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) => post<Habit>(`habits/${id}/archive`, { archived }),
-    onSuccess: (h) => (refreshDerived(qc), toast.show(h.archived ? `Archived "${h.name}"` : `Restored "${h.name}"`)),
+    onSuccess: (h) => {
+      refreshDerived(qc)
+      if (h.archived) toast.show(`Archived "${h.name}"`, { action: { label: 'Undo', run: () => undo(h) } })
+      else toast.show(`Restored "${h.name}"`)
+    },
+    onError,
+  })
+}
+
+export function usePauseHabit() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, paused }: { id: string; paused: boolean }) => patch<Habit>(`habits/${id}`, { paused }),
+    onSuccess: (h) => (refreshDerived(qc), toast.show(h.paused ? `${h.name} paused. No reminders until you resume.` : `${h.name} resumed. Paused days count as skipped.`)),
     onError,
   })
 }

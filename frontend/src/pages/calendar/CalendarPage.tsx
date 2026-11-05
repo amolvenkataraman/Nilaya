@@ -1,18 +1,19 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { Route, Routes, useSearchParams } from 'react-router'
 import { AppShell, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Drawer, useHotkey, useMediaQuery, useNow } from '../../components/ui'
+import { Drawer, Menu, MenuItem, useHotkey, useMediaQuery, useNow } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { get } from '../../lib/api'
-import { dayKey, fmtDate, isSameDay, monthGrid, parseDayKey, startOfDay } from '../../lib/dates'
-import { keys, useCalendars, useEvents } from '../../lib/queries'
+import { addMonths, dayKey, fmtDate, fmtTime, isSameDay, monthGrid, parseDayKey, startOfDay } from '../../lib/dates'
+import { keys, useCalendars, useCreateTask, useEvents } from '../../lib/queries'
 import { useQueryClient } from '@tanstack/react-query'
 import type { AgendaItem, CalEvent, Calendar, Task } from '../../lib/types'
 import { Switch } from '../../components/ui'
 import { useBirthdays, usePhotoCounts, useRangeTasks, useShowBirthdays, useShowTasks } from './extras'
 import { CalendarMenu, CalendarSettings, NewCalendarDialog } from './CalendarSettings'
 import { EventPeek } from './EventPeek'
+import { EventSearch } from './EventSearch'
 import { InlineFail } from '../../components/resilience'
 import { readable, SURFACE } from '../../lib/colour'
 import { useTheme } from '../../lib/theme'
@@ -21,15 +22,30 @@ import { EventDialog, type EventDraft } from './EventDialog'
 import { InsightsPanel } from './Insights'
 import { DayList, MonthView } from './MonthView'
 import { WeekView } from './WeekView'
-import { useUpdateCalendar } from './api'
+import { useUpdateCalendar, useUpdateEvent } from './api'
+import { CategoriesDialog } from './Categories'
+import { PersonDialog, SubscribeDialog } from './Sharing'
 import { eventsByDay, parseCalState, rangeTitle, stepDate, viewRange, type CalView } from './util'
 import './calendar.css'
 
 const FALLBACK = '#64748b'
 // The Tasks app's drawer, loaded only when a task chip is opened.
 const TaskDrawer = lazy(() => import('../tasks/TaskDrawer').then((m) => ({ default: m.TaskDrawer })))
+const AvailabilityPage = lazy(() => import('./Availability'))
 
+/** /calendar/* : the calendar, or someone's availability at /calendar/availability/:username. */
 export default function CalendarPage() {
+  return (
+    <Routes>
+      <Route path="availability/:username" element={<Suspense fallback={null}><AvailabilityPage /></Suspense>} />
+      <Route path="*" element={<CalendarMain />} />
+    </Routes>
+  )
+}
+
+type Dlg = 'subscribe' | 'categories' | 'person' | null
+
+function CalendarMain() {
   const [params, setParams] = useSearchParams()
   const state = parseCalState(params)
   const phone = useMediaQuery('(max-width: 760px)')
@@ -91,6 +107,7 @@ export default function CalendarPage() {
     return () => { live = false }
   }, [peekId])
   const [newCal, setNewCal] = useState(false)
+  const [dlg, setDlg] = useState<Dlg>(null)
   // Events, photo counts and (optionally) tasks for the visible range load in parallel.
   const events = useEvents(range.start.toISOString(), range.end.toISOString())
   const photoCounts = usePhotoCounts(range.days).data
@@ -133,6 +150,21 @@ export default function CalendarPage() {
   const byDay = useMemo(() => eventsByDay(events.data ?? []), [events.data])
 
   const go = (dir: number) => update({ date: stepDate(state.view, state.date, dir, weekDays) })
+  // Drag in the week/day grid: move or resize (an occurrence of a repeating event moves alone).
+  const updateEvent = useUpdateEvent()
+  const canMove = useCallback((e: CalEvent) => e.kind !== 'all_day' && !!calendars.data?.find((c) => c.id === e.calendar_id)?.can_edit, [calendars.data])
+  const moveEvent = (e: CalEvent, start: Date, end: Date | null) => {
+    const recurring = !!(e.recurring || e.series_id)
+    const before = { start: e.start, end: e.end }
+    const body = end ? { start: start.toISOString(), end: end.toISOString() } : { start: start.toISOString() }
+    updateEvent.mutate({ id: e.id, scope: recurring ? 'this' : undefined, body }, {
+      onSuccess: () => toast.show(start.getTime() === new Date(e.start).getTime() && end
+        ? `"${e.name}" now ends at ${fmtTime(end)}`
+        : `Moved "${e.name}" to ${fmtDate(start, { weekday: 'short', month: 'short', day: 'numeric' })}, ${fmtTime(start)}`, recurring ? {} : {
+        action: { label: 'Undo', run: () => updateEvent.mutate({ id: e.id, body: before.end ? before : { start: before.start } }) },
+      }),
+    })
+  }
   const today = () => update({ date: startOfDay(new Date()) })
   const newEvent = (start?: Date, end?: Date, allDay?: boolean) => {
     let s = start
@@ -155,24 +187,41 @@ export default function CalendarPage() {
     }
   }
 
+  const quickStart = () => {
+    const s = new Date()
+    s.setSeconds(0, 0)
+    s.setMinutes(Math.floor(s.getMinutes() / 15) * 15 + 15)
+    setDraft({ start: s, end: new Date(s.getTime() + 3600_000) })
+  }
   useHotkey((e) => !e.metaKey && !e.ctrlKey && !e.altKey && !draft && !document.querySelector('.dialog,.palette,.menu'), (e) => {
     const k = e.key
     if (k === 't') today()
-    else if (k === 'j' || k === 'ArrowRight') state.view !== 'agenda' && go(1)
-    else if (k === 'k' || k === 'ArrowLeft') state.view !== 'agenda' && go(-1)
+    else if (k === 'j' || k === 'ArrowRight' || k === '.') state.view !== 'agenda' && go(1)
+    else if (k === 'k' || k === 'ArrowLeft' || k === ',' || k === 'p') state.view !== 'agenda' && go(-1)
     else if (k === 'm') update({ view: 'month' })
     else if (k === 'w') update({ view: 'week' })
+    else if (k === 'd') update({ view: 'day' })
     else if (k === 'a') update({ view: 'agenda' })
     else if (k === 'n') newEvent()
+    else if (k === 'c') quickStart()
+    else if (k === 's') setDlg('subscribe')
+    else if (k === 'q') document.getElementById('cal-quick-task')?.focus()
     else if (k === 'i') update({ insights: state.insights ? null : state.view === 'month' ? 'month' : 'week' })
     else return
     e.preventDefault()
+  })
+  // Ctrl+←/→ previous/next, Ctrl+Shift+←/→ a year back/forward (as in the classic calendar).
+  useHotkey((e) => (e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !draft && !document.querySelector('.dialog'), (e) => {
+    e.preventDefault()
+    const dir = e.key === 'ArrowRight' ? 1 : -1
+    if (e.shiftKey) update({ date: addMonths(state.date, 12 * dir) })
+    else if (state.view !== 'agenda') go(dir)
   })
 
   const title = rangeTitle(state.view, state.date, weekDays)
   const viewSeg = (
     <div className="seg cal-views" role="group" aria-label="View">
-      {(['month', 'week', 'agenda'] as const).map((v) => (
+      {(['month', 'week', 'day', 'agenda'] as const).map((v) => (
         <button key={v} aria-pressed={state.view === v} onClick={() => update({ view: v })} title={`${v[0].toUpperCase() + v.slice(1)} (${v[0].toUpperCase()})`}>
           {v === 'week' && phone ? '3 days' : v[0].toUpperCase() + v.slice(1)}
         </button>
@@ -207,6 +256,11 @@ export default function CalendarPage() {
       {!phone && nav}
       {!phone && <h1 className="cal-title" aria-live="polite">{title}</h1>}
       <span className="spacer" />
+      <EventSearch calendars={calendars.data} onPick={(e) => {
+        setPeek({ event: e, anchor: null })
+        // One URL update for both, so neither overwrites the other.
+        setParams((p) => { const n = new URLSearchParams(p); n.set('date', dayKey(new Date(e.start))); n.set('event', e.id); n.delete('new'); return n }, { replace: true })
+      }} />
       {!phone && viewSeg}
       {!phone && insightsBtn}
       <button className="btn primary cal-new" onClick={() => newEvent()} title="New event (N)">
@@ -227,7 +281,8 @@ export default function CalendarPage() {
 
   return (
     <AppShell app="calendar" fullHeight topbar={topbar} sidebar={<Sidebar date={state.date} onDate={(d) => update({ date: d })} calendars={(showDisabled ? allCalendars.data : null) ?? calendars.data} showTasks={showTasks} onShowTasks={setShowTasks} showBirthdays={showBirthdays} onShowBirthdays={setShowBirthdays}
-      showDisabled={showDisabled} onShowDisabled={setShowDisabled} onSettings={setSettingsFor} onNew={() => setNewCal(true)} />}>
+      showDisabled={showDisabled} onShowDisabled={setShowDisabled} onSettings={setSettingsFor} onNew={() => setNewCal(true)} onDialog={setDlg}
+      updatedAt={events.dataUpdatedAt} refreshing={events.isFetching} onRefresh={() => (qc.invalidateQueries({ queryKey: ['calendar'] }), qc.invalidateQueries({ queryKey: ['photos', 'counts'] }), showTasks && qc.invalidateQueries({ queryKey: ['tasks', 'list'] }))} />}>
       <div className={'cal' + (events.isPlaceholderData ? ' loading' : '')}>
         {phone && (
           <div className="cal-subbar">
@@ -277,15 +332,17 @@ export default function CalendarPage() {
                     tasks={rangeTasks.byDay.get(dayKey(state.date))} onTask={openTask} photos={photoCounts?.[dayKey(state.date)]} birthdays={birthdays.get(dayKey(state.date))} />
                 )}
               </>
-            ) : state.view === 'week' ? (
+            ) : state.view === 'week' || state.view === 'day' ? (
               <WeekView
+                canEdit={canMove}
+                onMove={moveEvent}
                 days={range.days}
                 byDay={byDay}
                 colour={colour}
                 now={now}
                 onCreate={newEvent}
                 onEvent={showPeek}
-                onOpenDay={(d) => update({ date: d })}
+                onOpenDay={(d) => update({ date: d, view: 'day' })}
                 tasksByDay={rangeTasks.byDay}
                 photos={photoCounts}
                 onTask={openTask}
@@ -313,15 +370,19 @@ export default function CalendarPage() {
       )}
       <CalendarSettings calendar={settingsFor} onClose={() => setSettingsFor(null)} />
       {newCal && <NewCalendarDialog open onClose={() => setNewCal(false)} onCreated={(c) => setSettingsFor(c)} />}
+      <SubscribeDialog open={dlg === 'subscribe'} onClose={() => setDlg(null)} onSettings={setSettingsFor} onNewCalendar={() => setNewCal(true)} />
+      {dlg === 'categories' && <CategoriesDialog open onClose={() => setDlg(null)} />}
+      <PersonDialog open={dlg === 'person'} onClose={() => setDlg(null)} />
       {draft && <EventDialog key={'event' in draft ? draft.event.id : draft.start.getTime()} draft={draft} onClose={() => setDraft(null)} />}
     </AppShell>
   )
 }
 
-function Sidebar({ date, onDate, calendars, showTasks, onShowTasks, showBirthdays, onShowBirthdays, showDisabled, onShowDisabled, onSettings, onNew }: {
+function Sidebar({ date, onDate, calendars, showTasks, onShowTasks, showBirthdays, onShowBirthdays, showDisabled, onShowDisabled, onSettings, onNew, onDialog, updatedAt, refreshing, onRefresh }: {
   date: Date; onDate: (d: Date) => void; calendars?: Calendar[]; showTasks: boolean; onShowTasks: (v: boolean) => void
   showBirthdays: boolean; onShowBirthdays: (v: boolean) => void
   showDisabled: boolean; onShowDisabled: (v: boolean) => void; onSettings: (c: Calendar) => void; onNew: () => void
+  onDialog: (d: Dlg) => void; updatedAt: number; refreshing: boolean; onRefresh: () => void
 }) {
   const toggle = useUpdateCalendar()
   const mine = (calendars ?? []).filter((c) => c.role !== 'subscriber')
@@ -348,18 +409,62 @@ function Sidebar({ date, onDate, calendars, showTasks, onShowTasks, showBirthday
   return (
     <div className="cal-side">
       <MiniMonth date={date} onDate={onDate} />
-      <SideSection title="My calendars" action={<button className="btn ghost icon sm" onClick={onNew} aria-label="New calendar" title="New calendar"><Icon name="plus" size={14} /></button>}>{list(mine)}</SideSection>
-      {other.length > 0 && <SideSection title="Other calendars">{list(other)}</SideSection>}
+      <SideSection title="My calendars" action={
+        <Menu align="end" label="Add calendar" trigger={(p) => <button {...p} className="btn ghost icon sm" aria-label="Add calendar" title="Add calendar (S: subscribe)"><Icon name="plus" size={14} /></button>}>
+          {(close) => (
+            <>
+              <MenuItem icon="plus" onClick={() => (close(), onNew())}>New calendar</MenuItem>
+              <MenuItem icon="link" onClick={() => (close(), onDialog('subscribe'))} end={<span className="kbd">S</span>}>Subscribe with code</MenuItem>
+              <div className="menu-sep" />
+              <MenuItem icon="tag" onClick={() => (close(), onDialog('categories'))}>Event categories</MenuItem>
+              <MenuItem icon="users" onClick={() => (close(), onDialog('person'))}>View someone's availability</MenuItem>
+            </>
+          )}
+        </Menu>
+      }>{list(mine)}</SideSection>
+      <SideSection title="Other calendars" action={<button className="btn ghost icon sm" onClick={() => onDialog('subscribe')} aria-label="Subscribe with code" title="Subscribe with code (S)"><Icon name="plus" size={14} /></button>}>
+        {other.length ? list(other) : <button className="side-item muted" onClick={() => onDialog('subscribe')}><Icon name="link" size={16} /><span className="grow truncate">Subscribe with a code</span></button>}
+      </SideSection>
+      <SideSection>
+        <button className="side-item" onClick={() => onDialog('person')}><Icon name="users" size={16} /><span className="grow truncate">View someone's availability</span></button>
+        <button className="side-item" onClick={() => onDialog('categories')}><Icon name="tag" size={16} /><span className="grow truncate">Event categories</span></button>
+      </SideSection>
+      <QuickTask />
       <SideSection title="Show">
         <div className="side-switch"><Switch checked={showTasks} onChange={onShowTasks} label="Tasks with due dates" /></div>
         <div className="side-switch"><Switch checked={showBirthdays} onChange={onShowBirthdays} label="Birthdays" /></div>
         <div className="side-switch"><Switch checked={showDisabled} onChange={onShowDisabled} label="Disabled calendars" /></div>
       </SideSection>
+      <button className="cal-refresh xsmall muted" onClick={onRefresh} disabled={refreshing} title="Refresh now">
+        <Icon name="refresh" size={12} className={refreshing ? 'spin' : ''} />{updatedAt ? `Refreshed ${fmtTime(new Date(updatedAt))}` : 'Refresh'}
+      </button>
       <p className="cal-keys xsmall muted">
         <span className="kbd">T</span> today <span className="kbd">J</span>/<span className="kbd">K</span> move <span className="kbd">M</span>
-        <span className="kbd">W</span> <span className="kbd">A</span> views <span className="kbd">N</span> new <span className="kbd">I</span> insights
+        <span className="kbd">W</span> <span className="kbd">D</span> <span className="kbd">A</span> views <span className="kbd">N</span>/<span className="kbd">C</span> new <span className="kbd">Q</span> task
+        <span className="kbd">S</span> subscribe <span className="kbd">/</span> search <span className="kbd">I</span> insights
       </p>
     </div>
+  )
+}
+
+/** Quick add a task (same natural language as the Tasks app: "Pay rent tomorrow 5pm !3"). */
+function QuickTask() {
+  const [text, setText] = useState('')
+  const create = useCreateTask()
+  const submit = () => {
+    const t = text.trim()
+    if (!t) return
+    create.mutate({ quick: t }, { onSuccess: (task) => (setText(''), toast.show(`Added "${task.title}"${task.due ? ` · due ${fmtDate(new Date(task.due), { month: 'short', day: 'numeric' })}` : ''}`)) })
+  }
+  return (
+    <SideSection title="Quick task">
+      <form className="cal-quick" onSubmit={(e) => (e.preventDefault(), submit())}>
+        <Icon name="plus" size={14} />
+        <input id="cal-quick-task" value={text} onChange={(e) => setText(e.target.value)} maxLength={512} placeholder="Add a task" aria-label="Quick add a task" title="Try: Pay rent tomorrow 5pm !3 every month"
+          onKeyDown={(e) => e.key === 'Escape' && (e.currentTarget.blur(), setText(''))} disabled={create.isPending} />
+        <span className="kbd">Q</span>
+      </form>
+    </SideSection>
   )
 }
 

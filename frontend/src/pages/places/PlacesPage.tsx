@@ -1,20 +1,32 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { AppShell, SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Confirm, Dialog, ErrorBox, SkeletonRows, Switch, useDebounced } from '../../components/ui'
+import { Confirm, Dialog, ErrorBox, Menu, MenuItem, SkeletonRows, Switch, useDebounced, useHotkey } from '../../components/ui'
 import type { PlaceCategory, PlaceGroup } from '../../lib/types'
 import {
-  STATUSES, importPlaces, useAllPlaces, useDeleteGroup, useDeletePlace, usePlaceCategories, usePlaceGroups, useSaveGroup, useSavePlace, useSuggestions,
-  type ImportResult, type Place, type PlaceInput, type PlaceStatus,
+  STATUSES, VISIBLE_KEY, importPlaces, useDeleteGroup, useDeletePlace, useGroupVisibility, usePlaceCategories, usePlaceGroups, useSaveGroup, useSavePlace,
+  useShowOnlyGroup, useSuggestions, useVisiblePlaces, distanceM, type Group, type ImportResult, type Place, type PlaceInput, type PlaceStatus, type Suggestion,
 } from './api'
-import { PlaceDetail, PlaceRow, StatsTab, SuggestedTab, type Tab } from './PlacePanel'
-import { useQueryClient } from '@tanstack/react-query'
+import { PlaceDetail, PlaceRow, StatsTab, SuggestedTab, SuggestionDetail, photosInBox, type Tab } from './PlacePanel'
+import { PlaceSearch } from './Search'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
+import { get } from '../../lib/api'
+import type { HeatPoint } from '../photos/heat'
 import { toast } from '../../components/toast'
-import { PlaceMap } from './PlaceMap'
+import { PlaceMap, type MapFocus } from './PlaceMap'
 import './places.css'
 
 type Draft = Partial<PlaceInput> & { id?: string }
+
+function readSet<T>(key: string): Set<T> {
+  try { return new Set(JSON.parse(localStorage.getItem(key) || '[]') as T[]) } catch { return new Set() }
+}
+function writeSet<T>(key: string, v: Set<T>, max = 500) {
+  try { localStorage.setItem(key, JSON.stringify([...v].slice(-max))) } catch { /* per page only */ }
+}
+const spotKey = (s: Suggestion) => `${s.latitude.toFixed(3)},${s.longitude.toFixed(3)}`
+let focusSeq = 0
 
 export default function PlacesPage() {
   const [params, setParams] = useSearchParams()
@@ -28,21 +40,77 @@ export default function PlacesPage() {
   const [text, setText] = useState(params.get('q') ?? '')
   const q = useDebounced(text.trim().toLowerCase(), 250)
   const [pos, setPos] = useState<{ lat: number; lon: number } | null>(null)
+  // Photo heat map: on/off, year and "include photos taken on planes" remembered per device.
+  const [heatOn, setHeatOn] = useState(() => { try { return localStorage.getItem('app.places.heat') === '1' } catch { return false } })
+  const [heatYear, setHeatYear] = useState('')
+  const [planes, setPlanes] = useState(false)
+  const [box, setBox] = useState<{ south: number; west: number; north: number; east: number } | null>(null)
+  const boxTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const onBounds = (b: { south: number; west: number; north: number; east: number }) => {
+    if (boxTimer.current) clearTimeout(boxTimer.current)
+    // Debounce 350 ms; snap to 2 decimals so small pans reuse the cached box.
+    boxTimer.current = setTimeout(() => {
+      const f = (v: number, up: boolean) => (up ? Math.ceil(v * 100) : Math.floor(v * 100)) / 100
+      setBox({ south: f(b.south, false), west: f(b.west, false), north: f(b.north, true), east: f(b.east, true) })
+    }, 350)
+  }
+  const heat = useQuery({
+    queryKey: ['photos', 'points', box, heatYear, planes],
+    queryFn: ({ signal }) => get<HeatPoint[]>('photos/points', { ...box!, year: heatYear || undefined, include_planes: planes || undefined }, signal),
+    enabled: heatOn && !!box,
+    staleTime: 30 * 60_000,
+    placeholderData: keepPreviousData,
+  })
+  const years = useQuery({ queryKey: ['photos', 'summary'], queryFn: () => get<{ per_year: { year: number; count: number }[] }>('photos/summary'), enabled: heatOn, staleTime: 10 * 60_000 }).data?.per_year ?? []
+  const toggleHeat = () => setHeatOn((v) => { try { localStorage.setItem('app.places.heat', v ? '0' : '1') } catch { /* ignore */ } return !v })
 
-  const groups = usePlaceGroups()
+  // Groups are hidden by default (per person, on the server): the map loads only the groups turned on.
+  const [showArchived, setShowArchivedState] = useState(() => { try { return localStorage.getItem('app.places.showArchived') === '1' } catch { return false } })
+  const setShowArchived = (v: boolean) => { setShowArchivedState(v); try { localStorage.setItem('app.places.showArchived', v ? '1' : '0') } catch { /* ignore */ } }
+  const groups = usePlaceGroups(showArchived)
   const cats = usePlaceCategories()
-  const all = useAllPlaces()
-  const suggestions = useSuggestions(tab === 'suggested')
-  const mineGroups = useMemo(() => (groups.data ?? []).filter((g) => g.mine), [groups.data])
+  const anyVisible = !!groups.data?.some((g) => g.visible && !g.archived)
+  const all = useVisiblePlaces(anyVisible)
+  const setVisible = useGroupVisibility()
+  const showOnly = useShowOnlyGroup()
+  const [removingGroup, setRemovingGroup] = useState<Group | null>(null)
+  const removeGroup = useDeleteGroup()
+  const saveGroup = useSaveGroup()
+  const suggestionsQ = useSuggestions(tab === 'suggested')
+  // Dismissed suggestions and groups hidden from the map/list are remembered per device (as in the classic page).
+  const [dismissed, setDismissed] = useState(() => readSet<string>('app.places.dismissed'))
+  const suggestions = useMemo(() => suggestionsQ.data?.filter((x) => !dismissed.has(spotKey(x))), [suggestionsQ.data, dismissed])
+  const [sug, setSug] = useState<Suggestion | null>(null)
+  const [addMode, setAddMode] = useState(false)
+  const [focus, setFocus] = useState<MapFocus | null>(null)
+  const [fit, setFit] = useState<{ key: number; points: [number, number][] } | null>(null)
+  const qc = useQueryClient()
+  const groupById = (id: number) => groups.data?.find((g) => g.id === id)
+  const turnOn = (id: number) => { const g = groupById(id); if (g && !g.visible && !g.archived) setVisible.mutate({ id, visible: true }) }
+  const dismiss = (x: Suggestion) => {
+    setDismissed((d) => { const n = new Set(d); n.add(spotKey(x)); writeSet('app.places.dismissed', n, 200); return n })
+    if (sug === x) setSug(null)
+    toast.show('Suggestion dismissed', { action: { label: 'Undo', run: () => setDismissed((d) => { const n = new Set(d); n.delete(spotKey(x)); writeSet('app.places.dismissed', n, 200); return n }) } })
+  }
+  const focusSuggestion = (x: Suggestion) => {
+    setSug(x)
+    setParam('place', null)
+    setFocus({ key: ++focusSeq, lat: x.latitude, lon: x.longitude, zoom: 15 })
+  }
+  const saveSuggestion = (x: Suggestion) => newPlace(x.latitude, x.longitude, { name: x.name, address: x.address, status: 'visited', visited_on: x.last_day })
+  useHotkey((e) => e.key === 'Escape' && addMode && !document.querySelector('.dialog'), () => setAddMode(false), true)
+  const mineGroups = useMemo(() => (groups.data ?? []).filter((g) => g.mine && !g.archived), [groups.data])
   const catLabel = useMemo(() => {
     const m = new Map((cats.data ?? []).map((c) => [c.key, c.label]))
     return (k: string) => m.get(k) ?? k
   }, [cats.data])
   const groupName = (id: number) => groups.data?.find((g) => g.id === id)?.name ?? ''
-  const canEdit = (p: Place) => mineGroups.some((g) => g.id === p.group_id)
+  const canEdit = (p: Place) => !!groups.data?.some((g) => g.id === p.group_id && g.mine)
 
   const [draft, setDraft] = useState<Draft | null>(null)
-  const [groupDraft, setGroupDraft] = useState<Partial<PlaceGroup> | null>(null)
+  // Long lists render in pages (thousands of rows would make every map move janky).
+  const [limit, setLimit] = useState(200)
+  const [groupDraft, setGroupDraft] = useState<Partial<Group> | null>(null)
   const [importing, setImporting] = useState(false)
 
   const setParam = (k: string, v: string | null) => {
@@ -71,20 +139,31 @@ export default function PlacesPage() {
     }
   }, [params, groups.data])
 
-  // One request for every place; filters, search and counts happen here.
-  const everything = all.data ?? []
+  // One request for the groups that are on; filters and counts happen here over that set.
+  const everything = useMemo(() => (anyVisible ? all.data ?? [] : []), [all.data, anyVisible])
   const inGroup = groupId ? everything.filter((p) => p.group_id === groupId) : everything
-  const places = useMemo(() => inGroup.filter((p) =>
-    (!category || p.category === category) && (!status || (p.status ?? 'saved') === status) && (!minRating || (p.rating ?? 0) >= minRating) &&
-    (!q || [p.name, p.address, p.description, p.notes].some((t) => t?.toLowerCase().includes(q)))), [inGroup, category, status, minRating, q])
+  const places = useMemo(() => {
+    const list = inGroup.filter((p) =>
+      (!category || p.category === category) && (!status || (p.status ?? 'saved') === status) && (!minRating || (p.rating ?? 0) >= minRating) &&
+      (!q || [p.name, p.address, p.description, p.notes].some((t) => t?.toLowerCase().includes(q))))
+    // Nearest first once your location is known.
+    return pos ? list.map((p) => [distanceM(pos, { lat: p.latitude, lon: p.longitude }), p] as const).sort((a, b) => a[0] - b[0]).map((x) => x[1]) : list
+  }, [inGroup, category, status, minRating, q, pos])
   const count = (fn: (p: Place) => boolean) => inGroup.filter(fn).length
   const filtered = !!(groupId || category || status || q || minRating)
-  const sel = everything.find((p) => p.id === selected) ?? null
+  // A place in a group that's off (from search or a link) loads on its own.
+  const loadedSel = everything.find((p) => p.id === selected) ?? null
+  const oneSel = useQuery({ queryKey: ['places', 'one', selected], queryFn: () => get<Place>(`places/${selected}`), enabled: !!selected && !loadedSel && (!anyVisible || all.isSuccess), staleTime: 60_000 })
+  const sel = loadedSel ?? (oneSel.data?.id === selected ? oneSel.data : null)
 
   const locate = () => {
     if (!navigator.geolocation) return toast.error("This browser can't share its location.")
     navigator.geolocation.getCurrentPosition(
-      (g) => (setPos({ lat: g.coords.latitude, lon: g.coords.longitude }), toast.show('Distances are from your current location')),
+      (g) => {
+        setPos({ lat: g.coords.latitude, lon: g.coords.longitude })
+        setFocus({ key: ++focusSeq, lat: g.coords.latitude, lon: g.coords.longitude, zoom: 13 })
+        toast.show('Nearest places first: distances are from your location')
+      },
       () => toast.error("Couldn't get your location."),
       { enableHighAccuracy: false, timeout: 10_000, maximumAge: 300_000 },
     )
@@ -92,6 +171,32 @@ export default function PlacesPage() {
 
   const sidebar = (
     <>
+      <SideSection
+        title="Groups"
+        action={
+          <span className="row" style={{ gap: 0 }}>
+            <button className="btn ghost icon sm" onClick={() => qc.invalidateQueries({ queryKey: ['places'] })} aria-label="Refresh" title="Refresh"><Icon name="refresh" size={14} className={all.isFetching || groups.isFetching ? 'spin' : ''} /></button>
+            <button className="btn ghost icon sm" onClick={() => (mineGroups.length ? setImporting(true) : (toast.show('Create a group first'), setGroupDraft({ name: '', description: '', is_public: false })))} aria-label="Import places" title="Import (GeoJSON, KML, GPX, Google Takeout, CSV)"><Icon name="arrowDown" size={14} /></button>
+            <button className="btn ghost icon sm" onClick={() => setGroupDraft({ name: '', description: '', is_public: false })} aria-label="New group" title="New group"><Icon name="plus" size={14} /></button>
+          </span>
+        }
+      >
+        {groups.isPending ? <SkeletonRows rows={2} /> : groups.error && !groups.data ? <ErrorBox error={groups.error} retry={() => groups.refetch()} /> : !groups.data?.length ? (
+          <p className="muted xsmall pl-side-note">No groups yet. Use + to create one.</p>
+        ) : (groups.data ?? []).map((g) => (
+          <div key={g.id} className={'pl-side-row' + (g.visible && !g.archived ? '' : ' hidden-group') + (g.archived ? ' archived' : '')}>
+            <input type="checkbox" className="pl-group-check" checked={g.visible && !g.archived} disabled={g.archived} onChange={(e) => setVisible.mutate({ id: g.id, visible: e.target.checked })}
+              aria-label={`Show ${g.name} on the map`} title={g.archived ? 'Archived: unarchive to show it' : g.visible ? 'Shown: hide from the map' : 'Hidden: show on the map'} />
+            <SideItem icon="folder" label={<>{g.name}{g.archived && <span className="chip pl-pub">Archived</span>}{g.is_public && <span className="chip pl-pub">Public</span>}{!g.mine && <span className="chip pl-pub">Shared</span>}</>}
+              count={g.count} active={groupId === g.id} onClick={() => { if (groupId === g.id) return setParam('group', null); turnOn(g.id); setParam('group', String(g.id)) }} />
+            <span className="pl-side-acts">
+              <GroupMenu g={g} onOnly={() => showOnly.mutate(g)} onEdit={() => setGroupDraft(g)} onDelete={() => setRemovingGroup(g)}
+                onPatch={(body) => saveGroup.mutate({ id: g.id, body }, { onSuccess: () => toast.show(body.archived === true ? `Archived "${g.name}"` : body.archived === false ? `Unarchived "${g.name}"` : body.is_public ? `"${g.name}" is public` : `"${g.name}" is private`) })} />
+            </span>
+          </div>
+        ))}
+        <div className="side-switch"><Switch checked={showArchived} onChange={setShowArchived} label="Show archived groups" /></div>
+      </SideSection>
       <SideSection>
         <SideItem icon="map" label="All places" count={inGroup.length} active={!category && !status && !minRating} onClick={() => setParams(groupId ? new URLSearchParams({ group: String(groupId) }) : new URLSearchParams())} />
         {STATUSES.map((s) => (
@@ -107,25 +212,6 @@ export default function PlacesPage() {
           ))}
         </div>
       </SideSection>
-      <SideSection
-        title="Groups"
-        action={
-          <span className="row" style={{ gap: 0 }}>
-            <button className="btn ghost icon sm" onClick={() => setImporting(true)} aria-label="Import places" title="Import (GeoJSON, KML, GPX, Google Takeout, CSV)"><Icon name="arrowDown" size={14} /></button>
-            <button className="btn ghost icon sm" onClick={() => setGroupDraft({ name: '', description: '', is_public: false })} aria-label="New group" title="New group"><Icon name="plus" size={14} /></button>
-          </span>
-        }
-      >
-        {groups.isPending ? <SkeletonRows rows={2} /> : (groups.data ?? []).map((g) => (
-          <div key={g.id} className="pl-side-row">
-            <SideItem icon={g.is_public ? 'users' : 'folder'} label={<>{g.name}{g.is_public && <span className="chip pl-pub">Public</span>}{!g.mine && <span className="chip pl-pub">Shared</span>}</>} count={g.count} active={groupId === g.id} onClick={() => setParam('group', groupId === g.id ? null : String(g.id))} />
-            <span className="pl-side-acts">
-              <a className="btn ghost icon sm" href={`/api/v2/places/groups/${g.id}/export`} download aria-label={`Export ${g.name} as GeoJSON`} title="Export GeoJSON"><Icon name="arrowUp" size={13} /></a>
-              {g.mine && <button className="btn ghost icon sm" onClick={() => setGroupDraft(g)} aria-label={`Edit group ${g.name}`} title="Edit group"><Icon name="edit" size={13} /></button>}
-            </span>
-          </div>
-        ))}
-      </SideSection>
       <SideSection title="Categories">
         {(cats.data ?? []).map((c) => ({ c, n: count((p) => p.category === c.key) })).sort((a, b) => b.n - a.n).map(({ c, n }) => (
           <SideItem key={c.key} icon="tag" label={c.label} count={n || undefined} active={category === c.key} onClick={() => setParam('category', category === c.key ? null : c.key)} />
@@ -140,15 +226,11 @@ export default function PlacesPage() {
       fullHeight
       topbar={
         <>
-          <form className="pl-search" role="search" onSubmit={(e) => e.preventDefault()}>
-            <Icon name="search" />
-            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Search names, addresses, notes" aria-label="Search places" maxLength={100} />
-            {text && (
-              <button type="button" className="btn ghost icon sm" onClick={() => setText('')} aria-label="Clear search">
-                <Icon name="x" size={14} />
-              </button>
-            )}
-          </form>
+          <PlaceSearch text={text} onText={setText} places={everything} groups={groups.data ?? []} onShowGroup={(g) => setVisible.mutate({ id: g.id, visible: true })}
+            onPlace={(p) => { setText(''); setSug(null); setParam('place', p.id); if (!everything.some((x) => x.id === p.id)) setFocus({ key: ++focusSeq, lat: p.latitude, lon: p.longitude, zoom: 16 }) }}
+            onHit={(h) => (setAddMode(false), setFocus({ key: ++focusSeq, lat: h.lat, lon: h.lon, bbox: h.bbox, label: h.name, address: h.address }))} />
+          <button className={'btn pl-add-btn' + (addMode ? ' on' : '')} aria-pressed={addMode} onClick={() => (mineGroups.length || addMode ? setAddMode((v) => !v) : newPlace())} title="Add place: click the map to drop it (Esc cancels)"><Icon name="pin" size={15} /><span>Add place</span></button>
+          <button className={'btn pl-heat-btn' + (heatOn ? ' on' : '')} aria-pressed={heatOn} onClick={toggleHeat} title="Photo heat map"><Icon name="photo" size={15} /><span>Heatmap</span></button>
           <button className="btn pl-locate" onClick={locate} title="Show distances from your location"><Icon name="location" size={15} /><span>Near me</span></button>
           <button className="btn primary pl-new" onClick={() => newPlace()}>
             <Icon name="plus" size={15} />
@@ -167,40 +249,67 @@ export default function PlacesPage() {
             canEdit={canEdit}
             onSelect={(id) => setParam('place', id)}
             onEdit={(p) => setDraft({ ...p })}
-            onAddAt={(lat, lon) => newPlace(lat, lon)}
-            suggestions={tab === 'suggested' ? suggestions.data : undefined}
-            onSuggestion={(sg) => newPlace(sg.latitude, sg.longitude, { name: sg.name, address: sg.address, status: 'visited' })}
+            onAddAt={(lat, lon, name, address) => (setAddMode(false), newPlace(lat, lon, name ? { name, address: address ?? '' } : {}))}
+            suggestions={tab === 'suggested' ? suggestions : undefined}
+            onSuggestion={focusSuggestion}
+            heat={heatOn ? heat.data ?? [] : null}
+            onBounds={onBounds}
+            addMode={addMode}
+            focus={focus}
+            userPos={pos}
+            fit={fit}
           />
-          <p className="pl-hint">Click the map to add a place</p>
+          {heatOn && (
+            <div className="pl-heat-panel" role="group" aria-label="Photo heat map">
+              <strong className="xsmall">Photo heat map</strong>
+              {heat.isFetching && <span className="spinner" aria-label="Loading" />}
+              <select className="select sm-select" value={heatYear} onChange={(e) => setHeatYear(e.target.value)} aria-label="Year">
+                <option value="">All years</option>
+                {years.map((y) => <option key={y.year} value={y.year}>{y.year} · {y.count.toLocaleString()}</option>)}
+              </select>
+              <label className="row xsmall" style={{ gap: '0.375rem' }}><input type="checkbox" checked={planes} onChange={(e) => setPlanes(e.target.checked)} />Include photos taken on planes</label>
+              <span className="muted xsmall tabular">{(heat.data ?? []).reduce((t, p) => t + p.count, 0).toLocaleString()} photos in view</span>
+            </div>
+          )}
+          <p className={'pl-hint' + (addMode ? ' on' : '')}>{addMode ? <>Click the map to place the pin · <button className="pl-hint-x" onClick={() => setAddMode(false)}>Cancel (Esc)</button></>
+            : groups.data && !anyVisible && groups.data.length ? 'Turn on a group to see its places' : 'Click the map to add a place'}</p>
+          {box && (
+            <a className="btn sm pl-photos-area" href={photosInBox(box.north, box.south, box.east, box.west)} target="_blank" rel="noopener noreferrer" title="Photos taken in the visible area (opens Photos)">
+              <Icon name="photo" size={14} /><span>Photos in this area</span>
+            </a>
+          )}
         </div>
         <section className="pl-list" aria-label="Places">
-          {sel ? (
-            <PlaceDetail p={sel} catLabel={catLabel} group={groups.data?.find((g) => g.id === sel.group_id)} canEdit={canEdit(sel)} pos={pos}
-              onEdit={() => setDraft({ ...sel })} onClose={() => setParam('place', null)} />
+          {sug && tab === 'suggested' && !sel ? (
+            <SuggestionDetail s={sug} pos={pos} onSave={() => saveSuggestion(sug)} onDismiss={() => dismiss(sug)} onClose={() => setSug(null)} />
+          ) : sel ? (
+            <PlaceDetail p={sel} catLabel={catLabel} group={groupById(sel.group_id)} canEdit={canEdit(sel)} pos={pos}
+              onEdit={() => setDraft({ ...sel })} onClose={() => setParam('place', null)} onShowGroup={() => turnOn(sel.group_id)} />
           ) : (
             <>
               <div className="tabs pl-tabs" role="tablist">
                 <button role="tab" aria-selected={tab === 'places'} onClick={() => setParam('tab', null)}>Places <span className="muted">{places.length}</span></button>
-                <button role="tab" aria-selected={tab === 'suggested'} onClick={() => setParam('tab', 'suggested')}>Suggested</button>
+                <button role="tab" aria-selected={tab === 'suggested'} onClick={() => setParam('tab', 'suggested')}>Suggested{suggestions && suggestions.length > 0 && <span className="muted"> {suggestions.length}</span>}</button>
                 <button role="tab" aria-selected={tab === 'stats'} onClick={() => setParam('tab', 'stats')}>Stats</button>
               </div>
               {tab === 'suggested' ? (
-                <SuggestedTab onSave={(sg) => newPlace(sg.latitude, sg.longitude, { name: sg.name, address: sg.address, status: 'visited' })} onFocus={() => {}} />
+                <SuggestedTab items={suggestions} pending={suggestionsQ.isPending} error={suggestionsQ.error} retry={() => suggestionsQ.refetch()} onSave={saveSuggestion} onFocus={focusSuggestion} onDismiss={dismiss} />
               ) : tab === 'stats' ? (
                 <StatsTab onSelect={(id) => setParam('place', id)} catLabel={catLabel} />
               ) : (
                 <>
                   {filtered && (
                     <div className="pl-list-head">
-                      <h2 className="muted small">{places.length} of {everything.length} shown</h2>
+                      <h2 className="muted small">{places.length} of {everything.length} shown{pos ? ' · nearest first' : ''}</h2>
                       <button className="btn ghost sm" onClick={() => (setText(''), setParams(new URLSearchParams()))}>Clear filters</button>
                     </div>
                   )}
-                  {all.isPending ? <SkeletonRows rows={6} /> : all.isError && !all.data ? <ErrorBox error={all.error} retry={() => all.refetch()} /> : !places.length ? (
-                    <div className="empty left">{filtered ? 'No places match.' : 'No places yet. Click the map, import a file, or save a suggestion.'}</div>
+                  {groups.isPending || (anyVisible && all.isPending) ? <SkeletonRows rows={6} /> : all.isError && !all.data ? <ErrorBox error={all.error} retry={() => all.refetch()} /> : !places.length ? (
+                    <div className="empty left">{filtered ? 'No places match.' : !groups.data?.length ? 'No places yet. Create a group, then use Add place, search the map, import a file, or save a suggestion.'
+                      : !anyVisible ? 'Turn on a group in the sidebar to see its places. Search finds places in every group.' : 'No places in the groups that are on.'}</div>
                   ) : (
                     <ul className="pl-items">
-                      {places.map((p) => (
+                      {places.slice(0, limit).map((p) => (
                         <li key={p.id} className="pl-item">
                           <PlaceRow p={p} active={selected === p.id} onSelect={() => setParam('place', p.id)} catLabel={catLabel} groupName={groupName} pos={pos} />
                           {canEdit(p) && (
@@ -210,6 +319,9 @@ export default function PlacesPage() {
                           )}
                         </li>
                       ))}
+                      {places.length > limit && (
+                        <li className="pl-more-row"><button className="btn sm" onClick={() => setLimit((l) => l + 500)}>Show {Math.min(500, places.length - limit).toLocaleString()} more of {(places.length - limit).toLocaleString()}</button></li>
+                      )}
                     </ul>
                   )}
                 </>
@@ -218,20 +330,52 @@ export default function PlacesPage() {
           )}
         </section>
       </div>
-      {draft && <PlaceDialog draft={draft} groups={mineGroups} categories={cats.data ?? []} onClose={() => setDraft(null)} onSaved={(p) => setParam('place', p.id)} onDeleted={() => setParam('place', null)} />}
-      {groupDraft && <GroupDialog group={groupDraft} onClose={() => setGroupDraft(null)} onDeleted={(id) => groupId === id && setParam('group', null)} />}
-      {importing && <ImportDialog groups={mineGroups} onClose={() => setImporting(false)} />}
+      {draft && <PlaceDialog draft={draft} groups={mineGroups} categories={cats.data ?? []} onClose={() => setDraft(null)} onSaved={(p) => (turnOn(p.group_id), setParam('place', p.id))} onDeleted={() => setParam('place', null)} />}
+      {groupDraft && <GroupDialog group={groupDraft} onClose={() => setGroupDraft(null)} onDeleted={(id) => groupId === id && setParam('group', null)}
+        onCreated={(g) => setVisible.mutate({ id: g.id, visible: true })} />}
+      <Confirm open={!!removingGroup} title={`Delete "${removingGroup?.name}"?`} body={`This also deletes the ${removingGroup?.count ?? 0} ${removingGroup?.count === 1 ? 'place' : 'places'} in it.`}
+        onClose={() => setRemovingGroup(null)} onConfirm={() => removingGroup && removeGroup.mutate(removingGroup, { onSuccess: () => groupId === removingGroup.id && setParam('group', null) })} />
+      {importing && <ImportDialog groups={mineGroups} onClose={() => setImporting(false)} onDone={async (gid) => {
+        // Turn the group on, then fit the map to its places once they're loaded.
+        const g = groupById(gid)
+        if (g && !g.visible) await setVisible.mutateAsync({ id: gid, visible: true })
+        const fresh = await qc.fetchQuery({ queryKey: VISIBLE_KEY, queryFn: () => get<Place[]>('places/', { visible: true }), staleTime: 0 })
+        const pts = fresh.filter((p) => p.group_id === gid).map((p) => [p.latitude, p.longitude] as [number, number])
+        if (pts.length) setFit({ key: Date.now(), points: pts })
+      }} />}
     </AppShell>
   )
 }
 
-function ImportDialog({ groups, onClose }: { groups: PlaceGroup[]; onClose: () => void }) {
+/** ⋯ menu of a group: show only, edit, public/private, export, archive, delete (owner actions only for owners). */
+function GroupMenu({ g, onOnly, onEdit, onDelete, onPatch }: {
+  g: Group; onOnly: () => void; onEdit: () => void; onDelete: () => void; onPatch: (b: { is_public?: boolean; archived?: boolean }) => void
+}) {
+  return (
+    <Menu align="end" label={`${g.name} options`} trigger={(p) => <button {...p} className="btn ghost icon sm" aria-label={`${g.name} options`} title="Options"><Icon name="more" size={14} /></button>}>
+      {(close) => (
+        <>
+          {!g.archived && <MenuItem icon="map" onClick={() => (close(), onOnly())}>Show only this</MenuItem>}
+          {g.mine && <MenuItem icon="edit" onClick={() => (close(), onEdit())}>Edit group</MenuItem>}
+          {g.mine && <MenuItem icon={g.is_public ? 'shield' : 'users'} onClick={() => (close(), onPatch({ is_public: !g.is_public }))}>{g.is_public ? 'Make private' : 'Share with everyone (public)'}</MenuItem>}
+          <MenuItem icon="arrowUp" href={`/api/v2/places/groups/${g.id}/export`} onClick={close}>Export GeoJSON</MenuItem>
+          {g.mine && <MenuItem icon="folder" onClick={() => (close(), onPatch({ archived: !g.archived }))}>{g.archived ? 'Unarchive' : 'Archive'}</MenuItem>}
+          {g.mine && <><div className="menu-sep" /><MenuItem icon="trash" danger onClick={() => (close(), onDelete())}>Delete group…</MenuItem></>}
+        </>
+      )}
+    </Menu>
+  )
+}
+
+function ImportDialog({ groups, onClose, onDone }: { groups: PlaceGroup[]; onClose: () => void; onDone: (groupId: number) => void }) {
   const qc = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
   const [group, setGroup] = useState(groups[0]?.id ?? 0)
   const [preview, setPreview] = useState<ImportResult | null>(null)
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
+  // Preview as soon as a file and group are picked (dry run: nothing is saved).
+  useEffect(() => { if (file && group) void run(true) }, [file, group])
   const run = async (dry: boolean) => {
     if (!file || !group) return
     if (file.size > 5 * 1024 * 1024) return setError('This file is over 5 MB.')
@@ -244,6 +388,7 @@ function ImportDialog({ groups, onClose }: { groups: PlaceGroup[]; onClose: () =
         toast.show(`Imported ${r.created} place${r.created === 1 ? '' : 's'}`)
         qc.invalidateQueries({ queryKey: ['places'] })
         onClose()
+        onDone(group)
       }
     } catch (e) {
       setError((e as Error).message)
@@ -255,7 +400,7 @@ function ImportDialog({ groups, onClose }: { groups: PlaceGroup[]; onClose: () =
     <Dialog open onClose={onClose} title="Import places" width="30rem"
       footer={<><span className="spacer" /><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!preview || !preview.new || busy} onClick={() => run(false)}>{preview ? `Import ${preview.new}` : 'Import'}</button></>}>
       <p className="help">GeoJSON, KML/KMZ, GPX, Google Takeout (Saved places) or CSV, up to 5 MB. Duplicates are skipped.</p>
-      <label className="field"><span>File</span><input className="input" type="file" accept=".json,.geojson,.kml,.kmz,.gpx,.csv" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setPreview(null) }} /></label>
+      <label className="field"><span>File</span><input className="input" type="file" accept=".json,.geojson,.kml,.kmz,.gpx,.csv" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setPreview(null); setError('') }} /></label>
       <label className="field"><span>Into group</span>
         <select className="select" value={group} onChange={(e) => { setGroup(Number(e.target.value)); setPreview(null) }}>
           {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
@@ -298,8 +443,11 @@ function PlaceDialog({ draft, groups, categories, onClose, onSaved, onDeleted }:
     const body: Partial<PlaceInput> = {
       name: f.name.trim(), group_id: Number(f.group_id), category: f.category, latitude: lat, longitude: lon,
       address: f.address.trim() || null, description: f.description.trim(), notes: f.notes.trim(),
-      rating: f.rating ? Number(f.rating) : editing ? 0 : null, status: f.status, visited_on: f.status === 'visited' && f.visited_on ? f.visited_on : null,
+      rating: f.rating ? Number(f.rating) : editing ? 0 : null, status: f.status,
     }
+    // Visited with no date: leave it to the server (keeps the old date, or today for a new visit).
+    if (f.status !== 'visited') body.visited_on = null
+    else if (f.visited_on) body.visited_on = f.visited_on
     save.mutate({ id: draft.id, body }, { onSuccess: (p) => (onSaved(p), onClose()) })
   }
 
@@ -402,7 +550,7 @@ function PlaceDialog({ draft, groups, categories, onClose, onSaved, onDeleted }:
   )
 }
 
-function GroupDialog({ group, onClose, onDeleted }: { group: Partial<PlaceGroup>; onClose: () => void; onDeleted: (id: number) => void }) {
+function GroupDialog({ group, onClose, onDeleted, onCreated }: { group: Partial<Group>; onClose: () => void; onDeleted: (id: number) => void; onCreated: (g: PlaceGroup) => void }) {
   const [name, setName] = useState(group.name ?? '')
   const [description, setDescription] = useState(group.description ?? '')
   const [isPublic, setPublic] = useState(!!group.is_public)
@@ -412,7 +560,7 @@ function GroupDialog({ group, onClose, onDeleted }: { group: Partial<PlaceGroup>
   const editing = group.id != null
   const submit = () => {
     if (!name.trim()) return
-    save.mutate({ id: group.id, body: { name: name.trim(), description: description.trim(), is_public: isPublic } }, { onSuccess: onClose })
+    save.mutate({ id: group.id, body: { name: name.trim(), description: description.trim(), is_public: isPublic } }, { onSuccess: (g) => (onClose(), !editing && onCreated(g)) })
   }
   return (
     <>

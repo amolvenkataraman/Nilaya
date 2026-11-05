@@ -20,6 +20,6 @@ export function dayLabel(d: Date, now = new Date()): string {
 
 export function fmtBytes(kb: number): string {
   if (kb >= 1024 * 1024) return `${(kb / 1024 / 1024).toFixed(1)} GB`
-  if (kb >= 1024) return `${Math.round(kb / 1024)} MB`
+  if (kb >= 1024) return kb < 100 * 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.round(kb / 1024)} MB`
   return `${kb} KB`
 }

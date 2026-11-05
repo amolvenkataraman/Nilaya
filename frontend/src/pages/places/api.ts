@@ -1,6 +1,6 @@
 // Places API hooks (local to this page). The API also returns status/visited_on, newer than lib/types.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { del, get, patch, post, readCookie } from '../../lib/api'
+import { api, del, get, patch, post, readCookie } from '../../lib/api'
 import type { Photo, Place as BasePlace, PlaceCategory, PlaceGroup } from '../../lib/types'
 import { toast } from '../../components/toast'
 
@@ -16,7 +16,57 @@ export const STATUSES: { key: PlaceStatus; label: string; icon: string }[] = [
 
 export interface PlaceFilter { group?: number; category?: string; status?: PlaceStatus; q?: string }
 
-export const usePlaceGroups = () => useQuery({ queryKey: ['places', 'groups'], queryFn: () => get<PlaceGroup[]>('places/groups'), staleTime: 5 * 60_000 })
+/** A group with my per-person map visibility (hidden by default) and the owner's archive flag. */
+export interface Group extends PlaceGroup { visible: boolean; archived: boolean }
+export const usePlaceGroups = (includeArchived = false) =>
+  useQuery({
+    queryKey: ['places', 'groups', includeArchived],
+    queryFn: () => get<Group[]>('places/groups', { include_archived: includeArchived || undefined }),
+    staleTime: 5 * 60_000,
+    placeholderData: (prev) => prev,
+  })
+
+export const VISIBLE_KEY = ['places', 'list', 'visible'] as const
+/** The map's normal load: only places in groups I turned on (never archived ones). Off while nothing is on. */
+export const useVisiblePlaces = (enabled: boolean) =>
+  useQuery({ queryKey: VISIBLE_KEY, queryFn: ({ signal }) => get<Place[]>('places/', { visible: true }, signal), enabled, staleTime: 5 * 60_000 })
+
+/** Search every non-archived group I can see (shown or not), on the server. */
+export const usePlaceSearch = (q: string) =>
+  useQuery({ queryKey: ['places', 'search', q], queryFn: ({ signal }) => get<Place[]>('places/', { q }, signal), enabled: q.length >= 2, staleTime: 60_000 })
+
+const patchGroups = (qc: ReturnType<typeof useQueryClient>, fn: (g: Group) => Group) =>
+  qc.setQueriesData<Group[]>({ queryKey: ['places', 'groups'] }, (old) => old?.map(fn))
+
+/** Show/hide one group (optimistic). Hiding drops its places from the cache: no request; showing refetches. */
+export function useGroupVisibility() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, visible }: { id: number; visible: boolean }) => api(`places/groups/${id}/visibility`, { method: 'PUT', body: { visible } }),
+    onMutate: ({ id, visible }) => {
+      const snaps = qc.getQueriesData<Group[]>({ queryKey: ['places', 'groups'] })
+      patchGroups(qc, (g) => (g.id === id ? { ...g, visible } : g))
+      if (!visible) qc.setQueryData<Place[]>(VISIBLE_KEY, (old) => old?.filter((p) => p.group_id !== id))
+      return { rollback: () => snaps.forEach(([k, d]) => qc.setQueryData(k, d)) }
+    },
+    onSuccess: (_r, { visible }) => { if (visible) qc.invalidateQueries({ queryKey: VISIBLE_KEY }) },
+    onError: (e, _v, ctx) => (ctx?.rollback(), toast.error((e as Error).message), qc.invalidateQueries({ queryKey: VISIBLE_KEY })),
+  })
+}
+
+/** Show only this group. If it was already on, the cached places are just filtered (no request). */
+export function useShowOnlyGroup() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (g: Group) => post(`places/groups/${g.id}/only`),
+    onMutate: (g) => {
+      patchGroups(qc, (x) => ({ ...x, visible: x.id === g.id }))
+      if (g.visible) qc.setQueryData<Place[]>(VISIBLE_KEY, (old) => old?.filter((p) => p.group_id === g.id))
+    },
+    onSuccess: (_r, g) => { if (!g.visible) qc.invalidateQueries({ queryKey: VISIBLE_KEY }) },
+    onError: (e) => (toast.error((e as Error).message), qc.invalidateQueries({ queryKey: ['places'] })),
+  })
+}
 export const usePlaceCategories = () =>
   useQuery({ queryKey: ['places', 'categories'], queryFn: () => get<PlaceCategory[]>('places/categories'), staleTime: Infinity })
 export const usePlaces = (f: PlaceFilter) =>
@@ -55,7 +105,7 @@ export function useDeletePlace() {
 export function useSaveGroup() {
   const done = useInvalidate()
   return useMutation({
-    mutationFn: ({ id, body }: { id?: number; body: Partial<Pick<PlaceGroup, 'name' | 'description' | 'is_public'>> }) =>
+    mutationFn: ({ id, body }: { id?: number; body: Partial<Pick<Group, 'name' | 'description' | 'is_public' | 'archived'>> }) =>
       id ? patch<PlaceGroup>(`places/groups/${id}`, body) : post<PlaceGroup>('places/groups', body),
     onError: (e) => toast.error((e as Error).message),
     onSettled: done,

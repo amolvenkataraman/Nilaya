@@ -2,13 +2,19 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { Confirm, ErrorBox, Menu, MenuItem, SkeletonRows } from '../../components/ui'
+import { Confirm, ErrorBox, Menu, MenuItem, SkeletonRows, useHotkey } from '../../components/ui'
 import { Columns } from '../../components/charts'
-import { addDays, fmtDate } from '../../lib/dates'
-import { useArchiveHabit, useDeleteHabit, useHabits, useSaveHabit, useStats, useToday, type Habit, type Stats } from './api'
+import { addDays, fmtDate, fmtTime } from '../../lib/dates'
+import { useArchiveHabit, useDeleteHabit, useHabits, usePauseHabit, useStats, useToday, type Habit, type Stats } from './api'
+import { DayDialog, type DayTarget } from './DayEditor'
 import { HabitCheck, progressText } from './HabitsToday'
 import { HabitBadge, HIcon, WEEKDAY_LETTERS, fmtNum, goalText, hc, parseDay, scheduleText, streakText } from './util'
 
+/** "20:00:00" -> the app's time format. */
+const clock = (t: string) => {
+  const [h, m] = t.split(':').map(Number)
+  return fmtTime(new Date(2000, 0, 1, h, m))
+}
 const pct = (v: number | null) => (v === null ? '–' : `${Math.round(v * 100)}%`)
 
 export function HabitDetail({ id, onEdit }: { id: string; onEdit: (h: Habit) => void }) {
@@ -17,11 +23,13 @@ export function HabitDetail({ id, onEdit }: { id: string; onEdit: (h: Habit) => 
   const stats = useStats(habit ? id : undefined)
   const today = useToday()
   const row = today.data?.habits.find((r) => r.habit.id === id)
-  const save = useSaveHabit()
+  const pause = usePauseHabit()
   const archive = useArchiveHabit()
   const remove = useDeleteHabit()
   const navigate = useNavigate()
   const [confirm, setConfirm] = useState(false)
+  const [day, setDay] = useState<DayTarget | null>(null)
+  useHotkey((e) => e.key === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey && !!habit && !document.querySelector('.dialog,.palette,.menu'), (e) => (e.preventDefault(), habit && onEdit(habit)))
 
   if (all.isPending) return <div className="h-page"><SkeletonRows rows={6} /></div>
   if (all.error && !all.data) return <div className="h-page"><ErrorBox error={all.error} /></div>
@@ -37,6 +45,9 @@ export function HabitDetail({ id, onEdit }: { id: string; onEdit: (h: Habit) => 
           <p className="muted small">
             {goalText(habit)}
             {habit.period !== 'day' || habit.kind === 'measurable' ? ` · ${scheduleText(habit)}` : ''}
+            {habit.reminder_time && ` · Reminder ${clock(habit.reminder_time)}`}
+            {` · Since ${fmtDate(parseDay(habit.start_date), { month: 'short', day: 'numeric', year: 'numeric' })}`}
+            {habit.end_date && ` until ${fmtDate(parseDay(habit.end_date), { month: 'short', day: 'numeric', year: 'numeric' })}`}
             {habit.paused && ' · Paused'}
             {habit.archived && ' · Archived'}
           </p>
@@ -47,11 +58,11 @@ export function HabitDetail({ id, onEdit }: { id: string; onEdit: (h: Habit) => 
             <HabitCheck row={row} />
           </div>
         )}
-        <button className="btn sm" onClick={() => onEdit(habit)}><Icon name="edit" size={14} />Edit</button>
+        <button className="btn sm" onClick={() => onEdit(habit)} title="Edit (E)"><Icon name="edit" size={14} />Edit</button>
         <Menu align="end" label="Habit actions" trigger={(p) => <button {...p} className="btn icon sm" aria-label="More actions"><Icon name="more" size={14} /></button>}>
           {(close) => (
             <>
-              <MenuItem icon={habit.paused ? 'play' : 'clock'} onClick={() => (close(), save.mutate({ id: habit.id, body: { paused: !habit.paused } }))}>
+              <MenuItem icon={habit.paused ? 'play' : 'clock'} onClick={() => (close(), pause.mutate({ id: habit.id, paused: !habit.paused }))}>
                 {habit.paused ? 'Resume' : 'Pause'}
               </MenuItem>
               <MenuItem icon="album" onClick={() => (close(), archive.mutate({ id: habit.id, archived: !habit.archived }))}>{habit.archived ? 'Restore from archive' : 'Archive'}</MenuItem>
@@ -130,19 +141,30 @@ export function HabitDetail({ id, onEdit }: { id: string; onEdit: (h: Habit) => 
             </section>
           )}
 
-          {s.notes.length > 0 && (
-            <section className="card h-section" aria-labelledby="notes-h">
-              <div className="card-head"><h2 id="notes-h">Notes</h2></div>
+          <section className="card h-section" aria-labelledby="notes-h">
+            <div className="card-head">
+              <h2 id="notes-h">Notes</h2>
+              <span className="spacer" />
+              {row && !habit.archived && !s.notes.some((n) => n.date === s.today) && (
+                <button className="btn ghost sm" onClick={() => setDay({ habit, day: s.today, value: row.value, skipped: row.skipped, note: row.note, focus: 'note' })}>
+                  <Icon name="plus" size={14} />Note for today
+                </button>
+              )}
+            </div>
+            {s.notes.length ? (
               <ul className="h-notes">
                 {s.notes.map((n) => (
                   <li key={n.date}>
-                    <time className="muted xsmall tabular">{fmtDate(parseDay(n.date), { month: 'short', day: 'numeric', year: 'numeric' })}</time>
+                    <button className="h-note-date muted xsmall tabular" title="Edit this day"
+                      onClick={() => setDay({ habit, day: n.date, value: n.value, skipped: n.skipped, note: n.note, focus: 'note' })}>
+                      {fmtDate(parseDay(n.date), { month: 'short', day: 'numeric', year: 'numeric' })}
+                    </button>
                     <span className="pre-wrap small">{n.note}</span>
                   </li>
                 ))}
               </ul>
-            </section>
-          )}
+            ) : <div className="empty left">No notes yet. Add one from Today or the Progress grid (right-click or long-press a day).</div>}
+          </section>
         </>
       )}
       <Confirm
@@ -152,6 +174,7 @@ export function HabitDetail({ id, onEdit }: { id: string; onEdit: (h: Habit) => 
         onConfirm={() => remove.mutate(habit.id, { onSuccess: () => navigate('/habits') })}
         onClose={() => setConfirm(false)}
       />
+      <DayDialog target={day} onClose={() => setDay(null)} />
     </div>
   )
 }

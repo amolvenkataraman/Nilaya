@@ -12,7 +12,7 @@ import { get, post, safeHref } from '../../lib/api'
 import { dayKey, fmtDate, fmtTime, isSameDay, relTime } from '../../lib/dates'
 import type { CalEvent, Calendar, EventDetail } from '../../lib/types'
 import { Menu, MenuItem } from '../../components/ui'
-import { useDeleteEvent, useDuplicateEvent, useTaskFromEvent, type Scope } from './api'
+import { useDeleteEvent, useDuplicateEvent, useTaskFromEvent, useUpdateEvent, type Scope } from './api'
 
 const MEETING_RE = /https:\/\/[^\s<>"]*(meet\.google\.com|zoom\.us|teams\.microsoft\.com|whereby\.com|jit\.si)[^\s<>"]*/i
 
@@ -46,6 +46,8 @@ export function EventPeek({ event, calendar, anchor, onClose, onEdit }: {
   const remove = useDeleteEvent()
   const duplicate = useDuplicateEvent()
   const toTask = useTaskFromEvent()
+  const update = useUpdateEvent()
+  const [dupDays, setDupDays] = useState('1')
   const e: EventDetail = { ...event, ...(detail.data ?? {}) }
   const recurring = !!(e.recurring || e.series_id)
   const canEdit = !!calendar?.can_edit
@@ -121,6 +123,10 @@ export function EventPeek({ event, calendar, anchor, onClose, onEdit }: {
   const attendees = (e.attendees ?? []).map((a) => `${a.name || a.email}${a.is_organizer ? ' (organizer)' : RSVP[a.rsvp] ? ` (${RSVP[a.rsvp]})` : ''}`)
   const reminders = (e.reminders ?? []).map(minutesText).join(', ')
   const upcoming = new Date(e.start) > new Date() ? relTime(new Date(e.start)) : null
+  // Photos taken during the event (all-day events: their whole days).
+  const photosHref = `/photos?${new URLSearchParams({ after: new Date(e.start).toISOString(), before: new Date(e.end ? e.end : new Date(e.start).getTime() + 3600_000).toISOString(), title: e.name })}`
+  // The classic countdown page (/calendar/countdown/<id>/start|end/) opens for editors and public calendars.
+  const countdown = canEdit || calendar?.public ? `/calendar/countdown/${encodeURIComponent(event.id)}/` : null
 
   const row = (icon: string, children: ReactNode, key?: string) => (
     <div className="peek-row" key={key ?? icon}><Icon name={icon} size={15} /><div className="grow">{children}</div></div>
@@ -154,10 +160,34 @@ export function EventPeek({ event, calendar, anchor, onClose, onEdit }: {
             </Menu>
           )}
           {canEdit && (
-            <button className="btn ghost icon sm" aria-label="Duplicate event" title="Duplicate"
-              onClick={() => duplicate.mutate({ id: event.id, days: 0 }, { onSuccess: (c) => (toast.show('Duplicated'), onClose(), onEdit(c)) })}>
-              <Icon name="copy" />
-            </button>
+            <Menu label="Duplicate" width="15rem" trigger={(p) => <button {...p} className="btn ghost icon sm" aria-label="Duplicate event" title="Duplicate"><Icon name="copy" /></button>}>
+              {(close) => {
+                const dup = (days: number, edit = false) => {
+                  close()
+                  duplicate.mutate({ id: event.id, days }, {
+                    onSuccess: (c) => {
+                      toast.show(days ? `Duplicated ${Math.abs(days)} day${Math.abs(days) === 1 ? '' : 's'} ${days > 0 ? 'later' : 'earlier'}` : 'Duplicated')
+                      if (edit) (onClose(), onEdit(c))
+                    },
+                  })
+                }
+                const n = Number(dupDays)
+                const ok = Number.isInteger(n) && Math.abs(n) <= 3650
+                return (
+                  <>
+                    <MenuItem icon="copy" onClick={() => dup(0, true)}>Same time, then edit</MenuItem>
+                    <MenuItem icon="copy" onClick={() => dup(1)}>Next day</MenuItem>
+                    <MenuItem icon="copy" onClick={() => dup(7)}>Next week</MenuItem>
+                    <div className="menu-sep" />
+                    <form className="peek-dup" onSubmit={(ev) => (ev.preventDefault(), ok && dup(n))}>
+                      <input className="input" type="number" min={-3650} max={3650} step={1} value={dupDays} onChange={(ev) => setDupDays(ev.target.value)} aria-label="Days later (negative for earlier)" />
+                      <span className="xsmall muted">days later</span>
+                      <button className="btn sm" disabled={!ok}>Copy</button>
+                    </form>
+                  </>
+                )
+              }}
+            </Menu>
           )}
           {e.task_id && <button className="btn ghost icon sm" onClick={() => navigate(`/tasks?view=all&task=${e.task_id}`)} aria-label="Open in Tasks" title="Open in Tasks"><Icon name="tasks" /></button>}
           <span className="spacer" />
@@ -182,13 +212,24 @@ export function EventPeek({ event, calendar, anchor, onClose, onEdit }: {
           {(e.transparency === 'free' || (e.visibility && e.visibility !== 'default')) && row('info', [e.transparency === 'free' ? 'Shows as free' : '', e.visibility === 'private' ? 'Private' : e.visibility === 'public' ? 'Public' : ''].filter(Boolean).join(' · '), 'vis')}
           {row('calendar', <span className="row" style={{ gap: '0.375rem' }}><span className="dot" style={{ background: calendar?.colour || colour }} />{calendar?.name ?? 'Calendar'}{!canEdit && <span className="chip">View only</span>}</span>, 'cal')}
           <div className="peek-links">
-            <a className="btn ghost sm" href={`/app/photos?date=${dayKey(new Date(e.start))}`} onClick={(ev) => { ev.preventDefault(); navigate(`/photos?date=${dayKey(new Date(e.start))}`) }}><Icon name="photo" size={13} />Photos from this day</a>
-          </div>
-          {e.kind === 'deadline' && !e.task_id && (
-            <div className="peek-foot">
-              <button className="btn sm" onClick={() => toTask.mutate(event.id)} disabled={toTask.isPending}><Icon name="tasks" size={14} />Add to tasks</button>
-            </div>
+            <a className="btn ghost sm" href={`/app${photosHref}`} onClick={(ev) => { ev.preventDefault(); navigate(photosHref) }}><Icon name="photo" size={13} />Photos from this event</a>
+            <a className="btn ghost sm" href={`/app/photos?date=${dayKey(new Date(e.start))}`} onClick={(ev) => { ev.preventDefault(); navigate(`/photos?date=${dayKey(new Date(e.start))}`) }}>This day</a>
+          {countdown && (
+            <>
+              <a className="btn ghost sm" href={`${countdown}start/`} target="_blank" rel="noopener noreferrer"><Icon name="clock" size={13} />{e.kind === 'deadline' ? 'Countdown' : 'Countdown to start'}</a>
+              {e.kind === 'event' && e.end && <a className="btn ghost sm" href={`${countdown}end/`} target="_blank" rel="noopener noreferrer">To end</a>}
+            </>
           )}
+          </div>
+          <div className="peek-foot">
+            {e.kind === 'deadline' && canEdit && (
+              <button className="btn sm" onClick={() => update.mutate({ id: event.id, scope: recurring ? 'this' : undefined, body: { completed: !e.completed } }, { onSuccess: () => toast.show(e.completed ? 'Marked not done' : `Done: "${e.name}"`) })} disabled={update.isPending}>
+                <Icon name="check" size={14} />{e.completed ? 'Mark not done' : 'Mark done'}
+              </button>
+            )}
+            {!e.task_id && <button className={'btn sm' + (e.kind === 'deadline' ? ' primary' : '')} onClick={() => toTask.mutate(event.id)} disabled={toTask.isPending}><Icon name="tasks" size={14} />Add to tasks</button>}
+            {e.task_id && <button className="btn sm" onClick={() => navigate(`/tasks?view=all&task=${e.task_id}`)}><Icon name="tasks" size={14} />In Tasks · Open</button>}
+          </div>
         </div>
       </div>
     </>,

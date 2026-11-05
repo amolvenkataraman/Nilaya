@@ -1,8 +1,9 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { Dialog, Switch } from '../../components/ui'
+import { Confirm, Dialog, Switch } from '../../components/ui'
 import { dayKey } from '../../lib/dates'
-import { useHabitSettings, useSaveHabit, useSaveHabitSettings, type Goal, type Habit, type HabitInput, type Kind, type Period, type Schedule } from './api'
+import { useArchiveHabit, useDeleteHabit, useHabitSettings, useSaveHabit, useSaveHabitSettings, type Goal, type Habit, type HabitInput, type Kind, type Period, type Schedule } from './api'
 import { HABIT_COLOURS, HABIT_ICONS, HIcon, WEEKDAY_LETTERS, WEEKDAY_NAMES } from './util'
 
 interface Form {
@@ -16,6 +17,18 @@ const blank = (): Form => ({
   schedule: 'daily', weekdays: 127, interval: '2', start_date: dayKey(new Date()), end_date: '', reminder: false,
   reminder_time: '20:00', reminder_days: 127,
 })
+
+/** "Start from" templates, the same list as the classic editor (habits/static/habits/editor.js). */
+const TEMPLATES: (Partial<Omit<Form, 'target'>> & { name: string; target?: number })[] = [
+  { name: 'Drink water', kind: 'measurable', unit: 'glasses', target: 8, icon: 'drop', colour: '#2a78d6' },
+  { name: 'Read', kind: 'measurable', unit: 'minutes', target: 20, icon: 'book', colour: '#6250d6' },
+  { name: 'Exercise', kind: 'yesno', target: 3, period: 'week', icon: 'dumbbell', colour: '#eb6834' },
+  { name: 'No sugar', kind: 'measurable', unit: 'servings', goal: 'at_most', target: 0, icon: 'ban', colour: '#e34948' },
+  { name: 'Meditate', kind: 'yesno', icon: 'leaf', colour: '#1baf7a' },
+  { name: 'Walk', kind: 'measurable', unit: 'steps', target: 8000, icon: 'run', colour: '#008300' },
+  { name: 'Journal', kind: 'yesno', schedule: 'weekdays', weekdays: 0b0011111, icon: 'pen', colour: '#eda100' },
+  { name: 'Sleep by 11', kind: 'yesno', icon: 'moon', colour: '#e87ba4' },
+]
 
 const fromHabit = (h: Habit): Form => ({
   name: h.name, description: h.description, colour: h.colour, icon: h.icon, kind: h.kind, unit: h.unit, goal: h.goal,
@@ -41,6 +54,10 @@ function DayPicker({ value, onChange, label }: { value: number; onChange: (v: nu
 
 export function HabitDialog({ open, habit, onClose, onSaved }: { open: boolean; habit: Habit | null; onClose: () => void; onSaved?: (h: Habit) => void }) {
   const save = useSaveHabit()
+  const archive = useArchiveHabit()
+  const remove = useDeleteHabit()
+  const navigate = useNavigate()
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [f, setF] = useState<Form>(blank)
   const [error, setError] = useState('')
   useEffect(() => {
@@ -77,6 +94,12 @@ export function HabitDialog({ open, habit, onClose, onSaved }: { open: boolean; 
       width="34rem"
       footer={
         <>
+          {habit && (
+            <>
+              <button className="btn ghost" onClick={() => (archive.mutate({ id: habit.id, archived: !habit.archived }), onClose())}>{habit.archived ? 'Unarchive' : 'Archive'}</button>
+              <button className="btn ghost danger" onClick={() => setConfirmDelete(true)}>Delete</button>
+            </>
+          )}
           {error && <span className="error-text grow" role="alert">{error}</span>}
           <span className="spacer" />
           <button className="btn" onClick={onClose}>Cancel</button>
@@ -85,6 +108,19 @@ export function HabitDialog({ open, habit, onClose, onSaved }: { open: boolean; 
       }
     >
       <form className="h-form" onSubmit={(e) => (e.preventDefault(), submit())}>
+        {!habit && (
+          <div className="field">
+            <span>Start from</span>
+            <div className="h-templates">
+              {TEMPLATES.map(({ target, ...t }) => (
+                <button key={t.name} type="button" className="h-template" style={{ ['--hc' as string]: t.colour }} aria-pressed={f.name === t.name}
+                  onClick={() => (setF((x) => ({ ...blank(), start_date: x.start_date, ...t, target: String(target ?? 1) })), setError(''))}>
+                  <HIcon name={t.icon!} size={0.875} />{t.name}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
         <label className="field">
           <span>Name</span>
           <input className="input" value={f.name} onChange={(e) => set('name', e.target.value)} maxLength={80} placeholder="e.g. Read 20 minutes" autoFocus />
@@ -118,18 +154,29 @@ export function HabitDialog({ open, habit, onClose, onSaved }: { open: boolean; 
           {showTarget && (
             <label className="field">
               <span>{f.kind === 'yesno' ? 'Times' : 'Target'}</span>
-              <input className="input" type="number" inputMode="decimal" min={0} step={f.kind === 'yesno' ? 1 : 'any'} value={f.target} onChange={(e) => set('target', e.target.value)} />
+              <input className="input" type="number" inputMode="decimal" min={0} step={f.kind === 'yesno' ? 1 : 'any'} max={f.kind === 'yesno' ? (f.period === 'week' ? 7 : 31) : 1000000}
+                value={f.target} onChange={(e) => set('target', e.target.value)} />
             </label>
           )}
           <label className="field">
             <span>Per</span>
-            <select className="select" value={f.period} onChange={(e) => set('period', e.target.value as Period)}>
+            <select className="select" value={f.period} onChange={(e) => {
+              const period = e.target.value as Period
+              // Yes/no: "1 time a week" is rarely meant; start a week at 3 like the classic editor, and keep within the period.
+              setF((x) => {
+                if (x.kind !== 'yesno') return { ...x, period }
+                const n = Number(x.target) || 1
+                const target = period === 'day' ? 1 : period === 'week' && n <= 1 ? 3 : Math.min(period === 'week' ? 7 : 31, Math.max(1, n))
+                return { ...x, period, target: String(target) }
+              })
+            }}>
               <option value="day">Day</option>
               <option value="week">Week</option>
               <option value="month">Month</option>
             </select>
           </label>
         </div>
+        {f.kind === 'measurable' && f.goal === 'at_most' && <span className="help" style={{ marginTop: '-0.5rem' }}>A limit: days are kept unless you log going over.</span>}
 
         <div className="field">
           <span>Schedule</span>
@@ -141,9 +188,10 @@ export function HabitDialog({ open, habit, onClose, onSaved }: { open: boolean; 
             </div>
             {f.schedule === 'weekdays' && <DayPicker value={f.weekdays} onChange={(v) => set('weekdays', v)} label="Scheduled days" />}
             {f.schedule === 'interval' && (
-              <label className="row small">Every <input className="input" style={{ width: '4.5rem' }} type="number" min={1} max={365} value={f.interval} onChange={(e) => set('interval', e.target.value)} aria-label="Interval in days" /> days</label>
+              <label className="row small">Every <input className="input" style={{ width: '4.5rem' }} type="number" min={1} max={365} value={f.interval} onChange={(e) => set('interval', e.target.value)} aria-label="Interval in days" /> days from the start date</label>
             )}
           </div>
+          <span className="help">{f.period !== 'day' ? 'Shows on these days until the goal is met.' : 'Days off the schedule never break a streak.'}</span>
         </div>
 
         <div className="field">
@@ -195,6 +243,10 @@ export function HabitDialog({ open, habit, onClose, onSaved }: { open: boolean; 
           <textarea className="textarea" rows={2} value={f.description} onChange={(e) => set('description', e.target.value)} maxLength={2000} placeholder="Why this habit matters (optional)" />
         </label>
       </form>
+      {habit && (
+        <Confirm open={confirmDelete} title={`Delete "${habit.name}"?`} body="All of its history is deleted too. Archive it instead to keep the stats."
+          onConfirm={() => (remove.mutate(habit.id, { onSuccess: () => navigate('/habits') }), onClose())} onClose={() => setConfirmDelete(false)} />
+      )}
     </Dialog>
   )
 }

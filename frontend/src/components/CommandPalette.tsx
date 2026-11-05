@@ -58,7 +58,11 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
       { id: 'a-event', group: 'Actions', label: 'New event', icon: 'calendar', run: go('/calendar?new=1') },
       { id: 'a-insights', group: 'Actions', label: 'Calendar insights', icon: 'chart', run: go('/calendar?insights=week') },
       { id: 'a-albums', group: 'Actions', label: 'Photo albums', icon: 'album', run: go('/photos/albums') },
+      { id: 'a-gg', group: 'Photos', label: 'Geoguessr', icon: 'globe', run: go('/photos/geoguessr') },
+      { id: 'a-locate', group: 'Photos', label: 'Add missing photo locations', icon: 'pin', run: go('/photos/locate') },
       { id: 'a-theme', group: 'Actions', label: 'Change theme', icon: 'moon', run: () => cycleTheme() },
+      { id: 'a-dev', group: 'Actions', label: 'Developers & API: guides, keys, feeds', icon: 'code', run: go('/settings#set-guides') },
+      { id: 'a-keys', group: 'Actions', label: 'API keys', icon: 'code', run: go('/settings#set-api') },
     ]
     const views: Item[] = [
       ['today', 'Today'], ['upcoming', 'Upcoming'], ['overdue', 'Overdue'], ['inbox', 'Inbox'], ['done', 'Completed tasks'],

@@ -87,6 +87,15 @@ export default function Dashboard() {
               {summary.map((s) => <span key={s}><span aria-hidden="true"> · </span>{s}</span>)}
             </p>
           </div>
+          <form className="dash-web" role="search" onSubmit={(e) => {
+            // Navigate (not a form post) so the page's CSP form-action 'self' stays strict.
+            e.preventDefault()
+            const q = (new FormData(e.currentTarget).get('q') ?? '').toString().trim()
+            if (q) window.open(`https://duckduckgo.com/?q=${encodeURIComponent(q)}`, '_blank', 'noopener,noreferrer')
+          }}>
+            <Icon name="search" size={14} />
+            <input name="q" type="search" placeholder="Search DuckDuckGo" aria-label="Search DuckDuckGo" maxLength={300} />
+          </form>
           <div className="dash-actions">
             <button className="btn" onClick={openQuickAdd}><Icon name="plus" />Task<span className="kbd">Q</span></button>
             <Link className="btn" to="/calendar?new=1"><Icon name="calendar" />Event</Link>
@@ -338,12 +347,12 @@ function InboxCard({ className }: { className: string }) {
 function LinksCard({ className, onTask }: { className: string; onTask: () => void }) {
   const app = (id: string) => APPS.find((a) => a.id === id)!
   const links: { label: string; sub: string; app: string; to?: string; run?: () => void }[] = [
-    { label: 'New task', sub: 'Quick add', app: 'tasks', run: onTask },
     { label: 'New event', sub: 'Calendar', app: 'calendar', to: '/calendar?new=1' },
+    { label: 'New task', sub: 'Quick add', app: 'tasks', run: onTask },
     { label: 'Progress', sub: 'Habits', app: 'habits', to: '/habits/progress' },
-    { label: 'Albums', sub: 'Photos', app: 'photos', to: '/photos/albums' },
-    { label: 'Places', sub: 'Map', app: 'places', to: '/places' },
     { label: 'Contacts', sub: 'People', app: 'contacts', to: '/contacts' },
+    { label: 'Places', sub: 'Map', app: 'places', to: '/places' },
+    { label: 'Albums', sub: 'Photos', app: 'photos', to: '/photos/albums' },
   ]
   return (
     <section className={'card ' + className} aria-labelledby="links-h">

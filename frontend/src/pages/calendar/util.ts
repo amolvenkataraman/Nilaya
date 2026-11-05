@@ -2,13 +2,13 @@
 import { addDays, dayKey, parseDayKey, startOfDay, startOfWeek, monthGrid, addMonths, fmtDate } from '../../lib/dates'
 import type { CalEvent } from '../../lib/types'
 
-export type CalView = 'month' | 'week' | 'agenda'
+export type CalView = 'month' | 'week' | 'day' | 'agenda'
 
 export interface CalState { view: CalView; date: Date; insights: 'week' | 'month' | null; isNew: boolean }
 
 export function parseCalState(search: URLSearchParams, today = new Date()): CalState {
   const v = search.get('view')
-  const view: CalView = v === 'week' || v === 'agenda' ? v : 'month'
+  const view: CalView = v === 'week' || v === 'day' || v === 'agenda' ? v : 'month'
   const d = search.get('date')
   const date = d && /^\d{4}-\d{2}-\d{2}$/.test(d) && !isNaN(parseDayKey(d).getTime()) ? parseDayKey(d) : startOfDay(today)
   const i = search.get('insights')
@@ -22,6 +22,7 @@ export function viewRange(view: CalView, date: Date, days = 7): { start: Date; e
     const start = grid[0][0]
     return { start, end: addDays(grid[5][6], 1), days: grid.flat() }
   }
+  if (view === 'day') days = 1
   const start = days === 7 ? startOfWeek(date) : startOfDay(date)
   const list = Array.from({ length: days }, (_, i) => addDays(start, i))
   return { start, end: addDays(start, days), days: list }
@@ -33,14 +34,14 @@ export function stepDate(view: CalView, date: Date, dir: number, days = 7): Date
     const d = addMonths(date, dir)
     return d
   }
-  return addDays(date, dir * days)
+  return addDays(date, dir * (view === 'day' ? 1 : days))
 }
 
 export function rangeTitle(view: CalView, date: Date, days = 7): string {
   if (view === 'month' || view === 'agenda') return fmtDate(view === 'agenda' ? new Date() : date, { month: 'long', year: 'numeric' })
   const { start, end } = viewRange(view, date, days)
   const last = addDays(end, -1)
-  if (days === 1) return fmtDate(start, { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })
+  if (view === 'day' || days === 1) return fmtDate(start, { weekday: 'short', month: 'long', day: 'numeric', year: 'numeric' })
   if (start.getMonth() === last.getMonth()) return fmtDate(start, { month: 'long', year: 'numeric' })
   if (start.getFullYear() === last.getFullYear())
     return `${fmtDate(start, { month: 'short' })} – ${fmtDate(last, { month: 'short', year: 'numeric' })}`

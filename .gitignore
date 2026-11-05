@@ -86,3 +86,4 @@ static_files/static/app/
 
 # Location-entry audit log (written by the app)
 photo_gg_ent_log.txt
+*.tsbuildinfo

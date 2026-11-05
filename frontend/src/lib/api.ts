@@ -11,7 +11,7 @@ export class ApiError extends Error {
   }
 }
 
-type Query = Record<string, string | number | boolean | null | undefined>
+type Query = Record<string, string | number | boolean | null | undefined | readonly (string | number)[]>
 
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
@@ -38,7 +38,8 @@ export function apiUrl(path: string, query?: Query): string {
   const params = new URLSearchParams()
   for (const [k, v] of Object.entries(query ?? {})) {
     if (v === undefined || v === null || v === '') continue
-    params.set(k, String(v))
+    if (Array.isArray(v)) v.forEach((x) => params.append(k, String(x))) // ?k=a&k=b
+    else params.set(k, String(v))
   }
   const qs = params.toString()
   return qs ? `${url}?${qs}` : url
@@ -133,7 +134,7 @@ export function appRoute(url: string): string | null {
   const href = safeHref(url)
   if (!href || !href.startsWith('/')) return null
   const [path, search = ''] = href.split('?')
-  const map: Record<string, string> = { '/': '/', '/tasks/': '/tasks', '/calendar/': '/calendar', '/photos/': '/photos', '/map/': '/places', '/notifications/': '/notifications' }
+  const map: Record<string, string> = { '/': '/', '/tasks/': '/tasks', '/calendar/': '/calendar', '/photos/': '/photos', '/map/': '/places', '/notifications/': '/notifications', '/photos/geoguessr/': '/photos/geoguessr', '/photos/geoguessr_ent/': '/photos/locate' }
   if (path.startsWith('/app/')) return path.slice(4) + (search ? '?' + search : '')
   if (path in map) return map[path] + (search ? '?' + search : '')
   return null

@@ -42,6 +42,7 @@ const Photos = lazy(() => import('./pages/photos/PhotosPage'))
 const Places = lazy(() => import('./pages/places/PlacesPage'))
 const Notifications = lazy(() => import('./pages/notifications/NotificationsPage'))
 const Settings = lazy(() => import('./pages/settings/SettingsPage'))
+const UserProfile = lazy(() => import('./pages/users/UserPage'))
 const Habits = lazy(() => import('./pages/habits/HabitsPage'))
 const Contacts = lazy(() => import('./pages/contacts/ContactsPage'))
 
@@ -53,11 +54,12 @@ const router = createBrowserRouter(
       children: [
         { index: true, element: <Dashboard /> },
         { path: 'tasks', element: <Tasks /> },
-        { path: 'calendar', element: <Calendar /> },
+        { path: 'calendar/*', element: <Calendar /> },
         { path: 'photos/*', element: <Photos /> },
         { path: 'places', element: <Places /> },
         { path: 'notifications', element: <Notifications /> },
-        { path: 'settings', element: <Settings /> },
+        { path: 'settings/*', element: <Settings /> },
+        { path: 'users/:username', element: <UserProfile /> },
         { path: 'habits/*', element: <Habits /> },
         { path: 'contacts', element: <Contacts /> },
         { path: '*', element: <NotFound /> },

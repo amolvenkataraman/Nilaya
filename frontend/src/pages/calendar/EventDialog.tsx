@@ -3,8 +3,8 @@ import { Confirm, Dialog } from '../../components/ui'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { addDays, dayKey, fromLocalInput, parseDayKey, toLocalInput } from '../../lib/dates'
-import { useCalendars, useCategories } from '../../lib/queries'
-import type { CalEvent, Calendar, EventDetail, EventIn } from '../../lib/types'
+import { keys, useCalendars, useCategories } from '../../lib/queries'
+import type { CalEvent, Calendar, Category, EventDetail, EventIn } from '../../lib/types'
 import { useQuery } from '@tanstack/react-query'
 import { get, post } from '../../lib/api'
 import { Attendees, type AttendeeDraft } from './Attendees'
@@ -66,7 +66,7 @@ function initial(draft: EventDraft) {
 
 export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: () => void }) {
   const cals = useCalendars().data ?? []
-  const cats = useCategories().data ?? []
+  const ownCats = useCategories().data
   const editing = 'event' in draft ? draft.event : null
   const [f, setF] = useState(() => initial(draft))
   const [error, setError] = useState('')
@@ -91,6 +91,10 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
   const calendarId = f.calendar ?? defaultCalendar(cals)
   const cal = cals.find((c) => c.id === calendarId)
   const readOnly = !!editing && !cals.find((c) => c.id === editing.calendar_id)?.can_edit
+  // Categories belong to the calendar's owner: someone else's calendar uses theirs.
+  const foreign = cal && cal.role !== 'owner' ? cal.id : null
+  const ownerCats = useQuery({ queryKey: [...keys.categories, foreign], queryFn: () => get<Category[]>('calendar/categories', { calendar: foreign! }), enabled: foreign != null, staleTime: 60 * 60_000 }).data
+  const cats = (foreign != null ? ownerCats : ownCats) ?? []
   const busy = create.isPending || update.isPending
 
   function body(): EventIn | null {

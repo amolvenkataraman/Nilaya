@@ -85,3 +85,7 @@
   .dash-grid { grid-template-columns: minmax(0, 1fr); grid-template-areas: 'agenda' 'tasks' 'habits' 'week' 'inbox' 'links'; }
   .links { grid-template-columns: 1fr 1fr; }
 }
+.dash-web { display: flex; align-items: center; gap: 0.5rem; height: 2rem; padding: 0 0.625rem; width: min(18rem, 100%); border: var(--hairline); border-radius: var(--r-sm); background: var(--app-surface); color: var(--app-muted); }
+.dash-web:focus-within { border-color: var(--app-accent); color: var(--app-fg); }
+.dash-web input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font-size: var(--fs-sm); }
+@media (max-width: 760px) { .dash-web { width: 100%; order: 3; } }

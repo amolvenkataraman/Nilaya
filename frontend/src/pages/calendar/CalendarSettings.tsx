@@ -3,6 +3,7 @@
 // DELETE /calendar/calendars/{id}?confirm=<name>, GET /calendar/icons. While the detail endpoints
 // aren't deployed the drawer falls back to the list item and the fields PATCH already accepts.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Link } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { Dialog, Drawer, ErrorBox, Menu, MenuItem, SkeletonRows, Switch } from '../../components/ui'
@@ -24,6 +25,7 @@ export interface CalendarDetail extends Calendar {
 }
 type CalendarPatchBody = Partial<{
   name: string; calendar_colour: string; my_colour: string | null; icon: string; description: string; active: boolean; public: boolean
+  time_zone: string; tags: string[]
   visible: boolean; notify: boolean; display_busy: number; sync: Partial<{ url: string; auto_sync: boolean; past_months: number; future_months: number }>
 }>
 export interface Subscriber { id: number; user: Person; role: 'owner' | 'admin' | 'subscriber'; display_busy: number }
@@ -31,6 +33,13 @@ export interface Invite { id: number; code: string; role: 'admin' | 'subscriber'
 
 export const CAL_COLOURS = ['#3b82f6', '#0891b2', '#10b981', '#16a34a', '#f59e0b', '#ea580c', '#ef4444', '#db2777', '#8b5cf6', '#64748b']
 const FALLBACK_ICONS = ['calendar', 'user', 'users', 'tasks', 'flag', 'star', 'home', 'map', 'clock', 'bell', 'photo', 'repeat']
+
+/** The classic public page (read-only month view, anyone with the link). */
+export const publicUrl = (id: number) => `${window.location.origin}/calendar/public/${id}/`
+export function copyText(text: string, done = 'Copied') {
+  navigator.clipboard?.writeText(text).then(() => toast.show(done), () => toast.show(text))
+}
+const ZONES: string[] = (() => { try { return (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.('timeZone') ?? [] } catch { return [] } })()
 
 const notFound = (e: unknown) => e instanceof ApiError && (e.status === 404 || e.status === 405)
 const onError = (e: unknown) => toast.error((e as Error).message)
@@ -200,13 +209,24 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
                   )}
                   <div className="cal-row"><div><strong>Active</strong><span className="help">Disabled calendars and their events are hidden everywhere.</span></div>
                     <Switch checked={d.active} onChange={(v) => save.mutate({ active: v })} label={<span className="sr-only">Active</span>} /></div>
+                  {full && <ZoneTags d={d} onSave={(b) => save.mutate(b)} />}
                   {full && (
                     <div className="cal-row"><div><strong>Public</strong><span className="help">Anyone with the link can view it.</span></div>
                       <Switch checked={d.public} onChange={(v) => save.mutate({ public: v })} label={<span className="sr-only">Public</span>} /></div>
                   )}
                 </>
               ) : (
-                <p className="small">{d.name}{d.owner ? <span className="muted"> · owned by {personName(d.owner)}</span> : null}{d.description ? <><br /><span className="muted">{d.description}</span></> : null}</p>
+                <p className="small">{d.name}{d.owner ? <span className="muted"> · owned by <Link to={`/calendar/availability/${encodeURIComponent(d.owner.username)}`} title="See their availability">{personName(d.owner)}</Link></span> : null}{d.description ? <><br /><span className="muted">{d.description}</span></> : null}</p>
+              )}
+              {d.public && (
+                <div className="cal-public">
+                  <span className="xsmall muted">Public link</span>
+                  <div className="row" style={{ gap: '0.25rem' }}>
+                    <code className="cal-code grow truncate" title={publicUrl(d.id)}>{publicUrl(d.id)}</code>
+                    <button className="btn ghost icon sm" onClick={() => copyText(publicUrl(d.id), 'Public link copied')} aria-label="Copy public link" title="Copy link"><Icon name="copy" size={14} /></button>
+                    <a className="btn ghost icon sm" href={`/calendar/public/${d.id}/`} target="_blank" rel="noopener noreferrer" aria-label="Open public page" title="Open"><Icon name="external" size={14} /></a>
+                  </div>
+                </div>
               )}
             </section>
 
@@ -223,8 +243,14 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
                   render={(c) => <span className="cal-swatch" style={{ background: c }}>{c === d.my_colour && <Icon name="check" size={12} />}</span>} />
               )}
               {full && d.subscription && (
-                <div className="cal-row"><div><strong>Show as busy to others</strong><span className="help">When people see your free/busy time.</span></div>
-                  <Switch checked={!!d.subscription.display_busy} onChange={(v) => save.mutate({ display_busy: v ? 1 : 0 })} label={<span className="sr-only">Busy</span>} /></div>
+                <label className="field"><span>Your availability page shows</span>
+                  <select className="select" value={d.subscription.display_busy} onChange={(e) => save.mutate({ display_busy: Number(e.target.value) })}>
+                    <option value={0}>Nothing from this calendar</option>
+                    <option value={1}>Busy times of meetings, work and study</option>
+                    <option value={2}>Busy times of every event</option>
+                  </select>
+                  <span className="help">What people see at your availability page (times only, never names).</span>
+                </label>
               )}
             </section>
 
@@ -254,6 +280,7 @@ function Subscribers({ cal }: { cal: Calendar }) {
           {q.data.items.map((s) => (
             <li key={s.id}>
               <span className="grow truncate">{personName(s.user)}<span className="muted xsmall"> @{s.user.username}</span></span>
+              <Link className="btn ghost icon sm" to={`/calendar/availability/${encodeURIComponent(s.user.username)}`} aria-label={`${personName(s.user)}'s availability`} title="Availability"><Icon name="clock" size={14} /></Link>
               {s.role === 'owner' ? <span className="chip">Owner</span> : (
                 <>
                   <select className="select sm-select" value={s.role} aria-label={`Role for ${s.user.username}`} onChange={(e) => setRole.mutate({ id: s.id, role: e.target.value })}>
@@ -275,32 +302,33 @@ function Invites({ cal }: { cal: Calendar }) {
   const q = useSubList<Invite>(cal, 'invites', true)
   const qc = useQueryClient()
   const refresh = () => qc.invalidateQueries({ queryKey: ['calendar', 'invites', cal.id] })
-  const [days, setDays] = useState(7)
+  const [days, setDays] = useState('7')
   const [uses, setUses] = useState('')
   const [role, setRole] = useState('subscriber')
+  const [code, setCode] = useState('')
+  const codeOk = !code || /^[A-Za-z0-9_-]{4,8}$/.test(code)
   const create = useMutation({
-    mutationFn: () => post<Invite>(`calendar/calendars/${cal.id}/invites`, { role, expires_in_days: days || null, max_uses: uses ? Number(uses) : null }),
-    onSuccess: (inv) => (refresh(), copy(inv.code)),
+    mutationFn: () => post<Invite>(`calendar/calendars/${cal.id}/invites`, { role, code: code || null, expires_in_days: Number(days) ? Math.min(3650, Math.max(1, Number(days))) : null, max_uses: uses ? Number(uses) : null }),
+    onSuccess: (inv) => (refresh(), setCode(''), copy(inv.code)),
     onError,
   })
-  const deactivate = useMutation({ mutationFn: (id: number) => patch(`calendar/calendars/${cal.id}/invites/${id}`, { active: false }), onSettled: refresh, onError })
+  const setActive = useMutation({ mutationFn: ({ id, active }: { id: number; active: boolean }) => patch(`calendar/calendars/${cal.id}/invites/${id}`, { active }), onSettled: refresh, onError })
+  const remove = useMutation({ mutationFn: (id: number) => del(`calendar/calendars/${cal.id}/invites/${id}`), onSettled: refresh, onError })
   const copy = (code: string) => navigator.clipboard?.writeText(code).then(() => toast.show('Invite code copied'), () => toast.show(`Code: ${code}`))
   if (q.data?.missing) return null
   return (
     <section className="cal-sec" aria-labelledby="cs-inv">
       <h3 id="cs-inv">Invites</h3>
-      <form className="cal-invite-form" onSubmit={(e) => (e.preventDefault(), create.mutate())}>
-        <label className="field"><span>Expires</span>
-          <select className="select" value={days} onChange={(e) => setDays(Number(e.target.value))}>
-            <option value={1}>In 1 day</option><option value={7}>In 7 days</option><option value={30}>In 30 days</option><option value={0}>Never</option>
-          </select>
-        </label>
+      <form className="cal-invite-form" onSubmit={(e) => (e.preventDefault(), codeOk && create.mutate())}>
+        <label className="field"><span>Code</span><input className="input" value={code} maxLength={8} placeholder="Random" onChange={(e) => setCode(e.target.value.trim())} aria-invalid={!codeOk} title="4–8 letters, digits, _ or -" /></label>
+        <label className="field"><span>Expires in days</span><input className="input" type="number" min={1} max={3650} value={days} placeholder="Never" onChange={(e) => setDays(e.target.value)} /></label>
         <label className="field"><span>Max uses</span><input className="input" type="number" min={1} max={1000} value={uses} placeholder="No limit" onChange={(e) => setUses(e.target.value)} /></label>
         <label className="field"><span>Role</span>
           <select className="select" value={role} onChange={(e) => setRole(e.target.value)}><option value="subscriber">Can view</option><option value="admin">Can edit</option></select>
         </label>
-        <button className="btn primary sm" disabled={create.isPending}><Icon name="plus" size={14} />Create</button>
+        <button className="btn primary sm" disabled={create.isPending || !codeOk}><Icon name="plus" size={14} />Create</button>
       </form>
+      {!codeOk && <p className="error-text">Codes are 4–8 letters, digits, _ or -.</p>}
       {q.data && q.data.items.length > 0 && (
         <ul className="cal-list">
           {q.data.items.map((i) => (
@@ -309,12 +337,9 @@ function Invites({ cal }: { cal: Calendar }) {
               <span className="muted xsmall grow">
                 {i.role === 'admin' ? 'Can edit' : 'Can view'} · {i.uses}{i.max_uses ? `/${i.max_uses}` : ''} used{i.expires_on ? ` · expires ${fmtDate(parseDayKey(i.expires_on.slice(0, 10)))}` : ''}{!i.active ? ' · deactivated' : !i.usable ? ' · expired or used up' : ''}
               </span>
-              {i.active && (
-                <>
-                  <button className="btn ghost icon sm" aria-label="Copy code" title="Copy code" onClick={() => copy(i.code)}><Icon name="copy" size={14} /></button>
-                  <button className="btn ghost sm" onClick={() => deactivate.mutate(i.id)}>Deactivate</button>
-                </>
-              )}
+              {i.active && <button className="btn ghost icon sm" aria-label="Copy code" title="Copy code" onClick={() => copy(i.code)}><Icon name="copy" size={14} /></button>}
+              <button className="btn ghost sm" onClick={() => setActive.mutate({ id: i.id, active: !i.active })}>{i.active ? 'Deactivate' : 'Activate'}</button>
+              <button className="btn ghost icon sm" aria-label={`Delete invite ${i.code}`} title="Delete invite" onClick={() => remove.mutate(i.id)}><Icon name="trash" size={14} /></button>
             </li>
           ))}
         </ul>
@@ -340,7 +365,7 @@ function Sync({ cal, canSync }: { cal: CalendarDetail; canSync: boolean }) {
   return (
     <section className="cal-sec" aria-labelledby="cs-sync">
       <h3 id="cs-sync">Sync</h3>
-      {s?.url && <p className="small truncate muted" title={s.url}>{s.url}</p>}
+      {canSync ? <SyncUrl url={s?.url ?? ''} onSave={(url) => save.mutate({ sync: { url } })} /> : s?.url && <p className="small truncate muted" title={s.url}>{s.url}</p>}
       <p className="small">{s?.last_synced_at ? <>Last synced {shortStamp(s.last_synced_at)}</> : 'Not synced yet'}</p>
       {err && <p className="error-text">{err}</p>}
       {canSync && s && (
@@ -359,6 +384,39 @@ function Sync({ cal, canSync }: { cal: CalendarDetail; canSync: boolean }) {
       )}
       {canSync && <button className="btn sm" onClick={() => sync.mutate()} disabled={sync.isPending}><Icon name="refresh" size={14} />{sync.isPending ? 'Syncing…' : 'Sync now'}</button>}
     </section>
+  )
+}
+
+function SyncUrl({ url, onSave }: { url: string; onSave: (u: string) => void }) {
+  const [v, setV] = useState(url)
+  useEffect(() => setV(url), [url])
+  const ok = !v.trim() || /^(https?|webcal):\/\//i.test(v.trim())
+  return (
+    <label className="field"><span>Source (iCal link)</span>
+      <input className="input" type="url" value={v} maxLength={256} placeholder="https://…/calendar.ics" aria-invalid={!ok}
+        onChange={(e) => setV(e.target.value)} onBlur={() => ok && v.trim() !== url && onSave(v.trim())} />
+      {!ok && <span className="error-text">Use an http(s) or webcal link.</span>}
+    </label>
+  )
+}
+
+function ZoneTags({ d, onSave }: { d: CalendarDetail; onSave: (b: CalendarPatchBody) => void }) {
+  const [tz, setTz] = useState(d.time_zone ?? '')
+  const [tags, setTags] = useState((d.tags ?? []).join(', '))
+  useEffect(() => { setTz(d.time_zone ?? ''); setTags((d.tags ?? []).join(', ')) }, [d.time_zone, d.tags])
+  const tagList = (t: string) => t.split(',').map((x) => x.trim()).filter(Boolean).slice(0, 20)
+  return (
+    <div className="field-row">
+      <label className="field"><span>Time zone</span>
+        <input className="input" value={tz} list="cal-zones" maxLength={64} placeholder="Server time zone" onChange={(e) => setTz(e.target.value)}
+          onBlur={() => tz.trim() !== (d.time_zone ?? '') && onSave({ time_zone: tz.trim() })} />
+        <datalist id="cal-zones">{ZONES.map((z) => <option key={z} value={z} />)}</datalist>
+      </label>
+      <label className="field"><span>Tags</span>
+        <input className="input" value={tags} maxLength={300} placeholder="school, family" onChange={(e) => setTags(e.target.value)}
+          onBlur={() => tagList(tags).join(',') !== (d.tags ?? []).join(',') && onSave({ tags: tagList(tags) })} />
+      </label>
+    </div>
   )
 }
 
@@ -414,7 +472,23 @@ export function NewCalendarDialog({ open, onClose, onCreated }: { open: boolean;
 
 /** "…" menu next to a calendar in the sidebar. */
 export function CalendarMenu({ calendar, onSettings, onOnly }: { calendar: Calendar; onSettings: () => void; onOnly?: () => void }) {
+  const qc = useQueryClient()
+  const editor = calendar.role === 'owner' || calendar.role === 'admin'
+  const sync = useMutation({
+    mutationFn: () => post<{ ok: boolean; not_modified?: boolean; last_sync_error?: string }>(`calendar/calendars/${calendar.id}/sync`),
+    onSuccess: (r) => (r.ok ? toast.show(r.not_modified ? `"${calendar.name}" is up to date` : `Synced "${calendar.name}"`) : toast.error(r.last_sync_error || 'Sync failed')),
+    onError: (e) => toast.error(e instanceof ApiError && e.status === 503 ? 'Syncing is off on this server (offline mode).' : (e as Error).message),
+    onSettled: () => qc.invalidateQueries({ queryKey: ['calendar'] }),
+  })
+  const leave = useMutation({
+    mutationFn: () => del(`calendar/calendars/${calendar.id}/subscription`),
+    onSuccess: () => toast.show(`Left "${calendar.name}"`),
+    onError,
+    onSettled: () => qc.invalidateQueries({ queryKey: ['calendar'] }),
+  })
+  const [confirmLeave, setConfirmLeave] = useState(false)
   return (
+    <>
     <Menu align="end" label={`${calendar.name} options`} trigger={(p) => (
       <button {...p} className="btn ghost icon sm cal-more" aria-label={`${calendar.name} options`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); p.onClick() }}>
         <Icon name="more" size={14} />
@@ -424,8 +498,17 @@ export function CalendarMenu({ calendar, onSettings, onOnly }: { calendar: Calen
         <>
           {onOnly && <MenuItem icon="calendar" onClick={() => (close(), onOnly())}>Display this only</MenuItem>}
           <MenuItem icon="settings" onClick={() => (close(), onSettings())}>Settings and sharing</MenuItem>
+          {calendar.synced && editor && <MenuItem icon="refresh" onClick={() => (close(), sync.mutate())}>Sync now</MenuItem>}
+          {calendar.public && <MenuItem icon="link" onClick={() => (close(), copyText(publicUrl(calendar.id), 'Public link copied'))}>Copy public link</MenuItem>}
+          {calendar.role !== 'owner' && <MenuItem icon="logout" danger onClick={() => (close(), setConfirmLeave(true))}>Leave calendar</MenuItem>}
         </>
       )}
     </Menu>
+    <Dialog open={confirmLeave} onClose={() => setConfirmLeave(false)} title={`Leave "${calendar.name}"?`} width="26rem"
+      footer={<><span className="spacer" /><button className="btn" onClick={() => setConfirmLeave(false)}>Cancel</button>
+        <button className="btn primary" style={{ background: 'var(--app-danger)', borderColor: 'var(--app-danger)', color: '#fff' }} onClick={() => (setConfirmLeave(false), leave.mutate())}>Leave</button></>}>
+      <p className="muted small">Its events disappear from your calendar. You can rejoin with an invite code.</p>
+    </Dialog>
+    </>
   )
 }

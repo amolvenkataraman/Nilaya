@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import type { Place, Suggestion } from './api'
+import { HeatLayer, type HeatPoint } from '../photos/heat'
 
 interface Props {
   places: Place[]
@@ -12,10 +13,24 @@ interface Props {
   canEdit: (p: Place) => boolean
   onSelect: (id: string | null) => void
   onEdit: (p: Place) => void
-  onAddAt: (lat: number, lon: number) => void
+  onAddAt: (lat: number, lon: number, name?: string, address?: string) => void
   suggestions?: Suggestion[]
   onSuggestion?: (s: Suggestion) => void
+  /** Photo heat map points (null = layer off). */
+  heat?: HeatPoint[] | null
+  /** Visible box after each move/zoom (the page debounces and fetches heat points for it). */
+  onBounds?: (b: { south: number; west: number; north: number; east: number }) => void
+  /** "Add place" mode: the next map click adds a place there (no popup). */
+  addMode?: boolean
+  /** Fly here (a search result or a suggestion); `label` set = offer "Add a place here" with that name. */
+  focus?: MapFocus | null
+  /** Your location (a dot on the map). */
+  userPos?: { lat: number; lon: number } | null
+  /** Fit these points once per new key (e.g. after an import). */
+  fit?: { key: number; points: [number, number][] } | null
 }
+
+export interface MapFocus { key: number; lat: number; lon: number; zoom?: number; bbox?: [number, number, number, number]; label?: string; address?: string }
 
 /** Marker colour by status (legend below the map). */
 function statusColour(status?: string): string {
@@ -33,21 +48,24 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: s
 }
 
 
-export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, onEdit, onAddAt, suggestions, onSuggestion }: Props) {
+export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, onEdit, onAddAt, suggestions, onSuggestion, heat, onBounds, addMode, focus, userPos, fit }: Props) {
   const box = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
   const markers = useRef(new Map<string, L.CircleMarker>())
   const fitted = useRef(false)
   // Latest callbacks for Leaflet handlers created once.
-  const cb = useRef({ onSelect, onEdit, onAddAt, categoryLabel, canEdit, onSuggestion })
-  cb.current = { onSelect, onEdit, onAddAt, categoryLabel, canEdit, onSuggestion }
+  const cb = useRef({ onSelect, onEdit, onAddAt, categoryLabel, canEdit, onSuggestion, onBounds, addMode })
+  cb.current = { onSelect, onEdit, onAddAt, categoryLabel, canEdit, onSuggestion, onBounds, addMode }
+  const me = useRef<L.CircleMarker | null>(null)
+  const heatLayer = useRef<HeatLayer | null>(null)
   const ghosts = useRef<L.LayerGroup | null>(null)
   const [zoomTick, setZoomTick] = useState(0)
 
   useEffect(() => {
     if (!box.current) return
-    const m = L.map(box.current, { zoomControl: false, worldCopyJump: true }).setView([20, 0], 2)
+    // Canvas renderer: thousands of circle markers stay smooth (no DOM node per marker).
+    const m = L.map(box.current, { zoomControl: false, worldCopyJump: true, preferCanvas: true }).setView([20, 0], 2)
     L.control.zoom({ position: 'bottomright' }).addTo(m)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
@@ -55,27 +73,28 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
     }).addTo(m)
     layer.current = L.layerGroup().addTo(m)
     ghosts.current = L.layerGroup().addTo(m)
-    m.on('zoomend', () => setZoomTick((t) => t + 1))
+    m.on('moveend', () => setZoomTick((t) => t + 1)) // zoom or pan: re-cluster what's in view
+    const report = () => {
+      const b = m.getBounds()
+      cb.current.onBounds?.({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() })
+    }
+    m.on('moveend', report)
+    const firstReport = setTimeout(report, 0)
     m.on('click', (e: L.LeafletMouseEvent) => {
       const { lat, lng } = e.latlng.wrap()
-      const wrap = el('div', 'pm-pop')
-      wrap.append(el('div', 'pm-pop-meta', `${lat.toFixed(5)}, ${lng.toFixed(5)}`))
-      const add = el('button', 'btn primary sm', 'Add a place here')
-      add.type = 'button'
-      add.addEventListener('click', () => {
-        m.closePopup()
-        cb.current.onAddAt(lat, lng)
-      })
-      wrap.append(add)
-      L.popup({ closeButton: false, className: 'pm-popup' }).setLatLng(e.latlng).setContent(wrap).openOn(m)
+      if (cb.current.addMode) return cb.current.onAddAt(lat, lng)
+      addPopup(m, e.latlng, lat, lng)
       cb.current.onSelect(null)
     })
     map.current = m
+    ;(box.current as HTMLDivElement & { _leafletMap?: L.Map })._leafletMap = m // handle for tests (no global)
     const ro = new ResizeObserver(() => m.invalidateSize())
     ro.observe(box.current)
     return () => {
+      clearTimeout(firstReport)
       ro.disconnect()
       m.remove()
+      heatLayer.current = null
       map.current = null
       markers.current.clear()
     }
@@ -90,10 +109,16 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
     markers.current.clear()
     const zoom = m.getZoom()
     const cells = new Map<string, Place[]>()
+    // Big sets: only what's in (or near) the view gets markers; panning re-runs this.
+    const view = places.length > 300 ? m.getBounds().pad(0.35) : null
+    const cellPx = places.length > 1000 ? CLUSTER_PX * 1.4 : CLUSTER_PX // fewer, bigger clusters for big sets
     for (const p of places) {
+      if (view && !view.contains([p.latitude, p.longitude]) && p.id !== selected) continue
       const pt = m.project([p.latitude, p.longitude], zoom)
-      const key = zoom >= 16 ? p.id : `${Math.floor(pt.x / CLUSTER_PX)}:${Math.floor(pt.y / CLUSTER_PX)}`
-      cells.set(key, [...(cells.get(key) ?? []), p])
+      const key = zoom >= 16 ? p.id : `${Math.floor(pt.x / cellPx)}:${Math.floor(pt.y / cellPx)}`
+      const cell = cells.get(key)
+      if (cell) cell.push(p)
+      else cells.set(key, [p])
     }
     for (const group of cells.values()) {
       if (group.length > 1 && !group.some((p) => p.id === selected)) {
@@ -105,7 +130,8 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
           const node = mk.getElement()
           if (node) node.replaceChildren(el('span', '', String(group.length)))
         })
-        mk.bindTooltip(el('span', '', group.slice(0, 5).map((p) => p.name).join(', ') + (group.length > 5 ? '…' : '')), { direction: 'top', offset: [0, -14] })
+        // Tooltips are built on first hover (hundreds of clusters redraw after every move).
+        mk.once('mouseover', () => mk.bindTooltip(el('span', '', group.slice(0, 5).map((p) => p.name).join(', ') + (group.length > 5 ? '…' : '')), { direction: 'top', offset: [0, -14] }).openTooltip())
         mk.on('click', () => m.fitBounds(L.latLngBounds(group.map((p) => [p.latitude, p.longitude] as [number, number])), { padding: [60, 60], maxZoom: 17 }))
         mk.addTo(g)
         continue
@@ -115,7 +141,7 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
           radius: 7, color: '#fff', weight: 2, fillColor: statusColour(p.status), fillOpacity: 1, className: 'pm-marker',
         })
         // Leaflet treats string content as HTML, so tooltips and popups always get DOM nodes.
-        mk.bindTooltip(el('span', '', p.name), { direction: 'top', offset: [0, -8] })
+        mk.once('mouseover', () => mk.bindTooltip(el('span', '', p.name), { direction: 'top', offset: [0, -8] }).openTooltip())
         mk.bindPopup(() => popup(p), { className: 'pm-popup', offset: [0, -4], autoPanPadding: [24, 24] })
         mk.on('click', () => cb.current.onSelect(p.id))
         mk.addTo(g)
@@ -128,6 +154,70 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
       m.fitBounds(b, { padding: [48, 48], maxZoom: 14 })
     }
   }, [places, zoomTick, selected])
+
+  /** Popup with the coordinates (and a found name) and "Add a place here". Text nodes only. */
+  function addPopup(m: L.Map, at: L.LatLngExpression, lat: number, lng: number, label?: string, address?: string) {
+    const wrap = el('div', 'pm-pop')
+    if (label) wrap.append(el('div', 'pm-pop-title', label))
+    if (address && address !== label) wrap.append(el('div', 'pm-pop-text', address))
+    wrap.append(el('div', 'pm-pop-meta', `${lat.toFixed(5)}, ${lng.toFixed(5)}`))
+    const add = el('button', 'btn primary sm', 'Add a place here')
+    add.type = 'button'
+    add.addEventListener('click', () => {
+      m.closePopup()
+      cb.current.onAddAt(lat, lng, label, address)
+    })
+    wrap.append(add)
+    L.popup({ closeButton: !!label, className: 'pm-popup', autoPanPadding: [24, 24] }).setLatLng(at).setContent(wrap).openOn(m)
+  }
+
+  // Crosshair while adding.
+  useEffect(() => {
+    box.current?.classList.toggle('adding', !!addMode)
+    if (addMode) map.current?.closePopup()
+  }, [addMode])
+
+  // Fly to a search result / suggestion.
+  useEffect(() => {
+    const m = map.current
+    if (!m || !focus) return
+    const [s, n, w, e] = focus.bbox ?? [0, 0, 0, 0]
+    if (focus.bbox && (n - s > 0.002 || e - w > 0.002)) m.flyToBounds([[s, w], [n, e]], { maxZoom: focus.zoom ?? 17, duration: 0.8 })
+    else m.flyTo([focus.lat, focus.lon], Math.max(m.getZoom(), focus.zoom ?? 16), { duration: 0.8 })
+    if (focus.label !== undefined) {
+      const t = setTimeout(() => addPopup(m, [focus.lat, focus.lon], focus.lat, focus.lon, focus.label, focus.address), 850)
+      return () => clearTimeout(t)
+    }
+  }, [focus?.key])
+
+  // Your location.
+  useEffect(() => {
+    const m = map.current
+    if (!m) return
+    me.current?.remove()
+    me.current = null
+    if (!userPos) return
+    me.current = L.circleMarker([userPos.lat, userPos.lon], { radius: 6, color: '#fff', weight: 2, fillColor: '#2563eb', fillOpacity: 1, interactive: false, className: 'pm-me' }).addTo(m)
+  }, [userPos?.lat, userPos?.lon])
+
+  useEffect(() => {
+    const m = map.current
+    if (!m || !fit?.points.length) return
+    m.fitBounds(L.latLngBounds(fit.points), { padding: [48, 48], maxZoom: 15 })
+  }, [fit?.key])
+
+  // Photo heat map layer.
+  useEffect(() => {
+    const m = map.current
+    if (!m) return
+    if (!heat) {
+      heatLayer.current?.remove()
+      heatLayer.current = null
+      return
+    }
+    if (!heatLayer.current || !m.hasLayer(heatLayer.current.leaflet)) heatLayer.current = new HeatLayer(heat).addTo(m) as HeatLayer
+    else heatLayer.current.setPoints(heat)
+  }, [heat])
 
   // Photo-derived suggestions as dashed "ghost" pins.
   useEffect(() => {
@@ -196,6 +286,8 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
         <li><span className="pm-dot" style={{ background: 'var(--app-success)' }} />Visited</li>
         {suggestions && suggestions.length > 0 && <li><span className="pm-dot ghost" />Suggested</li>}
         <li><span className="pm-dot cluster">3</span>Group</li>
+        {userPos && <li><span className="pm-dot" style={{ background: '#2563eb' }} />You</li>}
+        {heat && <li className="pm-heat-key">Photos <span className="pm-ramp" aria-hidden="true" /> more</li>}
       </ul>
     </>
   )

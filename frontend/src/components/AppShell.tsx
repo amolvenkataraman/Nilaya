@@ -8,7 +8,7 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { Icon } from './Icon'
 import { Avatar, Menu, MenuItem, useMediaQuery } from './ui'
 import { NotificationBell } from './NotificationBell'
-import { APPS, CLASSIC, type AppDef } from './nav'
+import { APPS, CLASSIC, STAFF_APPS, type AppDef } from './nav'
 import { logout, useGlobals, usePageTitle } from './Shell'
 import { useMe } from '../lib/queries'
 import { Boundary, NetworkBanner } from './resilience'
@@ -153,7 +153,7 @@ function GlobalItems() {
       <Menu
         align="end"
         label="Apps"
-        width="min(19rem, calc(100vw - 16px))"
+        width="min(20rem, calc(100vw - 16px))"
         trigger={(p) => (
           <button {...p} className="btn ghost icon" aria-label="Apps" title="Apps">
             <Icon name="apps" size={18} />
@@ -162,17 +162,33 @@ function GlobalItems() {
       >
         {(close) => (
           <div className="launcher">
-            {APPS.map((a) => (
-              <Link key={a.id} to={a.to} role="menuitem" className="launcher-app" onClick={close}>
-                <AppLogo app={a} size={2.5} />
-                <span className="truncate">{a.label}</span>
-              </Link>
-            ))}
-            <a href={CLASSIC.to} role="menuitem" className="launcher-classic">
-              <Icon name="classic" />
-              <span className="grow">Classic view</span>
-              <Icon name="external" size={14} />
-            </a>
+            {['', 'Planning', 'People & places', 'Media', 'System'].map((g) => {
+              const apps = [...APPS, ...(me?.is_staff ? STAFF_APPS : [])].filter((a) => (a.group ?? '') === g)
+              return (
+                <div key={g || 'home'} className="launcher-group" role="group" aria-label={g || 'Home'}>
+                  {g && <div className="launcher-label">{g}</div>}
+                  <div className="launcher-grid">
+                    {apps.map((a) => a.external ? (
+                      <a key={a.id} href={a.to} role="menuitem" className="launcher-app" onClick={close}>
+                        <AppLogo app={a} size={2} />
+                        <span className="truncate">{a.label}</span>
+                      </a>
+                    ) : (
+                      <Link key={a.id} to={a.to} role="menuitem" className="launcher-app" onClick={close}>
+                        <AppLogo app={a} size={2} />
+                        <span className="truncate">{a.label}</span>
+                      </Link>
+                    ))}
+                    {g === 'System' && (
+                      <a href={CLASSIC.to} role="menuitem" className="launcher-app">
+                        <AppLogo app={CLASSIC} size={2} />
+                        <span className="truncate">Classic view</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
           </div>
         )}
       </Menu>
@@ -192,7 +208,11 @@ function GlobalItems() {
               <div className="truncate">{me?.email || me?.username}</div>
             </div>
             <div className="menu-sep" />
+            {me && <MenuItem icon="user" onClick={() => (close(), navigate(`/users/${encodeURIComponent(me.username)}`))}>Your profile</MenuItem>}
             <MenuItem icon="settings" onClick={() => (close(), navigate('/settings'))}>Settings</MenuItem>
+            <MenuItem icon="code" onClick={() => (close(), navigate('/settings#set-guides'))}>Developers &amp; API</MenuItem>
+            {me?.is_staff && <MenuItem icon="chart" onClick={() => (close(), navigate('/settings/usage'))}>Usage</MenuItem>}
+            {me?.is_staff && <MenuItem icon="wrench" href="/admin/" end={<Icon name="external" size={12} />}>Admin</MenuItem>}
             <MenuItem icon={themeIcon} onClick={cycleTheme}>{themeLabel}</MenuItem>
             <MenuItem icon="classic" href="/">Classic view</MenuItem>
             <div className="menu-sep" />

@@ -1,10 +1,11 @@
 // An infinite, day-grouped, justified photo stream (timeline or one album) + the viewer.
 import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
-import { useInfiniteQuery } from '@tanstack/react-query'
-import { useLocation, useNavigate, useSearchParams } from 'react-router'
+import { useInfiniteQuery, useQueries } from '@tanstack/react-query'
+import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { get, safeHref } from '../../lib/api'
-import { fmtDate, groupByDay } from '../../lib/dates'
-import { dayLabel, fmtDuration } from './util'
+import { dayKey, fmtDate, groupByDay } from '../../lib/dates'
+import { dayLabel, fmtBytes, fmtDuration } from './util'
+import { SelectionBar, labelText, select, selection, tileLabel, tileTitle } from './select'
 import { justify } from '../../lib/justify'
 import type { Photo, PhotoPage } from '../../lib/types'
 import { Icon } from '../../components/Icon'
@@ -49,23 +50,59 @@ export function usePhotoParam() {
     const qs = p.toString()
     return location.pathname + (qs ? '?' + qs : '')
   }
-  const open = (id: string) => navigate(withPhoto(id), { state: { viewer: true } })
+  // `source` says which strip opened the viewer (e.g. 'otd'), so only that strip renders it.
+  const source = (location.state as { source?: string } | null)?.source ?? null
+  const open = (id: string, from?: string) => navigate(withPhoto(id), { state: { viewer: true, source: from } })
   const go = (id: string) => navigate(withPhoto(id), { replace: true, state: location.state })
   const close = () => {
     if ((location.state as { viewer?: boolean } | null)?.viewer) navigate(-1)
     else navigate(withPhoto(null), { replace: true })
   }
-  return { current, open, go, close }
+  return { current, source, open, go, close }
 }
 
-export function Thumb({ photo, width, height, onOpen }: { photo: Photo; width: number; height: number; onOpen: (id: string) => void }) {
+export function Thumb({ photo, width, height, onOpen, order }: { photo: Photo; width: number; height: number; onOpen: (id: string) => void; order: Photo[] }) {
   const src = safeHref(photo.thumb_url)
   const [loaded, setLoaded] = useState(false)
+  const sel = selection.use()
+  const label = tileLabel.use()
+  const picked = sel.picked.has(photo.id)
+  const press = useRef<{ t: ReturnType<typeof setTimeout>; x: number; y: number; fired: boolean } | null>(null)
   const when = photo.date_taken ? new Date(photo.date_taken) : null
-  const label = `${photo.video ? 'Video' : 'Photo'}${when ? ' from ' + fmtDate(when, { dateStyle: 'medium', timeStyle: 'short' } as Intl.DateTimeFormatOptions) : ''}${photo.city ? ', ' + photo.city : ''}`
+  const aria = `${photo.video ? 'Video' : 'Photo'}${when ? ' from ' + fmtDate(when, { dateStyle: 'medium', timeStyle: 'short' } as Intl.DateTimeFormatOptions) : ''}${photo.city ? ', ' + photo.city : ''}`
+  const text = labelText(photo, label)
   return (
-    <button className={'ph-tile' + (loaded ? ' loaded' : '')} style={{ width, height }} onClick={() => onOpen(photo.id)} aria-label={label}>
+    <button
+      className={'ph-tile' + (loaded ? ' loaded' : '') + (sel.mode ? ' selecting' : '') + (picked ? ' picked' : '')}
+      style={{ width, height }}
+      aria-label={aria}
+      aria-pressed={sel.mode ? picked : undefined}
+      title={tileTitle(photo)}
+      onClick={(e) => {
+        if (press.current?.fired) return void (press.current = null)
+        if (sel.mode || e.shiftKey || e.metaKey || e.ctrlKey) {
+          e.preventDefault()
+          select.toggle(photo, order, e.shiftKey)
+        } else onOpen(photo.id)
+      }}
+      onPointerDown={(e) => {
+        if (e.pointerType === 'mouse') return
+        const st = { x: e.clientX, y: e.clientY, fired: false, t: setTimeout(() => { st.fired = true; select.toggle(photo, order) }, 500) }
+        press.current = st
+      }}
+      onPointerMove={(e) => {
+        const p = press.current
+        if (p && !p.fired && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) (clearTimeout(p.t), (press.current = null))
+      }}
+      onPointerUp={() => press.current && !press.current.fired && (clearTimeout(press.current.t), (press.current = null))}
+      onContextMenu={(e) => press.current?.fired && e.preventDefault()}
+    >
       {src && <img src={src} alt="" loading="lazy" decoding="async" width={width} height={height} onLoad={() => setLoaded(true)} draggable={false} />}
+      <span className="ph-pick" aria-hidden="true" onClick={(e) => { e.stopPropagation(); select.toggle(photo, order, e.shiftKey) }}><Icon name="check" size={12} /></span>
+      {(photo.has_raw || photo.has_orig) && (
+        <span className="ph-badges">{photo.has_raw && <span>RAW</span>}{photo.has_orig && <span>ORIG</span>}</span>
+      )}
+      {text && width > 88 && <span className="ph-label">{text}</span>}
       {photo.video && (
         <span className="ph-video">
           <Icon name="play" size={10} />
@@ -76,34 +113,45 @@ export function Thumb({ photo, width, height, onOpen }: { photo: Photo; width: n
   )
 }
 
-const DayGroup = memo(function DayGroup({ date, items, width, target, gap, onOpen }: {
-  date: Date | null; items: Photo[]; width: number; target: number; gap: number; onOpen: (id: string) => void
+type DayInfo = { photos: number; videos: number; size_kb: number }
+
+const DayGroup = memo(function DayGroup({ date, dayKeyStr, items, width, target, gap, onOpen, info, order, link }: {
+  date: Date | null; dayKeyStr: string; items: Photo[]; width: number; target: number; gap: number; onOpen: (id: string) => void; info?: DayInfo; order: Photo[]; link: boolean
 }) {
   const rows = useMemo(() => justify(items.map((p) => p.aspect), width, target, gap), [items, width, target, gap])
   const height = rows.reduce((s, r) => s + r.height, 0) + gap * Math.max(0, rows.length - 1)
+  const sel = selection.use()
+  const allPicked = items.length > 0 && items.every((p) => sel.picked.has(p.id))
   const places = useMemo(() => {
     const counts = new Map<string, number>()
-    for (const p of items) if (p.city) counts.set(p.city, (counts.get(p.city) ?? 0) + 1)
-    return [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([c]) => c)
+    for (const p of items) {
+      const k = [p.city, p.country].filter(Boolean).join(', ')
+      if (k) counts.set(k, (counts.get(k) ?? 0) + 1)
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1])
   }, [items])
+  const v = info ? info.videos : items.filter((p) => p.video).length
+  const ph = info ? info.photos : items.length - v
   return (
-    <section className="ph-day" style={{ containIntrinsicSize: `auto ${height + 40}px` }}>
+    <section className="ph-day" style={{ containIntrinsicSize: `auto ${height + 40}px` }} data-day={dayKeyStr}>
       <h2 className="ph-day-head">
-        <span>{date ? dayLabel(date) : 'Undated'}</span>
-        {places.length > 0 && <span className="ph-day-place">{places.join(' · ')}</span>}
+        <button className={'ph-day-pick' + (allPicked ? ' on' : '')} aria-pressed={allPicked} aria-label={`Select all from ${date ? dayLabel(date) : 'this day'}`}
+          onClick={() => select.setMany(items, !allPicked)}><Icon name="check" size={11} /></button>
+        {date && link ? <Link to={`/photos/day/${dayKeyStr}`} className="ph-day-link" title="All photos from this day">{dayLabel(date)}</Link> : <span>{date ? dayLabel(date) : 'Undated'}</span>}
+        {places.length > 0 && (
+          <span className="ph-day-place" title={places.map(([k, n]) => `${k}: ${n}`).join('\n')}>
+            {places.slice(0, 5).map(([k]) => k.split(',')[0]).join(' · ')}{places.length > 5 ? ` +${places.length - 5}` : ''}
+          </span>
+        )}
         <span className="ph-day-count tabular">
-          {(() => {
-            const v = items.filter((p) => p.video).length
-            const ph = items.length - v
-            return [ph ? `${ph} photo${ph === 1 ? '' : 's'}` : '', v ? `${v} video${v === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · ')
-          })()}
+          {[ph ? `${ph} photo${ph === 1 ? '' : 's'}` : '', v ? `${v} video${v === 1 ? '' : 's'}` : '', info?.size_kb ? fmtBytes(info.size_kb) : ''].filter(Boolean).join(' · ')}
         </span>
       </h2>
       <div className="ph-rows" style={{ gap }}>
         {rows.map((row, i) => (
           <div className="ph-row" key={i} style={{ height: row.height, gap }}>
             {row.boxes.map((b) => (
-              <Thumb key={items[b.index].id} photo={items[b.index]} width={b.width} height={b.height} onOpen={onOpen} />
+              <Thumb key={items[b.index].id} photo={items[b.index]} width={b.width} height={b.height} onOpen={onOpen} order={order} />
             ))}
           </div>
         ))}
@@ -114,7 +162,7 @@ const DayGroup = memo(function DayGroup({ date, items, width, target, gap, onOpe
 
 type Cursor = { before?: string; before_id?: string }
 
-export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBefore }: {
+export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBefore, dayInfo = false, dayLinks = true, onItems }: {
   queryKey: readonly unknown[]
   path: string
   params?: Record<string, string | number | boolean | undefined>
@@ -122,6 +170,12 @@ export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBe
   zoom?: Zoom
   /** Start the stream at this moment (photos taken before it), e.g. a day picked in Calendar. */
   startBefore?: string
+  /** Fetch per-day totals (timeline only: they count the whole library, not a filter or album). */
+  dayInfo?: boolean
+  /** Day headers link to that day's page. */
+  dayLinks?: boolean
+  /** Told about the loaded items (e.g. the day page's places). */
+  onItems?: (items: Photo[]) => void
 }) {
   const q = useInfiniteQuery({
     queryKey: [...queryKey, params ?? {}, startBefore ?? ''],
@@ -134,6 +188,28 @@ export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBe
     staleTime: 5 * 60_000,
   })
   const items = useMemo(() => q.data?.pages.flatMap((p) => p.items) ?? [], [q.data])
+  const onItemsRef = useRef(onItems)
+  onItemsRef.current = onItems
+  useEffect(() => onItemsRef.current?.(items), [items])
+  // Per-day totals ("10 photos · 1 video · 56.6 MB"): one /photos/days request per loaded page, cached.
+  const pageRanges = useMemo(() => (q.data?.pages ?? []).map((pg) => {
+    const ds = pg.items.map((p) => p.date_taken).filter(Boolean) as string[]
+    return ds.length ? [dayKey(new Date(ds[ds.length - 1])), dayKey(new Date(ds[0]))] as const : null
+  }).filter(Boolean) as (readonly [string, string])[], [q.data])
+  const dayQs = useQueries({
+    queries: dayInfo ? pageRanges.map(([start, end]) => ({
+      queryKey: ['photos', 'days', start, end],
+      queryFn: () => get<Record<string, DayInfo>>('photos/days', { start, end }),
+      staleTime: 30 * 60_000,
+    })) : [],
+  })
+  const dayMap = useMemo(() => Object.assign({}, ...dayQs.map((d) => d.data ?? {})) as Record<string, DayInfo>, [dayQs])
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && selection.get().mode && !document.querySelector('.dialog,.viewer') && select.setMode(false)
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [])
+  useEffect(() => () => select.setMode(false), [])
   const days = useMemo(() => groupByDay(items, (p) => p.date_taken), [items])
   const [ref, width] = useWidth<HTMLDivElement>()
   const phone = useMediaQuery('(max-width: 760px)')
@@ -162,6 +238,7 @@ export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBe
 
   return (
     <div ref={ref} className="ph-stream">
+      <SelectionBar />
       {q.isPending ? (
         <StreamSkeleton width={width} target={target} gap={gap} />
       ) : q.isError && !q.data ? (
@@ -169,11 +246,11 @@ export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBe
       ) : !items.length ? (
         <div className="empty left">{empty}</div>
       ) : (
-        width > 0 && days.map((d) => <DayGroup key={d.key} date={d.date} items={d.items} width={width} target={target} gap={gap} onOpen={onOpen} />)
+        width > 0 && days.map((d) => <DayGroup key={d.key} dayKeyStr={d.key} date={d.date} items={d.items} width={width} target={target} gap={gap} onOpen={onOpen} info={dayMap[d.key]} order={items} link={dayLinks} />)
       )}
       <div ref={sentinel} className="ph-sentinel" aria-hidden="true" />
       {q.isFetchingNextPage && <StreamSkeleton width={width} target={target} gap={gap} rows={1} />}
-      {viewer.current && (
+      {viewer.current && !viewer.source && (
         <Viewer
           id={viewer.current}
           items={items}

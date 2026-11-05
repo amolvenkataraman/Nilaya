@@ -41,7 +41,7 @@ export function Ring({ value, size = 12 }: { value: number; size?: number }) {
 }
 
 /** Hover card text: everything about the task at a glance. */
-function hoverText(t: Task, labels: Label[], project?: string): string {
+export function hoverText(t: Task, labels: Label[], project?: string): string {
   const lines = [t.title]
   if (t.description) lines.push(t.description.slice(0, 280) + (t.description.length > 280 ? '…' : ''))
   lines.push('')
@@ -72,7 +72,7 @@ export function dueTone(iso: string | null, done: boolean, now = new Date()): ''
   return ''
 }
 
-export function TaskRow({ task, project, projectPath, labels, onToggle, onOpen, selected, showProject = true, extra, draggable, onDragStart, onDragEnd }: {
+export function TaskRow({ task, project, projectPath, labels, onToggle, onOpen, selected, showProject = true, extra, draggable, onDragStart, onDragEnd, titleSlot }: {
   task: Task
   project?: Project
   /** "Work › Website" for nested projects. */
@@ -86,6 +86,8 @@ export function TaskRow({ task, project, projectPath, labels, onToggle, onOpen, 
   draggable?: boolean
   onDragStart?: (e: DragEvent) => void
   onDragEnd?: (e: DragEvent) => void
+  /** Replaces the title button (e.g. an inline rename input). */
+  titleSlot?: ReactNode
 }) {
   const tone = dueTone(task.due, task.done)
   const taskLabels = labels?.filter((l) => task.labels.includes(l.id)) ?? []
@@ -123,10 +125,10 @@ export function TaskRow({ task, project, projectPath, labels, onToggle, onOpen, 
     >
       <TaskCheck task={task} onToggle={onToggle} />
       <div className="task-main">
-        <button type="button" className="task-title" onClick={(e) => (e.stopPropagation(), onOpen())} title={hoverText(task, taskLabels, projectPath ?? project?.name)}>
+        {titleSlot ?? <button type="button" className="task-title" onClick={(e) => (e.stopPropagation(), onOpen())} title={hoverText(task, taskLabels, projectPath ?? project?.name)}>
           {task.title}
           {task.description && <Icon name="list" size={12} className="task-desc-icon" title="Has a description" />}
-        </button>
+        </button>}
         {meta.length > 0 && <div className="task-meta">{meta}</div>}
       </div>
       {task.priority >= 15 && !task.done && (

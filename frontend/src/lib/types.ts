@@ -130,6 +130,7 @@ export interface Photo {
   id: UUID; thumb_url: string; url: string; width: number | null; height: number | null; aspect: number
   date_taken: ISODateTime | null; video: boolean; length: number | null; city: string | null; country: string | null
   lat: number | null; lon: number | null; camera: string | null; album_id: number
+  size_kb?: number | null; size_total_kb?: number | null; megapixels?: number | null; has_raw?: boolean; has_orig?: boolean; blur?: number | null
 }
 export interface PhotoPage { items: Photo[]; next_before: ISODateTime | null; next_before_id?: UUID | null }
 export interface YearGroup { year: number; items: Photo[] }
@@ -138,7 +139,7 @@ export interface PhotoSummary {
   countries: { name: string; count: number }[]; cities: { name: string; count: number }[]; per_year: { year: number; count: number }[]
 }
 export interface Library { id: number; name: string; role: string; visible: boolean; count: number }
-export interface Album { id: UUID; name: string; description: string | null; public: boolean; mine: boolean; count: number; cover: Photo | null }
+export interface Album { id: UUID; name: string; description: string | null; public: boolean; mine: boolean; count: number; cover: Photo | null; size_kb?: number }
 
 // ---------- places
 export interface PlaceGroup { id: number; name: string; description: string; is_public: boolean; mine: boolean; count: number }

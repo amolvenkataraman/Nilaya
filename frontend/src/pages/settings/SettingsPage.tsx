@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { APPS } from '../../components/nav'
 import { AppShell, SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
 import { Avatar, ErrorBox, SkeletonRows } from '../../components/ui'
@@ -6,6 +8,11 @@ import { toast } from '../../components/toast'
 import { useMe, useUpdateMe } from '../../lib/queries'
 import { setTheme, useTheme, type ThemePref } from '../../lib/theme'
 import type { Me, MePatch } from '../../lib/types'
+import { userPath } from '../users/UserLink'
+import { PictureDialog } from './PictureDialog'
+import { PasswordSection } from './Password'
+import { ApiKeysSection, FeedsSection, GuidesSection } from './Developer'
+import { UsagePage } from './Usage'
 import './settings.css'
 
 type Form = { first_name: string; last_name: string; description: string; birthday: string; timezone: string }
@@ -29,62 +36,117 @@ function timezones(current: string): string[] {
   return zones
 }
 
-const SECTIONS = [
+interface SectionDef { id: string; label: string; icon: string }
+const ACCOUNT: SectionDef[] = [
   { id: 'set-profile', label: 'Profile', icon: 'user' },
+  { id: 'set-password', label: 'Password', icon: 'shield' },
   { id: 'set-appearance', label: 'Appearance', icon: 'sun' },
   { id: 'set-keys', label: 'Keyboard shortcuts', icon: 'command' },
-  { id: 'set-links', label: 'More', icon: 'external' },
 ]
+const DEVELOPER: SectionDef[] = [
+  { id: 'set-api', label: 'API keys', icon: 'code' },
+  { id: 'set-feeds', label: 'Calendar feeds', icon: 'calendar' },
+  { id: 'set-guides', label: 'Guides', icon: 'book' },
+]
+const ADMIN: SectionDef = { id: 'set-admin', label: 'Admin', icon: 'wrench' }
+const MORE: SectionDef = { id: 'set-links', label: 'More', icon: 'external' }
 
-/** Highlight the section nearest the top of the viewport. */
-function useActiveSection(): [string, (id: string) => void] {
-  const [active, setActive] = useState(SECTIONS[0].id)
+/** Highlight the section nearest the top of the viewport; `#set-…` in the URL scrolls to that section. */
+function useActiveSection(ids: string[], enabled: boolean): [string, (id: string) => void] {
+  const [active, setActive] = useState(ids[0])
   const lockUntil = useRef(0) // after a click, keep the clicked item even if the page can't scroll that far
+  const key = ids.join(',')
+  const { hash } = useLocation()
   useEffect(() => {
+    if (!enabled) return
     // Active = the last section whose heading has passed 30% of the viewport (the first one at the top).
+    const list = key.split(',')
     const onScroll = () => {
       if (Date.now() < lockUntil.current) return
       const line = window.innerHeight * 0.3
-      let id = SECTIONS[0].id
-      for (const s of SECTIONS) {
-        const el = document.getElementById(s.id)
-        if (el && el.getBoundingClientRect().top <= line) id = s.id
+      let id = list[0]
+      for (const s of list) {
+        const el = document.getElementById(s)
+        if (el && el.getBoundingClientRect().top <= line) id = s
       }
       setActive(id)
     }
     onScroll()
     window.addEventListener('scroll', onScroll, { passive: true })
     return () => window.removeEventListener('scroll', onScroll)
-  }, [])
+  }, [key, enabled])
   const go = (id: string) => {
     lockUntil.current = Date.now() + 1000
     setActive(id)
     document.getElementById(id)?.closest('section')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
+  useEffect(() => {
+    if (!enabled || !hash) return
+    const id = decodeURIComponent(hash.slice(1))
+    // Sections below the profile render after /me loads: wait a frame for layout.
+    const t = setTimeout(() => {
+      lockUntil.current = Date.now() + 1000
+      setActive(id)
+      document.getElementById(id)?.closest('section')?.scrollIntoView({ block: 'start' })
+    }, 50)
+    return () => clearTimeout(t)
+  }, [hash, enabled])
   return [active, go]
 }
 
 export default function SettingsPage() {
   const me = useMe()
-  const [active, go] = useActiveSection()
+  const sub = useParams()['*'] ?? ''
+  const navigate = useNavigate()
+  const staff = !!me.data?.is_staff
+  const usage = sub === 'usage'
+  const ids = [...ACCOUNT, ...DEVELOPER, ...(staff ? [ADMIN] : []), MORE].map((s) => s.id)
+  const [active, go] = useActiveSection(ids, !usage)
+  const open = (id: string) => (usage ? navigate(`/settings#${id}`) : go(id))
+  const item = (s: SectionDef) => <SideItem key={s.id} icon={s.icon} label={s.label} active={!usage && active === s.id} onClick={() => open(s.id)} />
   const sidebar = (
-    <SideSection>
-      {SECTIONS.map((s) => <SideItem key={s.id} icon={s.icon} label={s.label} active={active === s.id} onClick={() => go(s.id)} />)}
-    </SideSection>
+    <>
+      <SideSection>{ACCOUNT.map(item)}</SideSection>
+      <SideSection title="Developer">{DEVELOPER.map(item)}</SideSection>
+      {staff && (
+        <SideSection title="Admin">
+          <SideItem icon="chart" label="Usage" active={usage} to="/settings/usage" />
+          <a className="side-item" href="/admin/">
+            <Icon name="wrench" size={16} />
+            <span className="grow truncate">Admin site</span>
+            <Icon name="external" size={12} />
+          </a>
+        </SideSection>
+      )}
+      <SideSection>{item(MORE)}</SideSection>
+    </>
   )
   return (
-    <AppShell app="settings" sidebar={sidebar}>
-    <div className="page set-page">
-      {me.isPending ? (
-        <div className="set-card"><SkeletonRows rows={5} /></div>
-      ) : me.isError && !me.data ? (
-        <div className="set-card"><ErrorBox error={me.error} retry={() => me.refetch()} /></div>
+    <AppShell app="settings" sidebar={sidebar} pageTitle={usage ? 'Usage' : 'Settings'}>
+    <div className={'page set-page' + (usage ? ' usage-page' : '')}>
+      {usage ? (
+        me.isPending ? <div className="set-card"><SkeletonRows rows={5} /></div>
+          : staff ? <UsagePage />
+          : <ErrorBox error={me.error ?? new Error('Usage is visible to staff only.')} />
       ) : (
-        <Profile me={me.data} />
+        <>
+          {me.isPending ? (
+            <div className="set-card"><SkeletonRows rows={5} /></div>
+          ) : me.isError && !me.data ? (
+            <div className="set-card"><ErrorBox error={me.error} retry={() => me.refetch()} /></div>
+          ) : (
+            <Profile me={me.data} />
+          )}
+          <PasswordSection />
+          <Appearance />
+          <Shortcuts />
+          <ApiKeysSection />
+          <FeedsSection />
+          <GuidesSection />
+          {staff && <AdminSection />}
+          <Links username={me.data?.username} />
+        </>
       )}
-      <Appearance />
-      <Shortcuts />
-      <Links />
     </div>
     </AppShell>
   )
@@ -92,6 +154,7 @@ export default function SettingsPage() {
 
 function Profile({ me }: { me: Me }) {
   const update = useUpdateMe()
+  const [picture, setPicture] = useState(false)
   const initial = useMemo(() => toForm(me), [me])
   const [form, setForm] = useState<Form>(initial)
   useEffect(() => setForm(initial), [initial])
@@ -129,12 +192,18 @@ function Profile({ me }: { me: Me }) {
         }}
       >
         <div className="profile-head">
-          <Avatar name={name} src={me.profile_picture} size={3} />
-          <div className="grow">
+          <button type="button" className="profile-pic" onClick={() => setPicture(true)} aria-label="Change profile picture" title="Change profile picture">
+            <Avatar name={name} src={me.profile_picture} size={3} />
+            <span className="profile-pic-cam" aria-hidden="true"><Icon name="camera" size={12} /></span>
+          </button>
+          <div className="grow" style={{ minWidth: 0 }}>
             <div className="name truncate">{name}</div>
             <div className="small muted truncate">@{me.username}{me.email ? ` · ${me.email}` : ''}</div>
           </div>
-          <a className="btn sm" href="/accounts/profile/">Change photo</a>
+          <div className="profile-actions">
+            <button type="button" className="btn sm" onClick={() => setPicture(true)}>Change photo</button>
+            <Link className="btn ghost sm" to={userPath(me.username)}>View profile</Link>
+          </div>
         </div>
         <div className="set-row">
           <label className="set-label" htmlFor="pf-first">First name</label>
@@ -146,7 +215,7 @@ function Profile({ me }: { me: Me }) {
         </div>
         <div className="set-row top">
           <label className="set-label" htmlFor="pf-about">About<small>Shown on your profile</small></label>
-          <div className="set-control fill"><textarea id="pf-about" className="textarea" rows={3} value={form.description} onChange={set('description')} maxLength={1000} /></div>
+          <div className="set-control fill"><textarea id="pf-about" className="textarea" rows={3} value={form.description} onChange={set('description')} maxLength={512} /></div>
         </div>
         <div className="set-row">
           <label className="set-label" htmlFor="pf-bday">Birthday</label>
@@ -169,6 +238,15 @@ function Profile({ me }: { me: Me }) {
           <span className="set-label">Email</span>
           <span className="set-value">{me.email || '—'}</span>
         </div>
+        {(me.groups.length > 0 || me.is_staff) && (
+          <div className="set-row">
+            <span className="set-label">Groups</span>
+            <span className="set-value profile-groups">
+              {me.is_staff && <span className="chip accent">Staff</span>}
+              {me.groups.map((g) => <span key={g.id} className="chip">{g.name}</span>)}
+            </span>
+          </div>
+        )}
         <div className="set-foot">
           <span className="set-status">
             {update.isPending ? 'Saving…' : dirty ? `${dirtyKeys.length} unsaved change${dirtyKeys.length > 1 ? 's' : ''}` : 'All changes saved'}
@@ -178,6 +256,7 @@ function Profile({ me }: { me: Me }) {
           <button type="submit" className="btn primary" disabled={!dirty || update.isPending}>Save</button>
         </div>
       </form>
+      <PictureDialog open={picture} onClose={() => setPicture(false)} />
     </section>
   )
 }
@@ -220,13 +299,7 @@ const SHORTCUTS: [string, string[]][] = [
   ['Search or jump to', ['Ctrl', 'K']],
   ['Search', ['/']],
   ['New task', ['Q']],
-  ['Go to Home', ['G', 'H']],
-  ['Go to Tasks', ['G', 'T']],
-  ['Go to Calendar', ['G', 'C']],
-  ['Go to Photos', ['G', 'P']],
-  ['Go to Places', ['G', 'M']],
-  ['Go to Notifications', ['G', 'N']],
-  ['Go to Settings', ['G', 'S']],
+  ...APPS.filter((a) => a.key).map((a) => [`Go to ${a.label}`, ['G', a.key!.toUpperCase()]] as [string, string[]]),
 ]
 
 function Shortcuts() {
@@ -253,29 +326,54 @@ function Shortcuts() {
   )
 }
 
-function Links() {
-  const links = [
-    { href: '/accounts/profile/', icon: 'user', label: 'Profile page and photo', hint: 'Classic view' },
-    { href: '/accounts/change_password/', icon: 'settings', label: 'Change password', hint: 'Classic view' },
-    { href: '/', icon: 'classic', label: 'Open the classic view', hint: '' },
-  ]
+function AdminSection() {
+  return (
+    <section className="set-section" aria-labelledby="set-admin">
+      <div className="set-section-head">
+        <div>
+          <h2 id="set-admin">Admin</h2>
+          <p>Staff only.</p>
+        </div>
+      </div>
+      <div className="set-card">
+        <Link className="set-link" to="/settings/usage">
+          <Icon name="chart" />
+          <span>Usage</span>
+          <span className="end small">Page views and API calls per person and app</span>
+        </Link>
+        <a className="set-link" href="/admin/">
+          <Icon name="wrench" />
+          <span>Admin site</span>
+          <span className="end small">Users, groups and all data</span>
+          <Icon name="external" size={14} />
+        </a>
+      </div>
+    </section>
+  )
+}
+
+function Links({ username }: { username?: string }) {
   return (
     <section className="set-section" aria-labelledby="set-links">
       <div className="set-section-head">
         <div>
           <h2 id="set-links">More</h2>
-          <p>Account pages that still live in the classic view.</p>
         </div>
       </div>
       <div className="set-card">
-        {links.map((l) => (
-          <a key={l.href} className="set-link" href={l.href}>
-            <Icon name={l.icon} />
-            <span>{l.label}</span>
-            <span className="end small">{l.hint}</span>
-            <Icon name="external" size={14} />
-          </a>
-        ))}
+        {username && (
+          <Link className="set-link" to={userPath(username)}>
+            <Icon name="user" />
+            <span>Your profile</span>
+            <span className="end small">As others see it</span>
+          </Link>
+        )}
+        <a className="set-link" href="/">
+          <Icon name="classic" />
+          <span>Open the classic view</span>
+          <span className="end small" />
+          <Icon name="external" size={14} />
+        </a>
       </div>
     </section>
   )

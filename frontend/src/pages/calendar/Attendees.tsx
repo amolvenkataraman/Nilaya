@@ -19,7 +19,7 @@ export function Attendees({ eventId, attendees, pending, onPending }: {
   const [text, setText] = useState('')
   const q = useDebounced(text.trim(), 250)
   const people = useQuery({
-    queryKey: ['contacts', 'list', { q, filter: undefined, tag: undefined, sort: 'name' }],
+    queryKey: ['contacts', 'search', q],
     queryFn: ({ signal }) => get<{ items: { id: string; name: string; email: string }[] }>('contacts/', { q, sort: 'name', limit: 8 }, signal),
     enabled: q.length >= 2,
     staleTime: 60_000,
