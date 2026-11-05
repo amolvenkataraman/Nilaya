@@ -924,6 +924,8 @@ def update_event(request, event_id: str, payload: EventPatch, scope: Optional[Sc
         if occ is None:
             raise HttpError(404, "No such occurrence")
         if scope == "following":
+            if data.get("rrule") and rec.parts(data["rrule"]) == rec.parts(e.rrule or ""):
+                data.pop("rrule")  # an unchanged rule from the form must not undo split()'s adjusted COUNT
             try:
                 e = svc.split(e, original)
             except LookupError:

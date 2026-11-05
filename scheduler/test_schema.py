@@ -126,6 +126,15 @@ class RecurrenceTests(Base):
         self.assertEqual(self.api("get", f"/events/{occ}").json()["name"], "Moved")
 
 
+    def test_following_split_keeps_count_when_the_form_resends_the_same_rule(self):
+        s = Event.objects.create(calendar=self.cal, name="Daily", startdate=at(2026, 11, 10, 9),
+                                 enddate=at(2026, 11, 10, 10), rrule="FREQ=DAILY;COUNT=5")
+        r = self.api("patch", f"/events/{s.id}:2026-11-12T14:00:00Z?scope=following",
+                     {"name": "Daily (new)", "rrule": "FREQ=DAILY;COUNT=5"})
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(len(self.ids_in(at(2026, 11, 1), at(2026, 12, 1))), 5)  # 2 + 3, not 2 + 5
+
+
 class ReminderTests(Base):
     def setUp(self):
         super().setUp()
