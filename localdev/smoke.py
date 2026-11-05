@@ -23,6 +23,9 @@ PAGES = [
     "/photos/stats/", "/photos/storage/", "/photos/superlatives/", "/photos/search/",
     "/photos/search/cameras/", "/photos/geoguessr/", "/photos/geoguessr_ent/",
     "/photos/date/?date=2026-12-31&nphotos=20", "/map/", "/map/location-groups/", "/map/locations/?group=1",
+    "/tasks/", "/habits/", "/notifications/", "/settings/api-keys/", "/analytics/",
+    "/api/v2/me", "/api/v2/tasks/overview", "/api/v2/habits/today", "/api/v2/calendar/agenda?days=7",
+    "/api/v2/photos/summary", "/api/v2/places/", "/api/v2/notifications/unread-count", "/api/v2/tasks/guide.md",
 ]
 failed = 0
 for path in PAGES:

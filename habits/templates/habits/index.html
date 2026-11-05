@@ -1,3 +1,49 @@
 {% extends "base.html" %}
+{% load static %}
+
 {% block page_title %}Habits{% endblock %}
-{% block page_body %}<div class="p-4 app-muted">Habits is being built.</div>{% endblock %}
+
+{% block page_styles %}
+<link href="{% static 'habits/habits.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block page_script %}
+<script type="module" src="{% static 'habits/habits.js' %}"></script>
+{% endblock %}
+
+{% block page_body %}
+{{ boot|json_script:"hb-boot" }}
+<div class="hb-app" id="hb-app">
+    <header class="hb-head">
+        <div class="hb-head-title">
+            <h1>Habits</h1>
+            <span class="hb-date" id="hb-date"></span>
+        </div>
+        <div class="hb-tabs" id="hb-tabs" role="tablist" aria-label="View">
+            <button type="button" role="tab" data-view="today" aria-selected="true">Today</button>
+            <button type="button" role="tab" data-view="week" aria-selected="false">Week</button>
+        </div>
+        <div class="hb-head-actions">
+            <button type="button" class="hb-icon-btn" id="hb-help" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 4h13v8h-13zM4 6.5h.01M6.5 6.5h.01M9 6.5h.01M11.5 6.5h.01M5 9.5h6"/></svg>
+            </button>
+            <button type="button" class="btn btn-primary btn-sm hb-new" id="hb-new" title="New habit (N)">
+                <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
+                <span>New habit</span>
+            </button>
+        </div>
+    </header>
+
+    <section class="hb-summary" id="hb-summary" aria-label="Today's progress">
+        <div class="hb-skel-ring"></div><div class="hb-skel-line w40"></div>
+    </section>
+
+    <div class="hb-view" id="hb-view">
+        <div class="hb-skel-list" aria-hidden="true"><div></div><div></div><div></div><div></div></div>
+    </div>
+</div>
+
+<dialog class="hb-dialog" id="hb-editor" aria-label="Habit"></dialog>
+<div class="hb-toasts" id="hb-toasts" role="status" aria-live="polite"></div>
+<div class="visually-hidden" id="hb-live" aria-live="polite"></div>
+{% endblock %}

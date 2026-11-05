@@ -243,6 +243,7 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 CELERY_BEAT_SCHEDULE = {
     'task-reminders': {'task': 'tasks.tasks.send_due_reminders', 'schedule': 60.0},
     'auto-reminders': {'task': 'tasks.tasks.send_auto_reminders', 'schedule': 60.0},
+    'habit-reminders': {'task': 'habits.tasks.send_habit_reminders', 'schedule': 60.0},
     'cleanup-notifications': {'task': 'notifications.tasks.cleanup_expired_notifications', 'schedule': 6 * 3600.0},
 }
 
