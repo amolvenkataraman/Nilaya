@@ -10,7 +10,7 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 | **Database connection pool**: requests reuse open Postgres connections instead of connecting and authenticating each time | None. If anything looks wrong with database connections, start with `COMPTECH_DB_POOL=0` to turn it off |
 | **Shared cache in Redis** (database 2 of the Redis you already run for Celery and channels): slow photo stats/summary/storage pages are cached and cleared whenever photos change | None; Redis must be running, as it already must be |
 | **Static files get content hashes in their names** (`styles.4f1c2a9b.css`). nginx caches `/static/` forever, so before this, browsers kept old CSS/JS after an upgrade | None beyond `make cs` (step 7), which now also writes `staticfiles.json`. Old cached copies are simply no longer used |
-| **nginx**: gzip for static files, HTTP/2, and cache rules for the new interface | Copy the changes from the repo's `nginx.conf` into your live config (step 9a) |
+| **nginx**: gzip for static files, HTTP/2, and cache rules for the new interface | Copy the changes from the repo's `nginx.conf` into your live config (step 8) |
 | Bootstrap 5.3.3 and Leaflet.markercluster 1.5.3 added to `vendor.lock`; old Bootstrap 5.0-beta and 5.1.3 removed | Run `fetch_vendor.sh`, then delete the old folders (step 5) |
 | New apps: `tasks`, `apikeys`, `feeds`, `analytics`, `habits`, `contacts` | Nothing extra; they come with migrations (step 6) |
 | Migrations: notifications 0003–0004, scheduler 0032–0038, tasks 0001, photos 0024–0029, map 0004–0005, users 0005, apikeys 0001, feeds 0001, analytics 0001, habits and contacts 0001 | `migrate` (step 6) |
@@ -19,9 +19,9 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 | `photos 0029` leaves photos with a coordinate of exactly 0 out of the heat map (broken phone GPS: the right latitude with longitude 0.0 put Waterloo photos in France) | None (recreates the view in a second or two) |
 | `photos 0028` adds two photo indexes (taken date for the timeline, latitude/longitude for photos near a place) | None. Each builds in about a second on ~300k photos and blocks writes (ingest) only while it runs, so don't run an ingest during `migrate` |
 | `users 0005` removes the `dark_mode` column | None (dark mode is per device now) |
-| Celery beat schedules (reminders, notification clean-up, habits, contacts) | Restart beat (step 9); the schedules register themselves |
+| Celery beat schedules (reminders, notification clean-up, habits, contacts, **calendar auto-sync every 30 minutes**) | Restart beat (step 9); the schedules register themselves. If you once added a calendar sync task by hand in Django admin → Periodic tasks (`scheduler.tasks.autosync_calendars` under another name), delete it, or calendars sync twice |
 | New URLs `/api/v2/`, `/tasks/`, `/habits/`, `/contacts/`, `/settings/api-keys/`, `/feeds/…ics`, `/analytics/`, `/app/` | None if nginx proxies everything to Daphne (it does). API keys use the `Authorization` header, which nginx passes through by default |
-| New React interface at `/app/` | Optional: build locally and copy the folder (step 8). Until then `/app/` shows "isn't built on this server yet" |
+| New React interface at `/app/` | Built on your computer and copied with rsync (step 7). Until then `/app/` shows "isn't built on this server yet" |
 | Email delivery for notifications (optional) | Set `EMAIL_HOST`/`EMAIL_HOST_USER` in settings and put the password in `Comptech/email_password.txt` |
 | `SITE_URL` (links in notifications and feeds) | Already `https://app.example.com`; change it if your domain differs |
 
@@ -31,7 +31,11 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 - **Calendar categories** are now named, per-owner categories made from the old numbers; repeating events from ICS/Google feeds keep their rules.
 - **Heatmaps** leave out photos taken at 2000 m and up (was over 1000 m), and photos whose GPS has a coordinate of exactly 0 (broken fix). Those show "Add location" in the new viewer and are listed by the location tool's "Only broken GPS" filter.
 - **Location saves and hiding** update the heat map within about 15 seconds (queued in Celery, once per burst) instead of during the request.
-- **Places in the new interface** start with every group hidden; each person turns on the groups they want (like calendars). Owners can archive groups.
+- **Places in the new interface** start with every existing group hidden; each person turns on the groups they want (like calendars). A group you create is shown on your map. Owners can archive groups.
+- **Calendar sync** can be set up from the new interface (New calendar → Sync from a link, or a calendar's settings → Sync), with a preview, V1's range sync ("Sync a range…", with the term presets and a Google access token) and auto-sync every 30 minutes. `webcal://` links now work. Links pointing at the server itself (localhost) or link-local addresses are refused; LAN addresses (e.g. Nextcloud) still work.
+- **Privacy fixes**: other people's private events show only as "Busy" in your ICS feed, in tasks made from events, and in insights' top locations.
+- **Calendar invites** that grant admin can only be changed or deleted by the calendar's owner.
+- **Tasks**: someone made read-only in (or removed from) a project can no longer edit the tasks they created there; undoing a repeating task's completion moves its dates back; priority 0 shows as "None".
 - **Logging in as before**; new apps (Tasks, Habits, Contacts) and the new interface at `/app/` appear in the app launcher.
 
 ## Step by step
@@ -93,22 +97,20 @@ python manage.py calendar_migration_report --json > ~/calendar-migration-report.
 python manage.py calendar_migration_report   # read-only summary: look for "No inconsistencies found" and the normalisation counts
 ```
 
-### 7. Static files and the one-off thumbnail fix
+### 7. The new interface, static files and the one-off thumbnail fix
+On your computer, in the repo at the same commit (Node 20.19+; `build.sh` uses nvm if you have it):
 ```bash
-make cs                               # collectstatic into /www/static
+frontend/build.sh                     # npm ci, tests, build into static_files/static/app/ (+ .gz copies for nginx)
+rsync -av --delete static_files/static/app/ server:/opt/Comptech/static_files/static/app/
+```
+Then on the server:
+```bash
+make cs                               # collectstatic into /www/static (hashed names + staticfiles.json, includes /app/)
 python manage.py fix_orientation --dry-run    # shows what would change
 python manage.py fix_orientation              # fixes sideways photo/video thumbnails (once)
 ```
 
-### 8. The new interface (optional)
-On your computer, in the repo:
-```bash
-frontend/build.sh                     # builds into static_files/static/app/
-rsync -av --delete static_files/static/app/ server:/opt/Comptech/static_files/static/app/
-```
-On the server, run `make cs` again so it's copied into `/www/static/app/`.
-
-### 9a. nginx
+### 8. nginx
 Copy the `gzip …`, `listen 443 ssl http2;` and the three `location /static/…` blocks from the repo's `nginx.conf` into your live config (keep your real `secure_link_secret`), then:
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
@@ -127,7 +129,9 @@ tmux attach -t Comptech               # window 0: "Listening on TCP address 0.0.
 - Settings → API keys: create a key with Tasks read access, then
   `curl -H "Authorization: Bearer <key>" https://app.example.com/api/v2/tasks/overview` should return JSON; revoke the key afterwards.
 - Photos upload page works again (it was broken by a script clash).
-- Within a minute, Celery beat's log should show the reminder tasks running.
+- Within a minute, Celery beat's log should show the reminder tasks running; within 30 minutes, `autosync_calendars`.
+- A synced calendar → settings → Sync → **Sync now** shows "Synced" (or the feed's error).
+- Photos → Map shows the heat map; Photos → Stats loads (the second visit is instant: cached).
 
 ## Optional hardening (only if the site is always reached over HTTPS)
 Django's deploy check suggests these; they're not on by default because a plain-HTTP LAN visit would then fail to log in:
@@ -144,6 +148,7 @@ Build on your computer (`frontend/build.sh`), then `rsync -av --delete static_fi
 ```bash
 tmux kill-session -t Comptech
 git checkout "$(cat ~/comptech-previous-commit)"
+pip install -r requirements.txt       # puts back anything the old code needs (e.g. ics, if you uninstalled it)
 psql -h 127.0.0.1 -U postgres -c 'DROP DATABASE "Comptech"' && psql -h 127.0.0.1 -U postgres -c 'CREATE DATABASE "Comptech"'
 psql -h 127.0.0.1 -U postgres Comptech < ~/comptech-backup-<date>.sql
 static_files/fetch_vendor.sh && make cs

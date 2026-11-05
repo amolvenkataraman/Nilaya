@@ -347,7 +347,7 @@ Then nine months of quiet, from May 2025 to February 2026.
 
 ## Chapter 7: Two nights in November, the Claude Code overhaul (4 to 5 November 2026)
 
-**65 commits · 2026-11-04 20:39 → 2026-11-05 · Claude Code end to end**
+**About 110 commits · 2026-11-04 20:39 → 2026-11-05 · Claude Code end to end**
 
 The last couple of days of this history were done entirely in Claude Code, in two moves: **Phase 1**, an audit-driven bug-fix pass merged as PR #10, then **`improve/phase-1`**, a platform-wide upgrade on top of it.
 
@@ -411,11 +411,43 @@ Everything below is on the `improve/phase-1` branch, dated 2026-11-04 or 2026-11
 
 **Analytics.** `9115f68` and `1fad757`, privacy-respecting usage analytics and a staff dashboard at `/analytics/`. Within hours, `35b325e` simplified it to direct per-person, per-app, per-day counters: no URLs, IPs or browser details. It's the opposite of Docket's 2020 `ClientDevice` table, which recorded screen sizes and CPU cores.
 
-**The new React interface.** `00b6928` wires `/app/` for a React 19 + React Router 7 + TanStack Query + TypeScript + Vite single-page app built only on the V2 API, with no UI kit and no CDN. `ec34cd5` gives its page a no-cache index and a strict Content-Security-Policy (same-origin scripts only). The `frontend/` source (about 70 files) was still uncommitted when this book was written; the build output is deliberately never committed.
+**The new React interface.** `00b6928` wires `/app/` for a React 19 + React Router 7 + TanStack Query + TypeScript + Vite single-page app built only on the V2 API, with no UI kit and no CDN. `ec34cd5` gives its page a no-cache index and a strict Content-Security-Policy (same-origin scripts only). The `frontend/` source was committed the next morning in `24897d6` (see below); the build output is deliberately never committed.
 
 **Housekeeping.** `915459b` points home search at **DuckDuckGo**; `37fbb9c` adds tests for notifications, tasks, calendar insights and photo scoping; `8a7a400` and `c0c2dae` add tie-safe photo paging, on-this-day in the user's time zone, task reordering and per-day photo counts for calendar badges; `e830767` and `1811e59` rewrite the README; `3b27f8a` drafts `docs/UPGRADE-phase-1.md`.
 
 By the numbers, this era added **38,439 lines and removed 57,863** (37,728 and 12,974 outside vendored static files). It is the only era in the history where the codebase got both much bigger and much cleaner.
+
+### The morning after: parity, speed and hardening (5 November 2026)
+
+The book was first finished at `cbed793` (01:09). By late morning the branch had grown by about 50 more commits, 42,801 lines in and 3,347 out, 27,177 of them the React interface. It went up for review as **PR #11**. Four themes:
+
+**"It has to copy over all functionality AT LEAST."** The owner opened the new interface, tried to make an album, and couldn't. Every classic route was then audited against the V2 API, and the gaps were closed:
+- shared albums with covers and roles, library Sources, ingest, deleting originals (`5812722`);
+- profile pictures, password change, other people's profiles, availability, place search (`26da8e8`).
+
+`24897d6` finally committed the React source (116 files), and `2a5f7f0` brought the rest of the classic features into it:
+- photo selection, per-day sizes, RAW/ORIG flags;
+- stats, storage and browse pages;
+- a viewer that zooms to full resolution on the *same* original file;
+- **Geoguessr and the location-entry tool**, tucked into a small "Tools" section.
+
+The calendar got the remaining parity work: `38c1a29` and `f94f52a` added setting up sync from a link with a preview, V1's manual range sync (term presets and a Google access token included), and a read-only look at disabled calendars. Along the way, `webcal://` links, which had never actually worked, started working.
+
+**The classic UI froze.** After one last round (`73f6cae`, `7f61a49`), new features go only into `/app/`; the classic pages just must not break. Places groups became per-person and hidden by default, like calendars (`9d466f9`), so a map with thousands of places doesn't load them all.
+
+**Speed, measured.** An independent audit seeded 300,000 fake photos and timed everything:
+- **Backend:** a missing `date_taken` index meant every timeline page sorted the whole library; adding it took a page from 162 ms to 23 ms (`1da66ad`). `014c59d` added a database connection pool, a Redis cache for the photo aggregates that clears whenever a photo changes, coalesced background refreshes of the heat-map view, and calendar sync that writes only what changed.
+- **Frontend:** pages started showing in about 100 ms instead of 380 (`72f2031`), and first loads were batched into single requests (`1b7e4e6`).
+- **Static files:** they also got content-hashed names, because nginx had been telling browsers to cache them forever, which would have paired old CSS with new templates after every upgrade.
+- One idea was firmly rejected along the way: generating smaller preview copies of photos. With 800 GB of originals and no spare disk, the rule became "load the same image, just display it differently".
+
+**Bugs found by looking.** Some of the fixes:
+- A photo whose phone had written the right latitude and a longitude of exactly 0.0 appeared in southern France, and looked as if the location tool had saved it wrong. A coordinate of exactly 0 now counts as broken GPS.
+- Viewers turned out to be able to delete photos and set locations (`fb57398`, `559966e`).
+- A fresh review (`9103d8c`) found private events leaking into ICS feeds and "task from event", series that lost their exceptions when moved across a DST change, and a feed with one duplicated UID that silently imported nothing.
+- A final pass closed server-side request forgery through feed links, cross-app API key scopes, admin invites that admins could re-issue, and creators who kept edit rights after being demoted.
+
+By the end the suite had grown to 143 tests, and the upgrade guide covered a Postgres rehearsal in a separate git worktree, an rsync'd frontend build, and the nginx changes.
 
 ---
 
@@ -428,6 +460,7 @@ What's known about Memex so far:
 - It is a **modular platform**, planned separately from this repo.
 - The rewrite brief from June 2026 (`REWRITE_REPORT.md`, PR #8) describes V1's features, the clever parts worth keeping, and the technical debt worth leaving behind.
 - V1 itself is described in its own README as a codebase "carrying years of technical debt", which after this history reads more like a medal than an apology.
+- While PR #11 was in review, a V2 feature overview was started. Its centrepiece is much better photo search, all run locally: faces grouped into people and linked to contacts, plain-language search, text found inside photos. It also covers new features for every app, new apps, and search across apps.
 
 If V1's story has a moral, it's that the ship of Theseus does sail. Docket's assignments became Todos, and Todos became Tasks. YMCA Calendar's `calendar.js` became a 2,000-line calendar with insights. A hackathon photo indexer became a library you can search for "dog" across fifteen years of videos. Whatever Memex turns out to be, it will probably have a little Docket in it too.
 
@@ -730,4 +763,4 @@ And from the Docket archives (not this repo): "Pray it work", "sdf sdfasd fdafsa
 - **CareerConnect** (`8357afa`) is likely an event where the project was shown; the commit message is the only evidence.
 - **The UW course-info and WCMS features point to the University of Waterloo.** The WCMS sync calls UWaterloo's open data API, so this one is solid. That the author was a student there at the time is an inference.
 - **`Docket_OIDC` used Comptech as its login provider.** Very likely: it points at the same `/openid/authorize/` path that Comptech began serving on 2021-05-09, but no commit says so.
-- **The React `frontend/` source** was uncommitted when this was written, so it has no hash yet. Commits were still landing on `improve/phase-1` as this book was finished; anything after `cbed793` isn't covered.
+- **The book covers `improve/phase-1` up to PR #11's review** (5 November 2026, late morning). Commits made after that aren't covered.
