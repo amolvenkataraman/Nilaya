@@ -1,125 +1,123 @@
-/* Page Styles */
-.main-container {
-  width: 100%;
-  height: calc(100vh - 56px);
+/* Calendar (scheduler) styles. All colours come from the design tokens in css/theme.css,
+ * so the same rules serve light and dark mode. Calendar/event colours are data and are
+ * passed in per element as --event-colour / --cal-colour. */
+
+/* ===================================================================== Page layout */
+.cal-page {
+  height: 100%;
   display: flex;
-  overflow: hidden;
+  flex-direction: column;
+  min-width: 0;
 }
 
-.c-container {
-  float: left !important;
+.cal-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--app-surface);
+  border-bottom: 1px solid var(--app-border);
+  min-width: 0;
+}
+
+.cal-nav-btns .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--app-fg);
+  background: var(--app-surface);
+  border-color: var(--app-border);
+}
+
+.cal-nav-btns .btn:hover,
+.cal-nav-btns .btn:focus-visible {
+  background: var(--app-surface-2);
+  border-color: var(--app-border);
+  color: var(--app-fg);
+}
+
+.cal-nav-btns #previous,
+.cal-nav-btns #next {
+  width: 32px;
+  padding: 0;
+}
+
+.cal-title {
+  margin: 0 0 0 4px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.cal-toolbar-spacer {
+  flex: 1 1 auto;
+}
+
+.cal-view-select {
+  width: auto;
+  height: 32px;
+  font-size: 13px;
+  padding-top: 0;
+  padding-bottom: 0;
+  flex-shrink: 0;
+}
+
+.cal-new-btn {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+/* Small in-place loading indicator (hidden by hide_loading() once data arrives). */
+.loading-screen {
+  display: inline-flex;
+  align-items: center;
+  color: var(--app-muted);
+  flex-shrink: 0;
+}
+
+.loading-screen .spinner-border {
+  width: 16px;
+  height: 16px;
+  border-width: 2px;
+  color: var(--app-accent);
+}
+
+.main-container {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  overflow: hidden;
+  background: var(--app-surface);
+  color: var(--app-fg);
+}
+
+.wrapper {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
   height: 100%;
   overflow: hidden;
 }
 
-.wrapper {
-  flex-grow: 100;
-  display: flex;
-  flex-direction: column;
-  width: calc(100vw - 512px);
+.c-container {
+  height: 100%;
   overflow: hidden;
-}
-
-.sidebar::-webkit-scrollbar {
-  display: none;
-}
-
-.sidebar {
-  -ms-overflow-style: none;
-  /* IE and Edge */
-  scrollbar-width: none;
-  /* Firefox */
-}
-
-.sidebar-footer {
-  font-size: 14px;
-  width: 240px;
-}
-
-.loading-screen {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-color: rgba(255, 255, 255, 0.2);
-  backdrop-filter: blur(4px);
-}
-
-.loading-screen .spinner-container {
-  display: flex;
-  justify-content: center;
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  margin-top: -72px;
-  margin-left: -72px;
-}
-
-.loading-screen .spinner-border {
-  width: 5rem;
-  height: 5rem;
-}
-
-.calendar-name-div {
-  width: 100%;
-  height: 22px;
-  max-height: 22px;
-  overflow: hidden;
-  white-space: nowrap;
-  padding: 1px 0;
-  border-radius: 4px;
-  transition: background 0.15s;
-}
-
-.calendar-name-div:hover {
-  background: rgba(0, 0, 0, 0.04);
-}
-
-.calendar-name-label {
-  width: 70%;
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  overflow-x: clip;
-  font-size: 13.5px;
-}
-
-.calendar-options-btn {
-  float: right;
-  padding: 0px;
-  height: 20px;
-  margin-right: 5px;
-  opacity: 0.5;
-  transition: opacity 0.15s;
-}
-
-.calendar-options-btn:hover {
-  opacity: 1;
-}
-
-.calendarlist-header,
-.calendarlist-mine-header,
-.calendarlist-other-header {
-  margin-bottom: 4px;
-  padding: 4px 0;
-  width: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.calendarlist-mine-header span,
-.calendarlist-other-header span {
-  font-size: 12px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  opacity: 0.65;
-}
-
-.calendarlist-mine-header .create-btn,
-.calendarlist-other-header .create-btn {
-  margin-right: 5px;
 }
 
 .c-point {
@@ -130,90 +128,21 @@
   text-decoration: none;
 }
 
-.unstyled-button {
-  border: none;
-  padding: 0;
-  background: none;
-}
-
-.item-card {
-  min-width: 200px;
-  max-width: 200px;
-  margin: 15px;
-  float: left;
-}
-
-.card-body {
-  background: #f8f9fa;
-}
-
 .warning-text {
-  color: red;
+  color: var(--app-danger);
 }
 
-.info {
-  padding: 6px 8px;
-  font: 14px/16px Arial, Helvetica, sans-serif;
-  background: white;
-  background: rgba(255, 255, 255, 0.8);
-  box-shadow: 0 0 15px rgba(0, 0, 0, 0.2);
-  border-radius: 5px;
+@media print {
+  .noprint {
+    display: none !important;
+  }
 }
 
-.info h4 {
-  margin: 0 0 5px;
-  color: #777;
-}
-
-.date-picker {
-  position: relative;
-}
-
-.add-on-day-btn {
-  position: absolute;
-  right: 5px;
-  bottom: 5px;
-  cursor: pointer;
-  border-bottom: 0px !important;
-}
-
-.day-images-btn {
-  position: absolute;
-  left: 5px;
-  bottom: 5px;
-  cursor: pointer;
-  border-bottom: 0px !important;
-  color: black;
-}
-
-.sticky-bottom {
-  bottom: 0;
-}
-
-.day-schedule-div {
-  width: 30%;
-}
-
-.btn:focus {
-  outline: none !important;
-}
-
-.ei-description {
-  width: 100%;
-  border: 1px solid black;
-}
-
-.custom-control-label {
-  text-overflow: ellipsis;
-}
-
-
-
-/* Calendar Styles */
+/* ===================================================================== Month view */
 .container-calendar {
   width: 100%;
   flex: 1;
-  margin: 0 auto;
+  min-height: 0;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -223,138 +152,405 @@
   overflow: auto;
 }
 
-.button-container-calendar button {
-  cursor: pointer;
-  display: inline-block;
-  zoom: 1;
-  border-radius: 4px;
-  padding: 5px 10px;
-}
-
 .table-calendar {
-  display: inline-table;
   table-layout: fixed;
   border-collapse: collapse;
+  border-style: hidden;
+  /* hides the outer edge so the grid sits flush in the page */
   width: 100%;
   height: 100%;
+  background: var(--app-surface);
 }
 
 .table-calendar td,
 .table-calendar th {
-  padding: 3px 4px;
-  text-align: center;
-  vertical-align: top;
-  border: 1px solid #e0e0e0;
+  border: 1px solid var(--app-border);
 }
 
 .table-calendar th {
+  height: 28px;
+  padding: 0 8px;
   font-size: 11px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  opacity: 0.6;
-  padding: 6px 4px;
-  border-bottom: 2px solid #dadce0;
+  letter-spacing: 0.05em;
+  text-align: left;
+  color: var(--app-muted);
+  background: var(--app-surface);
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
-.date-picker,
-.table-calendar tr,
 .table-calendar td {
-  table-layout: fixed;
+  padding: 2px 3px 3px;
+  text-align: left;
+  vertical-align: top;
   overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .date-picker {
-  width: 100%;
+  position: relative;
+  transition: background-color 0.12s;
 }
 
-.date-picker div,
-.date-picker button,
-.date-picker font {
-  overflow: hidden;
+.date-picker:hover {
+  background: color-mix(in srgb, var(--app-accent) 4%, transparent);
 }
 
-.date-picker.selected {
-  font-weight: bold;
-  outline: 1px solid #00BCD4;
+.date-picker-dead {
+  background: var(--app-bg);
 }
 
-.date-picker.selected .add-on-day-btn {
-  border-bottom: 2px solid currentColor;
-}
-
+/* Day number: small, top left; today is a filled accent circle. */
 .date-span {
+  display: flex;
+  align-items: center;
+  height: 24px;
+  margin-bottom: 1px;
   cursor: pointer;
-
 }
 
-.event-button {
+.date-span span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 4px;
+  border-radius: 11px;
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.date-span span:hover {
+  background: var(--app-surface-2);
+}
+
+.date-picker.selected .date-span span {
+  background: var(--app-accent);
+  color: var(--app-accent-fg);
+  font-weight: 600;
+}
+
+/* Hover actions: "+" (new event) and photo count, top right of the day. */
+.add-on-day-btn,
+.day-images-btn {
+  position: absolute;
+  top: 4px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 0 6px;
+  border-radius: 10px;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+  color: var(--app-muted);
+  background: transparent;
   cursor: pointer;
+}
+
+.add-on-day-btn {
+  right: 4px;
+  width: 20px;
+  padding: 0;
+  justify-content: center;
+  font-size: 15px;
+  font-weight: 400;
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.date-picker:hover .add-on-day-btn,
+.add-on-day-btn:focus-visible {
+  opacity: 1;
+}
+
+.add-on-day-btn:hover,
+.day-images-btn:hover {
+  background: var(--app-surface-2);
+  color: var(--app-fg);
+}
+
+.day-images-btn {
+  right: 26px;
+}
+
+.day-images-btn:empty {
+  display: none;
+}
+
+/* camera glyph (Bootstrap Icons "camera-fill") drawn in the text colour */
+.day-images-btn::before {
+  content: "";
+  width: 11px;
+  height: 11px;
+  background-color: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z'/%3E%3Cpath d='M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1zm9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M10.5 8.5a2.5 2.5 0 1 1-5 0 2.5 2.5 0 0 1 5 0z'/%3E%3Cpath d='M2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2zm.5 2a.5.5 0 1 1 0-1 .5.5 0 0 1 0 1zm9 2.5a3.5 3.5 0 1 1-7 0 3.5 3.5 0 0 1 7 0z'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+/* Event chips: compact single-line pills. Timed events get a coloured dot (or a
+ * coloured category icon), all-day / multi-day events a tinted background. */
+.event-button {
+  --event-colour: var(--app-muted);
+  display: block;
+  height: 20px;
+  margin: 0 0 1px;
+  padding: 0 6px 0 4px;
+  border-radius: 4px;
+  font-size: 12px;
+  line-height: 20px;
+  color: var(--app-fg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  text-align: left;
-  padding-left: 4px;
-}
-
-#monthAndYear {
-  text-align: center;
-  margin-top: 0;
-}
-
-.button-container-calendar {
-  display: flex;
-}
-
-@media(min-width: 768px) {
-  .button-container-calendar {
-    margin-left: 2em;
-  }
-}
-
-.button-container-calendar h3 {
-  margin-bottom: 0;
-  margin-left: 1em;
-  margin-right: 1em;
-}
-
-#previous {
-  margin-right: 0;
-}
-
-.footer-container-calendar {
-  padding: 10px 0;
-}
-
-.button-container-calendar select {
   cursor: pointer;
-  display: inline-block;
-  zoom: 1;
-  background: #ffffff;
-  color: #585858;
-  border: 1px solid #bfc5c5;
-  border-radius: 3px;
-  padding: 5px 1em;
+  text-align: left;
 }
 
+.event-button:hover {
+  background-color: var(--app-surface-2);
+}
 
-@media print {
-  .noprint {
+.event-button svg {
+  width: 12px;
+  height: 12px;
+  flex-shrink: 0;
+  vertical-align: -1px;
+}
+
+.event-button .event-icon {
+  color: var(--event-colour);
+}
+
+.event-button .event-icon svg {
+  vertical-align: -2px;
+}
+
+.event-button .event-icon:empty {
+  display: none;
+}
+
+.event-button del {
+  color: var(--app-muted);
+}
+
+.event-timed::before {
+  content: "";
+  display: inline-block;
+  vertical-align: 0;
+  width: 8px;
+  height: 8px;
+  margin: 0 5px 0 2px;
+  border-radius: 50%;
+  background: var(--event-colour);
+  flex-shrink: 0;
+}
+
+.event-timed:has(.event-icon svg)::before {
+  display: none;
+}
+
+.event-timed .event-icon svg {
+  margin-right: 3px;
+}
+
+.event-allday {
+  padding-left: 6px;
+  font-weight: 500;
+  background: color-mix(in srgb, var(--event-colour) 20%, var(--app-surface));
+  box-shadow: inset 3px 0 0 var(--event-colour);
+}
+
+.event-allday:hover {
+  background: color-mix(in srgb, var(--event-colour) 30%, var(--app-surface));
+}
+
+.event-allday .event-icon svg {
+  margin-right: 4px;
+}
+
+.event-overflow {
+  display: none !important;
+}
+
+.more-events {
+  display: block;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 18px;
+  color: var(--app-muted);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.more-events:hover {
+  background: var(--app-surface-2);
+  color: var(--app-fg);
+}
+
+/* Phones: month cells are ~55px wide, so chips become dots (timed) and thin bars
+ * (all-day); tapping the day number opens the full day. */
+@media (max-width: 575.98px) {
+  .cal-toolbar {
+    padding: 8px;
+    gap: 6px;
+  }
+
+  .cal-title {
+    font-size: 15px;
+    margin-left: 2px;
+  }
+
+  .cal-view-select {
+    width: 76px;
+    padding-left: 8px;
+    padding-right: 24px;
+    background-position: right 6px center;
+  }
+
+  .cal-toolbar {
+    gap: 4px;
+  }
+
+  .cal-nav-btns #previous,
+  .cal-nav-btns #next {
+    width: 28px;
+  }
+
+  .cal-nav-btns #cal-today-btn {
+    padding: 0 7px;
+  }
+
+  .cal-view-select {
+    width: 74px;
+    font-size: 12px;
+  }
+
+  .cal-nav-btns .btn {
+    padding: 0 8px;
+  }
+
+  .cal-new-btn .cal-new-label {
     display: none;
   }
+
+  .cal-new-btn {
+    width: 32px;
+    padding: 0;
+    justify-content: center;
+  }
+
+  .table-calendar th {
+    padding: 0;
+    text-align: center;
+    font-size: 10px;
+    letter-spacing: 0.02em;
+  }
+
+  .table-calendar td {
+    padding: 2px;
+  }
+
+  .date-span {
+    justify-content: center;
+  }
+
+  .add-on-day-btn,
+  .day-images-btn {
+    display: none;
+  }
+
+  .day-events,
+  .reg-events {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+    padding: 0 2px;
+  }
+
+  .day-events {
+    margin-bottom: 3px;
+  }
+
+  .day-events:empty,
+  .reg-events:empty {
+    display: none;
+  }
+
+  .event-button {
+    font-size: 0;
+    padding: 0;
+    margin: 0;
+    box-shadow: none;
+  }
+
+  .event-button > * {
+    display: none !important;
+  }
+
+  .event-timed {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--event-colour);
+  }
+
+  .event-timed::before {
+    display: none;
+  }
+
+  .event-allday {
+    width: 100%;
+    height: 5px;
+    border-radius: 3px;
+    background: var(--event-colour);
+  }
+
+  .more-events {
+    height: 14px;
+    padding: 0 2px;
+    font-size: 10px;
+    line-height: 14px;
+    width: 100%;
+  }
+}
+
+/* ===================================================================== Left sidebar */
+.left-sidebar-content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.cal-section-label,
+.calendarlist-mine-header span,
+.calendarlist-other-header span {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--app-muted);
 }
 
 .my-selector-container {
   display: flex;
-  gap: 4px;
-  padding: 0 4px;
+  gap: 8px;
+  padding: 16px 16px 8px;
 }
 
 .my-selector-container .form-select {
-  font-size: 12px;
-  padding: 3px 8px;
-  height: 30px;
+  height: 32px;
+  font-size: 13px;
+  padding-top: 0;
+  padding-bottom: 0;
 }
 
 #month {
@@ -362,35 +558,631 @@
 }
 
 #year {
-  width: 80px;
+  width: 88px;
   flex: 0 0 auto;
-}
-
-.other-calendar-options {
-  flex-shrink: 0;
-  padding: 8px 4px 4px 4px;
-}
-
-.left-sidebar-content {
-  display: flex;
-  flex-direction: column;
-  position: relative;
-  height: 100%;
 }
 
 .sidebar-calendar-list {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
+  padding: 8px 8px 16px;
+}
+
+.calendarlist-mine-header,
+.calendarlist-other-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  padding: 0 4px 0 8px;
+  margin-top: 8px;
+}
+
+.calendarlist-mine-header:first-child {
+  margin-top: 0;
+}
+
+.create-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--app-radius-sm);
+  color: var(--app-muted);
+}
+
+.create-btn:hover,
+.create-btn:focus-visible {
+  background: var(--app-surface-2);
+  color: var(--app-fg);
+}
+
+.calendar-name-div {
+  --cal-colour: var(--app-accent);
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 32px;
+  padding: 0 4px 0 8px;
+  border-radius: var(--app-radius-sm);
+  white-space: nowrap;
+  transition: background-color 0.12s;
+}
+
+.calendar-name-div:hover {
+  background: var(--app-surface-2);
+}
+
+.calendar-name-div .form-check-input {
+  flex-shrink: 0;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  cursor: pointer;
+  border-color: var(--cal-colour);
+  border-width: 2px;
+}
+
+.calendar-name-div .form-check-input:checked {
+  background-color: var(--cal-colour);
+  border-color: var(--cal-colour);
+}
+
+.calendar-name-div .form-check-input:focus {
+  border-color: var(--cal-colour);
+}
+
+.calendar-name-label {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13.5px;
+  color: var(--app-fg);
+  cursor: pointer;
+}
+
+.calendar-options-btn {
+  width: 26px;
+  height: 26px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: var(--app-radius-sm);
+  background: none;
+  color: var(--app-muted);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.calendar-name-div:hover .calendar-options-btn,
+.calendar-options-btn:focus-visible,
+.calendar-options-btn[aria-expanded="true"] {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .calendar-options-btn {
+    opacity: 1;
+  }
+}
+
+.calendar-options-btn:hover {
+  background: var(--app-surface-2);
+  color: var(--app-fg);
+}
+
+.other-calendar-options {
+  padding: 12px 16px 16px;
+  border-top: 1px solid var(--app-border);
+  display: grid;
+  gap: 2px;
+}
+
+.other-calendar-options .form-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 28px;
+  margin: 0;
+  padding: 0;
+}
+
+.other-calendar-options .form-check-input {
+  margin: 0;
+  float: none;
+}
+
+.other-calendar-options .form-check-label {
+  font-size: 13.5px;
+  cursor: pointer;
+}
+
+.refresh-info-btn {
+  margin-top: 6px;
+  padding: 4px 0;
+  font-size: 12px;
+  color: var(--app-muted) !important;
+  text-align: left;
+}
+
+.refresh-info-btn:hover,
+.refresh-info-btn:focus-visible {
+  color: var(--app-fg) !important;
+  background: none !important;
+}
+
+#last-refresh {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ===================================================================== Right sidebar (todos) */
+.todos {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 12px 16px 0;
+  min-height: 0;
+}
+
+#sidebar-tabs {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 2px;
+  padding: 3px;
+  margin-bottom: 12px;
+  border: 0;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-2);
+}
+
+#sidebar-tabs .nav-item {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+#sidebar-tabs .nav-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  height: 28px;
   padding: 0 4px;
+  border: 0;
+  border-radius: 5px;
+  font-size: 12px;
+  white-space: nowrap;
+  font-weight: 500;
+  color: var(--app-muted);
+  background: transparent;
+}
+
+#sidebar-tabs .nav-link:hover {
+  color: var(--app-fg);
+}
+
+#sidebar-tabs .nav-link.active {
+  color: var(--app-fg);
+  background: var(--app-surface);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+}
+
+.sidebar-info {
+  flex: 1;
+  min-height: 0;
+}
+
+.sb-todos {
+  flex-direction: column;
+}
+
+.sb-todos[style*="block"] {
+  display: flex !important;
+}
+
+.todo-create-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 34px;
+  font-size: 14px;
+  font-weight: 500;
+  flex-shrink: 0;
+}
+
+.todo-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  margin: 12px -8px 0;
+  padding: 0 0 16px;
+}
+
+.todo-item {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 34px;
+  padding: 7px 8px;
+  border-radius: var(--app-radius-sm);
+  font-size: 13.5px;
+  line-height: 20px;
+}
+
+.todo-item:hover {
+  background: var(--app-surface-2);
+}
+
+.todo-name {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.todo-name svg {
+  vertical-align: -2px;
+  margin-right: 2px;
+}
+
+.todo-soon {
+  color: var(--app-accent);
+}
+
+.todo-due {
+  color: var(--app-warning);
+}
+
+.todo-overdue {
+  color: var(--app-danger);
+}
+
+.todo-check,
+.todo-action {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--app-muted);
+  cursor: pointer;
+}
+
+.todo-check .bi-check-circle,
+.todo-check:hover .bi-circle {
+  display: none;
+}
+
+.todo-check:hover .bi-check-circle {
+  display: inline;
+  color: var(--app-success);
+}
+
+.todo-actions {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  display: flex;
+  gap: 2px;
+  padding-left: 12px;
+  background: var(--app-surface-2);
+  opacity: 0;
+  transition: opacity 0.12s;
+}
+
+.todo-item:hover .todo-actions,
+.todo-actions:focus-within {
+  opacity: 1;
+}
+
+@media (hover: none) {
+  .todo-actions {
+    position: static;
+    padding: 0;
+    background: none;
+    opacity: 1;
+  }
+}
+
+.todo-action {
+  border-radius: var(--app-radius-sm);
+  width: 24px;
+  height: 22px;
+}
+
+.todo-action:hover {
+  color: var(--app-fg);
+  background: var(--app-surface-2);
+}
+
+.todo-action.danger:hover {
+  color: var(--app-danger);
+}
+
+.sidebar-empty {
+  padding: 24px 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--app-muted);
+}
+
+/* ===================================================================== Modals */
+.modal-content {
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+  box-shadow: var(--app-shadow);
+}
+
+.modal-header,
+.modal-footer {
+  border-color: var(--app-border);
+}
+
+.modal-header {
+  padding: 14px 20px;
+}
+
+.modal-title {
+  font-size: 16px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.modal-body {
+  padding: 20px;
+  font-size: 14px;
+}
+
+/* Shared modal type scale: 14px body/inputs, 12.5px muted labels, 12px field rhythm. */
+.modal .btn {
+  font-size: 14px;
+}
+
+.modal .btn-sm,
+.modal .btn-group-sm > .btn,
+.modal .input-group-sm > .btn {
+  font-size: 13px;
+}
+
+.modal .form-control,
+.modal .form-select {
+  font-size: 14px;
+}
+
+.modal .form-label {
+  display: block;
+  margin-bottom: 4px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--app-muted);
+}
+
+.modal .form-check-label {
+  font-size: 14px;
+}
+
+.modal .field {
+  margin-bottom: 12px;
+}
+
+.modal .form-range {
+  height: 20px;
+}
+
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--app-border);
+}
+
+.modal-divider {
+  border-color: var(--app-border);
+  opacity: 1;
+}
+
+.modal-footer {
+  padding: 10px 20px;
+}
+
+/* Day view inside the big modal: keep the hour grid scrollable. */
+.big-modal-body .cv-container {
+  height: min(65vh, 720px);
+  margin: -20px;
+}
+
+@media (max-width: 575.98px) {
+  .big-modal-body .cv-container {
+    height: auto;
+    flex: 1;
+  }
+
+  .modal-fullscreen-sm-down .big-modal-body {
+    display: flex;
+    flex-direction: column;
+  }
+}
+
+.form-section-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--app-muted);
+}
+
+.event-type-group {
+  display: flex;
+  width: 100%;
+}
+
+.event-type-group .btn {
+  flex: 1;
+  white-space: nowrap;
+}
+
+.event-form textarea {
+  min-height: 96px;
+}
+
+.cal-settings-section {
+  height: 100%;
+  padding: 16px;
+}
+
+.cal-settings-section h6 {
+  margin-bottom: 8px;
+}
+
+.subscriber-list li,
+.invite-list li {
+  padding: 6px 0;
+  border-bottom: 1px solid var(--app-border);
+}
+
+.subscriber-list li:last-child,
+.invite-list li:last-child {
+  border-bottom: 0;
+}
+
+.subscriber-owner {
+  color: var(--app-accent);
+}
+
+/* ===================================================================== Event info (small modal) */
+.ei-card {
+  border: none;
+  padding: 0;
+}
+
+.ei-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ei-color-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.ei-calendar {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--app-muted);
+}
+
+.ei-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+  font-size: 14px;
+}
+
+.ei-meta-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+
+.ei-meta-icon {
+  flex-shrink: 0;
+  width: 16px;
+  display: inline-flex;
+  justify-content: center;
+  color: var(--app-muted);
   margin-top: 2px;
 }
 
+.ei-meta-text {
+  flex: 1;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
 
-/* .day-list-f, .day-list-f td {
-  border: 1px solid black;
-} */
+.ei-desc-block {
+  padding: 10px 12px;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-2);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 16px;
+  overflow-wrap: anywhere;
+}
 
+.ei-countdown {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.ei-countdown .btn {
+  gap: 5px;
+  display: inline-flex;
+  align-items: center;
+}
+
+.ei-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding-top: 12px;
+  border-top: 1px solid var(--app-border);
+}
+
+.ei-actions .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.ei-actions .input-group {
+  width: auto;
+  flex: 0 0 auto;
+}
+
+.ei-actions .input-group .form-control {
+  width: 56px;
+  font-size: 13px;
+}
+
+.ei-description {
+  border: none;
+  width: auto;
+}
+
+/* ===================================================================== Command palette (Alt+C) */
 .command-block {
   display: none;
   position: fixed;
@@ -398,66 +1190,71 @@
   left: 50%;
   transform: translateX(-50%);
   width: 600px;
-  max-width: 90%;
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
-  padding: 16px;
-  z-index: 9999;
-  /* ensure it appears above everything */
+  max-width: calc(100% - 32px);
+  background: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  box-shadow: 0 20px 48px rgba(0, 0, 0, 0.3);
+  padding: 12px;
+  z-index: 1060;
 }
 
 .command-block .form-control {
   width: 100%;
-  padding: 14px 18px;
+  padding: 12px 16px;
   font-size: 16px;
-  border: none;
-  outline: none;
-  border-radius: 8px;
-  background-color: #f5f5f7;
-  color: #333;
-  box-sizing: border-box;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  background-color: var(--app-surface-2);
+  color: var(--app-fg);
 }
 
 .command-block .form-control:focus {
-  background-color: #fff;
-  box-shadow: 0 0 0 2px #007aff;
-  /* macOS blue glow */
+  background-color: var(--app-surface);
 }
 
-
-/* ===== Day / Week View Component ===== */
-
+/* ===================================================================== Day / week view */
 .cv-container {
   display: flex;
   flex-direction: column;
   flex: 1;
   min-height: 0;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
   font-size: 13px;
   user-select: none;
+  color: var(--app-fg);
+  background: var(--app-surface);
 }
 
-/* --- All-Day Section --- */
+.cv-day-header {
+  flex-shrink: 0;
+  padding: 12px 16px 8px;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  border-bottom: 1px solid var(--app-border);
+}
+
+/* All-day strip */
 .cv-allday {
   flex-shrink: 0;
   display: flex;
-  border-bottom: 2px solid #dadce0;
+  border-bottom: 1px solid var(--app-border);
   min-height: 28px;
-  max-height: 80px;
+  max-height: 84px;
   overflow-y: auto;
   overflow-x: hidden;
 }
 
 .cv-allday-label {
-  width: 58px;
-  min-width: 58px;
-  padding: 4px 8px 4px 0;
+  width: 56px;
+  min-width: 56px;
+  padding: 6px 8px 0 0;
   text-align: right;
-  font-size: 11px;
-  color: #70757a;
-  border-right: 1px solid #dadce0;
-  box-sizing: border-box;
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--app-muted);
+  border-right: 1px solid var(--app-border);
 }
 
 .cv-allday-content {
@@ -465,13 +1262,14 @@
   display: flex;
   position: relative;
   min-height: 26px;
+  min-width: 0;
 }
 
 .cv-allday-column {
   flex: 1;
   position: relative;
   padding: 2px;
-  border-right: 1px solid #dadce0;
+  border-right: 1px solid var(--app-border);
   min-height: 26px;
   min-width: 0;
   overflow: hidden;
@@ -483,45 +1281,51 @@
 
 .cv-allday-event {
   display: block;
-  padding: 2px 6px;
-  margin-bottom: 1px;
-  border-radius: 3px;
-  font-size: 11px;
-  line-height: 1.4;
+  height: 20px;
+  padding: 0 6px;
+  margin-bottom: 2px;
+  border-radius: 4px;
+  font-size: 11.5px;
+  font-weight: 500;
+  line-height: 20px;
   color: #fff;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   cursor: pointer;
-  transition: opacity 0.15s;
   min-width: 0;
 }
 
 .cv-allday-event:hover {
-  opacity: 0.85;
+  filter: brightness(0.92);
 }
 
-/* --- Week Header --- */
+/* Week header (stays put above the scrolling hour grid) */
 .cv-week-header {
   display: flex;
   flex-shrink: 0;
-  border-bottom: 1px solid #dadce0;
+  border-bottom: 1px solid var(--app-border);
+  background: var(--app-surface);
+  position: sticky;
+  top: 0;
+  z-index: 3;
 }
 
 .cv-week-header-gutter {
-  width: 58px;
-  min-width: 58px;
-  border-right: 1px solid #dadce0;
+  width: 56px;
+  min-width: 56px;
+  border-right: 1px solid var(--app-border);
 }
 
 .cv-week-header-day {
   flex: 1;
+  min-width: 0;
   text-align: center;
   padding: 6px 0;
   font-size: 11px;
   text-transform: uppercase;
-  color: #70757a;
-  border-right: 1px solid #dadce0;
+  color: var(--app-muted);
+  border-right: 1px solid var(--app-border);
 }
 
 .cv-week-header-day:last-child {
@@ -530,30 +1334,33 @@
 
 .cv-week-header-day-name {
   display: block;
-  font-weight: 500;
-  letter-spacing: 0.3px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
 }
 
 .cv-week-header-day-num {
-  display: block;
-  font-size: 22px;
-  font-weight: 400;
-  color: #3c4043;
-  line-height: 1.3;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  margin: 2px auto 0;
+  border-radius: 50%;
+  font-size: 18px;
+  font-weight: 500;
+  color: var(--app-fg);
+}
+
+.cv-week-header-day.cv-today {
+  color: var(--app-accent);
 }
 
 .cv-week-header-day.cv-today .cv-week-header-day-num {
-  background: #1a73e8;
-  color: #fff;
-  border-radius: 50%;
-  width: 36px;
-  height: 36px;
-  line-height: 36px;
-  margin: 0 auto;
-  font-size: 18px;
+  background: var(--app-accent);
+  color: var(--app-accent-fg);
 }
 
-/* --- Scrollable Grid --- */
+/* Scrollable hour grid */
 .cv-scroll {
   flex: 1;
   overflow-y: auto;
@@ -565,52 +1372,50 @@
   display: flex;
   position: relative;
   min-height: 1440px;
-  /* 24h * 60px */
 }
 
-/* --- Time Gutter --- */
 .cv-gutter {
-  width: 58px;
-  min-width: 58px;
+  width: 56px;
+  min-width: 56px;
   position: relative;
-  border-right: 1px solid #dadce0;
-  box-sizing: border-box;
+  border-right: 1px solid var(--app-border);
 }
 
 .cv-gutter-label {
   position: absolute;
   right: 8px;
   font-size: 10px;
-  color: #70757a;
+  color: var(--app-muted);
   transform: translateY(-50%);
   white-space: nowrap;
   pointer-events: none;
+  font-variant-numeric: tabular-nums;
 }
 
-/* --- Day Columns --- */
 .cv-columns {
   flex: 1;
   display: flex;
   position: relative;
+  min-width: 0;
 }
 
 .cv-day-col {
   flex: 1;
+  min-width: 0;
   position: relative;
-  border-right: 1px solid #ececec;
+  border-right: 1px solid var(--app-border);
 }
 
 .cv-day-col:last-child {
   border-right: none;
 }
 
-/* Hour lines */
 .cv-hour-line {
   position: absolute;
   left: 0;
   right: 0;
   height: 0;
-  border-top: 1px solid #dadce0;
+  border-top: 1px solid var(--app-border);
 }
 
 .cv-half-hour-line {
@@ -618,27 +1423,27 @@
   left: 0;
   right: 0;
   height: 0;
-  border-top: 1px dashed #ececec;
+  border-top: 1px dashed color-mix(in srgb, var(--app-border) 60%, transparent);
 }
 
-/* --- Event Blocks --- */
 .cv-event {
   position: absolute;
-  border-radius: 4px;
-  padding: 3px 6px;
+  border-radius: 5px;
+  padding: 2px 6px;
   font-size: 11px;
   line-height: 1.3;
   overflow: hidden;
   cursor: pointer;
   z-index: 1;
   box-sizing: border-box;
-  border-left: 3px solid rgba(0, 0, 0, 0.15);
-  transition: box-shadow 0.15s, opacity 0.15s;
+  border-left: 3px solid rgba(0, 0, 0, 0.2);
+  box-shadow: 0 0 0 1px var(--app-surface);
+  transition: box-shadow 0.15s;
   min-height: 15px;
 }
 
 .cv-event:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 0 0 1px var(--app-surface), 0 4px 12px rgba(0, 0, 0, 0.25);
   z-index: 5;
 }
 
@@ -655,13 +1460,12 @@
   white-space: nowrap;
 }
 
-/* --- Now Indicator --- */
 .cv-now-line {
   position: absolute;
   left: 0;
   right: 0;
   height: 0;
-  border-top: 2px solid #ea4335;
+  border-top: 2px solid var(--app-danger);
   z-index: 10;
   pointer-events: none;
 }
@@ -669,20 +1473,16 @@
 .cv-now-dot {
   position: absolute;
   left: -5px;
-  top: -5px;
+  top: -6px;
   width: 10px;
   height: 10px;
   border-radius: 50%;
-  background: #ea4335;
+  background: var(--app-danger);
 }
 
-/* --- Clickable time slots --- */
 .cv-slot-overlay {
   position: absolute;
-  left: 0;
-  right: 0;
-  top: 0;
-  bottom: 0;
+  inset: 0;
   z-index: 0;
 }
 
@@ -694,171 +1494,105 @@
 }
 
 .cv-slot:hover {
-  background: rgba(26, 115, 232, 0.06);
+  background: var(--app-accent-soft);
 }
 
-/* --- Drag preview --- */
 .cv-drag-preview {
   position: absolute;
   left: 0;
   right: 0;
-  background: rgba(26, 115, 232, 0.2);
-  border: 1px dashed #1a73e8;
-  border-radius: 4px;
+  background: color-mix(in srgb, var(--app-accent) 20%, transparent);
+  border: 1px dashed var(--app-accent);
+  border-radius: 5px;
   z-index: 8;
   pointer-events: none;
 }
 
-/* ===== Nav Bar & View Selector ===== */
-.cal-nav-bar {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 4px 4px 4px;
-  flex-wrap: nowrap;
-}
-
-.cal-nav-btns .btn {
-  padding: 2px 10px;
-  font-size: 13px;
-  line-height: 1.5;
-  border: none;
-}
-
-.cal-nav-btns .btn:first-child,
-.cal-nav-btns .btn:last-child {
-  padding: 2px 8px;
-  font-size: 15px;
-  font-weight: 600;
-}
-
-.cal-view-select {
-  width: 86px;
-  font-size: 12px;
-  padding: 2px 6px;
-  height: 30px;
-}
-
-/* ===== Event Info Refactor ===== */
-.ei-card {
-  border: none;
-  padding: 0;
-}
-
-.ei-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-
-.ei-color-dot {
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  flex-shrink: 0;
-}
-
-.ei-title {
-  font-size: 18px;
-  font-weight: 600;
-  line-height: 1.3;
-}
-
-.ei-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-bottom: 12px;
-  font-size: 13px;
-}
-
-.ei-meta-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-}
-
-.ei-meta-icon {
-  flex-shrink: 0;
-  width: 16px;
-  text-align: center;
-  opacity: 0.6;
-  margin-top: 1px;
-}
-
-.ei-meta-text {
-  flex: 1;
-  line-height: 1.4;
-}
-
-.ei-desc-block {
-  padding: 8px 10px;
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.04);
-  font-size: 13px;
-  line-height: 1.5;
-  margin-bottom: 12px;
-}
-
-.ei-actions {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding-top: 8px;
-  border-top: 1px solid #dadce0;
-}
-
-.ei-actions .btn {
-  padding: 4px 10px;
-  font-size: 12px;
-}
-
-/* --- Day View Header --- */
-.cv-day-header {
-  flex-shrink: 0;
-  padding: 10px 12px 6px 12px;
-  font-size: 16px;
-  font-weight: 600;
-  letter-spacing: -0.2px;
-}
-
-/* --- Countdown Buttons --- */
-.ei-countdown {
-  display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
-}
-
-.ei-countdown .btn {
-  font-size: 11px;
-  padding: 2px 8px;
-  gap: 4px;
-  display: inline-flex;
-  align-items: center;
-}
-
-/* Override old .ei-description border */
-.ei-description {
-  border: none;
-  width: auto;
-}
-
-.date-span {
-  font-weight: 500;
-  font-size: 13px;
-}
-
-/* Photo count badge in day/week views */
 .cv-photo-badge {
   position: absolute;
   bottom: 4px;
   right: 6px;
   font-size: 10px;
-  opacity: 0.5;
+  color: var(--app-muted);
   pointer-events: none;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
+}
+
+@media (max-width: 575.98px) {
+  .cv-gutter,
+  .cv-week-header-gutter,
+  .cv-allday-label {
+    width: 40px;
+    min-width: 40px;
+  }
+
+  .cv-allday-label {
+    font-size: 9px;
+    padding-right: 4px;
+  }
+
+  .cv-week-header-day {
+    font-size: 10px;
+  }
+
+  .cv-week-header-day-name {
+    letter-spacing: 0;
+  }
+
+  .cv-week-header-day-num {
+    width: 26px;
+    height: 26px;
+    font-size: 14px;
+  }
+
+  .cv-event {
+    padding: 1px 3px;
+    font-size: 10px;
+  }
+
+  .cv-gutter-label {
+    right: 4px;
+    font-size: 9px;
+  }
+}
+
+/* Thin, theme-aware scrollbars for the calendar's scroll areas. */
+.view-month,
+.cv-scroll,
+.todo-list,
+.sidebar-calendar-list {
+  scrollbar-width: thin;
+  scrollbar-color: var(--app-border) transparent;
+}
+
+.todo-list:empty::before {
+  content: "No open tasks.";
+  display: block;
+  padding: 24px 8px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--app-muted);
+}
+
+@media (max-width: 575.98px) {
+  .more-events .more-label {
+    display: none;
+  }
+}
+
+.modal .app-card {
+  box-shadow: none;
+}
+
+.input-group-sm > .form-control-color {
+  height: auto;
+  min-height: calc(1.5em + 0.5rem + 2px);
+  padding: 3px;
+}
+
+/* The day modal already shows the date in its title. */
+.big-modal-body .cv-day-header {
+  display: none;
 }

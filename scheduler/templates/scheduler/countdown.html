@@ -11,62 +11,103 @@ Countdown to {{ se }} of {{ event.name }}
 
 {% block page_styles %}
 <style>
+    .countdown-page {
+        min-height: 100%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 32px 16px;
+    }
+
+    .countdown-card {
+        width: 100%;
+        max-width: 880px;
+        padding: 32px 24px;
+        text-align: center;
+    }
+
+    .countdown-kicker {
+        margin-bottom: 4px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--app-muted);
+    }
+
     #title {
-        font-size: 400%;
-        margin-bottom: 0px;
-        color: #3498db;
+        margin: 0 0 24px;
+        font-size: clamp(1.25rem, 4vw, 2rem);
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        overflow-wrap: anywhere;
+    }
+
+    .countdown {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+    }
+
+    .countdown-unit {
+        padding: 16px 8px 12px;
+        border: 1px solid var(--app-border);
+        border-radius: var(--app-radius);
+        background: var(--app-surface-2);
+    }
+
+    .countdown-value {
+        font-size: clamp(2rem, 9vw, 5.5rem);
+        font-weight: 600;
+        line-height: 1;
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.02em;
+    }
+
+    .countdown-label {
+        margin-top: 8px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--app-muted);
+    }
+
+    .countdown-meta {
+        margin-top: 24px;
+        font-size: 14px;
+        color: var(--app-muted);
+    }
+
+    @media (max-width: 480px) {
+        .countdown { gap: 6px; }
+        .countdown-unit { padding: 12px 4px 8px; }
+        .countdown-label { font-size: 0.65rem; letter-spacing: 0.02em; }
     }
 </style>
 {% endblock %}
 
 {% block page_body %}
-<center>
-    {% if se == "none" %}
-    <p id="title">Countdown to {{ event.name }}</p>
-    {% else %}
-    <p id="title">Countdown to {{ se }} of {{ event.name }}</p>
-    {% endif %}
-    <div class="clock col-auto">
-        <div class="container">
-            <div class="row justify-content-center countdown" style="font-size: 200px;">
-                <div class="col-auto day">
-                    00
-                </div>
-                <div class="col-auto">
-                    :
-                </div>
-                <div class="col-auto hour">
-                    00
-                </div>
-                <div class="col-auto">
-                    :
-                </div>
-                <div class="col-auto minute">
-                    00
-                </div>
-                <div class="col-auto">
-                    :
-                </div>
-                <div class="col-auto second">
-                    00
-                </div>
+<div class="countdown-page">
+    <div class="countdown-card app-card">
+        <div class="countdown-kicker">Countdown{% if se != "none" %} to {{ se }}{% endif %}</div>
+        <h1 id="title">{{ event.name }}</h1>
+        <div class="countdown" role="timer" aria-live="off">
+            <div class="countdown-unit">
+                <div class="countdown-value day">00</div>
+                <div class="countdown-label">Days</div>
             </div>
-            <div class="row justify-content-center" style="font-size: 30px; text-align: center;">
-                <div class="col-auto">
-                    DAYS
-                </div>
-                <div class="col-auto"></div>
-                <div class="col-auto">
-                    HOURS
-                </div>
-                <div class="col-auto"></div>
-                <div class="col-auto">
-                    MINUTES
-                </div>
-                <div class="col-auto"></div>
-                <div class="col-auto">
-                    SECONDS
-                </div>
+            <div class="countdown-unit">
+                <div class="countdown-value hour">00</div>
+                <div class="countdown-label">Hours</div>
+            </div>
+            <div class="countdown-unit">
+                <div class="countdown-value minute">00</div>
+                <div class="countdown-label">Minutes</div>
+            </div>
+            <div class="countdown-unit">
+                <div class="countdown-value second">00</div>
+                <div class="countdown-label">Seconds</div>
             </div>
             <!-- <div>
                 <div class="progress" style="height: 20px;">
@@ -74,15 +115,10 @@ Countdown to {{ se }} of {{ event.name }}
                 </div>
             </div> -->
         </div>
+        <div class="countdown-meta">{{ time }}</div>
+        <!--{{ event }}-->
     </div>
-    <div>
-        Event Info:
-        Name: {{ event.name }}
-    </div>
-    {{ time }}
-    <!--{{ event }}-->
-    <br>
-</center>
+</div>
 
 <script>
     function updateTime() {
@@ -91,10 +127,10 @@ Countdown to {{ se }} of {{ event.name }}
         var dist = countdownDate - timeNow;
         if (dist < 0) {
             if (Math.floor((dist % (1000 * 60)) / 1000) % 2 == 0) {
-                document.querySelector('.countdown').style.color = "red";
+                document.querySelector('.countdown').style.color = "var(--app-danger)";
             }
             else {
-                document.querySelector('.countdown').style.color = "black";
+                document.querySelector('.countdown').style.color = "";
             }
         }
         else {

@@ -4,51 +4,39 @@
 // Handlebars Templates
 // =======================================================================================================================================================================
 const calendar_item = Handlebars.compile(`
-    <div class="event-button" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type = "{{ type }}" {{#if modal}}data-bs-toggle="modal" data-bs-target="#modal" {{/if}}style="font-size: 12px; color: {{ color }}; background-color: {{ bg_color }}; border-radius: {{ bo_radius }}; margin-bottom: 2px; @media print { color: {{ color }}; }" {{#if modal}}onclick="display_info(this)"{{/if}}><span class="event-icon">{{{ icon }}}</span>{{#if del}}<del>{{/if}}{{{ text }}}{{#if del}}</div>{{/if}}</div>
+    <div class="event-button {{#if bg_color}}event-allday{{else}}event-timed{{/if}}" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type = "{{ type }}" {{#if modal}}data-bs-toggle="modal" data-bs-target="#modal" {{/if}}style="--event-colour: {{#if bg_color}}{{ bg_color }}{{else}}{{ color }}{{/if}};" {{#if modal}}onclick="display_info(this)"{{/if}}><span class="event-icon">{{{ icon }}}</span>{{#if del}}<del>{{/if}}{{{ text }}}{{#if del}}</del>{{/if}}</div>
 `);
 
-const todo_item = Handlebars.compile(`  
-    <div class="card mb-1">
-        <div class="card-body" data-todo-id="{{ id }}" style="padding: 8px;">
-            <span class="card-title">
-                <span>
-                    <span class="text-success" style="cursor: pointer;" onclick="complete_todo('{{ i }}');">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check2-square" viewBox="0 0 16 16">
-                            <path d="M3 14.5A1.5 1.5 0 0 1 1.5 13V3A1.5 1.5 0 0 1 3 1.5h8a.5.5 0 0 1 0 1H3a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5V8a.5.5 0 0 1 1 0v5a1.5 1.5 0 0 1-1.5 1.5H3z"/>
-                            <path d="m8.354 10.354 7-7a.5.5 0 0 0-.708-.708L8 9.293 5.354 6.646a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0z"/>
-                        </svg>
-                    </span>
-                    <span class="text-info" style="cursor: pointer;" data-bs-toggle="modal" data-bs-target="#modal" onclick="add_edit_todo(command='edit', edit_todo={{ i }});">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">
-                            <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
-                        </svg>
-                    </span>
-                    <span class="text-danger" style="cursor: pointer;" onclick="delete_todo('{{ i }}');">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
-                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                        </svg>
-                    </span>
-
-                </span>
-                <span>{{{ name }}}</span>
-            </span>
+const todo_item = Handlebars.compile(`
+    <div class="todo-item" data-todo-id="{{ id }}">
+        <button type="button" class="todo-check" onclick="complete_todo('{{ i }}');" title="Mark complete" aria-label="Mark complete">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-circle" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/></svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-circle" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/></svg>
+        </button>
+        <div class="todo-name">{{{ name }}}</div>
+        <div class="todo-actions">
+            <button type="button" class="todo-action" data-bs-toggle="modal" data-bs-target="#modal" onclick="add_edit_todo(command='edit', edit_todo={{ i }});" title="Edit" aria-label="Edit">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
+            </button>
+            <button type="button" class="todo-action danger" onclick="delete_todo('{{ i }}');" title="Delete" aria-label="Delete">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
+            </button>
         </div>
     </div>
 `);
 
 const calendar_name = Handlebars.compile(`
-    <div class="custom-control custom-checkbox calendar-name-div" data-calendar="{{ calendar }}" data-calendar-type="{{ calendar_type }}">
+    <div class="calendar-name-div" data-calendar="{{ calendar }}" data-calendar-type="{{ calendar_type }}" style="--cal-colour: {{ colour }};">
         <input type="checkbox" class="form-check-input" id="{{ name }}" {{ checked }} onchange="toggle_calendar_visibility(this, false)" style="opacity: {{ opacity }};">
-        <label class="custom-control-label calendar-name-label" for="{{ name }}" style="color: {{ colour }}; opacity: {{ opacity }};">{{#if admin}}<em>{{/if}}{{ name }}{{#if admin}}</em>{{/if}}</label>
-        <button class="btn btn-white calendar-options-btn"
+        <label class="calendar-name-label" for="{{ name }}" style="opacity: {{ opacity }};">{{#if admin}}<em>{{/if}}{{ name }}{{#if admin}}</em>{{/if}}</label>
+        <button class="calendar-options-btn"
             type="button" id="dropdownMenu{{ id }}" data-bs-toggle="dropdown"
             aria-haspopup="true" aria-expanded="false" aria-label="Calendar options">
-            <svg width="1em" height="1em" viewBox="0 0 16 16" class="bi bi-three-dots-vertical" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-                <path fill-rule="evenodd" d="M9.5 13a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0zm0-5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+            <svg width="14" height="14" viewBox="0 0 16 16" class="bi bi-three-dots" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path d="M3 9.5a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3zm5 0a1.5 1.5 0 1 1 0-3 1.5 1.5 0 0 1 0 3z"/>
             </svg>
         </button>
-        <div class="dropdown-menu" aria-labelledby="dropdownMenu{{ id }}" style="opacity: 1;">
+        <div class="dropdown-menu dropdown-menu-end" aria-labelledby="dropdownMenu{{ id }}">
             <a class="dropdown-item" href="#!" onclick="toggle_calendar_visibility(this, true)">Display this only</a>
             {{#if owner}}
             <a class="dropdown-item" href="#!" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="display_calendar_info(this)">Settings</a>
@@ -66,47 +54,40 @@ const calendar_name = Handlebars.compile(`
 `);
 
 const calendar_create_form = Handlebars.compile(`
-    Subscribe to a calendar:
-    <div class="input-group">
-        <input type="text" class="form-control subscribe-code" placeholder="Code" aria-label="" aria-describedby="Code">
-        <div class="input-group-append">
-            <button class="btn btn-primary subscribe-btn" type="button">Subscribe</button>
-        </div>
+    <label class="form-label" for="subscribe-code">Subscribe with an invite code</label>
+    <div class="input-group input-group-sm">
+        <input type="text" class="form-control subscribe-code" id="subscribe-code" placeholder="Invite code" aria-label="Invite code">
+        <button class="btn btn-outline-primary subscribe-btn" type="button">Subscribe</button>
     </div>
-    <p class="text-danger subscribe-warn"></p>
-    <hr>
-    Create a Calendar
-    <div class="input-group">
-        <input type="text" class="form-control calendar-name" id="calendar-name" type="text" placeholder="Name of calendar">
-        <div class="input-group-append">
-            <input type="color" class="form-control form-control-color calendar-color" id="exampleColorInput" value="#000000" title="Choose the calendar color" style="width: 50px;">
-        </div>
-        <div class="input-group-append">
-            <button class="btn btn-primary calendar-submit" type="submit">Create</button>
-        </div>
+    <p class="text-danger small mt-1 mb-0 subscribe-warn"></p>
+    <hr class="my-3 modal-divider">
+    <label class="form-label" for="calendar-name">Create a calendar</label>
+    <div class="input-group input-group-sm">
+        <input type="text" class="form-control calendar-name" id="calendar-name" placeholder="Calendar name">
+        <input type="color" class="form-control form-control-color calendar-color" id="exampleColorInput" value="#000000" title="Calendar colour" style="max-width: 44px;">
+        <button class="btn btn-primary calendar-submit" type="submit">Create</button>
     </div>
-    <p class="text-danger calendar-warn"></p>
+    <p class="text-danger small mt-1 mb-0 calendar-warn"></p>
 `);
 
 const subscribe_confirm = Handlebars.compile(`
-    <center><h4>Subscribe?</h4></center>
-    <p>Calendar name: {{ name }}</p>
-    <p>Owner: {{ owner }}</p>
-    <button type="submit" class="btn btn-success subscribe-confirm-btn" style="width: 100%;">Subscribe</button>
-    <br><br>
-    <button type="submit" class="btn btn-danger" style="width: 100%;" data-bs-dismiss="modal">Don't Subscribe</button>
+    <p class="mb-2 fw-semibold">Subscribe to this calendar?</p>
+    <dl class="row mb-0">
+        <dt class="col-4 app-muted fw-normal">Calendar</dt><dd class="col-8 mb-1">{{ name }}</dd>
+        <dt class="col-4 app-muted fw-normal">Owner</dt><dd class="col-8 mb-0">{{ owner }}</dd>
+    </dl>
+    <div class="modal-actions">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="submit" class="btn btn-primary subscribe-confirm-btn">Subscribe</button>
+    </div>
 `);
 
 const calendar_info_template = Handlebars.compile(`
-    <div class="row" style="width: 100%;">
-        <div class="col">
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="card-title">Subscribers</h4>
-                    <p class="card-text">
-                        <ul class='subscriber-list list-unstyled'></ul>
-                    </p>
-                </div>
+    <div class="row g-3">
+        <div class="col-md-6">
+            <div class="app-card cal-settings-section">
+                <h6 class="form-section-label">Subscribers</h6>
+                <ul class='subscriber-list list-unstyled mb-0'></ul>
             </div>
         </div>
         <!-- <div class="col">
@@ -119,41 +100,29 @@ const calendar_info_template = Handlebars.compile(`
                 </div>
             </div>
         </div> -->
-        <div class="col">
-            <div class="card">
-                <div class="card-body">
-                    <h4 class="card-title">Invites</h4>
-                    <h6 class="card-subtitle mb-2 text-muted">Click on the checkbox to enable/disable the invite</h6>
-                    <p class="card-text">
-                        <ul class='invite-list list-unstyled'></ul>
-                        <div class="invite-create-form">
-                            <div class="input-group input-group-sm">
-                                <div class="input-group-prepend" data-bs-toggle="tooltip" data-placement="bottom" title="Random Invite">
-                                    <button class="btn btn-primary random-invite" id="inputGroup-sizing-sm" style="padding: 4px 12px 4px 12px;">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-shuffle" viewBox="0 0 16 16">
-                                            <path fill-rule="evenodd" d="M0 3.5A.5.5 0 0 1 .5 3H1c2.202 0 3.827 1.24 4.874 2.418.49.552.865 1.102 1.126 1.532.26-.43.636-.98 1.126-1.532C9.173 4.24 10.798 3 13 3v1c-1.798 0-3.173 1.01-4.126 2.082A9.624 9.624 0 0 0 7.556 8a9.624 9.624 0 0 0 1.317 1.918C9.828 10.99 11.204 12 13 12v1c-2.202 0-3.827-1.24-4.874-2.418A10.595 10.595 0 0 1 7 9.05c-.26.43-.636.98-1.126 1.532C4.827 11.76 3.202 13 1 13H.5a.5.5 0 0 1 0-1H1c1.798 0 3.173-1.01 4.126-2.082A9.624 9.624 0 0 0 6.444 8a9.624 9.624 0 0 0-1.317-1.918C4.172 5.01 2.796 4 1 4H.5a.5.5 0 0 1-.5-.5z"></path>
-                                            <path d="M13 5.466V1.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384l-2.36 1.966a.25.25 0 0 1-.41-.192zm0 9v-3.932a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384l-2.36 1.966a.25.25 0 0 1-.41-.192z"></path>
-                                        </svg>
-                                    </button>
-                                </div>
-                                <input class="form-control invite-text" type="text" placeholder="Invite" aria-label="Small" aria-describedby="inputGroup-sizing-sm">
-                                <div class="input-group-append" data-bs-toggle="tooltip" data-placement="bottom" title="Create Invite">
-                                    <button class="btn btn-primary create-invite" id="inputGroup-sizing-sm" style="padding: 4px 12px 4px 12px;">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check2" viewBox="0 0 16 16">
-                                            <path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/>
-                                        </svg>
-                                    </button>
-                                </div>
-                            </div>
-                            <p class="text-danger invite-warn"></p>
-                        </div>
-                    </p>
+        <div class="col-md-6">
+            <div class="app-card cal-settings-section">
+                <h6 class="form-section-label">Invites</h6>
+                <p class="small app-muted mb-2">Tick an invite to enable it, untick to disable it.</p>
+                <ul class='invite-list list-unstyled mb-3'></ul>
+                <div class="invite-create-form">
+                    <div class="input-group input-group-sm">
+                        <button class="btn btn-outline-secondary random-invite" type="button" title="Random invite code" aria-label="Random invite code">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" class="bi bi-shuffle" viewBox="0 0 16 16" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M0 3.5A.5.5 0 0 1 .5 3H1c2.202 0 3.827 1.24 4.874 2.418.49.552.865 1.102 1.126 1.532.26-.43.636-.98 1.126-1.532C9.173 4.24 10.798 3 13 3v1c-1.798 0-3.173 1.01-4.126 2.082A9.624 9.624 0 0 0 7.556 8a9.624 9.624 0 0 0 1.317 1.918C9.828 10.99 11.204 12 13 12v1c-2.202 0-3.827-1.24-4.874-2.418A10.595 10.595 0 0 1 7 9.05c-.26.43-.636.98-1.126 1.532C4.827 11.76 3.202 13 1 13H.5a.5.5 0 0 1 0-1H1c1.798 0 3.173-1.01 4.126-2.082A9.624 9.624 0 0 0 6.444 8a9.624 9.624 0 0 0-1.317-1.918C4.172 5.01 2.796 4 1 4H.5a.5.5 0 0 1-.5-.5z"></path>
+                                <path d="M13 5.466V1.534a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384l-2.36 1.966a.25.25 0 0 1-.41-.192zm0 9v-3.932a.25.25 0 0 1 .41-.192l2.36 1.966c.12.1.12.284 0 .384l-2.36 1.966a.25.25 0 0 1-.41-.192z"></path>
+                            </svg>
+                        </button>
+                        <input class="form-control invite-text" type="text" placeholder="New invite code" aria-label="New invite code">
+                        <button class="btn btn-primary create-invite" type="button">Create</button>
+                    </div>
+                    <p class="text-danger small mt-1 mb-0 invite-warn"></p>
                 </div>
             </div>
         </div>
     </div>
-    <div>
-    <button type="button" class="btn btn-primary toggle-calendar-activation-btn" onclick="toggle_calendar_enable(this);">Toggle Activation</button>
+    <div class="d-flex justify-content-end mt-3">
+        <button type="button" class="btn btn-outline-secondary btn-sm toggle-calendar-activation-btn" onclick="toggle_calendar_enable(this);">Toggle Activation</button>
     </div>
     <script>
         //$(function(){
@@ -164,44 +133,42 @@ const calendar_info_template = Handlebars.compile(`
 
 const calendar_invite = Handlebars.compile(`
     <li>
-        <div class="custom-control custom-checkbox">
-            <input type="checkbox" class="custom-control-input" id="customCheck{{ invite_no }}" data-invite="{{ invite }}" data-calendar="{{ calendar_id }}" {{ checked }} onclick="this.disabled=true;toggle_invite(this);">
-            <label class="custom-control-label invite-label" for="customCheck{{ invite_no }}">{{ invite_name }}</label>
+        <div class="form-check mb-0">
+            <input type="checkbox" class="form-check-input" id="customCheck{{ invite_no }}" data-invite="{{ invite }}" data-calendar="{{ calendar_id }}" {{ checked }} onclick="this.disabled=true;toggle_invite(this);">
+            <label class="form-check-label invite-label font-monospace" for="customCheck{{ invite_no }}">{{ invite_name }}</label>
         </div>
     </li>
 `);
 
 const calendar_sync_template = Handlebars.compile(`
     <div class="calendar-sync-dates">
-        Start:
-        <div class="input-group mb-3">
-            <select class="form-control month-select calendar-sync-start-month"></select>
-            <select class="form-control year-select calendar-sync-start-year"></select>
+        <label class="form-label">Start</label>
+        <div class="input-group input-group-sm field">
+            <select class="form-select month-select calendar-sync-start-month" aria-label="Start month"></select>
+            <select class="form-select year-select calendar-sync-start-year" aria-label="Start year"></select>
         </div>
-        End:
-        <div class="input-group mb-3">
-            <select class="form-control month-select calendar-sync-end-month"></select>
-            <select class="form-control year-select calendar-sync-end-year"></select>
+        <label class="form-label">End</label>
+        <div class="input-group input-group-sm field">
+            <select class="form-select month-select calendar-sync-end-month" aria-label="End month"></select>
+            <select class="form-select year-select calendar-sync-end-year" aria-label="End year"></select>
         </div>
     </div>
-    <div class="mb-3">
-        <label for="calendar-sync-token">Access Token (Optional):</label>
-        <input type="text" class="form-control" id="calendar-sync-token">
+    <div class="field">
+        <label class="form-label" for="calendar-sync-token">Access token (optional)</label>
+        <input type="text" class="form-control form-control-sm" id="calendar-sync-token">
     </div>
-        <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-        <div>
-            <button class="btn btn-primary calendar-sync-term-btn">T</button>
-            <button class="btn btn-primary calendar-sync-term-full-btn">TF</button>
-            <button class="btn btn-primary calendar-sync-btn">Sync</button>
-        <div>
+    <div class="modal-actions">
+        <button class="btn btn-outline-secondary calendar-sync-term-btn" title="Term">T</button>
+        <button class="btn btn-outline-secondary calendar-sync-term-full-btn" title="Full term">TF</button>
+        <button class="btn btn-primary calendar-sync-btn">Sync</button>
     </div>
 `);
 
 const event_info_template = Handlebars.compile(`
     <div class="ei-card">
-        <div class="ei-header" style="margin-bottom: 8px;">
+        <div class="ei-header">
             <div class="ei-color-dot" style="background:{{ cal_color }};"></div>
-            <div style="font-size: 13px; font-weight: 600; color: #5f6368;">{{ calendar }}</div>
+            <div class="ei-calendar">{{ calendar }}</div>
         </div>
         <div class="ei-meta">
             <div class="ei-meta-row">
@@ -226,145 +193,151 @@ const event_info_template = Handlebars.compile(`
         {{{ dev_info }}}
         {{#if owner}}
         <div class="ei-actions">
-            <button type="button" class="btn btn-outline-warning btn-sm" onclick="$('#modal').modal('hide'); $('#big-modal').modal('show'); add_edit_event(1, m+1, y, command='edit', edit_event=data['events']['{{ event_no }}'])">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10z"/></svg>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="$('#modal').modal('hide'); $('#big-modal').modal('show'); add_edit_event(1, m+1, y, command='edit', edit_event=data['events']['{{ event_no }}'])">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10z"/></svg>
                 Edit
             </button>
-            <button type="button" class="btn btn-outline-danger btn-sm" onclick="delete_event('{{ event_no }}')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
-                Delete
-            </button>
-            <button type="button" class="btn btn-outline-primary btn-sm" onclick="$('#modal').modal('hide'); $('#big-modal').modal('show'); view_event_images(data['events']['{{ event_no }}'])">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1v6zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2z"/><path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/></svg>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="$('#modal').modal('hide'); $('#big-modal').modal('show'); view_event_images(data['events']['{{ event_no }}'])">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M15 12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1h1.172a3 3 0 0 0 2.12-.879l.83-.828A1 1 0 0 1 6.827 3h2.344a1 1 0 0 1 .707.293l.828.828A3 3 0 0 0 12.828 5H14a1 1 0 0 1 1 1v6zM2 4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-1.172a2 2 0 0 1-1.414-.586l-.828-.828A2 2 0 0 0 9.172 2H6.828a2 2 0 0 0-1.414.586l-.828.828A2 2 0 0 1 3.172 4H2z"/><path d="M8 11a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5zm0 1a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7zM3 6.5a.5.5 0 1 1-1 0 .5.5 0 0 1 1 0z"/></svg>
                 Photos
             </button>
-            <div class="input-group input-group-sm" style="width: auto; flex: 0 0 auto;">
-                <input type="number" id="evDupDays" class="form-control" value="1" style="width:50px;"/>
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="duplicate_event('{{ event_no }}')">Dup</button>
+            <div class="input-group input-group-sm" title="Duplicate this event N days later">
+                <input type="number" id="evDupDays" class="form-control" value="1" aria-label="Days"/>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="duplicate_event('{{ event_no }}')">Duplicate</button>
             </div>
+            <button type="button" class="btn btn-outline-danger btn-sm ms-auto" onclick="delete_event('{{ event_no }}')">
+                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/><path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/></svg>
+                Delete
+            </button>
         </div>
         {{/if}}
     </div>
 `);
 
 const event_create_template = Handlebars.compile(`
-    <div class="container">
-        <div class="row">
-            <div class="col-sm">
-                <div class="form-floating">
-                    <input type="text" class="form-control event-name-input event-name-input-{{i}}" id="event-name-input" placeholder="Name">
-                    <label for="event-name-input">Name</label>
+    <div class="event-form">
+        <div class="row g-4">
+            <div class="col-md-6">
+                <div class="field">
+                    <label class="form-label" for="event-name-input">Name</label>
+                    <input type="text" class="form-control form-control-sm event-name-input event-name-input-{{i}}" id="event-name-input" placeholder="Add a title">
                 </div>
-                <br>
-                <div class="form-floating">
-                    <select class="form-select form-calendar-input form-calendar-input-{{i}}" id="event-calendar-input" aria-label="Calendar">
+                <div class="field">
+                    <label class="form-label" for="event-calendar-input">Calendar</label>
+                    <select class="form-select form-select-sm form-calendar-input form-calendar-input-{{i}}" id="event-calendar-input">
                     </select>
-                    <label for="event-calendar-input">Calendar</label>
                 </div>
-                <br>
-                <div class="btn-group" role="group" aria-label="Basic example">
-                    <button type="button" class="btn btn-sm btn-primary event-type-btn event-type-btn-event" data-event-type="event">Event</button>
-                    <button type="button" class="btn btn-sm btn-primary event-type-btn event-type-btn-ade" data-event-type="ade">All-Day Event</button>
-                    <button type="button" class="btn btn-sm btn-primary event-type-btn event-type-btn-assignment" data-event-type="assignment">Assignment</button>
+                <div class="field">
+                    <span class="form-label">Type</span>
+                    <div class="btn-group btn-group-sm event-type-group" role="group" aria-label="Event type">
+                        <input type="radio" class="btn-check event-type-btn event-type-btn-event" name="event-type-{{i}}" id="event-type-event-{{i}}" data-event-type="event" autocomplete="off">
+                        <label class="btn btn-outline-primary" for="event-type-event-{{i}}">Event</label>
+                        <input type="radio" class="btn-check event-type-btn event-type-btn-ade" name="event-type-{{i}}" id="event-type-ade-{{i}}" data-event-type="ade" autocomplete="off">
+                        <label class="btn btn-outline-primary" for="event-type-ade-{{i}}">All day</label>
+                        <input type="radio" class="btn-check event-type-btn event-type-btn-assignment" name="event-type-{{i}}" id="event-type-assignment-{{i}}" data-event-type="assignment" autocomplete="off">
+                        <label class="btn btn-outline-primary" for="event-type-assignment-{{i}}">Assignment</label>
+                    </div>
                 </div>
-                <br><br>
                 <div class="event-datetime-wrapper">
                     <div class="event-datetime event-datetime-event">
-                        <div class="input-group">
-                            <input type="date" class="form-control event-date-start event-date-start-event">
-                            <input type="time" class="form-control event-time-start event-time-start-event">
+                        <div class="field">
+                            <span class="form-label">Starts</span>
+                            <div class="input-group input-group-sm">
+                                <input type="date" class="form-control event-date-start event-date-start-event" aria-label="Start date">
+                                <input type="time" class="form-control event-time-start event-time-start-event" aria-label="Start time">
+                            </div>
                         </div>
-                        <br>
-                        <div class="input-group">
-                            <input type="date" class="form-control event-date-end event-date-end-event">
-                            <input type="time" class="form-control event-time-end event-time-end-event">
+                        <div class="field">
+                            <span class="form-label">Ends</span>
+                            <div class="input-group input-group-sm">
+                                <input type="date" class="form-control event-date-end event-date-end-event" aria-label="End date">
+                                <input type="time" class="form-control event-time-end event-time-end-event" aria-label="End time">
+                            </div>
                         </div>
                     </div>
                     <div class="event-datetime event-datetime-ade">
-                        <div class="input-group">
-                            <input type="date" class="form-control event-date-start event-date-start-ade">
+                        <div class="field">
+                            <span class="form-label">Starts</span>
+                            <div class="input-group input-group-sm">
+                                <input type="date" class="form-control event-date-start event-date-start-ade" aria-label="Start date">
+                            </div>
                         </div>
-                        <br>
-                        <div class="input-group">
-                            <input type="date" class="form-control event-date-end event-date-end-ade">
+                        <div class="field">
+                            <span class="form-label">Ends</span>
+                            <div class="input-group input-group-sm">
+                                <input type="date" class="form-control event-date-end event-date-end-ade" aria-label="End date">
+                            </div>
                         </div>
                     </div>
                     <div class="event-datetime event-datetime-assignment">
-                        <div class="input-group">
-                            <input type="date" class="form-control event-date-start event-date-start-assignment">
-                            <input type="time" class="form-control event-time-start event-time-start-assignment">
+                        <div class="field">
+                            <span class="form-label">Due</span>
+                            <div class="input-group input-group-sm">
+                                <input type="date" class="form-control event-date-start event-date-start-assignment" aria-label="Due date">
+                                <input type="time" class="form-control event-time-start event-time-start-assignment" aria-label="Due time">
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div class="col-sm">
-                <div class="form-floating">
-                    <textarea class="form-control" id="event-description-input" style="height: 150px;" placeholder="Description"></textarea>
-                    <label for="event-description-input">Description</label>
+            <div class="col-md-6">
+                <div class="field">
+                    <label class="form-label" for="event-description-input">Description</label>
+                    <textarea class="form-control form-control-sm" id="event-description-input" rows="4" placeholder="Add details"></textarea>
                 </div>
-                <br>
-                <div class="form-floating">
-                    <input type="text" class="form-control event-loc-input event-loc-input-{{i}}" id="event-loc-input" placeholder="Location">
-                    <label for="event-loc-input">Location</label>
+                <div class="field">
+                    <label class="form-label" for="event-loc-input">Location</label>
+                    <input type="text" class="form-control form-control-sm event-loc-input event-loc-input-{{i}}" id="event-loc-input" placeholder="Add a location">
                 </div>
-                <br>
-                <div class="form-floating">
-                    <select class="form-select form-category-input form-category-input-{{i}}" id="event-category-input" aria-label="Category">
+                <div class="field">
+                    <label class="form-label" for="event-category-input">Category</label>
+                    <select class="form-select form-select-sm form-category-input form-category-input-{{i}}" id="event-category-input">
                     </select>
-                    <label for="event-category-input">Category</label>
                 </div>
-                <br>
-                <div>
-                    <label for="form-event-priority-input" class="form-label px-2">Priority</label>
+                <div class="field">
+                    <label for="form-event-priority-input" class="form-label">Priority</label>
                     <input type="range" id="form-event-priority-input" class="form-range form-event-priority-input" min="0" max="20" step="1">
                 </div>
-                <br>
                 <div class="form-check">
                     <input class="form-check-input" type="checkbox" id="event-public-check">
-                    <label class="form-check-label" for="event-public-check">
-                        Public
-                    </label>
-                </div>
-                <br><br>
-                <div class="d-grid gap-2 d-md-flex justify-content-md-end">
-                    <button class="btn btn-primary create-event-btn">Create</button>
+                    <label class="form-check-label" for="event-public-check">Public</label>
                 </div>
             </div>
+        </div>
+        <div class="modal-actions">
+            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button class="btn btn-primary create-event-btn">Create</button>
         </div>
     </div>
 `);
 
 const todo_create_template = Handlebars.compile(`
-    <div class="form-floating">
-        <input type="text" class="form-control todo-name-input todo-name-input-{{i}}" id="todo-name-input" placeholder="Name">
-        <label for="todo-name-input">Name</label>
+    <div class="field">
+        <label class="form-label" for="todo-name-input">Name</label>
+        <input type="text" class="form-control form-control-sm todo-name-input todo-name-input-{{i}}" id="todo-name-input" placeholder="Add a task">
     </div>
-    <br>
-    <div class="form-floating">
-        <textarea class="form-control" id="todo-description-input" style="height: 150px;" placeholder="Description"></textarea>
-        <label for="todo-description-input">Description</label>
+    <div class="field">
+        <label class="form-label" for="todo-description-input">Description</label>
+        <textarea class="form-control form-control-sm" id="todo-description-input" rows="3" placeholder="Add details"></textarea>
     </div>
-    <br>
-    <div>
-        <label for="form-todo-priority-input" class="form-label px-2">Priority</label>
+    <div class="field">
+        <label for="form-todo-priority-input" class="form-label">Priority</label>
         <input type="range" id="form-todo-priority-input" class="form-range form-todo-priority-input" min="0" max="20" step="1">
     </div>
-    <br>
+    <div class="field">
+        <span class="form-label">Complete by</span>
+        <div class="input-group input-group-sm">
+            <input type="date" class="form-control todo-date-complete" aria-label="Date">
+            <input type="time" class="form-control todo-time-complete" aria-label="Time">
+        </div>
+    </div>
     <div class="form-check">
         <input class="form-check-input" type="checkbox" value="" id="todo-recurring-check">
-        <label class="form-check-label" for="todo-recurring-check">
-            Recurring
-        </label>
+        <label class="form-check-label" for="todo-recurring-check">Recurring</label>
     </div>
-    <br>
-    Complete by:
-    <div class="input-group">
-        <input type="date" class="form-control todo-date-complete">
-        <input type="time" class="form-control todo-time-complete">
-    </div>
-    <br>
-    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+    <div class="modal-actions">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
         <button class="btn btn-primary create-todo-btn">Create</button>
     </div>
 `);
@@ -570,8 +543,8 @@ function showCalendar(month, year) {
                     <div class='date-span' data-bs-toggle='modal' data-bs-target='#big-modal' onclick="event.stopPropagation(); display_day_info(this)"><span onclick="event.stopPropagation(); display_day_info(this.parentElement)">${date}</span></div>
                     <div class='day-events day-events-${date}'></div>
                     <div class='reg-events reg-events-${date}'></div>
-                    <span class="badge add-on-day-btn" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="event.stopPropagation(); add_edit_event(${date})">+</span>
-                    <span class="badge day-images-btn day-images-btn-${date}" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="event.stopPropagation(); view_day_images(${date})">-</span>
+                    <span class="badge add-on-day-btn" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="event.stopPropagation(); add_edit_event(${date})" title="New event">+</span>
+                    <span class="badge day-images-btn day-images-btn-${date}" data-bs-toggle="modal" data-bs-target="#big-modal" onclick="event.stopPropagation(); view_day_images(${date})" title="Photos"></span>
                 `;
                 // Click empty cell space → open create form
                 const cellDate = date;
@@ -955,7 +928,7 @@ function delete_todo(todo_num) {
 function make_holidays_red() {
     document.querySelectorAll('.date-span').forEach(ds => {
         if (vars["holidays"].includes(parseInt(ds.parentElement.dataset.day))) {
-            ds.style.color = "red"
+            ds.style.color = "var(--app-danger)"
         }
     })
 }
@@ -967,6 +940,57 @@ function change_height() {
         dp.style.height = (tableheight / rowcount).toString() + "px"
     })
 }
+
+// Month view (presentation only): when a day's chips don't fit in its cell, hide the
+// extras and show a "+N more" line that opens that day.
+function collapse_overflowing_events() {
+    const box = document.querySelector('.view-month');
+    const body = document.getElementById('calendar-body');
+    if (!box || !body || !box.clientHeight) return;
+    const rows = body.querySelectorAll('tr');
+    if (!rows.length) return;
+    const thead = document.getElementById('thead-month');
+    const avail = Math.floor((box.clientHeight - (thead ? thead.offsetHeight : 0)) / rows.length);
+    rows.forEach(tr => { tr.style.height = avail + 'px'; });
+
+    body.querySelectorAll('td.date-picker').forEach(cell => {
+        cell.querySelectorAll('.more-events').forEach(el => el.remove());
+        const chips = Array.from(cell.querySelectorAll('.event-button'));
+        chips.forEach(c => c.classList.remove('event-overflow'));
+        if (!chips.length) return;
+        const top = cell.getBoundingClientRect().top;
+        const limit = avail - 3;
+        if (chips[chips.length - 1].getBoundingClientRect().bottom - top <= limit) return;
+
+        const more = document.createElement('div');
+        more.className = 'more-events';
+        more.setAttribute('role', 'button');
+        cell.querySelector('.reg-events').after(more);
+        let hidden = 0;
+        const label = () => { more.innerHTML = `+${hidden}<span class="more-label"> more</span>`; };
+        label();
+        for (let k = chips.length - 1; k >= 0; k--) {
+            if (more.getBoundingClientRect().bottom - top <= limit) break;
+            chips[k].classList.add('event-overflow');
+            hidden++;
+            label();
+        }
+        more.title = `${hidden} more`;
+        more.onclick = (ev) => {
+            ev.stopPropagation();
+            const ds = cell.querySelector('.date-span');
+            display_day_info(ds);
+            ds.onclick();
+            $('#big-modal').modal('show');
+        };
+    });
+}
+
+var _collapseTimer = null;
+window.addEventListener('resize', () => {
+    clearTimeout(_collapseTimer);
+    _collapseTimer = setTimeout(() => { if (currentView === 'month') collapse_overflowing_events(); }, 150);
+});
 
 function toggle_calendar_visibility(e, only) {
     const calendarInfo = data["calendars"][e.parentElement.dataset.calendar];
@@ -1049,11 +1073,11 @@ function create_calendar() {
                         r.onload = () => {
                             res = JSON.parse(r.responseText)
                             if (res["status"] == "error") {
-                                $('.modal-body').html(`<p class="text-danger subscribe-warn" style="font-size: 15px;">ERROR: ${res["data"]}</p>`)
+                                $('.modal-body').html(`<p class="text-danger subscribe-warn mb-0">ERROR: ${res["data"]}</p>`)
                             }
                             else {
                                 $('.modal-body').html(`
-                                    <p class="text-success subscribe-warn" style="font-size: 15px;">You are subscribed to this calendar.</p>
+                                    <p class="text-success subscribe-warn mb-0">You are subscribed to this calendar.</p>
                                     <p>This page will automatically refresh. Please wait...</p>
                                 `)
                                 setTimeout(function () {
@@ -1757,7 +1781,7 @@ function reload_calendar() {
 
     document.querySelectorAll('.date-span').forEach(ds => {
         if (vars["holidays"].includes(parseInt(ds.dataset.day))) {
-            ds.style.color = "red"
+            ds.style.color = "var(--app-danger)"
         }
     })
 
@@ -1792,7 +1816,7 @@ function reload_calendar() {
         for (i = 0; i < b.length; i++) {
             date_ = new Date(b[i]["birthday"]).getUTCDate()
             dp = document.querySelector(`.day-events-${date_}`)
-            var ci = calendar_item({ 'modal': false, 'calendar': "", 'i': i, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'text': `<span style="font-weight: normal;">🎂</span> ${b[i]['username']}'s Birthday` })
+            var ci = calendar_item({ 'modal': false, 'calendar': "", 'i': i, 'type': "event", 'bg_color': "", 'color': 'var(--app-muted)', 'icon': `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5a2.5 2.5 0 0 1 5 0 2.5 2.5 0 0 1 5 0v.006c0 .07 0 .27-.038.494H15a1 1 0 0 1 1 1v2a1 1 0 0 1-1 1v7.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 1 14.5V7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h2.038A2.968 2.968 0 0 1 3 2.506V2.5zm1.068.5H7v-.5a1.5 1.5 0 1 0-3 0c0 .085.002.274.045.43a.522.522 0 0 0 .023.07zM9 3h2.932a.56.56 0 0 0 .023-.07c.043-.156.045-.345.045-.43a1.5 1.5 0 0 0-3 0V3zM1 4v2h6V4H1zm8 0v2h6V4H9zm5 3H9v8h4.5a.5.5 0 0 0 .5-.5V7zm-7 8V7H2v7.5a.5.5 0 0 0 .5.5H7z"/></svg>`, 'text': `${b[i]['username']}'s birthday` })
             dp.innerHTML += ci
         }
     }
@@ -1911,13 +1935,13 @@ function reload_calendar() {
                     } else {
                         tdtime = `${moment(cd).format('LT').replace(":00", "")} - `;
                     }
-                    var ci = calendar_item({ 'modal': false, 'calendar': [], 'i': num, 'type': "event", 'bg_color': "", 'color': '#000000;', 'bo_radius': '3px', 'del': todo["completed"] == true, 'text': `${TASK_ICON}&nbsp${tdtime}${todo.name}` });
+                    var ci = calendar_item({ 'modal': false, 'calendar': [], 'i': num, 'type': "event", 'bg_color': "", 'color': 'var(--app-muted)', 'icon': TASK_ICON, 'del': todo["completed"] == true, 'text': `${tdtime}${todo.name}` });
                     dp.innerHTML += ci
                 }
             }
-            if (overdue == "5") { tn = `<span class="text-danger">⚠ ${todo.name}</span>` }
-            else if (overdue == "2") { tn = `<span class="text-warning">${todo.name}</span>` }
-            else if (overdue == "1") { tn = `<span class="text-info">${todo.name}</span>` }
+            if (overdue == "5") { tn = `<span class="todo-overdue"><svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg> ${todo.name}</span>` }
+            else if (overdue == "2") { tn = `<span class="todo-due">${todo.name}</span>` }
+            else if (overdue == "1") { tn = `<span class="todo-soon">${todo.name}</span>` }
             else { tn = `${todo.name}` }
         }
         if (todo["completed"] == false) {
@@ -1928,6 +1952,7 @@ function reload_calendar() {
     for (i of Object.entries(data["photos"])) { $(`.day-images-btn-${i[0]}`).html(i[1]); }
 
     change_height();
+    collapse_overflowing_events();
 
     hide_loading();
 }
@@ -2079,7 +2104,7 @@ function display_calendar_info(btn) {
                     ${calendar_["subscribers"][i]["user"]["first_name"]}  ${calendar_["subscribers"][i]["user"]["last_name"]}  (${calendar_["subscribers"][i]["user"]["username"]})
                 `;
 
-                if (calendar_["subscribers"][i]["subscribe_type"] == 0) { document.querySelector('.subscriber-list').innerHTML += `<li style="color: blue;">${subscriberinfo} [OWNER]</li>`; }
+                if (calendar_["subscribers"][i]["subscribe_type"] == 0) { document.querySelector('.subscriber-list').innerHTML += `<li class="subscriber-owner">${subscriberinfo} <span class="badge text-bg-secondary fw-normal">Owner</span></li>`; }
                 else if (calendar_["subscribers"][i]["subscribe_type"] == 1) { document.querySelector('.subscriber-list').innerHTML += `<em><li>${subscriberinfo}</li></em>`; }
                 else { document.querySelector('.subscriber-list').innerHTML += `<li>${subscriberinfo}</li>`; }
             }
@@ -2329,12 +2354,12 @@ function duplicate_event(event_no) {
 
 function view_day_images(date) {
     $('.modal-title').html(`Images for ${date}-${m + 1}-${y}`)
-    $('.modal-body').html(`<iframe src="${window.origin}/photos/day/${y}/${m + 1}/${date}/" style="width: 100%; height: 65vh;">`)
+    $('.modal-body').html(`<iframe src="${window.origin}/photos/day/${y}/${m + 1}/${date}/" style="width: 100%; height: 65vh; border: 0; display: block;">`)
 }
 
 function view_event_images(evt) {
     $('.modal-title').html(`Images for ${evt['name']}`)
-    $('.modal-body').html(`<iframe src="${window.origin}/photos/event/${evt['id']}/" style="width: 100%; height: 65vh;">`)
+    $('.modal-body').html(`<iframe src="${window.origin}/photos/event/${evt['id']}/" style="width: 100%; height: 65vh; border: 0; display: block;">`)
 }
 
 function randomText(length) {
@@ -2518,6 +2543,7 @@ function switch_view(view) {
 
     if (view === 'month') {
         // Already populated by month
+        collapse_overflowing_events();
     } else if (view === 'week') {
         renderWeekView();
     } else if (view === 'day') {

@@ -6,86 +6,179 @@ Availability of {{ name }}
 {% endblock %}
 
 {% block navbar %}
-<h4>Availability of {{ name }}</h3>
+<span class="navbar-page-title">Availability</span>
 {% endblock %}
 
 {% block page_styles %}
 <style>
-    #main-page-body {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        height: calc(100vh - 56px);
+    .navbar-page-title {
+        margin-left: 4px;
+        font-size: 15px;
+        font-weight: 600;
+        white-space: nowrap;
+    }
+
+    .avail-page {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 24px 16px 32px;
+    }
+
+    .avail-head {
+        margin-bottom: 16px;
+    }
+
+    .avail-head h1 {
+        margin: 0;
+        font-size: 1.25rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+    }
+
+    .avail-head p {
+        margin: 4px 0 0;
+        font-size: 14px;
+        color: var(--app-muted);
     }
 
     .main-container {
-        width: 900px;
-        max-width: 100%;
-        justify-content: center;
-        display: flex;
-        justify-content: space-between;
-        flex-wrap: wrap;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 300px);
+        gap: 16px;
+        align-items: start;
     }
 
-    .month-calendar, .day-calendar {
-        width: 400px;
-        max-width: 90%;
-        padding: 10px;
+    @media (max-width: 720px) {
+        .main-container { grid-template-columns: minmax(0, 1fr); }
+    }
+
+    .month-calendar,
+    .day-calendar {
+        padding: 16px;
     }
 
     .month-selector {
-        margin-bottom: 20px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 12px;
+        flex-wrap: wrap;
     }
 
-    .my-select {
-        margin-right: 20px;
+    .month-selector .form-select {
+        width: auto;
+        height: 32px;
+        font-size: 13px;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    .month-selector .btn {
+        height: 32px;
+        font-size: 13px;
+        color: var(--app-fg);
+        border-color: var(--app-border);
+        background: var(--app-surface);
+    }
+
+    .month-selector .btn:hover {
+        background: var(--app-surface-2);
     }
 
     #monthAndYear {
-        font-size: 1.4em;
-    }
-
-    .wrapper {
-        display: flex;
-        text-align: center;
-    }
-
-    .container-calendar, .table-calendar {
-        height: 100%;
+        margin-left: auto;
+        font-size: 15px;
+        font-weight: 600;
     }
 
     .table-calendar {
-        display: inline-table;
+        width: 100%;
         table-layout: fixed;
         border-collapse: collapse;
-        overflow: scroll;
-        height: 100%;
-        grid-auto-rows: 1fr;
+        border-style: hidden;
     }
 
-    .table-calendar td, .table-calendar th {
-        border: 1px solid #e2e2e2;
-        width: 50px!important;
-        height: 50px!important;
+    .table-calendar th {
+        height: 28px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        text-align: center;
+        color: var(--app-muted);
     }
 
-    .table-calendar tr td .date-span {
-        width: 50px!important;
-        height: 50px!important;
+    .table-calendar td {
+        height: 44px;
+        padding: 2px;
+        text-align: center;
+        vertical-align: middle;
+        border: 1px solid var(--app-border);
+    }
+
+    .table-calendar th {
+        border: 0;
+        border-bottom: 1px solid var(--app-border);
+    }
+
+    .table-calendar .date-span {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+        border-radius: var(--app-radius-sm);
+        font-size: 13px;
+        font-weight: 500;
         cursor: pointer;
+        transition: background-color 0.12s;
     }
 
-    .table-calendar tr td .date-span:hover {
-        background-color: var(--bs-light);
+    .table-calendar .date-span:hover {
+        background-color: var(--app-surface-2);
     }
 
-    .table-calendar tr td:first-child .date-span, .table-calendar tr td:last-child .date-span {
-        color: red;
+    .table-calendar tr td:first-child .date-span,
+    .table-calendar tr td:last-child .date-span {
+        color: var(--app-danger);
     }
 
-    .date-picker.selected {
-        font-weight: bold;
-        outline: 1px solid #00BCD4;
+    .date-picker-dead {
+        background: var(--app-bg);
+    }
+
+    .table-calendar td.selected .date-span span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: var(--app-accent);
+        color: var(--app-accent-fg);
+        font-weight: 600;
+    }
+
+    .section-label {
+        margin-bottom: 8px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--app-muted);
+    }
+
+    .busy-slot {
+        padding: 8px 0;
+        border-bottom: 1px solid var(--app-border);
+        font-size: 14px;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .busy-slot:last-child { border-bottom: 0; }
+
+    .busy-empty {
+        font-size: 14px;
+        color: var(--app-muted);
     }
 </style>
 {% endblock %}
@@ -107,11 +200,11 @@ Availability of {{ name }}
                         alert("An error occurred: " + res["data"]);
                     }
                     else {
-                        document.querySelector('.day-calendar').innerHTML = `<h4>Busy Times on ${cd}</h4>`
+                        document.querySelector('.day-calendar').innerHTML = `<div class="section-label">Busy on ${cd}</div>` + (res["data"]["busy"].length ? '' : '<div class="busy-empty">Free all day.</div>')
                         for (i of res["data"]["busy"]) {
                             d = new Date(i[0]);
                             d1 = new Date(i[1]);
-                            document.querySelector('.day-calendar').innerHTML += `${moment(d).format('LT')} - ${moment(d1).format('LT')}<br><br>`;
+                            document.querySelector('.day-calendar').innerHTML += `<div class="busy-slot">${moment(d).format('LT')} – ${moment(d1).format('LT')}</div>`;
                         }
                     }
                 }
@@ -123,44 +216,47 @@ Availability of {{ name }}
 {% endblock %}
 
 {% block page_body %}
-<div class="main-container">
-    <div class="month-calendar">
-        <div class="month-selector">
-            <div style="display: flex;">
-                <div class="my-select" style="display: flex;">
-                    <select class="form-control form-control-sm" id="month" onchange="jump_()">
-                            <option value=0>Jan</option>
-                            <option value=1>Feb</option>
-                            <option value=2>Mar</option>
-                            <option value=3>Apr</option>
-                            <option value=4>May</option>
-                            <option value=5>Jun</option>
-                            <option value=6>Jul</option>
-                            <option value=7>Aug</option>
-                            <option value=8>Sep</option>
-                            <option value=9>Oct</option>
-                            <option value=10>Nov</option>
-                            <option value=11>Dec</option>
-                    </select>
-                    <select class="form-control form-control-sm" id="year" onchange="jump_()"></select>
-                    <button type="button" class="btn btn-primary btn-sm" onclick="today_()">Today</button>
-                </div>
-                <span id="monthAndYear">May 2022</span>
-            </div>
-        </div>
-
-        <div class="c-container wrapper">
-            <div class="container-calendar">
-                <table class="table-calendar" id="calendar" data-lang="en">
-                    <thead id="thead-month"></thead>
-                    <tbody id="calendar-body"></tbody>
-                </table>
-            </div>
-        </div>
+<div class="avail-page">
+    <div class="avail-head">
+        <h1>{{ name }}</h1>
+        <p>Pick a day to see when {{ name }} is busy.</p>
     </div>
+    <div class="main-container">
+        <div class="month-calendar app-card">
+            <div class="month-selector">
+                <select class="form-select form-select-sm" id="month" onchange="jump_()" aria-label="Month">
+                        <option value=0>Jan</option>
+                        <option value=1>Feb</option>
+                        <option value=2>Mar</option>
+                        <option value=3>Apr</option>
+                        <option value=4>May</option>
+                        <option value=5>Jun</option>
+                        <option value=6>Jul</option>
+                        <option value=7>Aug</option>
+                        <option value=8>Sep</option>
+                        <option value=9>Oct</option>
+                        <option value=10>Nov</option>
+                        <option value=11>Dec</option>
+                </select>
+                <select class="form-select form-select-sm" id="year" onchange="jump_()" aria-label="Year"></select>
+                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="today_()">Today</button>
+                <span id="monthAndYear"></span>
+            </div>
 
-    <div class="day-calendar">
-        <div>Click on a day to see the busy times.</div>
+            <div class="c-container wrapper">
+                <div class="container-calendar">
+                    <table class="table-calendar" id="calendar" data-lang="en">
+                        <thead id="thead-month"></thead>
+                        <tbody id="calendar-body"></tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="day-calendar app-card">
+            <div class="section-label">Busy times</div>
+            <div class="busy-empty">Select a day to see busy times.</div>
+        </div>
     </div>
 </div>
 

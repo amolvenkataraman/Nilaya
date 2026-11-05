@@ -6,53 +6,258 @@
 {% endblock %}
 
 {% block navbar %}
-<h4>{{ calendar.name }}</h4>
+<span class="navbar-page-title">{{ calendar.name }}</span>
 {% if request.user.is_authenticated and not subscribed %}
-<button type="button" class="btn btn-primary btn-sm public-subscribe-btn" style="height: 30px; font-size: 14px; margin-left: 30px;" title="Subscribe to this calendar">+ Subscribe</button>
+<button type="button" class="btn btn-primary btn-sm public-subscribe-btn ms-3" title="Subscribe to this calendar">Subscribe</button>
 {% endif %}
 {% endblock %}
 
 {% block page_styles %}
 <style>
-    .wrapper {
-        width: 90%;
-        height: 100%;
-        display: flex;
-        margin-left: 5%;
-        margin-right: 5%;
-        margin-top: 5%;
-        text-align: center;
+    .navbar-page-title {
+        margin-left: 4px;
+        font-size: 15px;
+        font-weight: 600;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
     }
 
-    .container-calendar, .table-calendar {
-        width: 100%;
+    .public-subscribe-btn {
+        height: 30px;
+        font-size: 13px;
+        white-space: nowrap;
+    }
+
+    .main-container {
         height: 100%;
+        display: flex;
+        flex-direction: column;
+        background: var(--app-surface);
+    }
+
+    .month-selector {
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 16px;
+        border-bottom: 1px solid var(--app-border);
+        min-width: 0;
+    }
+
+    .month-nav {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+    }
+
+    .month-nav .btn,
+    .month-nav .form-select {
+        height: 32px;
+        font-size: 13px;
+    }
+
+    .month-nav .btn {
+        color: var(--app-fg);
+        border-color: var(--app-border);
+        background: var(--app-surface);
+    }
+
+    .month-nav .btn:hover,
+    .month-nav .btn:focus-visible {
+        background: var(--app-surface-2);
+    }
+
+    .table-calendar tbody td {
+        height: max(96px, calc((100vh - 140px) / 6));
+    }
+
+    .month-nav .form-select {
+        width: auto;
+        padding-top: 0;
+        padding-bottom: 0;
+    }
+
+    .month-nav .icon-btn {
+        width: 32px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    #monthAndYear {
+        margin: 0 0 0 4px;
+        font-size: 1.15rem;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        min-width: 0;
+    }
+
+    .wrapper {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow: auto;
     }
 
     .table-calendar {
-        display: inline-table;
+        width: 100%;
         table-layout: fixed;
         border-collapse: collapse;
-        overflow: scroll;
-        width: 100%;
-        height: 100%;
-        grid-auto-rows: 1fr;
+        border-style: hidden;
     }
 
-    .table-calendar td, .table-calendar th {
-        border: 1px solid #e2e2e2;
+    .table-calendar td,
+    .table-calendar th {
+        border: 1px solid var(--app-border);
     }
 
-    .table-calendar tr td:first-child .date-span, .table-calendar tr td:last-child .date-span {
-        color: red;
+    .table-calendar th {
+        height: 28px;
+        padding: 0 8px;
+        font-size: 11px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--app-muted);
+        text-align: left;
     }
 
-    .table-calendar td { vertical-align: top; text-align: left; padding: 4px; }
-    .table-calendar td.selected { background: rgba(59, 130, 246, 0.08); }
+    .table-calendar td {
+        vertical-align: top;
+        text-align: left;
+        padding: 2px 3px 3px;
+        overflow: hidden;
+    }
+
+    .date-picker-dead {
+        background: var(--app-bg);
+    }
+
+    .date-span {
+        height: 24px;
+        display: flex;
+        align-items: center;
+    }
+
+    .date-span span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 22px;
+        height: 22px;
+        padding: 0 4px;
+        border-radius: 11px;
+        font-size: 12px;
+        font-weight: 500;
+    }
+
+    .table-calendar tr td:first-child .date-span,
+    .table-calendar tr td:last-child .date-span {
+        color: var(--app-danger);
+    }
+
+    .table-calendar td.selected .date-span span {
+        background: var(--app-accent);
+        color: var(--app-accent-fg);
+        font-weight: 600;
+    }
+
     .public-event {
-        font-size: 12px; line-height: 1.3; margin: 2px 0; padding: 1px 4px;
-        border-radius: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-        border-left: 3px solid var(--event-colour, #3b82f6); background: rgba(127, 127, 127, 0.08);
+        height: 20px;
+        margin: 0 0 1px;
+        padding: 0 6px 0 4px;
+        border-radius: 4px;
+        font-size: 12px;
+        line-height: 20px;
+        color: var(--app-fg);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .public-event::before {
+        content: "";
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        margin: 0 5px 0 2px;
+        border-radius: 50%;
+        background: var(--event-colour, var(--app-accent));
+    }
+
+    .public-event:hover {
+        background: var(--app-surface-2);
+    }
+
+    .public-event .ev-time {
+        color: var(--app-muted);
+        margin-right: 4px;
+    }
+
+    @media (max-width: 575.98px) {
+        .month-selector {
+            padding: 8px;
+            gap: 4px;
+            flex-wrap: wrap;
+        }
+
+        #monthAndYear {
+            order: -1;
+            flex: 1 0 100%;
+            margin: 0 0 4px;
+            font-size: 15px;
+        }
+
+        .month-nav .form-select {
+            font-size: 12px;
+            padding-left: 8px;
+            padding-right: 24px;
+            background-position: right 6px center;
+        }
+
+        .table-calendar th {
+            padding: 0;
+            text-align: center;
+            font-size: 10px;
+            letter-spacing: 0.02em;
+        }
+
+        .table-calendar td {
+            padding: 2px;
+        }
+
+        .date-span {
+            justify-content: center;
+        }
+
+        .reg-events {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            padding: 0 2px;
+        }
+
+        .public-event {
+            width: 7px;
+            height: 7px;
+            margin: 0;
+            padding: 0;
+            border-radius: 50%;
+            font-size: 0;
+            background: var(--event-colour, var(--app-accent));
+        }
+
+        .public-event::before,
+        .public-event > span {
+            display: none;
+        }
     }
 </style>
 {% endblock %}
@@ -64,29 +269,31 @@
 {% block page_body %}
 <div class="main-container">
     <div class="month-selector">
-        <div style="display: flex;">
-            <div style="display: flex;">
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="previous()">&lsaquo;</button>
-                <select class="form-control form-control-sm" id="month" onchange="jump()">
-                        <option value=0>Jan</option>
-                        <option value=1>Feb</option>
-                        <option value=2>Mar</option>
-                        <option value=3>Apr</option>
-                        <option value=4>May</option>
-                        <option value=5>Jun</option>
-                        <option value=6>Jul</option>
-                        <option value=7>Aug</option>
-                        <option value=8>Sep</option>
-                        <option value=9>Oct</option>
-                        <option value=10>Nov</option>
-                        <option value=11>Dec</option>
-                </select>
-                <select class="form-control form-control-sm" id="year" onchange="jump()"></select>
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="next()">&rsaquo;</button>
-                <button type="button" class="btn btn-primary btn-sm" onclick="showCalendar(new Date().getMonth(), new Date().getFullYear())">Today</button>
-            </div>
-            <h3 id="monthAndYear"></h3>
+        <div class="month-nav">
+            <button type="button" class="btn btn-outline-secondary btn-sm icon-btn" onclick="previous()" title="Previous month" aria-label="Previous month">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
+            </button>
+            <select class="form-select form-select-sm" id="month" onchange="jump()" aria-label="Month">
+                    <option value=0>Jan</option>
+                    <option value=1>Feb</option>
+                    <option value=2>Mar</option>
+                    <option value=3>Apr</option>
+                    <option value=4>May</option>
+                    <option value=5>Jun</option>
+                    <option value=6>Jul</option>
+                    <option value=7>Aug</option>
+                    <option value=8>Sep</option>
+                    <option value=9>Oct</option>
+                    <option value=10>Nov</option>
+                    <option value=11>Dec</option>
+            </select>
+            <select class="form-select form-select-sm" id="year" onchange="jump()" aria-label="Year"></select>
+            <button type="button" class="btn btn-outline-secondary btn-sm icon-btn" onclick="next()" title="Next month" aria-label="Next month">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" onclick="showCalendar(new Date().getMonth(), new Date().getFullYear())">Today</button>
         </div>
+        <h1 id="monthAndYear"></h1>
     </div>
 
     <div class="c-container wrapper">
@@ -122,8 +329,8 @@
                 for (const ev of res.events || []) {
                     const start = new Date(ev.startdate);
                     const end = ev.enddate ? new Date(ev.enddate) : start;
-                    const label = ev.allday ? ev.name
-                        : `${start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} ${ev.name}`;
+                    const time = ev.allday ? '' : start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+                    const label = time ? `${time} ${ev.name}` : ev.name;
                     // all-day/multi-day events end at midnight of the following day
                     const endInclusive = new Date(end.getTime() - (ev.enddate && end > start ? 1 : 0));
                     for (let d = 1; d <= lastDay; d++) {
@@ -133,7 +340,15 @@
                             const div = document.createElement('div');
                             div.className = 'public-event';
                             div.style.setProperty('--event-colour', CALENDAR_COLOUR);
-                            div.textContent = label;
+                            if (time) {
+                                const t = document.createElement('span');
+                                t.className = 'ev-time';
+                                t.textContent = time;
+                                div.appendChild(t);
+                            }
+                            const n = document.createElement('span');
+                            n.textContent = ev.name;
+                            div.appendChild(n);
                             div.title = [label, ev.location].filter(Boolean).join(' — ');
                             box.appendChild(div);
                         }
@@ -149,7 +364,7 @@
             fetch(`${SUBSCRIBE_URL}?calendar=${CALENDAR_ID}`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken() } })
                 .then((r) => r.json())
                 .then((res) => {
-                    if (res.status === 'success') { subscribeBtn.textContent = 'Subscribed ✓'; }
+                    if (res.status === 'success') { subscribeBtn.textContent = 'Subscribed'; }
                     else { alert(res.data); subscribeBtn.disabled = false; }
                 });
         };
