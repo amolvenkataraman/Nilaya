@@ -8,21 +8,22 @@
 <link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">
 
 <style>
+    /* Full-bleed black stage under the app navbar; the photo or video fits inside it. */
+    .main-content { overflow: hidden; }
     #photo-display-area {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100vw;
-        height: 100vh;
-        background-color: black;
+        width: 100%;
+        height: 100%;
+        background-color: #000;
     }
-
+    #photo {
+        width: 100%;
+        height: 100%;
+    }
     .image-displayed {
-        height: 100vh;
-        max-width: 100%;
+        width: 100%;
+        height: 100%;
         display: block;
-        margin-left: auto;
-        margin-right: auto;
+        object-fit: contain;
     }
 </style>
 {% endblock page_styles %}

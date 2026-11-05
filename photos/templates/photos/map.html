@@ -1,11 +1,15 @@
 {% load static %}
 
 <!DOCTYPE html>
-<html lang="en" {% if request.user.dark_mode %}class="dark-mode"{% endif %}>
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Map</title>
+    <title>Photo map · AVNet Superapp</title>
+
+    <script src="{% static 'js/theme.js' %}"></script>
+    <link href="{% static 'vendor/bootstrap-5.3.3/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/theme.css' %}" rel="stylesheet">
 
     <link href="{% static 'css/leaflet/leaflet.css' %}" rel="stylesheet">
     <script src="{% static 'js/leaflet/leaflet.js' %}" type="text/javascript"></script>
@@ -13,130 +17,90 @@
     <script src="{% static 'js/leaflet-heatmap/leaflet-heatmap.js' %}" type="text/javascript"></script>
     <script src="{% static 'vendor/leaflet-heat-0.2.0/leaflet-heat.min.js' %}"></script>
     <script src="{% static 'vendor/leaflet-gpx-1.7.0/gpx.min.js' %}"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
 
     <style>
-        :root {
-            --bg-glass: rgba(255, 255, 255, 0.85);
-            --border-glass: rgba(0, 0, 0, 0.08);
-            --text-primary: #1e293b;
-            --text-secondary: #64748b;
-            --accent: #2563eb;
-            --accent-hover: #1d4ed8;
-            --accent-light: rgba(37, 99, 235, 0.1);
-            --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.05);
-            --border-radius: 14px;
-            --border-radius-sm: 8px;
-            --font-stack: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-            --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .dark-mode {
-            --bg-glass: rgba(30, 41, 59, 0.8);
-            --border-glass: rgba(255, 255, 255, 0.08);
-            --text-primary: #f8fafc;
-            --text-secondary: #94a3b8;
-            --accent: #3b82f6;
-            --accent-hover: #2563eb;
-            --accent-light: rgba(59, 130, 246, 0.15);
-            --shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.35), 0 2px 5px rgba(0, 0, 0, 0.15);
-        }
-
         html, body {
             margin: 0;
             border: 0;
             padding: 0;
+            height: 100%;
+            overflow: hidden;
         }
 
         #mapid {
             width: 100vw;
             height: 100vh;
+            height: 100dvh;
+            background: var(--app-surface-2);
         }
 
-        .overlay {
+        /* Floating toolbar over the map */
+        .map-toolbar {
             position: absolute;
-            top: 15px;
-            right: 15px;
-            z-index: 10000;
-            background: var(--bg-glass);
-            border: 1px solid var(--border-glass);
-            box-shadow: var(--shadow);
-            backdrop-filter: blur(12px);
-            -webkit-backdrop-filter: blur(12px);
-            border-radius: 10px;
-            padding: 8px;
+            top: 12px;
+            right: 12px;
+            z-index: 1000;
             display: flex;
-            flex-direction: column;
-            gap: 6px;
-            transition: var(--transition);
-            line-height: 1.5;
-            font-family: var(--font-stack);
+            gap: 4px;
+            padding: 4px;
+            background: var(--app-surface);
+            border: 1px solid var(--app-border);
+            border-radius: var(--app-radius);
+            box-shadow: var(--app-shadow);
         }
-
-        .overlay-btn {
+        .map-toolbar .btn {
             display: inline-flex;
             align-items: center;
-            justify-content: center;
             gap: 6px;
-            padding: 6px 12px;
-            border-radius: 6px;
-            font-size: 13px;
+            font-size: 0.8125rem;
             font-weight: 500;
-            font-family: var(--font-stack);
-            cursor: pointer;
-            transition: var(--transition);
-            border: none;
-            outline: none;
+            white-space: nowrap;
+        }
+        .map-toolbar .btn-quiet {
+            --bs-btn-color: var(--app-fg);
+            --bs-btn-hover-color: var(--app-fg);
+            --bs-btn-hover-bg: var(--app-overlay);
+            --bs-btn-active-bg: var(--app-overlay);
+            --bs-btn-border-color: transparent;
+            --bs-btn-hover-border-color: transparent;
         }
 
-        .view-photos-btn {
-            background: var(--accent);
-            color: #ffffff;
+        /* Leaflet chrome follows the theme; the tiles themselves stay as they are. */
+        .leaflet-bar a,
+        .leaflet-bar a:hover {
+            background-color: var(--app-surface);
+            color: var(--app-fg);
+            border-bottom-color: var(--app-border);
         }
+        .leaflet-bar a:hover { background-color: var(--app-surface-2); }
+        .leaflet-touch .leaflet-bar,
+        .leaflet-bar {
+            border: 1px solid var(--app-border) !important;
+            border-radius: var(--app-radius-sm);
+            box-shadow: var(--app-shadow);
+            overflow: hidden;
+        }
+        .leaflet-container .leaflet-control-attribution {
+            background: color-mix(in srgb, var(--app-surface) 85%, transparent);
+            color: var(--app-muted);
+        }
+        .leaflet-container .leaflet-control-attribution a { color: var(--app-accent); }
+        .leaflet-container { font-family: var(--app-font); }
 
-        .view-photos-btn:hover {
-            background: var(--accent-hover);
-            transform: translateY(-1px);
-        }
-
-        .view-photos-btn:active {
-            transform: translateY(0);
-        }
-
-        .upload-gpx-btn {
-            background: transparent;
-            border: 1px solid var(--border-glass);
-            color: var(--text-primary);
-        }
-
-        .upload-gpx-btn:hover {
-            background: var(--accent-light);
-            border-color: var(--accent);
-            color: var(--accent);
-            transform: translateY(-1px);
-        }
-
-        .upload-gpx-btn:active {
-            transform: translateY(0);
-        }
-
-        .btn-icon {
-            flex-shrink: 0;
-        }
     </style>
 </head>
 <body>
     <div id="mapid"></div>
-    <div class="overlay">
-        <button class="overlay-btn view-photos-btn show-photos-btn">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-            View Photos
-        </button>
-        <button class="overlay-btn upload-gpx-btn" onclick="document.getElementById('inputfile').click();">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="btn-icon"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+    <div class="map-toolbar" role="toolbar" aria-label="Map actions">
+        <button type="button" class="btn btn-sm btn-quiet" onclick="document.getElementById('inputfile').click();">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/><path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/></svg>
             Upload GPX
         </button>
-        <input type="file" name="inputfile" id="inputfile" multiple="multiple" style="display: none;">
+        <button type="button" class="btn btn-sm btn-primary show-photos-btn">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/><path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1z"/></svg>
+            View photos here
+        </button>
+        <input type="file" name="inputfile" id="inputfile" multiple="multiple" hidden>
     </div>
 
     <script>

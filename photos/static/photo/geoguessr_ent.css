@@ -1,126 +1,112 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-
-:root {
-    --bg-glass: rgba(255, 255, 255, 0.85);
-    --border-glass: rgba(0, 0, 0, 0.08);
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
-    --accent: #2563eb;
-    --accent-hover: #1d4ed8;
-    --accent-light: rgba(37, 99, 235, 0.1);
-    --success: #10b981;
-    --danger: #ef4444;
-    --shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.1), 0 5px 15px -5px rgba(0, 0, 0, 0.04);
-    --border-radius: 16px;
-    --border-radius-sm: 8px;
-    --font-stack: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-    --transition: all 0.2s ease;
-}
-
-.dark-mode {
-    --bg-glass: rgba(30, 41, 59, 0.8);
-    --border-glass: rgba(255, 255, 255, 0.08);
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --accent: #3b82f6;
-    --accent-hover: #2563eb;
-    --accent-light: rgba(59, 130, 246, 0.15);
-    --shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.3), 0 5px 15px rgba(0, 0, 0, 0.1);
-}
+/* GIS data entry tool. Uses the app tokens from css/theme.css (light + dark). */
 
 .geoguessr-ent-container {
     display: flex;
     flex-direction: column;
-    height: calc(100vh - 100px);
-    padding: 20px;
-    font-family: var(--font-stack);
+    height: 100%;
+    min-height: 0;
+    padding: 16px;
+    gap: 12px;
     box-sizing: border-box;
+    color: var(--app-fg);
+    font-family: var(--app-font);
 }
 
 .game-header {
-    margin-bottom: 16px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 12px;
 }
 
 .game-header h2 {
-    font-size: 1.5rem;
-    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     margin: 0;
-    color: var(--text-primary);
+    font-size: 1.25rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    color: var(--app-fg);
 }
 
+.game-header h2 svg { color: var(--app-accent); flex: none; }
+
 .game-header p {
-    font-size: 0.9rem;
-    color: var(--text-secondary);
-    margin: 0;
+    margin: 2px 0 0;
+    font-size: 0.875rem;
+    color: var(--app-muted);
 }
 
 .game-panels {
     display: flex;
-    gap: 20px;
+    gap: 16px;
     flex: 1;
+    min-height: 0;
     overflow: hidden;
     position: relative;
 }
 
 /* Photo and Map Split */
+.photo-panel,
+.map-panel {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius);
+    box-shadow: var(--app-shadow);
+    overflow: hidden;
+    position: relative;
+    min-width: 0;
+}
+
 .photo-panel {
     flex: 1.2;
-    background: var(--bg-glass);
-    border: 1px solid var(--border-glass);
-    border-radius: var(--border-radius);
-    overflow: hidden;
-    box-shadow: var(--shadow);
     display: flex;
     align-items: center;
     justify-content: center;
-    position: relative;
-    padding: 10px;
+    padding: 8px;
+    background: var(--app-surface-2);
 }
 
-.photo-panel img, .photo-panel video {
+.photo-panel img,
+.photo-panel video {
     max-width: 100%;
     max-height: 100%;
     object-fit: contain;
-    border-radius: 8px;
+    border-radius: var(--app-radius-sm);
 }
 
-.map-panel {
-    flex: 1;
-    background: var(--bg-glass);
-    border: 1px solid var(--border-glass);
-    border-radius: var(--border-radius);
-    overflow: hidden;
-    box-shadow: var(--shadow);
-    position: relative;
-}
+.map-panel { flex: 1; }
 
-#mapid {
+.map-panel #mapid {
+    display: block;
+    position: absolute;
+    inset: 0;
     width: 100%;
     height: 100%;
+    margin: 0;
+    border: 0;
+    border-radius: 0;
     z-index: 1;
 }
 
-/* Float Sidebar Panel */
+/* Floating control panel over the map */
 .control-sidebar {
     position: absolute;
-    top: 20px;
-    right: 20px;
-    width: 260px;
-    max-height: calc(100% - 40px);
-    background: var(--bg-glass);
-    border: 1px solid var(--border-glass);
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(14px);
-    -webkit-backdrop-filter: blur(14px);
-    border-radius: var(--border-radius);
+    top: 12px;
+    right: 12px;
+    width: 240px;
+    max-height: calc(100% - 24px);
+    background: var(--app-surface);
+    color: var(--app-fg);
+    border: 1px solid var(--app-border);
+    box-shadow: var(--app-shadow);
+    border-radius: var(--app-radius);
     z-index: 1000;
-    padding: 16px;
+    padding: 12px;
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     overflow-y: auto;
 }
 
@@ -130,75 +116,106 @@
     gap: 8px;
 }
 
+.control-section + .control-section {
+    border-top: 1px solid var(--app-border);
+    padding-top: 12px;
+}
+
 .control-section h4 {
-    font-size: 0.82rem;
-    font-weight: 700;
-    color: var(--text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin: 0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--app-muted);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin: 0 0 4px 0;
+    letter-spacing: 0.06em;
 }
 
 .btn-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 8px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 6px;
 }
 
 .btn-grid-3 {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
     gap: 6px;
 }
 
-.sidebar-btn {
-    padding: 8px 12px;
-    background: rgba(0, 0, 0, 0.03);
-    border: 1px solid var(--border-glass);
-    border-radius: var(--border-radius-sm);
-    color: var(--text-primary);
-    font-family: var(--font-stack);
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: var(--transition);
+.sidebar-btn,
+.sidebar-btn:hover {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 4px;
+    gap: 6px;
+    padding: 6px 10px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    color: var(--app-fg);
+    font-family: var(--app-font);
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background-color 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
 .sidebar-btn:hover {
-    background: var(--accent-light);
-    color: var(--accent);
-    border-color: var(--accent);
+    background: var(--app-accent-soft);
+    border-color: var(--app-accent);
+    color: var(--app-accent);
 }
 
-.sidebar-btn.btn-action {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent);
+.sidebar-btn.btn-action,
+.sidebar-btn.active {
+    background: var(--app-accent);
+    border-color: var(--app-accent);
+    color: var(--app-accent-fg);
 }
 
 .sidebar-btn.btn-action:hover {
-    background: var(--accent-hover);
-    color: white;
+    background: var(--app-accent-hover);
+    border-color: var(--app-accent-hover);
+    color: var(--app-accent-fg);
 }
 
 .sidebar-btn.btn-danger {
-    color: var(--danger);
-    background: rgba(239, 68, 68, 0.05);
-    border-color: rgba(239, 68, 68, 0.15);
+    color: var(--app-danger);
+    background: var(--app-surface);
+    border-color: var(--app-border);
 }
 
 .sidebar-btn.btn-danger:hover {
-    background: var(--danger);
-    color: white;
-    border-color: var(--danger);
+    background: var(--app-danger);
+    border-color: var(--app-danger);
+    color: var(--app-surface);
 }
 
-.sidebar-btn.active {
-    background: var(--accent);
-    color: white;
-    border-color: var(--accent);
+/* Phones: media above, map below; the control panel becomes a strip under the map. */
+@media (max-width: 768px) {
+    .geoguessr-ent-container { padding: 12px; height: auto; min-height: 100%; }
+    .game-header h2 { font-size: 1.125rem; }
+    .game-panels { flex-direction: column; gap: 12px; overflow: visible; }
+    .photo-panel { flex: none; height: 34vh; }
+    .map-panel { flex: none; display: flex; flex-direction: column; overflow: hidden; }
+    .map-panel #mapid { position: relative; inset: auto; height: 45vh; }
+    .control-sidebar {
+        position: static;
+        width: auto;
+        max-height: none;
+        border: 0;
+        border-top: 1px solid var(--app-border);
+        border-radius: 0;
+        box-shadow: none;
+    }
+    .control-section { margin-top: 0 !important; }
+    .btn-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+
+.control-section-end { margin-top: auto; }
+
+/* Map markers drawn over the light basemap. */
+.custom-div-icon { background: none; border: 0; }

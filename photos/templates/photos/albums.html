@@ -12,32 +12,37 @@
 {% block page_body %}
 <div class="albums-container">
     <div class="albums-header">
-        <h1>📸 My Albums</h1>
-        {% if albums %}
-        <div class="album-count">{{ albums|length }} album{{ albums|length|pluralize }}</div>
-        {% endif %}
-        <button class="btn btn-primary mt-3" data-bs-toggle="modal" data-bs-target="#createAlbumModal">➕ Create New Album</button>
+        <div>
+            <h1>Albums</h1>
+            {% if albums %}
+            <div class="album-count">{{ albums|length }} album{{ albums|length|pluralize }}</div>
+            {% endif %}
+        </div>
+        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createAlbumModal">
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2z"/></svg>
+            New album
+        </button>
     </div>
 
     <!-- Controls (Sort and View Mode) -->
     {% if albums %}
-    <div class="albums-controls" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; flex-wrap: wrap; gap: 16px; width: 100%;">
+    <div class="albums-controls">
         <!-- View Toggle buttons -->
-        <div class="view-toggle-group" style="display: flex; gap: 4px; background: var(--bg-glass); border: 1px solid var(--border-glass); padding: 4px; border-radius: var(--border-radius-sm); backdrop-filter: blur(8px); flex-shrink: 0;">
-            <button class="btn btn-sm" id="btn-list-view" style="display: flex; align-items: center; gap: 6px; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; transition: var(--transition);">
+        <div class="view-toggle-group" role="group" aria-label="View">
+            <button type="button" class="btn btn-sm" id="btn-list-view">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
                 List
             </button>
-            <button class="btn btn-sm" id="btn-grid-view" style="display: flex; align-items: center; gap: 6px; border: none; padding: 6px 12px; border-radius: 6px; font-weight: 600; font-size: 0.85rem; transition: var(--transition);">
+            <button type="button" class="btn btn-sm" id="btn-grid-view">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
                 Grid
             </button>
         </div>
 
         <!-- Sort selector -->
-        <div style="display: flex; align-items: center; gap: 8px;">
-            <label for="albums-sort-select" style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); margin: 0;">Sort By:</label>
-            <select class="form-select form-select-sm" id="albums-sort-select" style="width: auto; font-size: 0.85rem; padding: 6px 12px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-glass); background: var(--bg-glass); color: var(--text-primary);">
+        <div class="albums-sort">
+            <label for="albums-sort-select">Sort</label>
+            <select class="form-select form-select-sm" id="albums-sort-select">
                 <option value="created_desc">Creation time (Newest first)</option>
                 <option value="created_asc">Creation time (Oldest first)</option>
                 <option value="id_asc">Original ID</option>
@@ -60,11 +65,8 @@
     </div>
     {% else %}
     <div class="no-albums">
-        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none"
-            stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-            <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
-        </svg>
-        <p>No albums yet. Start creating!</p>
+        <p>No albums yet.</p>
+        <button type="button" class="btn btn-sm btn-outline-secondary mt-3" data-bs-toggle="modal" data-bs-target="#createAlbumModal">Create an album</button>
     </div>
     {% endif %}
 </div>
@@ -190,96 +192,57 @@
                 let coverImgHtml = '';
                 if (album.cover_photo_id) {
                     if (album.cover_photo_hash) {
-                        coverImgHtml = `<img src="/private/${album.cover_photo_hash}/photo_cache/thumbnail/${album.cover_photo_id}.webp" style="width: 100%; height: 100%; object-fit: cover; display: block;" />`;
+                        coverImgHtml = `<img src="/private/${album.cover_photo_hash}/photo_cache/thumbnail/${album.cover_photo_id}.webp" alt="" loading="lazy" />`;
                     } else {
-                        coverImgHtml = `<img src="/photos/photo/${album.cover_photo_id}/thumbnail/" style="width: 100%; height: 100%; object-fit: cover; display: block;" />`;
+                        coverImgHtml = `<img src="/photos/photo/${album.cover_photo_id}/thumbnail/" alt="" loading="lazy" />`;
                     }
                 } else {
                     coverImgHtml = `
-                        <div style="width: 100%; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); color: rgba(255,255,255,0.25);">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" class="feather feather-folder"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                        <div class="album-cover-placeholder">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
                         </div>
                     `;
                 }
 
+                const statsHtml = `
+                    <div class="album-stats-row">
+                        <span class="stat-badge stat-photos">${album.photo_count} photo${album.photo_count === 1 ? '' : 's'}</span>
+                        <span class="stat-badge stat-videos">${album.video_count} video${album.video_count === 1 ? '' : 's'}</span>
+                        <span class="stat-badge stat-space">${album.space_used}</span>
+                    </div>`;
+                const descHtml = album.description
+                    ? `<div class="album-desc">${escapeHtml(album.description)}</div>`
+                    : '';
+
                 if (viewMode === 'grid') {
-                    const descHtml = album.description 
-                        ? `<div class="album-desc" style="font-size: 0.75rem; color: rgba(255,255,255,0.85); margin: 0; line-height: 1.3; text-shadow: 0 1px 2px rgba(0,0,0,0.6); overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">${escapeHtml(album.description)}</div>` 
-                        : '';
-
                     html += `
-                        <a href="/photos/?album=${album.id}" class="album-card grid-card" style="position: relative; height: 230px; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end; border-radius: var(--border-radius); border: 1px solid var(--border-glass); box-shadow: var(--shadow); text-decoration: none !important; color: inherit;">
-                            <!-- Cover Image -->
-                            <div class="album-cover-wrapper" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; z-index: 1;">
-                                ${coverImgHtml}
-                            </div>
-                            <!-- Gradient Overlay -->
-                            <div class="album-gradient" style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(to bottom, rgba(0,0,0,0) 40%, rgba(0,0,0,0.85) 90%); z-index: 2; pointer-events: none;"></div>
-                            <!-- Album Content Overlay -->
-                            <div class="album-content" style="position: relative; z-index: 3; padding: 12px; color: white; display: flex; flex-direction: column; width: 100%; box-sizing: border-box;">
-                                <div class="album-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin: 0; color: white; gap: 6px;">
-                                    <span class="title-text" style="color: white; font-size: 1.05rem; font-weight: 700; text-shadow: 0 2px 4px rgba(0,0,0,0.5); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1;">${escapeHtml(album.name)}</span>
-                                    <div class="badge-container" style="display: flex; gap: 4px; flex-shrink: 0;">
-                                        ${ownerBadge}
-                                        ${publicBadge}
-                                    </div>
+                        <a href="/photos/?album=${album.id}" class="album-card grid-card">
+                            <div class="album-cover-wrapper">${coverImgHtml}</div>
+                            <div class="album-gradient"></div>
+                            <div class="album-content">
+                                <div class="album-title">
+                                    <span class="title-text">${escapeHtml(album.name)}</span>
+                                    <div class="badge-container">${ownerBadge}${publicBadge}</div>
                                 </div>
-
-                                <div class="album-details" style="display: flex; flex-direction: column; gap: 6px; margin-top: 4px;">
+                                <div class="album-details">
                                     ${descHtml}
-                                    <div class="album-stats-row" style="display: flex; gap: 4px; flex-wrap: wrap;">
-                                        <div class="stat-badge stat-photos" style="display: inline-flex; align-items: center; padding: 3px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; background: rgba(255,255,255,0.12); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1); color: white;">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px; color: #10b981;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                            <span>${album.photo_count} photo${album.photo_count === 1 ? '' : 's'}</span>
-                                        </div>
-                                        <div class="stat-badge stat-videos" style="display: inline-flex; align-items: center; padding: 3px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; background: rgba(255,255,255,0.12); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1); color: white;">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px; color: #f59e0b;"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-                                            <span>${album.video_count} video${album.video_count === 1 ? '' : 's'}</span>
-                                        </div>
-                                        <div class="stat-badge stat-space" style="display: inline-flex; align-items: center; padding: 3px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 600; background: rgba(255,255,255,0.12); backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.1); color: white;">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 3px; color: #3b82f6;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                                            <span>${album.space_used}</span>
-                                        </div>
-                                    </div>
+                                    ${statsHtml}
                                 </div>
                             </div>
                         </a>
                     `;
                 } else {
-                    const descHtml = album.description 
-                        ? `<div class="album-desc" style="font-size: 0.85rem; color: var(--text-secondary); margin: 0; line-height: 1.3;">${escapeHtml(album.description)}</div>` 
-                        : '';
-
                     html += `
-                        <a href="/photos/?album=${album.id}" class="album-card list-card" style="display: flex; gap: 12px; align-items: center; width: 100%; text-decoration: none !important; color: inherit;">
-                            <div class="album-cover-sidebar" style="width: 80px; height: 80px; border-radius: 8px; overflow: hidden; flex-shrink: 0; border: 1px solid var(--border-glass); background: rgba(0,0,0,0.02); display: flex; align-items: center; justify-content: center;">
-                                ${coverImgHtml}
-                            </div>
-                            <div class="album-content" style="flex: 1; min-width: 0;">
-                                <div class="album-title" style="display: flex; justify-content: space-between; align-items: center; width: 100%; margin-bottom: 4px;">
-                                    <span class="title-text" style="font-size: 1.05rem; font-weight: 600; color: var(--text-primary);">${escapeHtml(album.name)}</span>
-                                    <div class="badge-container" style="display: flex; gap: 6px;">
-                                        ${ownerBadge}
-                                        ${publicBadge}
-                                    </div>
+                        <a href="/photos/?album=${album.id}" class="album-card list-card">
+                            <div class="album-cover-sidebar">${coverImgHtml}</div>
+                            <div class="album-content">
+                                <div class="album-title">
+                                    <span class="title-text">${escapeHtml(album.name)}</span>
+                                    <div class="badge-container">${ownerBadge}${publicBadge}</div>
                                 </div>
-
-                                <div class="album-details" style="display: flex; flex-direction: column; gap: 4px; margin-top: 2px;">
+                                <div class="album-details">
                                     ${descHtml}
-                                    <div class="album-stats-row" style="display: flex; gap: 10px; flex-wrap: wrap;">
-                                        <div class="stat-badge stat-photos" style="display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; background: var(--bg-item-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; color: #10b981;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
-                                            <span>${album.photo_count} photo${album.photo_count === 1 ? '' : 's'}</span>
-                                        </div>
-                                        <div class="stat-badge stat-videos" style="display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; background: var(--bg-item-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; color: #f59e0b;"><polygon points="23 7 16 12 23 17 23 7"></polygon><rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect></svg>
-                                            <span>${album.video_count} video${album.video_count === 1 ? '' : 's'}</span>
-                                        </div>
-                                        <div class="stat-badge stat-space" style="display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; background: var(--bg-item-hover); border: 1px solid var(--border-glass); color: var(--text-primary);">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right: 4px; color: #3b82f6;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                                            <span>${album.space_used}</span>
-                                        </div>
-                                    </div>
+                                    ${statsHtml}
                                 </div>
                             </div>
                         </a>

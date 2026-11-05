@@ -1,215 +1,365 @@
-@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
-
-:root {
-    --bg-glass: rgba(255, 255, 255, 0.75);
-    --border-glass: rgba(0, 0, 0, 0.08);
-    --text-primary: #1e293b;
-    --text-secondary: #64748b;
-    --bg-item-hover: rgba(0, 0, 0, 0.02);
-    --accent: #2563eb;
-    --accent-light: rgba(37, 99, 235, 0.1);
-    --shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.03);
-    --border-radius: 16px;
-    --font-stack: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
-    --transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.dark-mode {
-    --bg-glass: rgba(30, 41, 59, 0.7);
-    --border-glass: rgba(255, 255, 255, 0.08);
-    --text-primary: #f8fafc;
-    --text-secondary: #94a3b8;
-    --bg-item-hover: rgba(255, 255, 255, 0.03);
-    --accent: #3b82f6;
-    --accent-light: rgba(59, 130, 246, 0.15);
-    --shadow: 0 15px 35px -5px rgba(0, 0, 0, 0.35), 0 2px 5px rgba(0, 0, 0, 0.1);
-}
+/* Photos > Albums page. Colours come from css/theme.css (photos_addon.css maps the
+ * short variable names onto the app tokens). */
 
 .albums-container {
-    padding: 20px 20px;
+    padding: 20px 24px 32px;
     max-width: 1300px;
     margin: 0 auto;
-    font-family: var(--font-stack);
 }
 
+/* Header: title + count on the left, Create button on the right */
 .albums-header {
-    text-align: center;
-    margin-bottom: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-bottom: 16px;
 }
 
 .albums-header h1 {
-    font-weight: 700;
-    color: var(--text-primary);
-    font-size: 2.0rem;
-    margin-bottom: 6px;
-    letter-spacing: -0.02em;
+    font-weight: 650;
+    color: var(--app-fg);
+    font-size: 1.5rem;
+    margin: 0;
+    letter-spacing: -0.01em;
 }
 
 .album-count {
-    color: var(--text-secondary);
-    font-size: 1.0rem;
-    font-weight: 500;
+    color: var(--app-muted);
+    font-size: 0.875rem;
+    margin-top: 2px;
 }
+
+.albums-header .btn { display: inline-flex; align-items: center; gap: 6px; }
+
+/* Toolbar: view toggle + sort */
+.albums-controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    padding-bottom: 12px;
+    margin-bottom: 16px;
+    border-bottom: 1px solid var(--app-border);
+}
+
+.view-toggle-group {
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    background: var(--app-surface-2);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius-sm);
+    flex-shrink: 0;
+}
+
+.view-toggle-group .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    border: none;
+    padding: 4px 12px;
+    border-radius: 4px;
+    font-weight: 500;
+    font-size: 0.85rem;
+    color: var(--app-muted);
+    background: transparent;
+}
+
+.view-toggle-group .btn:hover { color: var(--app-fg); background: var(--app-overlay); }
+
+.view-toggle-group .btn.active,
+.view-toggle-group .btn.active:hover {
+    background: var(--app-surface);
+    color: var(--app-fg);
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
+}
+
+.albums-sort {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+
+.albums-sort label {
+    font-size: 0.7rem;
+    font-weight: 600;
+    color: var(--app-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    margin: 0;
+    white-space: nowrap;
+}
+
+.albums-sort .form-select { width: auto; max-width: 100%; min-width: 0; }
+
+/* ---------- Album cards ---------- */
 
 .albums-list {
     display: flex;
     flex-direction: column;
-    gap: 10px;
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius);
+    overflow: hidden;
 }
 
 .albums-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 4px;
 }
 
-/* Glassmorphism Album Card */
 .album-card {
-    background: var(--bg-glass);
-    border: 1px solid var(--border-glass);
-    box-shadow: var(--shadow);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: var(--border-radius);
-    transition: var(--transition);
     text-decoration: none !important;
     color: inherit;
+    transition: background-color 0.12s ease;
 }
 
-/* List Card adjustments */
+.album-card:hover { color: inherit; }
+
+/* List: one row per album, hairline dividers */
 .album-card.list-card {
-    padding: 10px 16px;
     display: flex;
     align-items: center;
     gap: 14px;
+    width: 100%;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--app-border);
 }
 
-.album-card.list-card:hover {
-    transform: translateX(6px) translateY(-2px);
-    box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.12), 0 2px 8px rgba(0, 0, 0, 0.04);
-    border-color: var(--accent);
-}
+.album-card.list-card:last-child { border-bottom: none; }
+.album-card.list-card:hover { background: var(--app-overlay); }
 
-/* Grid Card adjustments */
-.album-card.grid-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(0, 0, 0, 0.06);
-    border-color: var(--accent);
-}
-
-.album-card.grid-card .album-cover-wrapper {
-    transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.album-card.grid-card:hover .album-cover-wrapper {
-    transform: scale(1.08);
-}
-
-.album-card.list-card .album-cover-sidebar img {
-    transition: transform 0.45s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.album-card.list-card:hover .album-cover-sidebar img {
-    transform: scale(1.08);
-}
-
-.album-content {
-    flex: 1;
-}
-
-.album-title {
-    font-size: 1.25rem;
-    font-weight: 600;
-    margin-bottom: 8px;
-    color: var(--text-primary);
+.album-cover-sidebar {
+    width: 64px;
+    height: 64px;
+    border-radius: var(--app-radius-sm);
+    overflow: hidden;
+    flex-shrink: 0;
+    background: var(--app-surface-2);
     display: flex;
     align-items: center;
-    gap: 12px;
+    justify-content: center;
+}
+
+.album-cover-sidebar img,
+.album-cover-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.album-cover-placeholder {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--app-surface-2);
+    color: var(--app-muted);
+}
+
+.album-content { flex: 1; min-width: 0; }
+
+.album-title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    margin-bottom: 2px;
+}
+
+.album-title .title-text {
+    font-size: 0.975rem;
+    font-weight: 600;
+    color: var(--app-fg);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.badge-container {
+    display: flex;
+    gap: 4px;
+    flex-shrink: 0;
 }
 
 .album-details {
     display: flex;
-    gap: 24px;
-    flex-wrap: wrap;
-    font-size: 0.88rem;
-    color: var(--text-secondary);
+    flex-direction: column;
+    gap: 4px;
+    font-size: 0.85rem;
+    color: var(--app-muted);
 }
 
-.detail-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+.album-desc {
+    font-size: 0.82rem;
+    color: var(--app-muted);
+    line-height: 1.35;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
 }
+
+.album-stats-row {
+    display: flex;
+    flex-wrap: wrap;
+    row-gap: 2px;
+}
+
+.stat-badge + .stat-badge::before { content: "\00b7"; margin: 0 6px; }
+
+.stat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.78rem;
+    color: var(--app-muted);
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+}
+
+.stat-badge svg { flex-shrink: 0; }
+
+.detail-item { display: flex; align-items: center; gap: 6px; }
 
 .detail-label {
     font-weight: 600;
     text-transform: uppercase;
-    font-size: 0.75rem;
-    letter-spacing: 0.05em;
-    color: var(--text-secondary);
+    font-size: 0.7rem;
+    letter-spacing: 0.06em;
+    color: var(--app-muted);
 }
 
-.badge {
-    color: white;
-    padding: 4px 12px;
-    border-radius: 20px;
+/* Grid: cover fills the tile, text sits on a dark scrim (same in both themes) */
+.album-card.grid-card {
+    position: relative;
+    height: 220px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    border-radius: var(--app-radius-sm);
+    background: var(--app-surface-2);
+}
+
+.album-card.grid-card:hover .album-gradient { background: linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 30%, rgba(0, 0, 0, 0.82) 100%); }
+
+.album-cover-wrapper {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    transition: transform 0.3s ease;
+}
+
+.album-card.grid-card:hover .album-cover-wrapper { transform: scale(1.02); }
+
+.album-gradient {
+    position: absolute;
+    inset: 0;
+    z-index: 2;
+    pointer-events: none;
+    background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.8) 100%);
+}
+
+.grid-card .album-content {
+    flex: 0 0 auto;
+    position: relative;
+    z-index: 3;
+    padding: 10px 12px;
+    color: #fff;
+}
+
+.grid-card .album-title .title-text {
+    color: #fff;
+    font-size: 0.975rem;
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+}
+
+.grid-card .album-desc {
+    color: rgba(255, 255, 255, 0.85);
     font-size: 0.75rem;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
+}
+
+.grid-card .stat-badge { color: rgba(255, 255, 255, 0.9); font-size: 0.72rem; }
+
+/* One line of stats on tiles; never a dangling separator */
+.grid-card .album-stats-row {
+    display: block;
+    font-size: 0; /* drop inter-span whitespace; .stat-badge sets its own size */
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.grid-card .stat-badge { display: inline; }
+
+/* Tiles without a cover: no scrim, normal text colours */
+.grid-card:has(.album-cover-placeholder) .album-gradient { display: none; }
+.grid-card:has(.album-cover-placeholder) .album-cover-placeholder { align-items: flex-start; padding-top: 56px; }
+.grid-card:has(.album-cover-placeholder) .album-title .title-text { color: var(--app-fg); text-shadow: none; }
+.grid-card:has(.album-cover-placeholder) .album-desc,
+.grid-card:has(.album-cover-placeholder) .stat-badge { color: var(--app-muted); text-shadow: none; }
+
+/* Badges (Owned / Shared / Public) */
+.albums-container .badge {
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 0.68rem;
     font-weight: 600;
     white-space: nowrap;
 }
 
-.badge-owned {
-    background: var(--accent);
-    box-shadow: 0 4px 10px -3px rgba(37, 99, 235, 0.3);
-}
-
-.badge-shared {
-    background: #64748b;
-    box-shadow: 0 4px 10px -3px rgba(100, 116, 139, 0.3);
-}
-
-.badge-public {
-    background: #10b981;
-    box-shadow: 0 4px 10px -3px rgba(16, 185, 129, 0.3);
-}
-
-/* View Toggle Controls */
-.view-toggle-group .btn.active {
-    background: var(--accent) !important;
-    color: white !important;
-}
-
-.view-toggle-group .btn:not(.active) {
+.albums-container .badge-owned,
+.albums-container .badge-shared,
+.albums-container .badge-public {
     background: transparent;
-    color: var(--text-secondary) !important;
+    color: var(--app-muted);
+    border: 1px solid var(--app-border);
 }
 
-.view-toggle-group .btn:not(.active):hover {
-    background: var(--bg-item-hover);
-    color: var(--text-primary) !important;
+/* On the photo scrim the soft fills would vanish: use solid dark chips. */
+.grid-card:not(:has(.album-cover-placeholder)) .badge-owned,
+.grid-card:not(:has(.album-cover-placeholder)) .badge-shared,
+.grid-card:not(:has(.album-cover-placeholder)) .badge-public {
+    background: rgba(0, 0, 0, 0.45) !important;
+    color: #fff !important;
+    border: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 
-/* Empty State */
+/* Empty state */
 .no-albums {
     text-align: center;
-    color: var(--text-secondary);
-    padding: 80px 40px;
-    background: var(--bg-glass);
-    border: 1px solid var(--border-glass);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow);
+    color: var(--app-muted);
+    padding: 72px 16px;
 }
 
-.no-albums svg {
-    margin-bottom: 20px;
-    color: var(--text-secondary);
-    opacity: 0.8;
-}
+.no-albums svg { display: none; }
 
 .no-albums p {
-    font-size: 1.1rem;
-    font-weight: 500;
+    font-size: 0.875rem;
     margin: 0;
+}
+
+@media (max-width: 576px) {
+    .albums-container { padding: 14px 12px 24px; }
+    .albums-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
+    .album-card.grid-card { height: 170px; }
+    .grid-card .album-desc { display: none; }
+    .grid-card .badge-container { display: none; }
+    .album-card.list-card { padding: 10px 12px; gap: 12px; }
+    .album-cover-sidebar { width: 52px; height: 52px; }
+    .albums-controls { flex-wrap: nowrap; }
+    .albums-sort { flex: 1 1 auto; justify-content: flex-end; }
+    .albums-sort label { display: none; }
+    .albums-sort .form-select { flex: 1 1 auto; max-width: 220px; }
 }

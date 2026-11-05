@@ -8,11 +8,11 @@
 {% block extra_scripts %}
 <script id="photo-in-list" type="text/x-handlebars-template">
     {% verbatim %}
-    <div class="photo-item" style="flex: {{ aspect_ratio }} {{ aspect_ratio }} calc(180px * {{ aspect_ratio }}); height: 180px; background-color: {{ main_color }};" onclick="handle_photo_click(event, this)">
-        <img src="" data-src="{{ thumbnail }}" data-id="{{ id }}" data-url="{{ url }}" data-video="{{ video }}" class="list-img" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+    <div class="photo-item" style="--ar: {{ aspect_ratio }}; background-color: {{ main_color }};" onclick="handle_photo_click(event, this)">
+        <img src="" alt="" data-src="{{ thumbnail }}" data-id="{{ id }}" data-url="{{ url }}" data-video="{{ video }}" class="list-img">
         <div class="photo-indicators">
             {{#if is_cover}}
-            <span class="indicator-badge badge-cover" title="Album cover photo">★ COVER</span>
+            <span class="indicator-badge badge-cover" title="Album cover photo">COVER</span>
             {{/if}}
             {{#if has_raw}}
             <span class="indicator-badge badge-raw" title="RAW file present">RAW</span>
@@ -159,7 +159,7 @@
         <div class="sidebar-actions-section">
             {{#if video}}
             {{#if has_orig}}
-            <button onclick="delete_original_video('{{ id }}')" class="action-btn warning-btn" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; margin-bottom: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 0.85rem;">
+            <button onclick="delete_original_video('{{ id }}')" class="action-btn warning-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 Delete Original Video
             </button>
@@ -525,9 +525,9 @@
                                     <span class="day">${moment(_d).format('dddd')}</span>
                                 </div>
                             </div>
-                            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-                                <span class="photo-count-${_d}" style="font-size:.85em;opacity:.9">0 photos</span>
-                                <span class="day-size-${_d}" style="font-size:.75em;opacity:.55;font-variant-numeric:tabular-nums">${_sz[0]} ${_sz[1]}</span>
+                            <div class="day-meta">
+                                <span class="photo-count-${_d}">0 photos</span>
+                                <span class="day-size-${_d}">${_sz[0]} ${_sz[1]}</span>
                             </div>
                             <div class="locations locations-${_d}">
                             </div>
@@ -695,11 +695,11 @@
 <div class="album-banner">
     <div class="album-banner-info">
         <div class="album-banner-title">
-            <h2>📖 {{ album_obj.name }}</h2>
+            <h2>{{ album_obj.name }}</h2>
             {% if album_obj.public %}
-            <span class="badge badge-public">🌍 Public</span>
+            <span class="badge badge-public">Public</span>
             {% else %}
-            <span class="badge badge-private">🔒 Private</span>
+            <span class="badge badge-private">Private</span>
             {% endif %}
             {% if is_owner %}
             <span class="badge badge-owner">Owner</span>
@@ -712,8 +712,8 @@
     </div>
     {% if is_owner %}
     <div class="album-banner-actions">
-        <button id="edit-album-btn" class="album-banner-btn" data-bs-toggle="modal" data-bs-target="#editAlbumModal">✏️ Edit Album</button>
-        <button id="share-album-btn" class="album-banner-btn btn-secondary" data-bs-toggle="modal" data-bs-target="#shareAlbumModal">🔗 Share Album</button>
+        <button id="edit-album-btn" type="button" class="btn btn-sm btn-primary album-banner-btn" data-bs-toggle="modal" data-bs-target="#editAlbumModal">Edit album</button>
+        <button id="share-album-btn" type="button" class="btn btn-sm btn-outline-secondary album-banner-btn" data-bs-toggle="modal" data-bs-target="#shareAlbumModal">Share</button>
     </div>
     {% endif %}
 </div>
@@ -795,9 +795,9 @@
     </div>
 </div>
 
-<div id="photo-display-area">
+<div id="photo-display-area" class="photo-viewer">
     <div id="photo-area">
-        <button id="exit-btn" type="button" class="photo-btn btn btn-info" onclick="close_image()">
+        <button id="exit-btn" type="button" class="photo-btn" onclick="close_image()" aria-label="Close">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                 class="feather feather-x">
@@ -805,7 +805,7 @@
                 <line x1="6" y1="6" x2="18" y2="18"></line>
             </svg>
         </button>
-        <button id="previous-btn" type="button" class="photo-btn btn btn-info" onclick="prev_image()">
+        <button id="previous-btn" type="button" class="photo-btn" onclick="prev_image()" aria-label="Previous">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                 class="feather feather-chevron-left">
@@ -813,7 +813,7 @@
             </svg>
         </button>
 
-        <button id="next-btn" type="button" class="photo-btn btn btn-info" onclick="next_image()">
+        <button id="next-btn" type="button" class="photo-btn" onclick="next_image()" aria-label="Next">
             <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
                 class="feather feather-chevron-right">
@@ -834,19 +834,9 @@
 <div id="main-body">
     <div class="photos">
         {% if no_photos %}
-        <div
-            style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; text-align: center;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                style="color: #95a5a6; margin-bottom: 24px;">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
-            </svg>
-            <h2 style="color: #2c3e50; margin-bottom: 12px; font-size: 24px; font-weight: 600;">No Photos Found</h2>
-            <p style="color: #7f8c8d; font-size: 16px; max-width: 500px; line-height: 1.6;">
-                No photos match your current search criteria. Try adjusting your filters or browse all photos.
-            </p>
+        <div class="photos-empty">
+            <p>No photos match these filters.</p>
+            <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllFilters()">Clear filters</button>
         </div>
         {% endif %}
     </div>
@@ -885,27 +875,27 @@
                 {% if album_obj and is_owner %}
                 <li id="dropdown-action-set-cover-li" style="display: none !important;">
                     <button class="dropdown-item d-flex align-items-center gap-2" id="dropdown-action-set-cover">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warning"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="dd-icon-cover"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
                         Set as Album Cover
                     </button>
                 </li>
                 {% endif %}
                 <li>
                     <button class="dropdown-item d-flex align-items-center gap-2" id="dropdown-action-add-to-album">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
                         Add to Album...
                     </button>
                 </li>
                 <li>
                     <button class="dropdown-item d-flex align-items-center gap-2 text-danger" id="dropdown-action-delete">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                         Delete Selected
                     </button>
                 </li>
                 <li><hr class="dropdown-divider"></li>
                 <li>
                     <button class="dropdown-item d-flex align-items-center gap-2" id="dropdown-action-clear">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="dd-icon-muted"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
                         Clear Selection
                     </button>
                 </li>
@@ -981,7 +971,7 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="shareAlbumModalLabel">🔗 Share Album: {{ album_obj.name }}</h5>
+                <h5 class="modal-title" id="shareAlbumModalLabel">Share album: {{ album_obj.name }}</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -1019,7 +1009,7 @@
 
     <!-- Active Filters Display -->
     <div class="active-filters" id="active-filters">
-        <div class="active-filters-header">Active Filters:</div>
+        <div class="active-filters-header">Active filters</div>
         <div class="active-filters-list" id="active-filters-list">
             {% if video %}
             <span class="filter-tag" data-filter="video">Video Only <button class="remove-filter"
@@ -1066,14 +1056,14 @@
     <div class="filter-controls">
         <div class="filter-group">
             <label class="filter-label">
-                <input type="checkbox" id="filter-video" {% if video %}checked{% endif %}>
+                <input type="checkbox" class="form-check-input" id="filter-video" {% if video %}checked{% endif %}>
                 <span>Video Only</span>
             </label>
         </div>
 
         <div class="filter-group">
-            <label class="filter-label" for="show-detail-select" style="margin-bottom: 6px;">Show Detail</label>
-            <select class="form-select form-select-sm filter-input" id="show-detail-select" style="background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-glass);">
+            <label class="filter-label" for="show-detail-select">Show detail</label>
+            <select class="form-select form-select-sm filter-input" id="show-detail-select">
                 <option value="none">None</option>
                 <option value="time">Time Taken</option>
                 <option value="city">City</option>
@@ -1097,11 +1087,11 @@
             <label class="filter-label">Direction</label>
             <div class="radio-group">
                 <label class="radio-label">
-                    <input type="radio" name="direction" value="backward" {% if not forward %}checked{% endif %}>
+                    <input type="radio" class="form-check-input" name="direction" value="backward" {% if not forward %}checked{% endif %}>
                     <span>← Backward (Older)</span>
                 </label>
                 <label class="radio-label">
-                    <input type="radio" name="direction" value="forward" {% if forward %}checked{% endif %}>
+                    <input type="radio" class="form-check-input" name="direction" value="forward" {% if forward %}checked{% endif %}>
                     <span>Forward (Newer) →</span>
                 </label>
             </div>
@@ -1140,17 +1130,17 @@
 
         <div class="filter-group">
             <label class="filter-label">Blurriness Score (12MP Norm)</label>
-            <div style="display: flex; gap: 8px; align-items: center;">
+            <div class="filter-range">
                 <input type="number" step="any" min="0" class="filter-input" id="filter-min-blur" placeholder="Min (e.g. 30)"
-                    value="{{ min_blur|default:'' }}" style="flex: 1; min-width: 0; background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-glass); padding: 6px 10px; border-radius: var(--border-radius-sm);">
-                <span style="color: var(--text-secondary); font-size: 0.85rem;">to</span>
+                    value="{{ min_blur|default:'' }}">
+                <span>to</span>
                 <input type="number" step="any" min="0" class="filter-input" id="filter-max-blur" placeholder="Max (e.g. 150)"
-                    value="{{ max_blur|default:'' }}" style="flex: 1; min-width: 0; background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-glass); padding: 6px 10px; border-radius: var(--border-radius-sm);">
+                    value="{{ max_blur|default:'' }}">
             </div>
             <div class="filter-hint">Lower = blurrier. Guide: &lt;30 blurry, 30–80 soft, &gt;80 sharp. Only works for photos.</div>
         </div>
 
-        <button class="apply-filters-btn" onclick="applyFilters()">
+        <button type="button" class="btn btn-primary apply-filters-btn" onclick="applyFilters()">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
                 stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                 <circle cx="11" cy="11" r="8"></circle>

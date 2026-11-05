@@ -100,8 +100,8 @@ html, body {
 .mc-one-sidebar { width: calc(100% - 256px); }
 .mc-two-sidebar { width: calc(100% - 512px); }
 .sidebar-visible { width: 256px !important; }
-.sidebar-left { border-right: 1px solid var(--app-border); }
-.sidebar-right { border-left: 1px solid var(--app-border); }
+.sidebar-left.sidebar-visible { border-right: 1px solid var(--app-border); }
+.sidebar-right.sidebar-visible { border-left: 1px solid var(--app-border); }
 
 /* Phones and small tablets: sidebars slide over the page instead of squeezing it. */
 @media (max-width: 900px) {

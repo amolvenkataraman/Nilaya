@@ -178,3 +178,27 @@ body {
 .form-range::-webkit-slider-thumb { background: var(--app-accent); }
 .form-range::-moz-range-thumb { background: var(--app-accent); }
 .form-range:focus::-webkit-slider-thumb { box-shadow: 0 0 0 .2rem var(--app-accent-soft); }
+
+/* Soft status tints for banners, chips and hovers. */
+:root {
+    --app-danger-soft: color-mix(in srgb, var(--app-danger) 14%, transparent);
+    --app-warning-soft: color-mix(in srgb, var(--app-warning) 14%, transparent);
+    --app-success-soft: color-mix(in srgb, var(--app-success, #16a34a) 14%, transparent);
+}
+
+/* Quiet secondary buttons that stay readable in dark mode. */
+.btn-outline-secondary {
+    --bs-btn-color: var(--app-fg);
+    --bs-btn-border-color: var(--app-border);
+    --bs-btn-hover-color: var(--app-fg);
+    --bs-btn-hover-bg: var(--app-overlay);
+    --bs-btn-hover-border-color: var(--app-border);
+    --bs-btn-active-color: var(--app-fg);
+    --bs-btn-active-bg: var(--app-overlay);
+    --bs-btn-active-border-color: var(--app-border);
+}
+
+/* Bootstrap's "primary" utilities (.text-primary, .bg-primary, badges) follow the accent. */
+:root, [data-bs-theme="light"] { --bs-primary-rgb: 15, 109, 119; --bs-primary-text-emphasis: #0f6d77; }
+[data-bs-theme="dark"] { --bs-primary-rgb: 60, 195, 207; --bs-primary-text-emphasis: #3cc3cf; }
+[data-bs-theme="dark"] .badge.bg-primary, [data-bs-theme="dark"] .text-bg-primary { color: #06282b !important; }
