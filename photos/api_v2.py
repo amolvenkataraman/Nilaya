@@ -235,7 +235,7 @@ def points(request, south: float, west: float, north: float, east: float, year: 
     if year:
         qs = qs.filter(dt_year=year)
     if not include_planes:
-        qs = qs.exclude(on_plane=True)  # NULL altitude means unknown, not "on a plane"
+        qs = qs.filter(Q(on_plane=False) | Q(on_plane__isnull=True))  # NULL altitude = unknown, not "on a plane"
     rows = qs.values("lat", "lng").annotate(n=Sum("cnt"))[:20000]
     return [{"lat": float(r["lat"]), "lng": float(r["lng"]), "count": int(r["n"])} for r in rows]
 
