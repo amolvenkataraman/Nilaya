@@ -8,6 +8,8 @@ import { prefetchCalendar, prefetchDashboard, prefetchPhotos, prefetchShell, pre
 import { Shell } from './components/Shell'
 import { Toaster } from './components/toast'
 import { persistCache, restoreCache } from './components/resilience'
+import { checkOwnerAtBoot, claimOwner } from './lib/owner'
+import type { Me } from './lib/types'
 import { NotFound, RouteError } from './pages/NotFound'
 import './styles/base.css'
 import './styles/shell.css'
@@ -31,9 +33,17 @@ const queryClient = new QueryClient({
   },
 })
 
+// Data persisted under another login (shared browser) is wiped before anything renders from it.
+checkOwnerAtBoot()
 // A reload during a server restart still paints the last data (sessionStorage, this tab only).
 restoreCache(queryClient)
 persistCache(queryClient)
+// Once /me answers: if the persisted data was someone else's, drop it and what was loaded from it.
+queryClient.getQueryCache().subscribe((e) => {
+  if (e.type !== 'updated' || e.action.type !== 'success' || e.query.queryKey[0] !== 'me' || e.query.queryKey.length !== 1) return
+  const id = (e.query.state.data as Me | undefined)?.id
+  if (id && claimOwner(id)) queryClient.resetQueries({ predicate: (q) => q.queryKey[0] !== 'me' })
+})
 
 // Pages are route-level `lazy` (not React.lazy under Suspense): React 19 holds a Suspense fallback for
 // ~300 ms before revealing, while the router renders as soon as the chunk arrives.

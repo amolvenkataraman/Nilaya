@@ -185,6 +185,19 @@ export function groupByDue<T>(items: T[], due: (t: T) => string | null, now: Dat
   return order.filter((k) => groups.has(k)).map((k) => groups.get(k)!)
 }
 
+/** Where an item sits on the local calendar: an all-day item at local midnight of its own date
+ *  (start_date, a local ISO string without a zone), never its instant converted to this browser's zone. */
+export function placedStart(i: { kind?: string; all_day?: boolean; start: string | null; start_date?: string | null }): string | null {
+  return (i.kind === 'all_day' || i.all_day) && i.start_date ? `${i.start_date}T00:00:00` : i.start
+}
+
+/** Whether an all-day item ([start_date, end_date), end exclusive) covers this local day. */
+export function coversDay(i: { start_date?: string | null; end_date?: string | null }, d: Date): boolean {
+  if (!i.start_date) return false
+  const k = dayKey(d)
+  return i.start_date <= k && (i.end_date ? k < i.end_date : k === i.start_date)
+}
+
 /** Group by local calendar day (newest first input stays newest first). */
 export function groupByDay<T>(items: T[], date: (t: T) => string | null): { key: string; date: Date | null; items: T[] }[] {
   const out: { key: string; date: Date | null; items: T[] }[] = []

@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { dayKey, fmtDate, fmtTime, isSameDay, startOfDay } from '../../lib/dates'
+import { dayKey, fmtDate, fmtTime, isSameDay } from '../../lib/dates'
 import type { CalEvent, Task } from '../../lib/types'
 import { BirthdayChip, PhotoBadge, TaskChip, isAllDayTask, type Birthday } from './extras'
 import { EventChip } from './MonthView'
-import { layoutDay, snap } from './util'
+import { atWallMin, layoutDay, snap } from './util'
 
 interface Props {
   days: Date[]
@@ -99,11 +99,12 @@ export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDa
       suppress.current = true
       setTimeout(() => (suppress.current = false), 0)
       const { days: ds, onCreate: create, onMove: moved } = cb.current
-      const base = startOfDay(ds[c.day]).getTime()
-      if (c.mode === 'create') return create(new Date(base + c.a * 60_000), new Date(base + c.b * 60_000))
+      // Wall-clock minutes → local times (right on DST change days too).
+      const day = ds[c.day]
+      if (c.mode === 'create') return create(atWallMin(day, c.a), atWallMin(day, c.b))
       const ev = c.ev!
       const s = new Date(ev.start)
-      if (c.mode === 'resize') return moved?.(ev, s, new Date(base + c.b * 60_000))
+      if (c.mode === 'resize') return moved?.(ev, s, atWallMin(day, c.b))
       const ns = new Date(s)
       ns.setDate(ns.getDate() + (c.day - c.origDay))
       ns.setMinutes(ns.getMinutes() + (c.a - c.origStart))

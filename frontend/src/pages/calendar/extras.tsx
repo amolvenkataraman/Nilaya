@@ -8,6 +8,7 @@ import { get } from '../../lib/api'
 import { dayKey, fmtDate, fmtTime, isEndOfDay } from '../../lib/dates'
 import { useSetDone, useTasks } from '../../lib/queries'
 import type { Task } from '../../lib/types'
+import { CACHE_PREFIX, ownerId } from '../../lib/owner'
 
 /** {"2026-11-05": 12, ...} for the visible days, in the user's time zone. */
 export function usePhotoCounts(days: Date[]) {
@@ -81,7 +82,8 @@ export function PhotoBadge({ day, count }: { day: Date; count?: number }) {
 // ---------------------------------------------------------------- birthdays (Contacts)
 export interface Birthday { id: string; name: string; date: string; age: number | null }
 const SHOW_BDAYS = 'app.calendar.showBirthdays'
-const BDAY_CACHE = 'app.calendar.birthdays.v1'
+// A cache of server data: per user, and wiped when another user signs in here (lib/owner.ts).
+const BDAY_CACHE = CACHE_PREFIX + 'birthdays'
 const DAY = 86_400_000
 
 export function useShowBirthdays(): [boolean, (v: boolean) => void] {
@@ -99,8 +101,10 @@ export function useShowBirthdays(): [boolean, (v: boolean) => void] {
 }
 
 type BdayCache = Record<string, { at: number; items: Birthday[] }>
+const bdayKey = () => (ownerId() ? `${BDAY_CACHE}.${ownerId()}` : null)
 function readBdays(): BdayCache {
-  try { return JSON.parse(localStorage.getItem(BDAY_CACHE) || '{}') as BdayCache } catch { return {} }
+  const k = bdayKey()
+  try { return k ? JSON.parse(localStorage.getItem(k) || '{}') as BdayCache : {} } catch { return {} }
 }
 
 /** Birthdays in the visible range: fresh for a day, kept in localStorage so revisits cost no request. */
@@ -117,7 +121,8 @@ export function useBirthdays(days: Date[], enabled: boolean) {
         const all = readBdays()
         all[key] = { at: Date.now(), items }
         const keep = Object.entries(all).sort((a, b) => b[1].at - a[1].at).slice(0, 12)
-        localStorage.setItem(BDAY_CACHE, JSON.stringify(Object.fromEntries(keep)))
+        const k = bdayKey()
+        if (k) localStorage.setItem(k, JSON.stringify(Object.fromEntries(keep)))
       } catch { /* ignore */ }
       return items
     },

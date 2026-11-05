@@ -10,6 +10,7 @@ import { get, post } from '../../lib/api'
 import { Attendees, type AttendeeDraft } from './Attendees'
 import { CAL_COLOURS } from './calendarCommon'
 import { minutesText } from './EventPeek'
+import { allDayRange } from './util'
 import { useCreateEvent, useDeleteEvent, useDuplicateEvent, useTaskFromEvent, useUpdateEvent, type Scope } from './api'
 
 export type EventDraft = { event: CalEvent } | { start: Date; end?: Date; allDay?: boolean }
@@ -44,13 +45,15 @@ function initial(draft: EventDraft) {
     const e = draft.event
     const kind: Kind = e.kind
     const s = new Date(e.start)
-    const lastDay = e.end ? addDays(new Date(new Date(e.end).getTime() - 1), 0) : s
+    // All-day events keep their calendar dates as sent (start_date/end_date): converting the
+    // instants would shift them in a browser outside the calendar's zone.
+    const days = allDayRange(e) ?? { first: s, last: s }
     return {
       kind, name: e.name, calendar: e.calendar_id, category: e.category_id ?? '' as number | '', location: e.location ?? '', description: e.description ?? '',
       colour: e.colour ?? '', icon: e.icon ?? '', tags: (e.tags ?? []).join(', '), repeat: repeatPreset(e.rrule), reminders: null as number[] | null,
       rrule: e.rrule ?? '', meeting: e.meeting_url ?? '', place: e.place?.id ?? '', status: e.status ?? 'confirmed', busy: e.transparency !== 'free', visibility: e.visibility ?? 'default',
       start: toLocalInput(e.start), end: toLocalInput(e.end ?? new Date(s.getTime() + 3600_000).toISOString()),
-      startDate: dayKey(s), endDate: dayKey(kind === 'all_day' ? lastDay : s), completed: e.completed,
+      startDate: dayKey(days.first), endDate: dayKey(days.last), completed: e.completed,
     }
   }
   const s = draft.start
@@ -100,13 +103,14 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
   function body(): EventIn | null {
     if (!f.name.trim()) return setError('Give the event a title.'), null
     if (!calendarId) return setError('Pick a calendar you can edit.'), null
-    let start: string | null
+    let start: string | null = null
     let end: string | null = null
+    let dates: Pick<EventIn, 'start_date' | 'end_date'> | null = null
     if (f.kind === 'all_day') {
       if (!f.startDate) return setError('Pick a date.'), null
       const last = f.endDate && f.endDate >= f.startDate ? f.endDate : f.startDate
-      start = parseDayKey(f.startDate).toISOString()
-      end = addDays(parseDayKey(last), 1).toISOString()
+      // Dates only (end exclusive): the server places them in the calendar's zone.
+      dates = { start_date: f.startDate, end_date: dayKey(addDays(parseDayKey(last), 1)) }
     } else {
       start = fromLocalInput(f.start)
       if (!start) return setError('Pick a start time.'), null
@@ -116,7 +120,7 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
       }
     }
     const out: EventIn = {
-      calendar_id: calendarId, name: f.name.trim(), kind: f.kind, start, end, all_day: f.kind === 'all_day', category_id: f.category === '' ? null : f.category,
+      calendar_id: calendarId, name: f.name.trim(), kind: f.kind, ...(dates ?? { start, end }), all_day: f.kind === 'all_day', category_id: f.category === '' ? null : f.category,
       location: f.location.trim() || null, description: f.description.trim() || null,
       colour: f.colour || null, icon: f.icon || null, tags: f.tags.split(',').map((t) => t.trim()).filter(Boolean),
     }

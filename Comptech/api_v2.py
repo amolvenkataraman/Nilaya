@@ -10,6 +10,8 @@ Usable from any platform:
 - Rate limit: 600 requests/minute per key or user.
 """
 
+import logging
+
 from django.contrib.auth.decorators import login_required
 from ninja import NinjaAPI
 from ninja.security import django_auth
@@ -17,8 +19,19 @@ from ninja.throttling import AuthRateThrottle
 
 from apikeys.auth import BearerKey, HeaderKey
 
+log = logging.getLogger(__name__)
+
+
 class PerPrincipalThrottle(AuthRateThrottle):
-    """600 requests/minute per API key or signed-in user, keyed by primary key (not a display string)."""
+    """600 requests/minute per API key or signed-in user, keyed by primary key (not a display string).
+    The counts live in the cache (Redis); if it's down, requests are allowed rather than failing."""
+
+    def allow_request(self, request):
+        try:
+            return super().allow_request(request)
+        except Exception:  # cache unreachable: fail open, the limit is a safety net
+            log.warning("Rate limit skipped: cache unavailable")
+            return True
 
     def get_cache_key(self, request):
         auth = getattr(request, "auth", None)
@@ -42,6 +55,7 @@ api.add_router("/me", "users.api_v2.router")
 api.add_router("/users/", "users.api_v2.people")
 api.add_router("/calendar/", "scheduler.api_v2.router")
 api.add_router("/photos/", "photos.api_v2.router")
+api.add_router("/photos/locate/", "photos.api_presets.router")
 api.add_router("/places/", "map.api_v2.router")
 api.add_router("/tasks/", "tasks.api.router")
 api.add_router("/contacts/", "contacts.api.router")

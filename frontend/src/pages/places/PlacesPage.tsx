@@ -12,6 +12,8 @@ import { PlaceDetail, PlaceRow, StatsTab, SuggestedTab, SuggestionDetail, photos
 import { PlaceSearch } from './Search'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { get } from '../../lib/api'
+import { userKey } from '../../lib/owner'
+import { useMe } from '../../lib/queries'
 import { photoSummaryQuery } from '../../lib/photoQueries'
 import { realPoints, type HeatPoint } from '../photos/heat'
 import { toast } from '../../components/toast'
@@ -80,7 +82,12 @@ export default function PlacesPage() {
   const saveGroup = useSaveGroup()
   const suggestionsQ = useSuggestions(tab === 'suggested')
   // Dismissed suggestions and groups hidden from the map/list are remembered per device (as in the classic page).
-  const [dismissed, setDismissed] = useState(() => readSet<string>('app.places.dismissed'))
+  // Dismissed spots are the signed-in user's own (coordinates): kept per user on a shared browser.
+  const meId = useMe().data?.id
+  const dismissKey = useMemo(() => userKey('app.places.dismissed', meId), [meId])
+  const [dismissed, setDismissed] = useState(() => (dismissKey ? readSet<string>(dismissKey) : new Set<string>()))
+  useEffect(() => setDismissed(dismissKey ? readSet<string>(dismissKey) : new Set<string>()), [dismissKey])
+  const saveDismissed = (n: Set<string>) => dismissKey && writeSet(dismissKey, n, 200)
   const suggestions = useMemo(() => suggestionsQ.data?.filter((x) => !dismissed.has(spotKey(x))), [suggestionsQ.data, dismissed])
   const [sug, setSug] = useState<Suggestion | null>(null)
   const [addMode, setAddMode] = useState(false)
@@ -90,9 +97,9 @@ export default function PlacesPage() {
   const groupById = (id: number) => groups.data?.find((g) => g.id === id)
   const turnOn = (id: number) => { const g = groupById(id); if (g && !g.visible && !g.archived) setVisible.mutate({ id, visible: true }) }
   const dismiss = (x: Suggestion) => {
-    setDismissed((d) => { const n = new Set(d); n.add(spotKey(x)); writeSet('app.places.dismissed', n, 200); return n })
+    setDismissed((d) => { const n = new Set(d); n.add(spotKey(x)); saveDismissed(n); return n })
     if (sug === x) setSug(null)
-    toast.show('Suggestion dismissed', { action: { label: 'Undo', run: () => setDismissed((d) => { const n = new Set(d); n.delete(spotKey(x)); writeSet('app.places.dismissed', n, 200); return n }) } })
+    toast.show('Suggestion dismissed', { action: { label: 'Undo', run: () => setDismissed((d) => { const n = new Set(d); n.delete(spotKey(x)); saveDismissed(n); return n }) } })
   }
   const focusSuggestion = (x: Suggestion) => {
     setSug(x)

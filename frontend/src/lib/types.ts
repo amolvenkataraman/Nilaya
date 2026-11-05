@@ -52,6 +52,8 @@ export interface CalEvent {
 export interface EventDetail extends CalEvent { reminders?: number[]; attendees?: Attendee[]; task_id?: string | null }
 export interface EventIn {
   calendar_id: number; name: string; kind?: 'event' | 'all_day' | 'deadline'; start?: ISODateTime | null; end?: ISODateTime | null; all_day?: boolean
+  /** All-day events: calendar dates, end exclusive (instead of start/end). */
+  start_date?: ISODate | null; end_date?: ISODate | null
   category_id?: number | null; location?: string | null; description?: string | null; priority?: number
   colour?: string | null; icon?: string | null; tags?: string[]; rrule?: string; reminders?: number[] | null; meeting_url?: string
   place_id?: string | null; status?: 'confirmed' | 'tentative' | 'cancelled'; transparency?: 'busy' | 'free'; visibility?: 'default' | 'public' | 'private'
@@ -61,6 +63,7 @@ export interface Category { id: number; name: string; label: string; colour: str
 export interface AgendaItem {
   kind: 'event' | 'all_day' | 'deadline' | 'todo'; id: string; title: string; start: ISODateTime | null; end: ISODateTime | null
   colour: string; calendar: string; location?: string | null; done?: boolean; priority?: number; has_todo?: boolean
+  start_date?: ISODate | null; end_date?: ISODate | null // all-day items: dates, end exclusive
 }
 export interface Insights {
   period: string; start: ISODate; end: ISODate
@@ -107,7 +110,10 @@ export interface Task {
   subtasks?: number; subtasks_done?: number; comments?: number; event_id: string | null; owner: UserBrief
   created_on: ISODateTime; updated_on: ISODateTime
 }
-export interface Relation { id: number; kind: string; other_id: UUID; other_name: string; other_done: boolean }
+export interface Relation {
+  id: number; kind: string; other_id: UUID; other_name: string; other_done: boolean
+  other_visible?: boolean // false: a task you can't open (shown as "Private task")
+}
 export interface TaskDetail extends Task { relations: Relation[] }
 export interface TaskPage { items: Task[]; total: number }
 export interface TaskIn {

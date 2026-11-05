@@ -13,12 +13,12 @@ import {
 } from '../../lib/queries'
 import { fmtStamp, relTime, shortStamp } from '../../lib/dates'
 import { PRIORITIES, type Project, type Task, type TaskDetail, type TaskPage } from '../../lib/types'
-import { useAddComment, useDeleteComment, useDeleteWithUndo, useDuplicateTask, useEditComment } from './api'
+import { useAddComment, useDeleteComment, useDeleteWithUndo, useDuplicateTask, useEditComment, useUnassignMe } from './api'
 import './tasks.css'
 import { PROJECT_COLOURS } from './ProjectDialog'
 import { Relations } from './Relations'
 import { AssigneesField, DateField, LabelsField, RemindersField, RepeatField, StatusField, TimeSpentField, type FullPatch } from './Fields'
-import { isOverdue } from './util'
+import { canEditTask, isOverdue } from './util'
 
 const PRIOS = [{ value: 0, label: 'None' }, ...PRIORITIES]
 
@@ -61,7 +61,10 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
   useEffect(() => setDesc(task.description), [task.description])
   useEffect(() => autosize(titleRef.current), [title])
 
-  const canEdit = !me || task.owner.id === me.id || (projects?.find((p) => p.id === task.project_id)?.role ?? 0) >= 1
+  const canEdit = canEditTask(task, me, projects)
+  // Assignees may comment and take themselves off a task even when it's view-only for them.
+  const assignedToMe = !!me && task.assignees.some((a) => (typeof a === 'string' ? a === me.username : a.id === me.id))
+  const unassign = useUnassignMe(task.id)
   const path = pathOf(projects, task.project_id)
   // The parent's title from whatever list already has it (no extra request).
   const parent = task.parent_id
@@ -125,6 +128,11 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
           {task.event_id ? <Link to={`/calendar?event=${task.event_id}`}><Icon name="calendar" size={11} /> From a calendar event</Link> : null}
           {me && task.owner.id !== me.id ? <span><Icon name="user" size={11} /> Owned by {task.owner.name || task.owner.username}</span> : null}
           {!canEdit ? <span><Icon name="info" size={11} /> View only</span> : null}
+          {!canEdit && assignedToMe ? (
+            <button type="button" className="linkish" onClick={() => unassign.mutate(undefined, { onSuccess: () => toast.show('You are no longer assigned') })} disabled={unassign.isPending}>
+              <Icon name="x" size={11} /> Unassign me
+            </button>
+          ) : null}
         </p>
         <fieldset className="props-wrap" disabled={!canEdit}>
         <dl className="props">
@@ -201,9 +209,9 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
 
         <Subtasks task={task} onOpen={onOpen} canEdit={canEdit} />
 
-        <Relations task={task} onOpen={onOpen} />
+        <Relations task={task} onOpen={onOpen} canEdit={canEdit} />
 
-        <Comments taskId={task.id} />
+        <Comments taskId={task.id} canComment={canEdit || assignedToMe} />
 
         <p className="detail-foot muted xsmall">
           Created {shortStamp(task.created_on)} by {task.owner.name || task.owner.username} · updated {shortStamp(task.updated_on)}
@@ -226,14 +234,14 @@ function Subtasks({ task, onOpen, canEdit }: { task: TaskDetail; onOpen: (id: st
         {items.length > 0 && <span className="sub-progress"><span style={{ width: `${(done / items.length) * 100}%` }} /></span>}
       </div>
       <div className="subtasks">
-        {items.map((t) => <TaskRow key={t.id} task={t} showProject={false} onToggle={() => setDone.mutate({ task: t, done: !t.done })} onOpen={() => onOpen(t.id)} />)}
+        {items.map((t) => <TaskRow key={t.id} task={t} showProject={false} onToggle={() => (canEdit ? setDone.mutate({ task: t, done: !t.done }) : toast.error('You can only view this task'))} onOpen={() => onOpen(t.id)} />)}
         {canEdit && <QuickAddInput compact parentId={task.id} projectId={task.project_id} listKey={keys.taskList(params)} placeholder="Add subtask — natural language works" />}
       </div>
     </div>
   )
 }
 
-function Comments({ taskId }: { taskId: string }) {
+function Comments({ taskId, canComment }: { taskId: string; canComment: boolean }) {
   const comments = useComments(taskId)
   const me = useMe().data
   const add = useAddComment(taskId)
@@ -290,7 +298,8 @@ function Comments({ taskId }: { taskId: string }) {
             </div>
           )
         })}
-        <form className="comment-form" onSubmit={(e) => (e.preventDefault(), submit())}>
+        {!canComment && !comments.data?.length && <p className="muted xsmall">No comments.</p>}
+        {canComment && <form className="comment-form" onSubmit={(e) => (e.preventDefault(), submit())}>
           <textarea
             className="textarea"
             rows={2}
@@ -307,7 +316,7 @@ function Comments({ taskId }: { taskId: string }) {
           {body.trim() && (
             <div className="row"><span className="muted xsmall grow">Ctrl+Enter to send</span><button className="btn primary sm" disabled={add.isPending}>Comment</button></div>
           )}
-        </form>
+        </form>}
       </div>
       <Confirm open={!!deleting} title="Delete comment?" body="This can't be undone." onConfirm={() => deleting && remove.mutate(deleting)} onClose={() => setDeleting(null)} />
     </div>

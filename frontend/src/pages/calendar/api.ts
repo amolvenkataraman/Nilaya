@@ -87,7 +87,8 @@ export function useUpdateCalendar() {
 export function useTaskFromEvent() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: string) => post<Task>(`tasks/from-event/${id.split(':')[0]}`),
+    // The whole id: an occurrence (<series>:<start>) makes a task due on its own date, not the series' first.
+    mutationFn: (id: string) => post<Task>(`tasks/from-event/${encodeURIComponent(id)}`),
     onSuccess: (t) => toast.show(`Task "${t.title}" is in your Inbox`),
     onError: onErr,
     onSettled: () => {

@@ -1,7 +1,7 @@
 // Pure helpers for the Tasks page (no React): repeat/reminder wording, time-spent parsing, whether a new
 // task belongs to the list on screen, subtask nesting and the calendar month window. Unit-tested.
 import { addDays, dayDiff, isEndOfDay, startOfDay, startOfWeek } from '../../lib/dates'
-import type { Task, TaskReminder } from '../../lib/types'
+import type { Project, Task, TaskReminder } from '../../lib/types'
 
 // ---------------------------------------------------------------- repeat
 export const REPEAT_PRESETS: { label: string; short: string; mode: number; every: number | null }[] = [
@@ -140,3 +140,13 @@ export function rescheduleTo(t: Pick<Task, 'due' | 'start'>, day: Date): { due: 
 
 /** The board's list query (also read by the page for its counts). */
 export const boardParams = (projectId: string, q: string) => ({ project: projectId, top_level: true, sort: 'position', limit: 500, q: q || undefined })
+
+/** Whether I can edit a task, as the server decides (tasks.service.can_edit_task): a loose task is its
+ *  creator's; in a project it takes edit rights there (a creator made view-only keeps none). Until the
+ *  projects load, my own tasks count as editable. No `me` yet: assume yes (the server still checks). */
+export function canEditTask(t: Pick<Task, 'owner' | 'project_id'>, me: { id: string } | undefined, projects: Project[] | undefined): boolean {
+  if (!me) return true
+  if (!t.project_id) return t.owner.id === me.id
+  const p = projects?.find((x) => x.id === t.project_id)
+  return p ? p.role >= 1 : !projects && t.owner.id === me.id
+}

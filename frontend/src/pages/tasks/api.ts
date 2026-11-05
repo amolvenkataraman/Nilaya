@@ -65,6 +65,16 @@ export function useDeleteBucket() {
   })
 }
 
+/** Take myself off a task's assignees (allowed even when the task is view-only for me). */
+export function useUnassignMe(taskId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => post<void>(`tasks/${taskId}/unassign`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+    onError,
+  })
+}
+
 export function useAddComment(taskId: string) {
   const qc = useQueryClient()
   return useMutation({

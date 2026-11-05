@@ -25,6 +25,21 @@ describe('calendar layout', () => {
     expect(map.has('2026-11-05')).toBe(false)
   })
 
+  it('files all-day events by their dates and places timed ones by wall clock (any zone, DST days)', () => {
+    const env = (globalThis as unknown as { process: { env: Record<string, string | undefined> } }).process.env // Node reads TZ live
+    const tz = env.TZ
+    try {
+      env.TZ = 'Asia/Tokyo' // the calendar is in Toronto: its midnight is 13:00 here
+      const day: CalEvent = { ...ev('day', new Date('2026-10-15T04:00:00Z'), new Date('2026-10-16T04:00:00Z'), true), start_date: '2026-10-15', end_date: '2026-10-16' }
+      expect([...eventsByDay([day]).keys()]).toEqual(['2026-10-15'])
+      env.TZ = 'America/Toronto' // spring forward: 2026-03-08 has 23 hours
+      const [p] = layoutDay([ev('m', new Date(2026, 2, 8, 10), new Date(2026, 2, 8, 11))], new Date(2026, 2, 8))
+      expect([p.startMin, p.endMin]).toEqual([600, 660])
+    } finally {
+      env.TZ = tz
+    }
+  })
+
   it('parses URL state and computes ranges', () => {
     const s = parseCalState(new URLSearchParams('view=week&date=2026-11-04&insights=month'))
     expect(s).toMatchObject({ view: 'week', insights: 'month', isNew: false })

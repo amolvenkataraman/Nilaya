@@ -8,7 +8,7 @@ import { RELATION_KINDS, useAddRelation, useRemoveRelation, type RelationKind } 
 
 const KIND_LABEL = Object.fromEntries(RELATION_KINDS) as Record<string, string>
 
-export function Relations({ task, onOpen }: { task: TaskDetail; onOpen: (id: string) => void }) {
+export function Relations({ task, onOpen, canEdit }: { task: TaskDetail; onOpen: (id: string) => void; canEdit: boolean }) {
   const add = useAddRelation(task.id)
   const remove = useRemoveRelation(task.id)
   const [adding, setAdding] = useState(false)
@@ -26,7 +26,7 @@ export function Relations({ task, onOpen }: { task: TaskDetail; onOpen: (id: str
       <div className="detail-section-label">
         Relations {task.relations.length > 0 && <span className="muted">{task.relations.length}</span>}
         <span className="spacer" />
-        {!adding && <button className="btn ghost sm rel-add-btn" onClick={() => setAdding(true)}><Icon name="plus" size={12} />Add</button>}
+        {canEdit && !adding && <button className="btn ghost sm rel-add-btn" onClick={() => setAdding(true)}><Icon name="plus" size={12} />Add</button>}
       </div>
       {groups.map((g) => (
         <div key={g.k} className="rel-group">
@@ -34,14 +34,16 @@ export function Relations({ task, onOpen }: { task: TaskDetail; onOpen: (id: str
           {g.items.map((r) => (
             <div key={r.id} className="relation">
               <Icon name={r.other_done ? 'check' : 'link'} size={13} className="muted" />
-              <button className={'linkish rel-title truncate' + (r.other_done ? ' muted strike' : '')} onClick={() => onOpen(r.other_id)} title={r.other_name}>{r.other_name}</button>
-              <button className="btn ghost icon sm rel-del" onClick={() => remove.mutate(r)} aria-label={`Remove relation to "${r.other_name}"`} title="Remove"><Icon name="x" size={12} /></button>
+              {r.other_visible === false
+                ? <span className="rel-title truncate muted" title="You can't open this task">{r.other_name}</span>
+                : <button className={'linkish rel-title truncate' + (r.other_done ? ' muted strike' : '')} onClick={() => onOpen(r.other_id)} title={r.other_name}>{r.other_name}</button>}
+              {canEdit && <button className="btn ghost icon sm rel-del" onClick={() => remove.mutate(r)} aria-label={`Remove relation to "${r.other_name}"`} title="Remove"><Icon name="x" size={12} /></button>}
             </div>
           ))}
         </div>
       ))}
-      {!adding && task.relations.length === 0 && <p className="muted xsmall">Link tasks that block, follow or duplicate this one.</p>}
-      {adding && (
+      {!adding && task.relations.length === 0 && <p className="muted xsmall">{canEdit ? 'Link tasks that block, follow or duplicate this one.' : 'No related tasks.'}</p>}
+      {adding && canEdit && (
         <div className="rel-form" onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), close())}>
           <div className="row">
             <select className="select rel-kind-select" value={kind} onChange={(e) => setKind(e.target.value as RelationKind)} aria-label="Relation kind">

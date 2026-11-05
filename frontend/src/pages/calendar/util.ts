@@ -48,8 +48,22 @@ export function rangeTitle(view: CalView, date: Date, days = 7): string {
   return `${fmtDate(start, { month: 'short', year: 'numeric' })} – ${fmtDate(last, { month: 'short', year: 'numeric' })}`
 }
 
+/** An all-day event's local days from its date-only fields ([start_date, end_date), end exclusive).
+ *  These are calendar dates, never converted from instants: in a browser outside the calendar's
+ *  zone the instants fall on other days. Null when the event isn't all-day or has no dates. */
+export function allDayRange(e: Pick<CalEvent, 'all_day' | 'start_date' | 'end_date'>): { first: Date; last: Date } | null {
+  if (!e.all_day || !e.start_date) return null
+  const first = parseDayKey(e.start_date)
+  return { first, last: e.end_date && e.end_date > e.start_date ? addDays(parseDayKey(e.end_date), -1) : first }
+}
+
+/** The local day key an event is filed under (its first day). */
+export const eventDayKey = (e: CalEvent) => (e.all_day && e.start_date ? e.start_date : dayKey(new Date(e.start)))
+
 /** All-day events and multi-day timed events cover every day they touch; [start, end) with end exclusive. */
 export function eventDays(e: CalEvent): { first: Date; last: Date } {
+  const dates = allDayRange(e)
+  if (dates) return dates
   const s = new Date(e.start)
   const first = startOfDay(s)
   if (!e.end) return { first, last: first }
@@ -74,10 +88,22 @@ export function eventsByDay(events: CalEvent[]): Map<string, CalEvent[]> {
     }
   }
   for (const list of map.values()) {
-    list.sort((a, b) => Number(b.all_day) - Number(a.all_day) || a.start.localeCompare(b.start) || a.name.localeCompare(b.name))
+    list.sort((a, b) => Number(b.all_day) - Number(a.all_day) || (a.all_day ? (a.start_date ?? '').localeCompare(b.start_date ?? '') : 0) || a.start.localeCompare(b.start) || a.name.localeCompare(b.name))
   }
   return map
 }
+
+/** Minutes past local midnight on the wall clock (0 before the day, 1440 after it). On a DST change
+ *  day the day is 23 or 25 hours long, so elapsed time since midnight would put events an hour off. */
+export function wallMin(t: number, dayStart: number, dayEnd: number): number {
+  if (t <= dayStart) return 0
+  if (t >= dayEnd) return 1440
+  const d = new Date(t)
+  return d.getHours() * 60 + d.getMinutes() + d.getSeconds() / 60
+}
+
+/** The local time `min` wall-clock minutes into `day` (the inverse of wallMin; 1440 = next midnight). */
+export const atWallMin = (day: Date, min: number) => new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, min)
 
 export interface Placed { event: CalEvent; startMin: number; endMin: number; col: number; cols: number }
 
@@ -94,8 +120,8 @@ export function layoutDay(events: CalEvent[], day: Date): Placed[] {
     .map((e) => {
       const s = new Date(e.start).getTime()
       const en = e.end ? new Date(e.end).getTime() : s
-      const startMin = Math.max(0, (s - dayStart) / 60000)
-      const endMin = Math.min(1440, (Math.max(en, s) - dayStart) / 60000)
+      const startMin = wallMin(s, dayStart, dayEnd)
+      const endMin = wallMin(Math.max(en, s), dayStart, dayEnd)
       return { event: e, startMin, endMin: Math.max(endMin, startMin + (e.end ? 20 : 30)), raw: [s, en] as const }
     })
     .filter((x) => x.raw[0] < dayEnd && (x.raw[1] > dayStart || x.raw[0] >= dayStart))

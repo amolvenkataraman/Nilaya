@@ -3,6 +3,7 @@
 import { Component, useSyncExternalStore, type ErrorInfo, type ReactNode } from 'react'
 import { type QueryClient, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../lib/api'
+import { SESSION_CACHE, ownerId } from '../lib/owner'
 import { Icon } from './Icon'
 
 // ---------------------------------------------------------------- per-section boundary
@@ -81,13 +82,13 @@ export function NetworkBanner() {
 }
 
 // ---------------------------------------------------------------- sessionStorage copy of the cache
-const STORE = 'app.qc.v1'
+const STORE = SESSION_CACHE
 const PERSIST = new Set(['me', 'tasks', 'calendar', 'notifications', 'habits', 'contacts', 'places'])
 const MAX_ENTRY = 150_000
 const MAX_TOTAL = 2_000_000
 let restoredAt = 0
 
-export function clearSavedCache() {
+function clearSavedCache() {
   try {
     sessionStorage.removeItem(STORE)
   } catch { /* ignore */ }
@@ -98,8 +99,9 @@ export function restoreCache(qc: QueryClient) {
   try {
     const raw = sessionStorage.getItem(STORE)
     if (!raw) return
-    const saved = JSON.parse(raw) as { at: number; q: [unknown[], unknown, number][] }
-    if (!saved?.q || Date.now() - saved.at > 6 * 3600_000) return clearSavedCache()
+    const saved = JSON.parse(raw) as { at: number; u?: string; q: [unknown[], unknown, number][] }
+    // Only the signed-in user's own copy (owner.ts wipes it on a new login or another user).
+    if (!saved?.q || Date.now() - saved.at > 6 * 3600_000 || !saved.u || saved.u !== ownerId()) return clearSavedCache()
     for (const [key, data, at] of saved.q) qc.setQueryData(key, data, { updatedAt: at })
     restoredAt = saved.at
   } catch {
@@ -130,11 +132,13 @@ export function persistCache(qc: QueryClient) {
       total += json.length
       out.push(`[${JSON.stringify(key)},${json},${q.state.dataUpdatedAt}]`)
     }
+    const u = ownerId()
+    if (!u) return // not known whose data this is yet: don't keep it
     const body = out.join(',')
     if (body === last) return // nothing new to write
     last = body
     try {
-      sessionStorage.setItem(STORE, `{"at":${Date.now()},"q":[${body}]}`)
+      sessionStorage.setItem(STORE, `{"at":${Date.now()},"u":${JSON.stringify(u)},"q":[${body}]}`)
     } catch { /* quota or blocked: just don't persist */ }
   }
   qc.getQueryCache().subscribe((e) => {

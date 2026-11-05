@@ -25,7 +25,7 @@ import { TasksSidebar, VIEWS, ViewMenu } from './Sidebar'
 import { ShortcutsDialog, useTaskKeys } from './Shortcuts'
 import { useSelection, type Selection } from './selection'
 import { plural, useBulkOps, useDeleteWithUndo, useHiddenTasks, useReorderTasks, useSaveView } from './api'
-import { boardParams, fitsList, nestTasks } from './util'
+import { boardParams, canEditTask as canEditTaskFor, fitsList, nestTasks } from './util'
 import './tasks.css'
 
 // Layouts other than the list load on demand.
@@ -440,7 +440,7 @@ export default function TasksPage() {
     try { localStorage.setItem(COLLAPSED_TASKS, JSON.stringify([...n].slice(-500))) } catch { /* ignore */ }
     return n
   })
-  const canEditTask = (t: Task) => !me || t.owner.id === me.id || (t.project_id ? (byId.get(t.project_id)?.role ?? 0) >= 1 : true)
+  const canEditTask = (t: Task) => canEditTaskFor(t, me, projects)
   // Rows are memoized (ListRow); their handlers go through this ref, so they always see the latest page state.
   const rowActs = useRef<RowActions>(null!)
   rowActs.current = {

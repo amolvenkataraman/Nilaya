@@ -7,6 +7,8 @@ import 'leaflet/dist/leaflet.css'
 import L from './leaflet-global'
 import { ApiError, get, post, safeHref } from '../../lib/api'
 import { photoSummaryQuery } from '../../lib/photoQueries'
+import { userKey } from '../../lib/owner'
+import { useMe } from '../../lib/queries'
 import { fmtDate, fmtTime } from '../../lib/dates'
 import type { Photo } from '../../lib/types'
 import { Icon } from '../../components/Icon'
@@ -199,33 +201,24 @@ export function GeoguessrPage() {
 }
 
 // ---------------------------------------------------------------- location entry
-// Map focus and presets from the classic page (your usual spots); presets save in one click.
-const FOCUS: { label: string; lat: number; lng: number; zoom: number }[] = [
-  { label: 'CC', lat: 43.6425662, lng: -79.3870568, zoom: 18 },
-  { label: 'TOR', lat: 43.6425662, lng: -79.3870568, zoom: 15 },
-  { label: 'UW', lat: 43.4722854, lng: -80.5448576, zoom: 17 },
-  { label: 'PSN', lat: 12.9715987, lng: 77.5945627, zoom: 18 },
-]
+// Map focus spots and one-click presets. The defaults are personal coordinates, so they come from the
+// server's settings (GET /photos/locate/presets), never from this bundle; your own edits stay in this
+// browser, per user.
 type Preset = { label: string; lat: number; lng: number }
-const DEFAULT_PRESETS: Preset[] = [
-  { label: 'CC', lat: 43.6425662, lng: -79.3870568 },
-  { label: 'V1', lat: 43.4722854, lng: -80.5448576 },
-  { label: 'LST', lat: 43.4722854, lng: -80.5448576 },
-  { label: 'CSC', lat: 43.4722854, lng: -80.5448576 },
-  { label: 'PSN', lat: 12.9715987, lng: 77.5945627 },
-  { label: 'SP', lat: 17.3850440, lng: 78.4866710 },
-  { label: 'MN', lat: 13.0826802, lng: 80.2707184 },
-]
+type Spots = { presets: Preset[]; focus: (Preset & { zoom: number })[] }
+const NO_SPOTS: Spots = { presets: [], focus: [] }
 const PRESETS_KEY = 'app.photos.locate.presets'
 const HEAT_KEY = 'app.photos.locate.heat'
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
-function readPresets(): Preset[] {
+/** Your saved presets, or null to use the server's defaults. */
+function readPresets(key: string | null): Preset[] | null {
+  if (!key) return null
   try {
-    const v = JSON.parse(localStorage.getItem(PRESETS_KEY) ?? '') as Preset[]
+    const v = JSON.parse(localStorage.getItem(key) ?? '') as Preset[]
     if (Array.isArray(v)) return v.filter((p) => typeof p.label === 'string' && Number.isFinite(p.lat) && Number.isFinite(p.lng)).slice(0, 30)
   } catch { /* defaults */ }
-  return DEFAULT_PRESETS
+  return null
 }
 
 interface Nominatim { lat: string; lon: string; display_name?: string; name?: string; boundingbox?: string[] }
@@ -364,10 +357,19 @@ export function LocatePage() {
   useHotkey((e) => e.key === 'Enter' && !skipKey(e), (e) => (e.preventDefault(), save()))
   useHotkey((e) => (e.key === 's' || e.key === 'S') && !skipKey(e), (e) => (e.preventDefault(), skip()))
 
-  const [presets, setPresetsState] = useState(readPresets)
-  const setPresets = (v: Preset[]) => {
-    setPresetsState(v)
-    try { localStorage.setItem(PRESETS_KEY, JSON.stringify(v)) } catch { /* ignore */ }
+  const spots = useQuery({ queryKey: ['photos', 'locate', 'presets'], queryFn: () => get<Spots>('photos/locate/presets'), staleTime: 60 * 60_000 }).data ?? NO_SPOTS
+  const meId = useMe().data?.id
+  const presetsKey = useMemo(() => userKey(PRESETS_KEY, meId), [meId])
+  const [saved, setSaved] = useState(() => readPresets(presetsKey))
+  useEffect(() => setSaved(readPresets(presetsKey)), [presetsKey])
+  const presets = saved ?? spots.presets
+  const setPresets = (v: Preset[] | null) => {
+    setSaved(v)
+    if (!presetsKey) return
+    try {
+      if (v) localStorage.setItem(presetsKey, JSON.stringify(v))
+      else localStorage.removeItem(presetsKey)
+    } catch { /* ignore */ }
   }
   const [naming, setNaming] = useState<string | null>(null)
   const years = useQuery(photoSummaryQuery<{ per_year: { year: number; count: number }[] }>()).data?.per_year ?? []
@@ -417,8 +419,8 @@ export function LocatePage() {
           }} />
           <div className="gg-tools">
             <div className="gg-tool-row" role="group" aria-label="Map focus">
-              <span className="xsmall muted">Focus</span>
-              {FOCUS.map((f) => <button key={f.label} className="btn sm" onClick={() => map.current?.setView([f.lat, f.lng], f.zoom)} title={`Zoom the map to ${f.label}`}>{f.label}</button>)}
+              <span className="xsmall muted">{spots.focus.length ? 'Focus' : 'Map'}</span>
+              {spots.focus.map((f) => <button key={f.label} className="btn sm" onClick={() => map.current?.setView([f.lat, f.lng], f.zoom)} title={`Zoom the map to ${f.label}`}>{f.label}</button>)}
               <button className={'btn sm' + (heat ? ' on' : '')} aria-pressed={heat} onClick={() => setHeat(!heat)} title="Where your photos already are">
                 <Icon name="layers" size={14} />{heat && points.isFetching ? 'Loading…' : heat ? 'Hide heatmap' : 'Heatmap'}
               </button>
@@ -444,8 +446,8 @@ export function LocatePage() {
                   <button className="btn sm">Add</button>
                 </form>
               )}
-              {presets !== DEFAULT_PRESETS && naming === null && (
-                <button className="btn ghost sm" onClick={() => setPresets(DEFAULT_PRESETS)} title="Back to the classic presets">Reset</button>
+              {saved !== null && naming === null && (
+                <button className="btn ghost sm" onClick={() => setPresets(null)} title="Back to the default presets">Reset</button>
               )}
             </div>
             <div className="gg-bar">

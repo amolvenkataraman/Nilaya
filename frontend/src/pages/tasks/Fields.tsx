@@ -130,10 +130,13 @@ function AssigneeList({ task: raw, save }: { task: TaskDetail; save: Save }) {
   const me = useMe().data
   const project = useProjects().data?.find((p) => p.id === task.project_id) as ProjectWithOwner | undefined
   const members = useMembers(task.project_id && !project?.is_inbox ? task.project_id : null)
+  // Who the server accepts (tasks.service.assignable_user_ids): the project's owner and members, just
+  // the creator for a loose task; people already assigned can stay.
   const people = new Map<string, UserBrief>()
-  if (me) people.set(me.username, { id: me.id, username: me.username, name: [me.first_name, me.last_name].filter(Boolean).join(' ') || me.username })
+  if (me && (task.project_id ? (project?.role ?? 0) >= 1 : task.owner.id === me.id))
+    people.set(me.username, { id: me.id, username: me.username, name: [me.first_name, me.last_name].filter(Boolean).join(' ') || me.username })
   if (project?.owner) people.set(project.owner.username, project.owner)
-  people.set(task.owner.username, task.owner)
+  if (!task.project_id) people.set(task.owner.username, task.owner)
   for (const a of task.assignees) people.set(a.username, a)
   for (const m of members.data ?? []) people.set(m.user.username, m.user)
   const names = task.assignees.map((a) => a.username)

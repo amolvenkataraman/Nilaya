@@ -9,9 +9,10 @@ import { Icon } from '../../components/Icon'
 import { useMediaQuery } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { get, post, safeHref } from '../../lib/api'
-import { dayKey, fmtDate, fmtTime, isSameDay, relTime } from '../../lib/dates'
+import { fmtDate, fmtTime, isSameDay, relTime } from '../../lib/dates'
 import type { CalEvent, Calendar, EventDetail } from '../../lib/types'
 import { Menu, MenuItem } from '../../components/ui'
+import { eventDayKey, eventDays } from './util'
 import { useDeleteEvent, useDuplicateEvent, useTaskFromEvent, useUpdateEvent, type Scope } from './api'
 
 const MEETING_RE = /https:\/\/[^\s<>"]*(meet\.google\.com|zoom\.us|teams\.microsoft\.com|whereby\.com|jit\.si)[^\s<>"]*/i
@@ -21,9 +22,10 @@ export function whenLine(e: CalEvent): string {
   const day = fmtDate(s, { weekday: 'long', month: 'long', day: 'numeric' })
   if (e.kind === 'deadline') return `Due ${day} at ${fmtTime(s)}`
   if (e.all_day) {
-    if (!e.end) return day
-    const last = new Date(new Date(e.end).getTime() - 1)
-    return isSameDay(s, last) ? day : `${fmtDate(s, { month: 'short', day: 'numeric' })} – ${fmtDate(last, { month: 'short', day: 'numeric' })}`
+    // By its calendar dates, not the instants (another zone's midnight is another day here).
+    const { first, last } = eventDays(e)
+    const fday = fmtDate(first, { weekday: 'long', month: 'long', day: 'numeric' })
+    return isSameDay(first, last) ? fday : `${fmtDate(first, { month: 'short', day: 'numeric' })} – ${fmtDate(last, { month: 'short', day: 'numeric' })}`
   }
   const en = e.end ? new Date(e.end) : null
   if (en && !isSameDay(s, en)) return `${fmtDate(s, { month: 'short', day: 'numeric' })}, ${fmtTime(s)} – ${fmtDate(en, { month: 'short', day: 'numeric' })}, ${fmtTime(en)}`
@@ -213,7 +215,7 @@ export function EventPeek({ event, calendar, anchor, onClose, onEdit }: {
           {row('calendar', <span className="row" style={{ gap: '0.375rem' }}><span className="dot" style={{ background: calendar?.colour || colour }} />{calendar?.name ?? 'Calendar'}{!canEdit && <span className="chip">View only</span>}</span>, 'cal')}
           <div className="peek-links">
             <a className="btn ghost sm" href={`/app${photosHref}`} onClick={(ev) => { ev.preventDefault(); navigate(photosHref) }}><Icon name="photo" size={13} />Photos from this event</a>
-            <a className="btn ghost sm" href={`/app/photos?date=${dayKey(new Date(e.start))}`} onClick={(ev) => { ev.preventDefault(); navigate(`/photos?date=${dayKey(new Date(e.start))}`) }}>This day</a>
+            <a className="btn ghost sm" href={`/app/photos?date=${eventDayKey(e)}`} onClick={(ev) => { ev.preventDefault(); navigate(`/photos?date=${eventDayKey(e)}`) }}>This day</a>
           {countdown && (
             <>
               <a className="btn ghost sm" href={`${countdown}start/`} target="_blank" rel="noopener noreferrer"><Icon name="clock" size={13} />{e.kind === 'deadline' ? 'Countdown' : 'Countdown to start'}</a>

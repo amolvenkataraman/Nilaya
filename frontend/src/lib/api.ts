@@ -1,6 +1,8 @@
 // Tiny typed client for the V2 JSON API (/api/v2/). Session-cookie auth; unsafe methods send
 // the CSRF token from the `csrftoken` cookie. A 401 sends the browser to the login page.
 
+import { signedOut } from './owner'
+
 export const API_BASE = '/api/v2'
 
 export class ApiError extends Error {
@@ -92,9 +94,7 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
     throw new ApiError(0, "Couldn't reach the server. Check your connection.")
   }
   if (res.status === 401) {
-    try {
-      sessionStorage.removeItem('app.qc.v1') // never keep a signed-out user's data around
-    } catch { /* ignore */ }
+    signedOut() // never keep a signed-out user's data around (a shared browser's next user)
     if (!redirecting) {
       redirecting = true
       window.location.assign(loginUrl())

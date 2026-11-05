@@ -16,7 +16,7 @@ import {
   DASH_AGENDA_DAYS, DASH_INBOX_LIMIT, DASH_TODAY_PARAMS, keys, useAgenda, useInbox, useInsights, useMe,
   useOverview, useProjects, useReadAll, useSetDone, useTasks,
 } from '../../lib/queries'
-import { dayKey, fmtDate, fmtLongDate, fmtTime, greeting, groupByDue, isSameDay, relTime, addDays, startOfDay, startOfWeek, weekdayName } from '../../lib/dates'
+import { coversDay, dayKey, fmtDate, fmtLongDate, fmtTime, greeting, groupByDue, isSameDay, placedStart, relTime, addDays, startOfDay, startOfWeek, weekdayName } from '../../lib/dates'
 import type { AgendaItem } from '../../lib/types'
 // Imported statically: a lazy card under Suspense made React 19 hold the fallback ~300 ms. Its data
 // is still fetched only when the card is near the viewport (WhenVisible).
@@ -62,7 +62,7 @@ export default function Dashboard() {
   const { openQuickAdd } = useGlobals()
 
   const todayItems = useMemo(
-    () => (agenda.data ?? []).filter((i) => i.kind !== 'todo' && (!i.start || isSameDay(new Date(i.start), now) || (i.end && new Date(i.end) > now && new Date(i.start) < now))),
+    () => (agenda.data ?? []).filter((i) => i.kind !== 'todo' && (i.kind === 'all_day' && i.start_date ? coversDay(i, now) : !i.start || isSameDay(new Date(i.start), now) || (i.end && new Date(i.end) > now && new Date(i.start) < now))),
     [agenda.data, now],
   )
   const left = todayItems.filter((i) => i.kind !== 'all_day' && i.start && new Date(i.end ?? i.start) > now).length
@@ -103,7 +103,7 @@ export default function Dashboard() {
         </header>
 
         <div className="dash-grid">
-          <Boundary className="a-agenda" label="the agenda"><AgendaCard className="a-agenda" items={todayItems} tomorrow={(agenda.data ?? []).filter((i) => i.kind !== 'todo' && i.start && new Date(i.start) >= startOfDay(addDays(now, 1)))} loading={agenda.isPending} error={agenda.data ? null : agenda.error} now={now} /></Boundary>
+          <Boundary className="a-agenda" label="the agenda"><AgendaCard className="a-agenda" items={todayItems} tomorrow={(agenda.data ?? []).filter((i) => i.kind !== 'todo' && i.start && new Date(placedStart(i)!) >= startOfDay(addDays(now, 1)))} loading={agenda.isPending} error={agenda.data ? null : agenda.error} now={now} /></Boundary>
           <Boundary className="a-tasks" label="tasks"><TasksCard className="a-tasks" /></Boundary>
           <Boundary className="a-week" label="this week"><WeekCard className="a-week" now={now} /></Boundary>
           <WhenVisible className="a-habits" title="Habits" rows={4}>
@@ -181,8 +181,8 @@ function AgendaCard({ items, tomorrow, loading, error, now, className }: {
             <div className="agenda-tomorrow">
               <div className="label">Next 7 days</div>
               {tomorrow.slice(0, 8).map((i, idx) => {
-                const d = new Date(i.start!)
-                const newDay = idx === 0 || !isSameDay(d, new Date(tomorrow[idx - 1].start!))
+                const d = new Date(placedStart(i)!)
+                const newDay = idx === 0 || !isSameDay(d, new Date(placedStart(tomorrow[idx - 1])!))
                 return (
                   <div key={i.kind + i.id} className="tomorrow-item">
                     <span className="tomorrow-day">{newDay ? (isSameDay(d, addDays(now, 1)) ? 'Tomorrow' : fmtDate(d, { weekday: 'short', day: 'numeric' })) : ''}</span>

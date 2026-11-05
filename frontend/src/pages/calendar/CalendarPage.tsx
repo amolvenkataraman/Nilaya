@@ -24,7 +24,7 @@ import { WeekView } from './WeekView'
 import { useUpdateCalendar, useUpdateEvent } from './api'
 import { CategoriesDialog } from './Categories'
 import { PersonDialog, SubscribeDialog } from './Sharing'
-import { eventsByDay, parseCalState, rangeTitle, stepDate, viewRange, type CalView } from './util'
+import { eventDayKey, eventsByDay, parseCalState, rangeTitle, stepDate, viewRange, type CalView } from './util'
 import './calendar.css'
 
 const FALLBACK = '#64748b'
@@ -281,7 +281,7 @@ function CalendarMain() {
       <EventSearch calendars={calendars.data} onPick={(e) => {
         setPeek({ event: e, anchor: null })
         // One URL update for both, so neither overwrites the other.
-        setParams((p) => { const n = new URLSearchParams(p); n.set('date', dayKey(new Date(e.start))); n.set('event', e.id); n.delete('new'); return n }, { replace: true })
+        setParams((p) => { const n = new URLSearchParams(p); n.set('date', eventDayKey(e)); n.set('event', e.id); n.delete('new'); return n }, { replace: true })
       }} />
       {!phone && viewSeg}
       {!phone && insightsBtn}

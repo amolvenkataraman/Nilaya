@@ -4,8 +4,9 @@ import { useQuery } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { useDebounced, useHotkey } from '../../components/ui'
 import { get } from '../../lib/api'
-import { addDays, dayKey, fmtDate, fmtTime, startOfDay } from '../../lib/dates'
+import { addDays, fmtDate, fmtTime, startOfDay } from '../../lib/dates'
 import type { CalEvent, Calendar } from '../../lib/types'
+import { eventDays } from './util'
 
 export function EventSearch({ calendars, onPick }: { calendars?: Calendar[]; onPick: (e: CalEvent) => void }) {
   const [open, setOpen] = useState(false)
@@ -53,7 +54,7 @@ export function EventSearch({ calendars, onPick }: { calendars?: Calendar[]; onP
         <ul className="ev-search-results" role="listbox">
           {items.length === 0 && <li className="muted small" style={{ padding: '0.5rem' }}>No events match "{q}".</li>}
           {items.map((e, i) => {
-            const s = new Date(e.start)
+            const s = e.all_day ? eventDays(e).first : new Date(e.start) // all-day: its calendar date
             return (
               <li key={e.id}>
                 <button role="option" aria-selected={i === active} className={i === active ? 'on' : ''} onMouseMove={() => setActive(i)} onClick={() => pick(e)}>
@@ -69,4 +70,3 @@ export function EventSearch({ calendars, onPick }: { calendars?: Calendar[]; onP
     </div>
   )
 }
-export const searchDateKey = (e: CalEvent) => dayKey(new Date(e.start))

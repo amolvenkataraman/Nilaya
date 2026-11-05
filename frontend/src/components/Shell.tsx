@@ -7,15 +7,21 @@ import { CommandPalette } from './CommandPalette'
 import { QuickAddDialog } from './QuickAdd'
 import { readCookie } from '../lib/api'
 import { NAV } from './nav'
-import { clearSavedCache } from './resilience'
+import { signedOut } from '../lib/owner'
+import { toast } from './toast'
 
+/** Sign out, then go to the login page. If it fails (offline, server down, CSRF) stay here and say so:
+ *  showing the login page while the session is still signed in would mislead on a shared computer. */
 export async function logout() {
-  clearSavedCache()
+  let ok = false
   try {
-    await fetch('/accounts/logout/', { method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': readCookie('csrftoken') } })
-  } finally {
-    window.location.assign('/accounts/login/')
-  }
+    // The server answers a logout with a redirect to the login page; anything else didn't sign out.
+    const res = await fetch('/accounts/logout/', { method: 'POST', credentials: 'same-origin', redirect: 'manual', headers: { 'X-CSRFToken': readCookie('csrftoken') } })
+    ok = res.type === 'opaqueredirect' || (res.status >= 300 && res.status < 400)
+  } catch { /* network error */ }
+  if (!ok) return void toast.error("Couldn't log out. Check your connection and try again; you're still signed in.")
+  signedOut()
+  window.location.assign('/accounts/login/')
 }
 
 export function usePageTitle(title: string) {
