@@ -41,6 +41,7 @@ export function parseQuick(input, now = new Date()) {
     });
 
     let day = null, clock = null;
+    const tonight = /\btonight\b/i.test(text);  // checked before the word is stripped (matches the server)
     const setTime = (m) => {
         let hr = +m[1];
         const mn = +(m[2] || 0), ap = (m[3] || "").toLowerCase();
@@ -85,7 +86,7 @@ export function parseQuick(input, now = new Date()) {
 
     if (!day && clock) day = (clock[0] * 60 + clock[1] > now.getHours() * 60 + now.getMinutes()) ? today : plus(1);
     if (day) {
-        const [hr, mn] = clock || [23, 59];
+        const [hr, mn] = clock || (tonight ? [20, 0] : [23, 59]);
         out.due = new Date(day.getFullYear(), day.getMonth(), day.getDate(), hr, mn);
     }
     if (out.repeatMode && !out.due) out.due = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59);

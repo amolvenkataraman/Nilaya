@@ -194,6 +194,7 @@ def parse_quick_add(text, tz, now=None):
     take(r'\b(?:(every)\s+(\d+\s+)?(min(?:ute)?s?|hours?|days?|weeks?|months?|years?)|(daily|weekly|monthly|yearly))\b', repeat)
 
     day, clock = None, None
+    tonight = bool(re.search(r"\btonight\b", text, re.I))  # checked before the word is stripped
 
     def set_time(m):
         nonlocal clock
@@ -265,7 +266,7 @@ def parse_quick_add(text, tz, now=None):
     if day is None and clock is not None:
         day = today if clock > (now.hour, now.minute) else today + datetime.timedelta(days=1)
     if day is not None:
-        h, mnt = clock if clock else ((20, 0) if re.search(r"tonight", text, re.I) else (23, 59))
+        h, mnt = clock if clock else ((20, 0) if tonight else (23, 59))
         out["due"] = tz.localize(datetime.datetime.combine(day, datetime.time(h, mnt))) if hasattr(tz, "localize") \
             else datetime.datetime.combine(day, datetime.time(h, mnt), tzinfo=tz)
     if out["repeat_mode"] and out["due"] is None:

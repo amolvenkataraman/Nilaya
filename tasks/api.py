@@ -52,6 +52,7 @@ class ProjectOut(Schema):
     default_view: str
     role: int
     shared: bool
+    owner: UserBrief
     open_count: int = 0
 
 
@@ -251,6 +252,8 @@ class TaskIn(Schema):
     colour: str = Field("", pattern=HEX)
     reminders: list[ReminderIn] = []
     position: Optional[float] = None
+    percent: int = Field(0, ge=0, le=100)
+    time_spent: int = Field(0, ge=0)
 
 
 class TaskPatch(Schema):
@@ -372,7 +375,7 @@ def _project(user, project_id, role=ProjectMember.Role.READ):
 def _project_out(p, user, counts):
     return {**{f: getattr(p, f) for f in ("id", "parent_id", "name", "description", "colour", "is_inbox",
                                           "archived", "favorite", "position", "default_view")},
-            "role": svc.project_role(user, p), "shared": p.owner_id != user.id or p.members.exists(),
+            "role": svc.project_role(user, p), "shared": p.owner_id != user.id or p.members.exists(), "owner": p.owner,
             "open_count": counts.get(p.id, 0)}
 
 
@@ -391,9 +394,7 @@ def _apply_task(user, t, data):
         if key in data:
             setattr(t, field, _clean(data[key]) if key == "title" else data[key])
     if "description" in data:
-        t.description = bleach.clean(data["description"] or "", tags=["b", "i", "strong", "em", "a", "ul", "ol", "li",
-                                                                     "p", "br", "code", "pre", "blockquote", "h3", "h4"],
-                                     attributes={"a": ["href"]}, strip=True)
+        t.description = _clean(data["description"])  # plain text; the UIs render it as text
     if "parent_id" in data:
         if data["parent_id"] is None:
             t.parent = None
@@ -433,7 +434,7 @@ def _set_m2m(user, t, data):
 
 
 def _filter(qs, user, *, view="", project=None, label="", priority_min=None, q="", done=None,
-            due_before=None, due_after=None, parent=None, top_level=False, assignee=""):
+            due_before=None, due_after=None, parent=None, top_level=False, assignee="", done_after=None):
     now = timezone.now()
     tz = pytz.timezone(user.timezone) if user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
     end_today = timezone.localtime(now, tz).replace(hour=23, minute=59, second=59)
@@ -477,6 +478,8 @@ def _filter(qs, user, *, view="", project=None, label="", priority_min=None, q="
         qs = qs.filter(parent__isnull=True)
     if assignee:
         qs = qs.filter(assignees__username=assignee)
+    if done_after:
+        qs = qs.filter(completed_on__gte=done_after)
     return qs
 
 
@@ -506,7 +509,7 @@ def overview(request):
 @router.get("/projects", response=list[ProjectOut])
 def list_projects(request, include_archived: bool = False):
     svc.ensure_inbox(request.user)
-    qs = svc.accessible_projects(request.user).prefetch_related("members")
+    qs = svc.accessible_projects(request.user).select_related("owner").prefetch_related("members")
     if not include_archived:
         qs = qs.filter(archived=False)
     counts = dict(Todo.objects.filter(project__in=qs, completed=False).values_list("project").annotate(n=Count("id")))
@@ -689,13 +692,13 @@ def list_tasks(request, view: Literal["", "today", "upcoming", "overdue", "nodat
                project: Optional[uuid.UUID] = None, label: str = "", priority_min: Optional[int] = None, q: str = "",
                done: Optional[bool] = None, due_before: Optional[datetime.datetime] = None,
                due_after: Optional[datetime.datetime] = None, parent: Optional[uuid.UUID] = None,
-               top_level: bool = False, assignee: str = "",
+               top_level: bool = False, assignee: str = "", done_after: Optional[datetime.datetime] = None,
                sort: Literal["position", "due", "priority", "created", "updated", "title", "done"] = "position",
                limit: int = 500, offset: int = 0):
     svc.ensure_inbox(request.user)
     qs = _filter(_tasks_qs(request.user), request.user, view=view, project=project, label=label,
                  priority_min=priority_min, q=q, done=done, due_before=due_before, due_after=due_after,
-                 parent=parent, top_level=top_level, assignee=assignee)
+                 parent=parent, top_level=top_level, assignee=assignee, done_after=done_after)
     total = qs.count()
     order = SORTS[sort]
     if sort == "due":
@@ -803,7 +806,7 @@ def move_task(request, task_id: uuid.UUID, payload: MoveIn):
     if bucket and bucket.project_id != (project.id if project else t.project_id):
         raise HttpError(400, "That column is in another project")
     if bucket and bucket.limit and not bucket.is_done and bucket.id != t.bucket_id and \
-            Todo.objects.filter(bucket=bucket, completed=False).count() >= bucket.limit:
+            Todo.objects.filter(bucket=bucket, completed=False, parent__isnull=True).count() >= bucket.limit:
         raise HttpError(400, f"\"{bucket.name}\" is at its limit of {bucket.limit}")
     svc.move(t, project=project, bucket=bucket, position=payload.position)
     return _task(request.user, t.id)

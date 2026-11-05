@@ -25,6 +25,7 @@ class QuickAddTests(TestCase):
             "Ship at 8pm": ("Ship", "2026-11-05 20:00", [], None, None, 0, None),  # past today -> tomorrow
             "Gym every 2 days": ("Gym", "2026-11-04 23:59", [], None, None, 1, 172800),
             "Just a title": ("Just a title", None, [], None, None, 0, None),
+            "Call grandma tonight": ("Call grandma", "2026-11-04 20:00", [], None, None, 0, None),
         }
         for text, (title, due, labels, project, prio, mode, every) in cases.items():
             with self.subTest(text=text):
@@ -50,6 +51,13 @@ class TaskApiTests(TestCase):
         inbox = self.client.get("/api/v2/tasks/overview").json()["inbox_id"]
         self.assertEqual(str(Todo.objects.get().project_id), inbox)
 
+    def test_done_after_filter(self):
+        t = self.post("", {"title": "Ship it", "percent": 40, "time_spent": 30}).json()
+        self.assertEqual((t["percent"], t["time_spent"]), (40, 30))
+        self.post(f"{t['id']}/done")
+        self.assertEqual(self.client.get("/api/v2/tasks/?done=true&done_after=2000-01-01T00:00:00Z").json()["total"], 1)
+        self.assertEqual(self.client.get("/api/v2/tasks/?done=true&done_after=2999-01-01T00:00:00Z").json()["total"], 0)
+
     def test_repeating_task_moves_forward_and_stays_open(self):
         due = "2026-11-04T09:00:00+00:00"
         t = self.post("", {"title": "Water plants", "due": due, "repeat_mode": 1, "repeat_every": 86400}).json()
@@ -68,10 +76,15 @@ class TaskApiTests(TestCase):
         self.client.patch(f"/api/v2/tasks/buckets/{doing['id']}", {"limit": 1}, content_type="application/json")
         self.assertEqual(self.post(f"{a['id']}/move", {"bucket_id": doing["id"]}).status_code, 200)
         self.assertEqual(self.post(f"{b['id']}/move", {"bucket_id": doing["id"]}).status_code, 400)
+        self.post("", {"title": "sub", "project_id": p["id"], "parent_id": a["id"], "bucket_id": doing["id"]})
+        self.client.patch(f"/api/v2/tasks/buckets/{doing['id']}", {"limit": 2}, content_type="application/json")
+        self.assertEqual(self.post(f"{b['id']}/move", {"bucket_id": doing["id"]}).status_code, 200)  # subtasks don't count
 
     def test_sharing_roles(self):
         p = self.post("projects", {"name": "Family"}).json()
-        t = self.post("", {"title": "Groceries", "project_id": p["id"]}).json()
+        self.assertEqual(p["owner"]["username"], "own")
+        t = self.post("", {"title": "Groceries", "project_id": p["id"], "description": "<b>milk</b> & eggs"}).json()
+        self.assertEqual(t["description"], "milk &amp; eggs")
         self.client.force_login(self.other)
         self.assertEqual(self.client.get(f"/api/v2/tasks/{t['id']}").status_code, 404)
         self.post(f"projects/{p['id']}/members", {"username": "oth", "role": 0}, user=self.owner)
