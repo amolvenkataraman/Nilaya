@@ -5,7 +5,9 @@ from pathlib import Path
 from django.db import models, connection
 from django.contrib.postgres.indexes import GinIndex
 from users.models import *
-from Comptech.settings import SALT
+from django.conf import settings
+from django.conf import settings as _settings
+SALT = _settings.SALT
 from GPSPhoto import gpsphoto
 import reverse_geocode as rg
 import exiftool
@@ -152,8 +154,8 @@ class Photo(models.Model):
     focallength = models.CharField(max_length=32, null=True, blank=True)
 
     # last_ai_processed = models.DateTimeField(auto_now=False, null=True, blank=True)
-    metadata = models.JSONField(default={}, null=True, blank=True)
-    ai_index_info = models.JSONField(default={}, null=True, blank=True)
+    metadata = models.JSONField(default=dict, null=True, blank=True)
+    ai_index_info = models.JSONField(default=dict, null=True, blank=True)
     file_not_available = models.BooleanField(default=False)
 
     # Duplicate detection — stored as flat columns for fast DB-level lookups
@@ -189,7 +191,7 @@ class Photo(models.Model):
         return False
 
     def get_path(self):
-        return str(self.album.location.replace("/mnt/data/Photos/", "") + self.filepath)
+        return str(self.album.location.replace(settings.PHOTOS_ROOT, "") + self.filepath)
 
     def get_filepath(self):
         return str(self.album.location + self.filepath)
@@ -495,7 +497,7 @@ class Photo(models.Model):
         self.save()
 
     def regen_hashes(self):
-        fp = (self.album.location + self.filepath + SALT).replace("/mnt/data/Photos/", "")
+        fp = (self.album.location + self.filepath + SALT).replace(settings.PHOTOS_ROOT, "")
         fp1 = f"photo_cache/thumbnail/{self.id}.webp{SALT}"
         hash_ = hashlib.md5(fp.encode('utf-8')).hexdigest()
         hash1_ = hashlib.md5(fp1.encode('utf-8')).hexdigest()
@@ -514,13 +516,13 @@ class Photo(models.Model):
                     img = Image.open(u)               
                     img = ImageOps.exif_transpose(img)
                     img.thumbnail((500, 200), Image.Resampling.LANCZOS)
-                    img.save('/www/private/photo_cache/thumbnail/' + str(self.id) + '.webp', "WEBP", quality=85)
+                    img.save(settings.THUMBNAIL_DIR + str(self.id) + '.webp', "WEBP", quality=85)
 
                 else:
-                    self.width, self.height, self.length, self.framerate = generate_video_thumbnail(self.album.location + self.filepath, '/www/private/photo_cache/thumbnail/', self.id)
+                    self.width, self.height, self.length, self.framerate = generate_video_thumbnail(self.album.location + self.filepath, settings.THUMBNAIL_DIR, self.id)
 
             # Open the saved thumbnail and get dimensions
-            thumb = Image.open('/www/private/photo_cache/thumbnail/' + str(self.id) + '.webp')
+            thumb = Image.open(settings.THUMBNAIL_DIR + str(self.id) + '.webp')
             self.thumbnail_width = thumb.size[0]
             self.thumbnail_height = thumb.size[1]
             
@@ -668,7 +670,7 @@ def generate_video_thumbnail(video_path, output_path, video_id):
 
 def delete_photo(p):
     try:
-        os.remove('/www/private/photo_cache/thumbnail/' + str(p.id) + '.webp')
+        os.remove(settings.THUMBNAIL_DIR + str(p.id) + '.webp')
     except FileNotFoundError: pass
 
     try:
@@ -716,5 +718,9 @@ class PhotoLocationCache(models.Model):
         unique_together = ['album_id', 'lat', 'lng', 'on_plane', 'dt_year', 'cnt']
 
 def refresh_photo_location_cache():
+    # Postgres: a materialized view (photos/sql/photo_location_cache.sql) that needs
+    # refreshing. SQLite (local testing): a plain view (migration 0022), always current.
+    if connection.vendor != 'postgresql':
+        return
     with connection.cursor() as cursor:
         cursor.execute('REFRESH MATERIALIZED VIEW photos_photo_location_cache;')

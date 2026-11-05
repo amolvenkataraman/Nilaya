@@ -23,6 +23,11 @@ crispy-bootstrap4
 reverse_geocode
 PyExifTool
 
+pytz             # used directly in scheduler/photos (no longer pulled in by Django)
+python-dateutil  # scheduler/sync.py
+
 # AI indexing
-imagehash        # pHash perceptual duplicate detection
-pybktree         # BK-tree for sub-linear near-duplicate lookup at scale
+ultralytics      # photos/AI/objects.py (object detection)
+
+# Only needed by one-off tools in scripts/
+# gpxpy

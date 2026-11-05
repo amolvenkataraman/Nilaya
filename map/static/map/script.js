@@ -1,3 +1,14 @@
+// Escape user-controlled text before interpolating it into innerHTML
+function esc(value) {
+    if (value === null || value === undefined) return "";
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
 /**
  * Map Application Javascript
  * Organised, modularised, and cleaned up version of the map app script.
@@ -93,7 +104,7 @@ const MapApp = {
                         await this.fetchLocationsForGroup(data.group);
                     }
                 } else {
-                    alert('Error saving location: ' + res.message);
+                    alert('Error saving location: ' + res.data);
                 }
             } catch (error) {
                 console.error('Error saving location:', error);
@@ -121,7 +132,7 @@ const MapApp = {
                         }
                     }
                 } else {
-                    alert('Error deleting location: ' + res.message);
+                    alert('Error deleting location: ' + res.data);
                 }
             } catch (error) {
                 console.error('Error deleting location:', error);
@@ -144,7 +155,7 @@ const MapApp = {
                     MapApp.UI.closeGroupModal();
                     await this.fetchLocationGroups();
                 } else {
-                    alert('Error creating group: ' + res.message);
+                    alert('Error creating group: ' + res.data);
                 }
             } catch (error) {
                 console.error('Error creating group:', error);
@@ -255,10 +266,10 @@ const MapApp = {
                 
                 popupDiv.innerHTML = `
                     <div class="popup-icon">${icon}</div>
-                    <strong>${location.name}</strong><br>
-                    <span class="text-muted" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">${location.category}</span><br>
-                    ${location.description ? `<div class="popup-desc">${location.description}</div>` : ''}
-                    ${location.address ? `<div class="popup-addr">${location.address}</div>` : ''}
+                    <strong>${esc(location.name)}</strong><br>
+                    <span class="text-muted" style="font-size: 0.75rem; text-transform: uppercase; font-weight: 600; letter-spacing: 0.05em;">${esc(location.category)}</span><br>
+                    ${location.description ? `<div class="popup-desc">${esc(location.description)}</div>` : ''}
+                    ${location.address ? `<div class="popup-addr">${esc(location.address)}</div>` : ''}
                     ${location.rating ? `<div class="popup-rating">${starRating}</div>` : ''}
                     <div class="popup-actions-row">
                         <button class="btn btn-sm btn-outline-secondary edit-popup-btn">✏️ Edit</button>
@@ -548,7 +559,7 @@ const MapApp = {
             results.forEach(result => {
                 const div = document.createElement('div');
                 div.className = 'search-result-item';
-                div.innerHTML = `${result.display_name}`;
+                div.textContent = result.display_name;
                 
                 div.addEventListener('click', () => {
                     const location = {
@@ -615,7 +626,7 @@ const MapApp = {
                 div.innerHTML = `
                     <div class="group-header">
                         <div>
-                            <strong>${group.name}</strong>
+                            <strong>${esc(group.name)}</strong>
                             ${group.is_public ? '🌍' : '🔒'}
                         </div>
                         <label>
@@ -649,8 +660,8 @@ const MapApp = {
             const icons = MapApp.Config.categoryIcons;
             groupDiv.innerHTML = locations.map(location => `
                 <div class="location-marker">
-                    ${icons[location.category] || icons['other']} &nbsp; ${location.name}
-                    <span class="category-badge">${location.category}</span>
+                    ${icons[location.category] || icons['other']} &nbsp; ${esc(location.name)}
+                    <span class="category-badge">${esc(location.category)}</span>
                     <div class="location-actions">
                         <button class="action-btn edit-location" data-location-json='${encodeURIComponent(JSON.stringify(location))}'>✏️</button>
                         <button class="action-btn delete-location" data-id="${location.id}">🗑️</button>

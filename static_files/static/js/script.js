@@ -7,10 +7,27 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
+// Escape user-controlled text before interpolating it into innerHTML
+function escapeHtml(value) {
+    if (value === null || value === undefined) return "";
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
+}
+
+// CSRF token for POST requests from any page (read from Django's cookie).
+function csrfToken() {
+    return decodeURIComponent((document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1] || "");
+}
+
 function toggle_dark_mode() {
     r = new XMLHttpRequest();
-    r.open("POST", "{% url 'dark_mode' %}");
-    r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
+    // Static file: Django template tags are not rendered here, so use the literal route.
+    r.open("POST", "/accounts/darkmode/");
+    r.setRequestHeader("X-CSRFToken", csrfToken());
     r.onload = () => {window.location.reload();}
     r.send();
 }

@@ -1,4 +1,5 @@
 {% extends "photos/photos_base.html" %}
+{% load static %}
 
 {% block page_title %} Statistics {% endblock %}
 
@@ -184,7 +185,7 @@
 
 {% block extra_scripts %}
 <!-- Load Chart.js from CDN -->
-<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="{% static 'vendor/chartjs-4.6.1/chart.umd.min.js' %}"></script>
 <script>
     document.addEventListener("DOMContentLoaded", function() {
         const isDarkMode = {% if request.user.dark_mode %}true{% else %}false{% endif %};

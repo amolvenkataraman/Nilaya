@@ -23,16 +23,32 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/3.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'secret.txt')).read().rstrip()
-DB_PASSWORD = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'db_password.txt')).read().rstrip()
-SALT = open(os.path.join(BASE_DIR, 'Comptech' + str(os.sep) + 'salt.txt')).read().rstrip()
+# Secrets live in Comptech/ on the server; local dev points elsewhere (localdev/).
+SECRETS_DIR = Path(os.environ.get("COMPTECH_SECRETS_DIR", BASE_DIR / "Comptech"))
+
+def _read_secret(name, required=True):
+    path = SECRETS_DIR / name
+    if not required and not path.exists():
+        return ""
+    return path.read_text().rstrip()
+
+SECRET_KEY = _read_secret('secret.txt')
+DB_PASSWORD = _read_secret('db_password.txt', required=False)  # unused with SQLite
+SALT = _read_secret('salt.txt')
+
+# ---- Filesystem layout (server defaults; settings_local.py overrides all of these)
+PHOTOS_ROOT = '/mnt/data/Photos/'          # albums live under here; nginx /photo_cdn/ aliases it
+PRIVATE_ROOT = '/www/private/'             # nginx /private/ aliases it (thumbnail cache, ...)
+THUMBNAIL_DIR = PRIVATE_ROOT + 'photo_cache/thumbnail/'
+UPLOADS_DIR = PHOTOS_ROOT + 'Uploads/'
+SERVE_FILES_WITH_DJANGO = False            # True only for local testing (no nginx)
+PHOTOS_INGEST_HARDLINK = False             # local testing: hardlink instead of copy on ingest
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False # True in development, False in production
 
 ONLINE_MODE = True # Change to False to disable all external requests
 
-ALLOWED_HOSTS = ['*']
 
 INTERNAL_IPS = ['127.0.0.1', '192.168.50.11']
 
@@ -72,8 +88,13 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'django.contrib.messages.middleware.MessageMiddleware'
+    'django.contrib.messages.middleware.MessageMiddleware',
+    'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# Other sites can't frame us (clickjacking); our own pages can (the calendar shows
+# a day's / an event's photos in an iframe).
+X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 ROOT_URLCONF = 'Comptech.urls'
 
@@ -109,17 +130,8 @@ DATABASES = {
         'HOST': '127.0.0.1',
         'PORT': '5432',
     },
-    # 'chat_db': {
-    #     'ENGINE': 'django.db.backends.postgresql_psycopg2',
-    #     'NAME': 'chat',
-    #     'USER': 'postgres',
-    #     'PASSWORD': DB_PASSWORD,
-    #     'HOST': '127.0.0.1',
-    #     'PORT': '5432',
-    # }
 }
 
-# DATABASE_ROUTERS = ['chat.routers.ChatRouter']
 
 CHANNEL_LAYERS = {
     'default': {
@@ -152,6 +164,10 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = 'users.ComptechUser'
 
 CSRF_TRUSTED_ORIGINS = ['http://192.168.50.11', 'https://192.168.50.11', 'http://app.home.lan', 'https://app.home.lan', 'https://app.example.com', 'https://lab.example.com']
+# Hosts this site answers to: the ones above plus localhost (was '*', which
+# accepted any Host header). Add a hostname to CSRF_TRUSTED_ORIGINS to allow it.
+from urllib.parse import urlsplit as _urlsplit
+ALLOWED_HOSTS = sorted({_urlsplit(o).hostname for o in CSRF_TRUSTED_ORIGINS} | {'localhost', '127.0.0.1'})
 
 # Internationalization
 # https://docs.djangoproject.com/en/3.1/topics/i18n/
@@ -198,7 +214,7 @@ CELERY_TASK_DEFAULT_QUEUE = "Comptech"
 CELERY_BROKER_URL = "redis://localhost:6379/1"
 CELERY_RESULT_BACKEND = "redis://localhost:6379/1"
 CELERY_TIMEZONE = TIME_ZONE
-CELERY_ACCEPT_CONTENT = ['json', 'application/x-python-serialize']
+CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 

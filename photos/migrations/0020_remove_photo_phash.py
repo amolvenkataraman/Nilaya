@@ -2,6 +2,8 @@
 
 from django.db import migrations, models
 
+from Comptech.db_compat import PostgresOnly
+
 
 class Migration(migrations.Migration):
 
@@ -23,14 +25,14 @@ class Migration(migrations.Migration):
                 ),
             ],
             database_operations=[
-                migrations.RunSQL(
+                PostgresOnly(migrations.RunSQL(
                     sql='''
                         ALTER TABLE "photos_photo" DROP COLUMN IF EXISTS "phash" CASCADE;
                         DROP INDEX IF EXISTS "photos_photo_md5_hash_e3df9f44";
                         DROP INDEX IF EXISTS "photos_photo_md5_hash_e3df9f44_like";
                     ''',
                     reverse_sql=migrations.RunSQL.noop
-                )
+                ))
             ]
         )
     ]

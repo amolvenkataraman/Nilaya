@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse, FileResponse
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
+from django.utils import timezone
 from photos.models import *
 from photos.models import _reverse_geocode_city
 from django.db.models import Q
@@ -59,6 +60,17 @@ def _extract_date_taken(filepath) -> datetime.datetime:
 
 import re
 
+def _place(src, dest):
+    """Copy a file into the library (server). Local testing hardlinks instead:
+    instant, no extra disk, and nothing in the app writes library files in place."""
+    if getattr(settings, 'PHOTOS_INGEST_HARDLINK', False):
+        try:
+            os.link(src, dest)
+            return
+        except OSError:
+            pass  # different filesystem: fall back to a copy
+    shutil.copy2(src, dest)
+
 def make_naive(dt):
     if dt is None:
         return None
@@ -67,10 +79,10 @@ def make_naive(dt):
     return dt
 
 def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
-    SOURCE_DIR = album.location + "Ingest/**"
     DEST_DIR = album.location
-    
-    all_files = list(glob.glob(f"{SOURCE_DIR}/*.*"))
+
+    # Everything under Ingest/, at any depth (previously only files exactly one folder down).
+    all_files = list(glob.glob(f"{album.location}Ingest/**/*.*", recursive=True))
     normal_extensions = ["jpg", "jpeg", "png", "mp4", "mpg", "m4v", "mov", "mod", "avi", "3gp", "mkv", "gif", "heic"]
     raw_extensions = ["dng", "cr2", "cr3", "nef", "arw", "srw", "orf", "rw2", "raf", "pef", "3fr", "erf", "mef", "mos", "crw", "kdc", "sr2", "x3f", "mrw"]
     
@@ -128,7 +140,7 @@ def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
             continue
         
         print(f"  -> Ingesting new file: {basename} -> {dest_path}")
-        shutil.copy2(ff, dest_path)
+        _place(ff, dest_path)
 
         p = Photo()
         p.owner = user
@@ -137,7 +149,9 @@ def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
         p.video = (ff.split('.')[-1].lower() in ['mp4', 'mpg', 'm4v', 'mov', 'mod', 'avi', '3gp', 'mkv'])
         
         try:
-            p.date_taken = dt
+            # EXIF/filename dates are local wall time: store them as such, explicitly
+            # (Django did the same implicitly, with a warning per photo).
+            p.date_taken = timezone.make_aware(dt) if timezone.is_naive(dt) else dt
         except Exception:
             pass
 
@@ -195,7 +209,7 @@ def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
             
         print(f"  -> Associating RAW file {raw_base_name} with Photo ID {chosen_photo.id}")
         os.makedirs(os.path.dirname(dest_raw_path), exist_ok=True)
-        shutil.copy2(raw_filepath, dest_raw_path)
+        _place(raw_filepath, dest_raw_path)
         
         chosen_photo.raw_filepath = os.path.relpath(dest_raw_path, chosen_photo.album.location)
         chosen_photo.update_file_sizes()

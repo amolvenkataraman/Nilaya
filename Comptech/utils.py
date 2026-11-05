@@ -1,5 +1,6 @@
 from django.db import models
 from django.http import JsonResponse
+import logging
 import random
 import string
 import secrets
@@ -11,6 +12,11 @@ def success_response(message: str="OK"):
 # Return an error response in JSON format
 def error_response(message: str, code: int=400):
     return JsonResponse({"status": "error", "data": message}, status=code)
+
+def server_error(ex: Exception):
+    """Log the full traceback server-side; never send exception details to the client."""
+    logging.getLogger("comptech").error("Unhandled %s", type(ex).__name__, exc_info=ex)
+    return error_response("Something went wrong on the server.", 500)
 
 # Return a string of random characters of a desired length
 def random_characters(length: int=32):
