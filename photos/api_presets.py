@@ -1,7 +1,8 @@
 """/api/v2/photos/locate/presets: the location-entry page's default spots, from settings.
 
-They are personal coordinates, so they live in the deployment's settings, not in the code or the
-public JS bundle. Both settings are optional lists (empty by default):
+They are personal coordinates, so they live outside the code and the public JS bundle: settings.py
+reads them from the untracked secrets file Comptech/photos_locate.json, {"presets": [...], "focus": [...]},
+into these two settings (empty by default):
 
     PHOTOS_LOCATE_PRESETS = [{"label": "Home", "lat": 43.65, "lng": -79.38}, ...]   # one-click save
     PHOTOS_LOCATE_FOCUS = [{"label": "TOR", "lat": 43.65, "lng": -79.38, "zoom": 15}, ...]  # map focus

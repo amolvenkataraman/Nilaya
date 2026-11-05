@@ -13,6 +13,7 @@ google_api_key.txt
 uwaterloo_api_key.txt
 db_password.txt
 salt.txt
+photos_locate.json
 nohup.out
 celerybeat-schedule.db
 data.json

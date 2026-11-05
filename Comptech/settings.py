@@ -36,6 +36,16 @@ SECRET_KEY = _read_secret('secret.txt')
 DB_PASSWORD = _read_secret('db_password.txt', required=False)  # unused with SQLite
 SALT = _read_secret('salt.txt')
 
+# Location-entry tool spots (photos/api_presets.py): personal coordinates stay out of the repo, in an
+# untracked JSON file next to the secrets: {"presets": [{label, lat, lng}], "focus": [{label, lat, lng, zoom}]}
+try:
+    import json as _json
+    _spots = _json.loads(_read_secret('photos_locate.json', required=False) or '{}')
+except ValueError:
+    _spots = {}
+PHOTOS_LOCATE_PRESETS = _spots.get('presets', [])
+PHOTOS_LOCATE_FOCUS = _spots.get('focus', [])
+
 # ---- Filesystem layout (server defaults; settings_local.py overrides all of these)
 PHOTOS_ROOT = '/mnt/data/Photos/'          # albums live under here; nginx /photo_cdn/ aliases it
 PRIVATE_ROOT = '/www/private/'             # nginx /private/ aliases it (thumbnail cache, ...)

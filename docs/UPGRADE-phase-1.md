@@ -36,6 +36,8 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 - **Privacy fixes**: other people's private events show only as "Busy" in your ICS feed, in tasks made from events, and in insights' top locations.
 - **Calendar invites** that grant admin can only be changed or deleted by the calendar's owner.
 - **Tasks**: someone made read-only in (or removed from) a project can no longer edit the tasks they created there; undoing a repeating task's completion moves its dates back; priority 0 shows as "None".
+- **Places**: everyone's map looks empty at first (existing groups start hidden); tell the family to switch on their groups.
+- **Tasks**: assignees must be members of the task's project; view-only members can't add comments, subtasks or links; an assignee can unassign themselves.
 - **Logging in as before**; new apps (Tasks, Habits, Contacts) and the new interface at `/app/` appear in the app launcher.
 
 ## Step by step
@@ -57,6 +59,12 @@ cd /opt/Comptech
 dropdb -h 127.0.0.1 -U postgres Comptech_rehearsal && rm ~/comptech-rehearsal.sql
 git worktree remove --force ~/comptech-rehearsal && unset COMPTECH_SECRETS_DIR
 ```
+Also check, while the copy exists:
+```bash
+psql -h 127.0.0.1 -U postgres Comptech_rehearsal -c "SELECT count(*) FROM scheduler_event WHERE repeat_every IS NOT NULL;"
+```
+V1 never used `repeat_every` (no screen set it, and those events always showed once), but the migration turns such rows into real "every N days" series. If this finds rows that weren't meant to repeat, clear the field on the live database before step 6 (`UPDATE scheduler_event SET repeat_every = NULL WHERE …`), or afterwards set `rrule = ''` on them (the original values stay in `custom_info.legacy_repeat`).
+
 If `migrate` fails here, stop and send me the error; production is unaffected.
 
 ### 1. Back up
@@ -82,6 +90,19 @@ git fetch && git checkout master && git pull     # after the PR is merged
 ```bash
 source CT_env/bin/activate
 pip install -r requirements.txt
+python -c "import django, celery; print(django.get_version(), celery.__version__)"   # Django must be 5.1.x or 5.2.x
+```
+Django is pinned to `>=5.1,<6` (the connection pool needs 5.1+; 6.0 won't start). If Celery is older than 5.3, or anything looks off with database connections, run with `COMPTECH_DB_POOL=0`.
+
+**Postgres setting (recommended):** turn off query JIT, which can spend far longer compiling than running small queries:
+```bash
+psql -h 127.0.0.1 -U postgres -c "ALTER SYSTEM SET jit = off;" -c "SELECT pg_reload_conf();"
+```
+
+**Location-entry spots (optional):** your one-click save buttons and map focus buttons now live in an untracked file, `Comptech/photos_locate.json` (same folder as `secret.txt`), not in the code:
+```json
+{"presets": [{"label": "CC", "lat": 43.6425662, "lng": -79.3870568}],
+ "focus":   [{"label": "TOR", "lat": 43.6425662, "lng": -79.3870568, "zoom": 15}]}
 ```
 
 ### 5. Front-end libraries
@@ -145,6 +166,7 @@ SECURE_HSTS_SECONDS = 31536000   # only once you're sure HTTPS works everywhere;
 Build on your computer (`frontend/build.sh`), then `rsync -av --delete static_files/static/app/ server:/opt/Comptech/static_files/static/app/` and `make cs` on the server. No restart needed.
 
 ## Rolling back
+Rolling back means restoring the backup, which loses anything created after the deploy, so decide go/no-go quickly.
 ```bash
 tmux kill-session -t Comptech
 git checkout "$(cat ~/comptech-previous-commit)"
