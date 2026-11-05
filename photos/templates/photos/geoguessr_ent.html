@@ -10,7 +10,7 @@
 {% endblock %}
 
 {% block page_body %}
-<div class="geoguessr-ent-container">
+<div class="geoguessr-ent-container" data-photo-id="{{ photo.id }}" data-csrf="{{ csrf_token }}">
     <div class="game-header">
         <div>
             <h2>GIS Data Entry</h2>
@@ -79,10 +79,6 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
-    window.PHOTO_ID = "{{ photo.id }}";
-    window.CSRF_TOKEN = "{{ csrf_token }}";
-</script>
 <script src="{% static 'js/heatmap/heatmap.min.js' %}" type="text/javascript"></script>
 <script src="{% static 'js/leaflet-heatmap/leaflet-heatmap.js' %}" type="text/javascript"></script>
 <script src="{% static 'photo/geoguessr_ent.js' %}" type="text/javascript"></script>

@@ -19,72 +19,49 @@
     [data-bs-theme] { --photo-row-h: 112px; }
 }
 
-/* ---------- Left sidebar navigation ---------- */
+/* ---------- Left sidebar navigation (Google Photos style) ---------- */
 
-#sidebar-left .nav {
-    list-style: none;
-    padding: 12px;
-    margin: 0;
-    width: 100%;
+.ph-nav {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    padding: 8px 12px 16px 0;
 }
 
-#sidebar-left .nav-item {
-    list-style: none;
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    border-radius: var(--app-radius-sm);
+.ph-nav-label {
+    margin: 16px 0 4px 24px;
+    font-size: 0.6875rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--app-muted);
 }
+.ph-nav-label:first-child { margin-top: 8px; }
 
-#sidebar-left .nav-item:hover { background-color: var(--app-overlay); }
-
-.nav-item-selected,
-#sidebar-left .nav-item-selected,
-#sidebar-left .nav-item-selected:hover { background-color: var(--app-accent-soft); }
-
-.photo-page-link,
-.photo-page-link:hover {
+.ph-nav-link,
+.ph-nav-link:hover {
     display: flex;
     align-items: center;
-    gap: 14px;
-    min-height: 34px;
-    padding: 6px 12px;
-    margin: 0;
-    text-decoration: none;
-    color: var(--app-fg);
-    font-size: 0.875rem;
-    font-weight: 450;
-    width: 100%;
-    border: none;
-    border-radius: var(--app-radius-sm);
+    gap: 16px;
+    height: 36px;
+    padding: 0 16px 0 24px;
+    border: 0;
+    border-radius: 0 18px 18px 0;
     background: transparent;
-    cursor: pointer;
-    transition: background-color 0.12s ease, color 0.12s ease;
-    text-align: left;
-    box-sizing: border-box;
-}
-
-.photo-page-link svg {
-    color: var(--app-muted);
-    flex-shrink: 0;
-}
-
-.nav-item-selected .photo-page-link,
-.nav-item-selected .photo-page-link svg {
-    font-weight: 600;
-    color: var(--app-accent);
-}
-
-/* Ingest is a heavy, server-wide action: warning colour. */
-#sidebar-left .nav-item-ingest:hover { background-color: color-mix(in srgb, var(--app-warning) 14%, transparent); }
-.nav-item-ingest .photo-page-link,
-.nav-item-ingest .photo-page-link svg {
-    color: var(--app-warning);
+    color: var(--app-fg);
+    font: inherit;
+    font-size: 0.875rem;
     font-weight: 500;
+    text-align: left;
+    text-decoration: none;
+    cursor: pointer;
+    width: 100%;
 }
+.ph-nav-link svg { flex-shrink: 0; color: var(--app-muted); }
+.ph-nav-link:hover { background: var(--app-overlay); }
+.ph-nav-link.is-active,
+.ph-nav-link.is-active:hover { background: var(--app-accent-soft); color: var(--app-accent); font-weight: 600; }
+.ph-nav-link.is-active svg { color: var(--app-accent); }
+.ph-nav-link:focus-visible { outline-offset: -2px; }
 
 /* ---------- Timeline ---------- */
 
@@ -260,14 +237,12 @@
 .photo-viewer {
     position: fixed;
     inset: 0;
-    width: 100vw;
-    height: 100vh;
-    height: 100dvh;
     z-index: 2000;
-    display: flex;
+    display: none;
     background-color: #000; /* the stage stays black in both themes */
-    visibility: hidden;
 }
+.photo-viewer.is-open { display: flex; }
+body.ph-viewer-open { overflow: hidden; }
 
 .photo-viewer #photo-area {
     position: relative;
@@ -276,10 +251,7 @@
     height: 100%;
 }
 
-.photo-viewer #photo {
-    width: 100%;
-    height: 100%;
-}
+.photo-viewer #photo { width: 100%; height: 100%; }
 
 .image-displayed {
     width: 100%;
@@ -295,73 +267,87 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    width: 44px;
-    height: 44px;
+    width: 40px;
+    height: 40px;
     padding: 0;
-    border: 1px solid rgba(255, 255, 255, 0.18);
+    border: 0;
     border-radius: 50%;
-    background-color: rgba(0, 0, 0, 0.45);
+    background-color: rgba(0, 0, 0, 0.35);
     color: #fff;
     cursor: pointer;
-    backdrop-filter: blur(6px);
-    -webkit-backdrop-filter: blur(6px);
     transition: background-color 0.12s ease;
 }
-
 .photo-btn:hover,
-.photo-btn:focus-visible {
-    background-color: rgba(0, 0, 0, 0.7);
-    color: #fff;
-}
+.photo-btn:focus-visible { background-color: rgba(255, 255, 255, 0.16); color: #fff; }
+.photo-btn[aria-pressed="true"] { background-color: rgba(255, 255, 255, 0.22); }
+.photo-btn[hidden] { display: none; }
 
-.photo-viewer .photo-btn {
+.photo-viewer .pv-top {
     position: absolute;
-    z-index: 2;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 3;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 12px 16px;
+    background: linear-gradient(rgba(0, 0, 0, 0.45), transparent);
+    pointer-events: none;
 }
+.photo-viewer .pv-top > *,
+.photo-viewer .pv-top-actions > * { pointer-events: auto; }
+.pv-top-actions { display: flex; gap: 8px; }
 
-.photo-viewer #exit-btn { top: 16px; left: 16px; }
-.photo-viewer #previous-btn { left: 16px; top: 50%; transform: translateY(-50%); }
-.photo-viewer #next-btn { right: 16px; top: 50%; transform: translateY(-50%); }
+.photo-viewer #previous-btn,
+.photo-viewer #next-btn { position: absolute; z-index: 2; top: 50%; transform: translateY(-50%); }
+.photo-viewer #previous-btn { left: 16px; }
+.photo-viewer #next-btn { right: 16px; }
 
-/* Info panel next to the photo */
-.photo-viewer .photo-info {
+/* Info panel: closed by default, opens on the right with (i). */
+.photo-info-panel {
+    display: none;
     flex: 0 0 360px;
     width: 360px;
     height: 100%;
-    padding: 24px 20px;
-    overflow-y: auto;
+    flex-direction: column;
     background: var(--app-surface);
     color: var(--app-fg);
     border-left: 1px solid var(--app-border);
 }
-
-@media (max-width: 900px) {
-    .photo-viewer .photo-info { flex-basis: 300px; width: 300px; }
+.photo-viewer.info-open .photo-info-panel { display: flex; }
+.photo-info-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 56px;
+    padding: 0 12px 0 20px;
+    font-size: 1rem;
+    font-weight: 600;
+    flex-shrink: 0;
 }
+.photo-viewer .photo-info {
+    flex: 1 1 auto;
+    padding: 4px 20px 24px;
+    overflow-y: auto;
+}
+.photo-info-loading { color: var(--app-muted); font-size: 0.875rem; }
 
-/* Phones: photo on top, details scroll underneath. */
+/* Phones: the info panel slides up over the photo. */
 @media (max-width: 700px) {
-    .photo-viewer {
-        flex-direction: column;
-        overflow-y: auto;
-        overscroll-behavior: contain;
-    }
-    .photo-viewer #photo-area {
-        flex: 0 0 auto;
-        height: 65vh;
-        height: 65svh;
-    }
-    .photo-viewer .photo-info {
-        flex: 0 0 auto;
+    .photo-info-panel {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
         width: 100%;
-        height: auto;
-        min-height: 35vh;
+        height: 60%;
         border-left: 0;
         border-top: 1px solid var(--app-border);
         border-radius: var(--app-radius) var(--app-radius) 0 0;
-        padding: 20px 16px 32px;
+        z-index: 4;
     }
-    .photo-viewer #exit-btn { top: 12px; left: 12px; }
+    .photo-viewer .pv-top { padding: 8px 8px; }
     .photo-viewer #previous-btn { left: 8px; }
     .photo-viewer #next-btn { right: 8px; }
 }
@@ -696,3 +682,77 @@
 /* Selection menu icons: neutral, cover star in warning colour */
 .glassmorphic-dropdown svg { color: var(--app-muted); flex-shrink: 0; }
 .glassmorphic-dropdown .text-danger svg { color: currentColor; }
+
+/* ---------- Snackbar (phToast in photos-base.js) ---------- */
+
+.ph-toast {
+    position: fixed;
+    left: 24px;
+    bottom: 24px;
+    z-index: 2100;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    max-width: min(560px, calc(100vw - 32px));
+    padding: 10px 12px 10px 16px;
+    border-radius: var(--app-radius-sm);
+    background: var(--app-fg);
+    color: var(--app-bg);
+    font-size: 0.875rem;
+    box-shadow: var(--app-shadow);
+    opacity: 0;
+    transform: translateY(12px);
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+.ph-toast.is-open { opacity: 1; transform: none; pointer-events: auto; }
+.ph-toast button {
+    flex-shrink: 0;
+    padding: 4px 8px;
+    border: 0;
+    border-radius: 4px;
+    background: transparent;
+    color: var(--app-accent-soft);
+    font-weight: 600;
+    cursor: pointer;
+}
+.ph-toast button:hover { background: color-mix(in srgb, var(--app-bg) 15%, transparent); }
+@media (max-width: 576px) { .ph-toast { left: 16px; right: 16px; bottom: 16px; } }
+
+/* ---------- Show-hidden mode pill (photos_base.html) ---------- */
+
+.ph-hidden-pill {
+    position: fixed;
+    left: 50%;
+    bottom: 16px;
+    transform: translateX(-50%);
+    z-index: 1990;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 32px;
+    padding: 0 6px 0 12px;
+    border: 1px solid var(--app-border);
+    border-radius: 16px;
+    background: var(--app-surface);
+    color: var(--app-muted);
+    font-size: 0.8125rem;
+    box-shadow: var(--app-shadow);
+    white-space: nowrap;
+}
+.ph-hidden-pill button {
+    height: 24px;
+    padding: 0 10px;
+    border: 0;
+    border-radius: 12px;
+    background: transparent;
+    color: var(--app-accent);
+    font-weight: 600;
+    cursor: pointer;
+}
+.ph-hidden-pill button:hover { background: var(--app-accent-soft); }
+
+/* Hidden tile marker (only seen by the owner in show-hidden mode) */
+.photo-item[data-hidden="true"] .list-img { opacity: 0.55; }
+.indicator-badge.badge-hidden { color: #e5e7eb; padding: 2px 4px; }
+.indicator-badge.badge-hidden svg { display: block; }

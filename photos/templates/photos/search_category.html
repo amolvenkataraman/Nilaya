@@ -35,13 +35,13 @@
                     <tr>
                         <td>
                             {% if category == 'objects' %}
-                            <a href="{% url 'photos' %}?objects={{ item.filter_val }}" class="ins-link">{{ item.display }}</a>
+                            <a href="{% url 'photos' %}?objects={{ item.filter_val|urlencode }}" class="ins-link">{{ item.display }}</a>
                             {% elif category == 'cameras' %}
-                            <a href="{% url 'photos' %}?camera_model={{ item.filter_val }}" class="ins-link">{{ item.display }}</a>
+                            <a href="{% url 'photos' %}?camera_model={{ item.filter_val|urlencode }}" class="ins-link">{{ item.display }}</a>
                             {% elif category == 'countries' %}
-                            <a href="{% url 'photos' %}?country={{ item.filter_val }}" class="ins-link">{{ item.display }}</a>
+                            <a href="{% url 'photos' %}?country={{ item.filter_val|urlencode }}" class="ins-link">{{ item.display }}</a>
                             {% elif category == 'cities' %}
-                            <a href="{% url 'photos' %}?city={{ item.filter_val }}" class="ins-link">{{ item.display }}</a>
+                            <a href="{% url 'photos' %}?city={{ item.filter_val|urlencode }}" class="ins-link">{{ item.display }}</a>
                             {% endif %}
                         </td>
                         <td class="num">

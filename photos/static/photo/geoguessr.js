@@ -7,7 +7,9 @@ const Geoguessr = {
 
     init() {
         const defaultCenter = [43.6425662, -79.3870568];
-        this.actualLatLng = [window.ACTUAL_LAT || 0, window.ACTUAL_LON || 0];
+        // The photo's real location comes from json_script tags in geoguessr.html.
+        const coord = (id) => JSON.parse(document.getElementById(id).textContent) || 0;
+        this.actualLatLng = [coord('geoguessr-lat'), coord('geoguessr-lon')];
 
         // Initialize Map
         this.Map = L.map('mapid').setView(defaultCenter, 10);

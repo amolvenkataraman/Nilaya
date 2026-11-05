@@ -186,285 +186,47 @@
 {% endblock %}
 
 {% block extra_scripts %}
+<!-- Chart data (JSON, read by photo/stats.js) -->
+{{ months_12_labels|json_script:"st-months_12_labels" }}
+{{ months_12_data_all|json_script:"st-months_12_data_all" }}
+{{ months_12_data_photo|json_script:"st-months_12_data_photo" }}
+{{ months_12_data_video|json_script:"st-months_12_data_video" }}
+{{ months_12_data_video_duration|json_script:"st-months_12_data_video_duration" }}
+{{ months_24_labels|json_script:"st-months_24_labels" }}
+{{ months_24_data_all|json_script:"st-months_24_data_all" }}
+{{ months_24_data_photo|json_script:"st-months_24_data_photo" }}
+{{ months_24_data_video|json_script:"st-months_24_data_video" }}
+{{ months_24_data_video_duration|json_script:"st-months_24_data_video_duration" }}
+{{ months_60_labels|json_script:"st-months_60_labels" }}
+{{ months_60_data_all|json_script:"st-months_60_data_all" }}
+{{ months_60_data_photo|json_script:"st-months_60_data_photo" }}
+{{ months_60_data_video|json_script:"st-months_60_data_video" }}
+{{ months_60_data_video_duration|json_script:"st-months_60_data_video_duration" }}
+{{ years_10_labels|json_script:"st-years_10_labels" }}
+{{ years_10_data_all|json_script:"st-years_10_data_all" }}
+{{ years_10_data_photo|json_script:"st-years_10_data_photo" }}
+{{ years_10_data_video|json_script:"st-years_10_data_video" }}
+{{ years_10_data_video_duration|json_script:"st-years_10_data_video_duration" }}
+{{ all_years_labels|json_script:"st-all_years_labels" }}
+{{ all_years_data_all|json_script:"st-all_years_data_all" }}
+{{ all_years_data_photo|json_script:"st-all_years_data_photo" }}
+{{ all_years_data_video|json_script:"st-all_years_data_video" }}
+{{ all_years_data_video_duration|json_script:"st-all_years_data_video_duration" }}
+{{ hours_labels|json_script:"st-hours_labels" }}
+{{ hours_data_all|json_script:"st-hours_data_all" }}
+{{ hours_data_photo|json_script:"st-hours_data_photo" }}
+{{ hours_data_video|json_script:"st-hours_data_video" }}
+{{ hours_data_video_duration|json_script:"st-hours_data_video_duration" }}
+{{ days_labels|json_script:"st-days_labels" }}
+{{ days_data_all|json_script:"st-days_data_all" }}
+{{ days_data_photo|json_script:"st-days_data_photo" }}
+{{ days_data_video|json_script:"st-days_data_video" }}
+{{ days_data_video_duration|json_script:"st-days_data_video_duration" }}
+{{ months_year_labels|json_script:"st-months_year_labels" }}
+{{ months_year_data_all|json_script:"st-months_year_data_all" }}
+{{ months_year_data_photo|json_script:"st-months_year_data_photo" }}
+{{ months_year_data_video|json_script:"st-months_year_data_video" }}
+{{ months_year_data_video_duration|json_script:"st-months_year_data_video_duration" }}
 <script src="{% static 'vendor/chartjs-4.6.1/chart.umd.min.js' %}"></script>
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        // Datasets definition for dynamic chart ranges and media types
-        const datasets = {
-            '12m': {
-                labels: {{ months_12_labels|safe }},
-                all: {{ months_12_data_all|safe }},
-                photo: {{ months_12_data_photo|safe }},
-                video: {{ months_12_data_video|safe }},
-                video_duration: {{ months_12_data_video_duration|safe }}
-            },
-            '24m': {
-                labels: {{ months_24_labels|safe }},
-                all: {{ months_24_data_all|safe }},
-                photo: {{ months_24_data_photo|safe }},
-                video: {{ months_24_data_video|safe }},
-                video_duration: {{ months_24_data_video_duration|safe }}
-            },
-            '5y': {
-                labels: {{ months_60_labels|safe }},
-                all: {{ months_60_data_all|safe }},
-                photo: {{ months_60_data_photo|safe }},
-                video: {{ months_60_data_video|safe }},
-                video_duration: {{ months_60_data_video_duration|safe }}
-            },
-            '10y': {
-                labels: {{ years_10_labels|safe }},
-                all: {{ years_10_data_all|safe }},
-                photo: {{ years_10_data_photo|safe }},
-                video: {{ years_10_data_video|safe }},
-                video_duration: {{ years_10_data_video_duration|safe }}
-            },
-            'all': {
-                labels: {{ all_years_labels|safe }},
-                all: {{ all_years_data_all|safe }},
-                photo: {{ all_years_data_photo|safe }},
-                video: {{ all_years_data_video|safe }},
-                video_duration: {{ all_years_data_video_duration|safe }}
-            }
-        };
-
-        const hourlyDataset = {
-            labels: {{ hours_labels|safe }},
-            all: {{ hours_data_all|safe }},
-            photo: {{ hours_data_photo|safe }},
-            video: {{ hours_data_video|safe }},
-            video_duration: {{ hours_data_video_duration|safe }}
-        };
-
-        const dailyDataset = {
-            labels: {{ days_labels|safe }},
-            all: {{ days_data_all|safe }},
-            photo: {{ days_data_photo|safe }},
-            video: {{ days_data_video|safe }},
-            video_duration: {{ days_data_video_duration|safe }}
-        };
-
-        const monthlyDataset = {
-            labels: {{ months_year_labels|safe }},
-            all: {{ months_year_data_all|safe }},
-            photo: {{ months_year_data_photo|safe }},
-            video: {{ months_year_data_video|safe }},
-            video_duration: {{ months_year_data_video_duration|safe }}
-        };
-
-        // ---- Theme-aware colours: read the app tokens at render time ----
-        function cssVar(name) {
-            return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
-        }
-        function withAlpha(color, alpha) {
-            const m = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.exec(color);
-            if (!m) return color;
-            let hex = m[1];
-            if (hex.length === 3) hex = hex.split('').map(c => c + c).join('');
-            const n = parseInt(hex, 16);
-            return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`;
-        }
-        // Colour follows the selected media type, the same in every chart.
-        const seriesVar = { all: '--app-accent', photo: '--ins-photo', video: '--ins-video', video_duration: '--ins-orig' };
-        function seriesColor(mediaType) {
-            return cssVar(seriesVar[mediaType] || '--app-accent') || '#0f6d77';
-        }
-        function themeColors() {
-            return {
-                text: cssVar('--app-muted'),
-                grid: withAlpha(cssVar('--app-border'), 0.9),
-                surface: cssVar('--app-surface'),
-                fg: cssVar('--app-fg'),
-                border: cssVar('--app-border'),
-            };
-        }
-
-        Chart.defaults.font.family = cssVar('--app-font') || 'system-ui, sans-serif';
-
-        function baseOptions() {
-            const t = themeColors();
-            return {
-                responsive: true,
-                maintainAspectRatio: false,
-                interaction: { mode: 'index', intersect: false },
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        backgroundColor: t.surface,
-                        titleColor: t.fg,
-                        bodyColor: t.fg,
-                        borderColor: t.border,
-                        borderWidth: 1,
-                        padding: 10,
-                        displayColors: false,
-                    }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        border: { color: t.border },
-                        ticks: { color: t.text, maxRotation: 0, autoSkipPadding: 8 }
-                    },
-                    y: {
-                        grid: { color: t.grid },
-                        border: { display: false },
-                        ticks: { color: t.text, precision: 0 }
-                    }
-                }
-            };
-        }
-        function applyThemeToOptions(chart) {
-            const t = themeColors();
-            const o = chart.options;
-            o.plugins.tooltip.backgroundColor = t.surface;
-            o.plugins.tooltip.titleColor = t.fg;
-            o.plugins.tooltip.bodyColor = t.fg;
-            o.plugins.tooltip.borderColor = t.border;
-            o.scales.x.border.color = t.border;
-            o.scales.x.ticks.color = t.text;
-            o.scales.y.grid.color = t.grid;
-            o.scales.y.ticks.color = t.text;
-        }
-
-        // Paint a bar or line dataset in the colour of its media type.
-        function paintDataset(chart, mediaType) {
-            const ds = chart.data.datasets[0];
-            const c = seriesColor(mediaType);
-            if (chart.config.type === 'line') {
-                ds.borderColor = c;
-                ds.backgroundColor = withAlpha(c, 0.14);
-                ds.pointBackgroundColor = c;
-                ds.pointBorderColor = cssVar('--app-surface');
-            } else {
-                ds.backgroundColor = c;
-                ds.hoverBackgroundColor = withAlpha(c, 0.8);
-                ds.borderColor = c;
-            }
-        }
-
-        function barDataset(label, data) {
-            return { label: label, data: data, borderWidth: 0, borderRadius: 4, borderSkipped: 'bottom', maxBarThickness: 40 };
-        }
-
-        // 1. History Chart
-        const monthCtx = document.getElementById('monthChart').getContext('2d');
-        const historyChart = new Chart(monthCtx, {
-            type: 'bar',
-            data: {
-                labels: datasets['12m'].labels,
-                datasets: [barDataset('Items Uploaded', datasets['12m'].all)]
-            },
-            options: baseOptions()
-        });
-        paintDataset(historyChart, 'all');
-        historyChart.update();
-
-        // Toggle History Chart range/media type dynamically
-        function updateHistoryChart() {
-            const range = document.getElementById('chartRangeSelect').value;
-            const mediaType = document.getElementById('chartTypeSelect').value;
-            const dataObj = datasets[range];
-
-            historyChart.data.labels = dataObj.labels;
-            historyChart.data.datasets[0].data = dataObj[mediaType];
-            historyChart.data.datasets[0].label = mediaType === 'video_duration' ? 'Minutes' : 'Items Uploaded';
-            paintDataset(historyChart, mediaType);
-
-            historyChart.update();
-        }
-
-        document.getElementById('chartRangeSelect').addEventListener('change', updateHistoryChart);
-        document.getElementById('chartTypeSelect').addEventListener('change', updateHistoryChart);
-
-        // 2. Hourly Activity Chart
-        const hourCtx = document.getElementById('hourChart').getContext('2d');
-        const hourChart = new Chart(hourCtx, {
-            type: 'line',
-            data: {
-                labels: hourlyDataset.labels,
-                datasets: [{
-                    label: 'Captures',
-                    data: hourlyDataset.all,
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: true,
-                    pointRadius: 0,
-                    pointHoverRadius: 5,
-                    pointHoverBorderWidth: 2
-                }]
-            },
-            options: baseOptions()
-        });
-        paintDataset(hourChart, 'all');
-        hourChart.update();
-
-        // Toggle Hourly Activity media type dynamically
-        document.getElementById('hourTypeSelect').addEventListener('change', function() {
-            const mediaType = this.value;
-            hourChart.data.datasets[0].data = hourlyDataset[mediaType];
-            hourChart.data.datasets[0].label = mediaType === 'video_duration' ? 'Minutes' : 'Captures';
-            paintDataset(hourChart, mediaType);
-            hourChart.update();
-        });
-
-        // 3. Daily Activity Chart (Bar Chart)
-        const dayCtx = document.getElementById('dayChart').getContext('2d');
-        const dayChart = new Chart(dayCtx, {
-            type: 'bar',
-            data: {
-                labels: dailyDataset.labels,
-                datasets: [barDataset('Captures', dailyDataset.all)]
-            },
-            options: baseOptions()
-        });
-        paintDataset(dayChart, 'all');
-        dayChart.update();
-
-        // Toggle Daily Activity media type dynamically
-        document.getElementById('dayTypeSelect').addEventListener('change', function() {
-            const mediaType = this.value;
-            dayChart.data.datasets[0].data = dailyDataset[mediaType];
-            dayChart.data.datasets[0].label = mediaType === 'video_duration' ? 'Minutes' : 'Captures';
-            paintDataset(dayChart, mediaType);
-            dayChart.update();
-        });
-
-        // 4. Monthly Activity Chart (Bar Chart)
-        const monthOfYearCtx = document.getElementById('monthOfYearChart').getContext('2d');
-        const monthOfYearChart = new Chart(monthOfYearCtx, {
-            type: 'bar',
-            data: {
-                labels: monthlyDataset.labels,
-                datasets: [barDataset('Captures', monthlyDataset.all)]
-            },
-            options: baseOptions()
-        });
-        paintDataset(monthOfYearChart, 'all');
-        monthOfYearChart.update();
-
-        // Toggle Monthly Activity media type dynamically
-        document.getElementById('monthTypeSelect').addEventListener('change', function() {
-            const mediaType = this.value;
-            monthOfYearChart.data.datasets[0].data = monthlyDataset[mediaType];
-            monthOfYearChart.data.datasets[0].label = mediaType === 'video_duration' ? 'Minutes' : 'Captures';
-            paintDataset(monthOfYearChart, mediaType);
-            monthOfYearChart.update();
-        });
-
-        // Re-colour every chart when the theme changes (data-bs-theme on <html>).
-        const chartTypeSelects = [
-            [historyChart, 'chartTypeSelect'],
-            [hourChart, 'hourTypeSelect'],
-            [dayChart, 'dayTypeSelect'],
-            [monthOfYearChart, 'monthTypeSelect'],
-        ];
-        new MutationObserver(function() {
-            chartTypeSelects.forEach(function([chart, selectId]) {
-                applyThemeToOptions(chart);
-                paintDataset(chart, document.getElementById(selectId).value);
-                chart.update();
-            });
-        }).observe(document.documentElement, { attributes: true, attributeFilter: ['data-bs-theme'] });
-    });
-</script>
+<script src="{% static 'photo/stats.js' %}"></script>
 {% endblock %}

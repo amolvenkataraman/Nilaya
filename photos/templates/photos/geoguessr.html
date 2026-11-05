@@ -42,9 +42,7 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
-    window.ACTUAL_LAT = {{ photo.lat }};
-    window.ACTUAL_LON = {{ photo.lon }};
-</script>
+{{ photo.lat|json_script:"geoguessr-lat" }}
+{{ photo.lon|json_script:"geoguessr-lon" }}
 <script src="{% static 'photo/geoguessr.js' %}" type="text/javascript"></script>
 {% endblock %}

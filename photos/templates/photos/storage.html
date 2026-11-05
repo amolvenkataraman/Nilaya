@@ -113,10 +113,10 @@
                         <!-- 4-part usage bar -->
                         <td>
                             <div class="ins-bar" title="Photos: {{ item.opt_size_str_photo }} (RAW: {{ item.overhead_str_photo }}) / Videos: {{ item.opt_size_str_video }} (Original: {{ item.overhead_str_video }})">
-                                <div class="photo" style="width: {{ item.pct_photo_opt }}%;" title="Photos Optimized ({{ item.pct_photo_opt|floatformat:1 }}%)"></div>
-                                <div class="raw" style="width: {{ item.pct_photo_raw }}%;" title="Photos RAW ({{ item.pct_photo_raw|floatformat:1 }}%)"></div>
-                                <div class="video" style="width: {{ item.pct_video_opt }}%;" title="Videos Optimized ({{ item.pct_video_opt|floatformat:1 }}%)"></div>
-                                <div class="orig" style="width: {{ item.pct_video_orig }}%;" title="Videos Original ({{ item.pct_video_orig|floatformat:1 }}%)"></div>
+                                <div class="photo" data-pct="{{ item.pct_photo_opt }}" title="Photos Optimized ({{ item.pct_photo_opt|floatformat:1 }}%)"></div>
+                                <div class="raw" data-pct="{{ item.pct_photo_raw }}" title="Photos RAW ({{ item.pct_photo_raw|floatformat:1 }}%)"></div>
+                                <div class="video" data-pct="{{ item.pct_video_opt }}" title="Videos Optimized ({{ item.pct_video_opt|floatformat:1 }}%)"></div>
+                                <div class="orig" data-pct="{{ item.pct_video_orig }}" title="Videos Original ({{ item.pct_video_orig|floatformat:1 }}%)"></div>
                             </div>
                         </td>
                     </tr>
@@ -170,10 +170,10 @@
                         <!-- 4-part usage bar -->
                         <td>
                             <div class="ins-bar" title="Photos: {{ item.opt_size_str_photo }} (RAW: {{ item.overhead_str_photo }}) / Videos: {{ item.opt_size_str_video }} (Original: {{ item.overhead_str_video }})">
-                                <div class="photo" style="width: {{ item.pct_photo_opt }}%;" title="Photos Optimized ({{ item.pct_photo_opt|floatformat:1 }}%)"></div>
-                                <div class="raw" style="width: {{ item.pct_photo_raw }}%;" title="Photos RAW ({{ item.pct_photo_raw|floatformat:1 }}%)"></div>
-                                <div class="video" style="width: {{ item.pct_video_opt }}%;" title="Videos Optimized ({{ item.pct_video_opt|floatformat:1 }}%)"></div>
-                                <div class="orig" style="width: {{ item.pct_video_orig }}%;" title="Videos Original ({{ item.pct_video_orig|floatformat:1 }}%)"></div>
+                                <div class="photo" data-pct="{{ item.pct_photo_opt }}" title="Photos Optimized ({{ item.pct_photo_opt|floatformat:1 }}%)"></div>
+                                <div class="raw" data-pct="{{ item.pct_photo_raw }}" title="Photos RAW ({{ item.pct_photo_raw|floatformat:1 }}%)"></div>
+                                <div class="video" data-pct="{{ item.pct_video_opt }}" title="Videos Optimized ({{ item.pct_video_opt|floatformat:1 }}%)"></div>
+                                <div class="orig" data-pct="{{ item.pct_video_orig }}" title="Videos Original ({{ item.pct_video_orig|floatformat:1 }}%)"></div>
                             </div>
                         </td>
                     </tr>
@@ -227,10 +227,10 @@
                         <!-- 4-part usage bar -->
                         <td>
                             <div class="ins-bar" title="Photos: {{ item.opt_size_str_photo }} (RAW: {{ item.overhead_str_photo }}) / Videos: {{ item.opt_size_str_video }} (Original: {{ item.overhead_str_video }})">
-                                <div class="photo" style="width: {{ item.pct_photo_opt }}%;" title="Photos Optimized ({{ item.pct_photo_opt|floatformat:1 }}%)"></div>
-                                <div class="raw" style="width: {{ item.pct_photo_raw }}%;" title="Photos RAW ({{ item.pct_photo_raw|floatformat:1 }}%)"></div>
-                                <div class="video" style="width: {{ item.pct_video_opt }}%;" title="Videos Optimized ({{ item.pct_video_opt|floatformat:1 }}%)"></div>
-                                <div class="orig" style="width: {{ item.pct_video_orig }}%;" title="Videos Original ({{ item.pct_video_orig|floatformat:1 }}%)"></div>
+                                <div class="photo" data-pct="{{ item.pct_photo_opt }}" title="Photos Optimized ({{ item.pct_photo_opt|floatformat:1 }}%)"></div>
+                                <div class="raw" data-pct="{{ item.pct_photo_raw }}" title="Photos RAW ({{ item.pct_photo_raw|floatformat:1 }}%)"></div>
+                                <div class="video" data-pct="{{ item.pct_video_opt }}" title="Videos Optimized ({{ item.pct_video_opt|floatformat:1 }}%)"></div>
+                                <div class="orig" data-pct="{{ item.pct_video_orig }}" title="Videos Original ({{ item.pct_video_orig|floatformat:1 }}%)"></div>
                             </div>
                         </td>
                     </tr>
@@ -247,16 +247,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        // Tab switching
-        $('.ins-tab').on('click', function() {
-            var target = $(this).data('target');
-            $('.ins-tab').removeClass('active').attr('aria-selected', 'false');
-            $(this).addClass('active').attr('aria-selected', 'true');
-            $('.storage-tab-pane').prop('hidden', true);
-            $(target).prop('hidden', false);
-        });
-    });
-</script>
+<script src="{% static 'photo/storage.js' %}"></script>
 {% endblock %}

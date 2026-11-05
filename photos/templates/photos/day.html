@@ -10,42 +10,32 @@
     <link href="{% static 'css/theme.css' %}" rel="stylesheet">
     <link href="{% static 'photo/styles.css' %}" rel="stylesheet" media="all" />
     <link href="{% static 'photo/photos_addon.css' %}" rel="stylesheet" />
-    <style>
-        /* Shown inside the calendar's modal: let the modal surface show through. */
-        body {
-            background: transparent;
-            margin: 0;
-            padding: 0;
-            overflow-x: hidden;
-        }
-        .day-photos { margin-bottom: 0; padding: 0; gap: 3px; }
-        .day-empty { flex: 1 0 100%; padding: 32px 16px; text-align: center; color: var(--app-muted); font-size: 0.875rem; }
-    </style>
+    <link href="{% static 'photo/day.css' %}" rel="stylesheet" />
+    <script src="{% static 'photo/day.js' %}" defer></script>
 </head>
-<body>
+<body class="ph-day-page">
+    <header class="ph-page-bar">
+        <div class="ph-day-heading">
+            <h1 class="ph-page-title">{% if date %}{{ date|date:"l, F j, Y" }}{% else %}{{ title }}{% endif %}</h1>
+            <span class="ph-day-count">{{ photos|length }} item{{ photos|length|pluralize }}</span>
+        </div>
+        {% if date %}
+        <a class="btn btn-sm btn-outline-secondary" href="{% url 'photos' %}?date={{ date|date:'Y-m-d' }}" target="_blank" rel="noopener">Open in Photos</a>
+        {% endif %}
+    </header>
     <div class="day-photos">
         {% for photo in photos %}
-        <div class="photo-item" style="--ar: {{ photo.aspect_ratio }};" onclick="window.open('/photos/view-photo/{{ photo.id }}/', '_blank')">
+        <a class="photo-item" href="{% url 'view_photo' photo.id %}" target="_blank" rel="noopener" data-ar="{{ photo.aspect_ratio }}" aria-label="Open photo">
             <img src="/private/{{ photo.thumbnail_hash }}/photo_cache/thumbnail/{{ photo.id }}.webp" class="list-img" alt="" loading="lazy">
             <div class="photo-indicators">
-                {% if photo.has_raw %}
-                <span class="indicator-badge badge-raw" title="RAW file present">RAW</span>
-                {% endif %}
-                {% if photo.has_orig %}
-                <span class="indicator-badge badge-orig" title="Original file present">ORIG</span>
-                {% endif %}
+                {% if photo.has_raw %}<span class="indicator-badge badge-raw" title="RAW file present">RAW</span>{% endif %}
+                {% if photo.has_orig %}<span class="indicator-badge badge-orig" title="Original file present">ORIG</span>{% endif %}
             </div>
             {% if photo.video %}
-            <div class="play-btn-center">
-                <svg viewBox="0 0 24 24">
-                    <path d="M8 5v14l11-7z"/>
-                </svg>
-            </div>
-            {% if photo.duration_text %}
-            <div class="video-duration-tag">{{ photo.duration_text }}</div>
+            <div class="play-btn-center"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg></div>
+            {% if photo.duration_text %}<div class="video-duration-tag">{{ photo.duration_text }}</div>{% endif %}
             {% endif %}
-            {% endif %}
-        </div>
+        </a>
         {% empty %}
         <div class="day-empty">No photos on this day.</div>
         {% endfor %}

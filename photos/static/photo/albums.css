@@ -1,49 +1,26 @@
-/* Photos > Albums page. Colours come from css/theme.css (photos_addon.css maps the
- * short variable names onto the app tokens). */
+/* Photos > Albums: Google Photos-style cover grid, or a compact list. Colours from css/theme.css. */
 
 .albums-container {
-    padding: 20px 24px 32px;
-    max-width: 1300px;
-    margin: 0 auto;
+    padding: 8px 24px 32px;
+    max-width: 1600px;
 }
 
-/* Header: title + count on the left, Create button on the right */
 .albums-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 12px;
-    margin-bottom: 16px;
+    min-height: 56px;
+    margin-bottom: 8px;
 }
+.albums-heading { display: flex; align-items: baseline; gap: 10px; }
+.albums-header h1 { margin: 0; font-size: 1.375rem; font-weight: 600; color: var(--app-fg); letter-spacing: -0.01em; }
+.album-count { font-size: 0.875rem; color: var(--app-muted); font-variant-numeric: tabular-nums; }
 
-.albums-header h1 {
-    font-weight: 650;
-    color: var(--app-fg);
-    font-size: 1.5rem;
-    margin: 0;
-    letter-spacing: -0.01em;
-}
-
-.album-count {
-    color: var(--app-muted);
-    font-size: 0.875rem;
-    margin-top: 2px;
-}
-
-.albums-header .btn { display: inline-flex; align-items: center; gap: 6px; }
-
-/* Toolbar: view toggle + sort */
-.albums-controls {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 12px;
-    padding-bottom: 12px;
-    margin-bottom: 16px;
-    border-bottom: 1px solid var(--app-border);
-}
+.albums-tools { display: flex; align-items: center; gap: 8px; }
+.albums-sort-select { width: auto; min-width: 0; }
+.albums-new { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
 
 .view-toggle-group {
     display: inline-flex;
@@ -52,314 +29,116 @@
     background: var(--app-surface-2);
     border: 1px solid var(--app-border);
     border-radius: var(--app-radius-sm);
-    flex-shrink: 0;
 }
-
 .view-toggle-group .btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    border: none;
-    padding: 4px 12px;
+    justify-content: center;
+    width: 30px;
+    height: 26px;
+    padding: 0;
+    border: 0;
     border-radius: 4px;
-    font-weight: 500;
-    font-size: 0.85rem;
     color: var(--app-muted);
     background: transparent;
 }
-
 .view-toggle-group .btn:hover { color: var(--app-fg); background: var(--app-overlay); }
+.view-toggle-group .btn.active { background: var(--app-surface); color: var(--app-fg); box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12); }
 
-.view-toggle-group .btn.active,
-.view-toggle-group .btn.active:hover {
-    background: var(--app-surface);
-    color: var(--app-fg);
-    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.12);
+/* ---------- Grid ---------- */
+
+.albums-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 20px 16px;
 }
 
-.albums-sort {
+.album-tile {
+    display: block;
+    min-width: 0;
+    color: var(--app-fg);
+    text-decoration: none;
+    border-radius: var(--app-radius);
+}
+.album-tile:hover { color: var(--app-fg); }
+
+.album-cover {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    overflow: hidden;
+    border-radius: var(--app-radius);
+    background: var(--app-surface-2);
+}
+.album-cover img {
+    width: 100%;
+    height: 100%;
+    display: block;
+    object-fit: cover;
+    transition: filter 0.14s ease;
+}
+.album-tile:hover .album-cover img { filter: brightness(0.92); }
+.album-cover.is-empty {
     display: flex;
     align-items: center;
-    gap: 8px;
-    min-width: 0;
-}
-
-.albums-sort label {
-    font-size: 0.7rem;
-    font-weight: 600;
+    justify-content: center;
     color: var(--app-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
-    margin: 0;
-    white-space: nowrap;
+    border: 1px solid var(--app-border);
 }
 
-.albums-sort .form-select { width: auto; max-width: 100%; min-width: 0; }
+.album-text { padding: 8px 2px 0; min-width: 0; }
+.album-name {
+    font-size: 0.875rem;
+    font-weight: 500;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.album-meta { margin-top: 1px; font-size: 0.75rem; color: var(--app-muted); }
+.album-desc {
+    margin-top: 2px;
+    font-size: 0.8125rem;
+    color: var(--app-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
 
-/* ---------- Album cards ---------- */
+/* ---------- List ---------- */
 
 .albums-list {
     display: flex;
     flex-direction: column;
-    background: var(--app-surface);
-    border: 1px solid var(--app-border);
-    border-radius: var(--app-radius);
-    overflow: hidden;
+    max-width: 900px;
 }
-
-.albums-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 4px;
-}
-
-.album-card {
-    text-decoration: none !important;
-    color: inherit;
-    transition: background-color 0.12s ease;
-}
-
-.album-card:hover { color: inherit; }
-
-/* List: one row per album, hairline dividers */
-.album-card.list-card {
+.albums-list .album-tile {
     display: flex;
     align-items: center;
     gap: 14px;
-    width: 100%;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--app-border);
+    padding: 6px 8px;
+    margin: 0 -8px;
 }
+.albums-list .album-tile:hover { background: var(--app-overlay); }
+.albums-list .album-cover { flex: 0 0 56px; width: 56px; border-radius: var(--app-radius-sm); }
+.albums-list .album-cover.is-empty svg { width: 22px; height: 22px; }
+.albums-list .album-text { padding: 0; flex: 1; }
 
-.album-card.list-card:last-child { border-bottom: none; }
-.album-card.list-card:hover { background: var(--app-overlay); }
+/* ---------- Empty ---------- */
 
-.album-cover-sidebar {
-    width: 64px;
-    height: 64px;
-    border-radius: var(--app-radius-sm);
-    overflow: hidden;
-    flex-shrink: 0;
-    background: var(--app-surface-2);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.album-cover-sidebar img,
-.album-cover-wrapper img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
-.album-cover-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--app-surface-2);
-    color: var(--app-muted);
-}
-
-.album-content { flex: 1; min-width: 0; }
-
-.album-title {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 8px;
-    width: 100%;
-    margin-bottom: 2px;
-}
-
-.album-title .title-text {
-    font-size: 0.975rem;
-    font-weight: 600;
-    color: var(--app-fg);
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-}
-
-.badge-container {
-    display: flex;
-    gap: 4px;
-    flex-shrink: 0;
-}
-
-.album-details {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    font-size: 0.85rem;
-    color: var(--app-muted);
-}
-
-.album-desc {
-    font-size: 0.82rem;
-    color: var(--app-muted);
-    line-height: 1.35;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-}
-
-.album-stats-row {
-    display: flex;
-    flex-wrap: wrap;
-    row-gap: 2px;
-}
-
-.stat-badge + .stat-badge::before { content: "\00b7"; margin: 0 6px; }
-
-.stat-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    font-size: 0.78rem;
-    color: var(--app-muted);
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-}
-
-.stat-badge svg { flex-shrink: 0; }
-
-.detail-item { display: flex; align-items: center; gap: 6px; }
-
-.detail-label {
-    font-weight: 600;
-    text-transform: uppercase;
-    font-size: 0.7rem;
-    letter-spacing: 0.06em;
-    color: var(--app-muted);
-}
-
-/* Grid: cover fills the tile, text sits on a dark scrim (same in both themes) */
-.album-card.grid-card {
-    position: relative;
-    height: 220px;
-    overflow: hidden;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
-    border-radius: var(--app-radius-sm);
-    background: var(--app-surface-2);
-}
-
-.album-card.grid-card:hover .album-gradient { background: linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 30%, rgba(0, 0, 0, 0.82) 100%); }
-
-.album-cover-wrapper {
-    position: absolute;
-    inset: 0;
-    z-index: 1;
-    transition: transform 0.3s ease;
-}
-
-.album-card.grid-card:hover .album-cover-wrapper { transform: scale(1.02); }
-
-.album-gradient {
-    position: absolute;
-    inset: 0;
-    z-index: 2;
-    pointer-events: none;
-    background: linear-gradient(to bottom, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.8) 100%);
-}
-
-.grid-card .album-content {
-    flex: 0 0 auto;
-    position: relative;
-    z-index: 3;
-    padding: 10px 12px;
-    color: #fff;
-}
-
-.grid-card .album-title .title-text {
-    color: #fff;
-    font-size: 0.975rem;
-    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
-}
-
-.grid-card .album-desc {
-    color: rgba(255, 255, 255, 0.85);
-    font-size: 0.75rem;
-    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-}
-
-.grid-card .stat-badge { color: rgba(255, 255, 255, 0.9); font-size: 0.72rem; }
-
-/* One line of stats on tiles; never a dangling separator */
-.grid-card .album-stats-row {
-    display: block;
-    font-size: 0; /* drop inter-span whitespace; .stat-badge sets its own size */
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-.grid-card .stat-badge { display: inline; }
-
-/* Tiles without a cover: no scrim, normal text colours */
-.grid-card:has(.album-cover-placeholder) .album-gradient { display: none; }
-.grid-card:has(.album-cover-placeholder) .album-cover-placeholder { align-items: flex-start; padding-top: 56px; }
-.grid-card:has(.album-cover-placeholder) .album-title .title-text { color: var(--app-fg); text-shadow: none; }
-.grid-card:has(.album-cover-placeholder) .album-desc,
-.grid-card:has(.album-cover-placeholder) .stat-badge { color: var(--app-muted); text-shadow: none; }
-
-/* Badges (Owned / Shared / Public) */
-.albums-container .badge {
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 0.68rem;
-    font-weight: 600;
-    white-space: nowrap;
-}
-
-.albums-container .badge-owned,
-.albums-container .badge-shared,
-.albums-container .badge-public {
-    background: transparent;
-    color: var(--app-muted);
-    border: 1px solid var(--app-border);
-}
-
-/* On the photo scrim the soft fills would vanish: use solid dark chips. */
-.grid-card:not(:has(.album-cover-placeholder)) .badge-owned,
-.grid-card:not(:has(.album-cover-placeholder)) .badge-shared,
-.grid-card:not(:has(.album-cover-placeholder)) .badge-public {
-    background: rgba(0, 0, 0, 0.45) !important;
-    color: #fff !important;
-    border: 1px solid rgba(255, 255, 255, 0.2) !important;
-}
-
-/* Empty state */
 .no-albums {
-    text-align: center;
-    color: var(--app-muted);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
     padding: 72px 16px;
+    text-align: center;
 }
+.no-albums p { margin: 0; max-width: 380px; font-size: 0.875rem; color: var(--app-muted); }
 
-.no-albums svg { display: none; }
-
-.no-albums p {
-    font-size: 0.875rem;
-    margin: 0;
-}
+.album-public-label { user-select: none; cursor: pointer; }
 
 @media (max-width: 576px) {
-    .albums-container { padding: 14px 12px 24px; }
-    .albums-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px; }
-    .album-card.grid-card { height: 170px; }
-    .grid-card .album-desc { display: none; }
-    .grid-card .badge-container { display: none; }
-    .album-card.list-card { padding: 10px 12px; gap: 12px; }
-    .album-cover-sidebar { width: 52px; height: 52px; }
-    .albums-controls { flex-wrap: nowrap; }
-    .albums-sort { flex: 1 1 auto; justify-content: flex-end; }
-    .albums-sort label { display: none; }
-    .albums-sort .form-select { flex: 1 1 auto; max-width: 220px; }
+    .albums-container { padding: 4px 12px 24px; }
+    .albums-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 10px; }
+    .albums-sort-select { max-width: 130px; }
 }

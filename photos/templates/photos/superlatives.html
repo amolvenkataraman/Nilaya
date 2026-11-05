@@ -7,101 +7,11 @@
 {% block page_styles %}
 {{ block.super }}
 <link href="{% static 'photo/insights.css' %}" rel="stylesheet" />
-<style>
-    .sup-thumb {
-        width: 48px; height: 48px; border-radius: var(--app-radius-sm); overflow: hidden;
-        background: var(--app-surface-2); border: 1px solid var(--app-border);
-        display: block; padding: 0; cursor: pointer; margin: 0 auto;
-    }
-    .sup-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
-    .sup-file { font-weight: 600; font-size: 0.875rem; word-break: break-all; min-width: 160px; }
-    .sup-meta { display: flex; flex-wrap: wrap; gap: 4px 10px; margin-top: 2px; font-size: 0.78rem; color: var(--app-muted); }
-    .sup-meta span { display: inline-flex; align-items: center; gap: 4px; }
-    .sup-rank { font-weight: 700; font-variant-numeric: tabular-nums; color: var(--app-muted); }
-    .sup-rank-medal {
-        display: inline-grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
-        background: var(--app-surface-2); color: var(--app-fg); font-weight: 600; font-size: 0.8125rem;
-    }
-    .sup-pill {
-        display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px;
-        font-size: 0.72rem; font-weight: 600; border: 1px solid var(--app-border);
-        background: var(--app-surface-2); color: var(--app-fg); white-space: nowrap;
-    }
-    .sup-pill.sup-video { color: var(--app-fg); }
-    .sup-pill.warn { color: var(--app-warning); }
-    .sup-pill.danger { color: var(--app-danger); }
-    .sup-metric { font-weight: 600; color: var(--app-fg); }
-    .sup-extra { font-size: 0.75rem; color: var(--app-warning); }
-    .sup-actions { display: flex; justify-content: flex-end; gap: 6px; }
-    .sup-actions .btn { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
-    .sup-metric-badge {
-        display: inline-block; font-weight: 600; white-space: nowrap; font-variant-numeric: tabular-nums;
-    }
-    .sup-banner { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
-    .sup-banner h2 { margin: 0 0 2px; font-size: 0.9375rem; font-weight: 600; }
-    .sup-banner p { margin: 0; color: var(--app-muted); font-size: 0.875rem; }
-    .sup-page { padding-bottom: 96px; }
-    .sup-cats { display: grid; gap: 12px; }
-    .sup-cats > * { min-width: 0; }
-    .sup-col-xs { width: 40px; }
-    .sup-col-rank { width: 72px; }
-    .sup-col-thumb { width: 70px; }
-    .sup-summary { min-width: 220px; }
-
-    /* Floating batch action bar */
-    #batch-action-bar {
-        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-        display: none; align-items: center; gap: 12px; z-index: 1040;
-        padding: 10px 12px 10px 20px; border-radius: 999px;
-        background: var(--app-surface); color: var(--app-fg);
-        border: 1px solid var(--app-border); box-shadow: var(--app-shadow);
-        max-width: calc(100vw - 32px); white-space: nowrap;
-    }
-    #batch-action-bar .btn { border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; }
-
-    /* Lightbox: dark scrim over the media, themed info panel */
-    #photo-display-area.sup-lightbox {
-        visibility: hidden; position: fixed; inset: 0; width: 100vw; height: 100vh;
-        background: rgba(0, 0, 0, 0.92); z-index: 2000; display: flex;
-    }
-    .sup-lightbox .sup-stage { flex: 1; min-width: 0; position: relative; display: flex; align-items: center; justify-content: center; }
-    .sup-lightbox #photo { max-width: 90%; max-height: 90vh; display: flex; align-items: center; justify-content: center; }
-    .sup-lightbox #photo img, .sup-lightbox #photo video { max-width: 100% !important; border-radius: var(--app-radius-sm); }
-    .sup-lb-btn,
-    .sup-lb-btn:hover {
-        position: absolute; z-index: 1; width: 44px; height: 44px; padding: 0; border-radius: 50%;
-        display: grid; place-items: center; border: 0;
-        background: rgba(255, 255, 255, 0.12); color: #fff;
-    }
-    .sup-lb-btn:hover { background: rgba(255, 255, 255, 0.24); }
-    .sup-lb-close { top: 16px; right: 16px; }
-    .sup-lb-prev { left: 16px; top: 50%; transform: translateY(-50%); }
-    .sup-lb-next { right: 16px; top: 50%; transform: translateY(-50%); }
-    .sup-info {
-        width: 340px; flex: none; overflow-y: auto; padding: 20px;
-        background: var(--app-surface); color: var(--app-fg);
-        border-left: 1px solid var(--app-border); font-size: 0.9rem;
-    }
-    .sup-info-head { padding-bottom: 12px; margin-bottom: 16px; border-bottom: 1px solid var(--app-border); }
-    .sup-info-name { font-weight: 600; font-size: 1.05rem; word-break: break-all; }
-    .sup-info-sub { font-size: 0.8rem; color: var(--app-muted); margin-top: 2px; }
-    .sup-info-section { margin-bottom: 16px; display: grid; gap: 4px; }
-    .sup-info-section .ins-label { margin-bottom: 2px; }
-    .sup-info-row { display: flex; justify-content: space-between; gap: 12px; }
-    .sup-info-row span { color: var(--app-muted); }
-    .sup-info-row strong { font-weight: 600; text-align: right; }
-    .sup-info-actions { margin-top: 24px; display: grid; gap: 8px; }
-    .sup-info-actions .btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-    @media (max-width: 768px) {
-        #photo-display-area.sup-lightbox { flex-direction: column; }
-        .sup-info { width: 100%; max-height: 42vh; border-left: 0; border-top: 1px solid var(--app-border); }
-        .sup-lightbox #photo img, .sup-lightbox #photo video { max-height: 52vh !important; }
-    }
-</style>
+<link href="{% static 'photo/superlatives.css' %}" rel="stylesheet" />
 {% endblock %}
 
 {% block page_body %}
-<div class="ins-page sup-page">
+<div class="ins-page sup-page" data-csrf="{{ csrf_token }}">
     {% if admin_override %}
     <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2 mb-0" role="alert">
         <div class="d-flex align-items-center gap-2">
@@ -164,7 +74,7 @@
         </div>
         <div class="d-flex align-items-center gap-2">
             <label for="limitSelect" class="ins-label text-nowrap mb-0">Ranked items</label>
-            <select class="form-select form-select-sm w-auto" id="limitSelect" onchange="changeLimit(this.value)">
+            <select class="form-select form-select-sm w-auto" id="limitSelect">
                 <option value="20" {% if limit == 20 %}selected{% endif %}>Top 20</option>
                 <option value="50" {% if limit == 50 or not limit %}selected{% endif %}>Top 50</option>
                 <option value="100" {% if limit == 100 %}selected{% endif %}>Top 100</option>
@@ -261,7 +171,7 @@
                 <thead>
                     <tr>
                         <th class="center sup-col-xs">
-                            <input type="checkbox" class="form-check-input" id="select-all-checkbox" onchange="toggleSelectAll(this)" aria-label="Select all">
+                            <input type="checkbox" class="form-check-input" id="select-all-checkbox" aria-label="Select all">
                         </th>
                         <th class="center sup-col-xs">#</th>
                         <th class="center sup-col-thumb">Preview</th>
@@ -277,11 +187,11 @@
                     {% for item in top_photos %}
                     <tr id="row-{{ item.id }}" data-tot-kb="{{ item.size_total|default:item.size }}" data-opt-kb="{{ item.size|default:item.size_total }}" data-filename="{{ item.filename }}">
                         <td class="center">
-                            <input type="checkbox" class="form-check-input row-checkbox" value="{{ item.id }}" onchange="updateBatchSelection()" aria-label="Select {{ item.filename }}">
+                            <input type="checkbox" class="form-check-input row-checkbox" value="{{ item.id }}" aria-label="Select {{ item.filename }}">
                         </td>
                         <td class="center sup-rank">{{ item.rank }}</td>
                         <td class="center">
-                            <button type="button" class="sup-thumb" onclick="openLightboxById('{{ item.id }}')" aria-label="View {{ item.filename }}">
+                            <button type="button" class="sup-thumb" data-sup-action="view" data-id="{{ item.id }}" aria-label="View {{ item.filename }}">
                                 <img src="/private/{{ item.thumbnail_hash }}/photo_cache/thumbnail/{{ item.id }}.webp" alt="" loading="lazy">
                             </button>
                         </td>
@@ -329,15 +239,15 @@
                         </td>
                         <td class="num">
                             <div class="sup-actions">
-                                <button class="btn btn-sm btn-outline-secondary" onclick="openLightboxById('{{ item.id }}')" title="View file"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/></svg>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" data-sup-action="view" data-id="{{ item.id }}" title="View file"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M16 8s-3-5.5-8-5.5S0 8 0 8s3 5.5 8 5.5S16 8 16 8M1.173 8a13 13 0 0 1 1.66-2.043C4.12 4.668 5.88 3.5 8 3.5s3.879 1.168 5.168 2.457A13 13 0 0 1 14.828 8q-.086.13-.195.288c-.335.48-.83 1.12-1.465 1.755C11.879 11.332 10.119 12.5 8 12.5s-3.879-1.168-5.168-2.457A13 13 0 0 1 1.172 8z"/><path d="M8 5.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5M4.5 8a3.5 3.5 0 1 1 7 0 3.5 3.5 0 0 1-7 0"/></svg>
                                     View
                                 </button>
                                 {% if item.has_orig %}
-                                <button class="btn btn-sm btn-outline-warning btn-del-orig" onclick="deleteOriginalFile('{{ item.id }}', '{{ item.filename|escapejs }}', '{{ item.overhead_str }}')" title="Delete original video/photo only (keeps the optimized file)"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg>
+                                <button type="button" class="btn btn-sm btn-outline-warning btn-del-orig" data-sup-action="delete-original" data-id="{{ item.id }}" data-filename="{{ item.filename }}" data-overhead="{{ item.overhead_str }}" title="Delete original video/photo only (keeps the optimized file)"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg>
                                     Original
                                 </button>
                                 {% endif %}
-                                <button class="btn btn-sm btn-outline-danger" onclick="deleteSingleFile('{{ item.id }}', '{{ item.filename|escapejs }}')" title="Delete entire item"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg>
+                                <button type="button" class="btn btn-sm btn-outline-danger" data-sup-action="delete" data-id="{{ item.id }}" data-filename="{{ item.filename }}" title="Delete entire item"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg>
                                     Delete
                                 </button>
                             </div>
@@ -358,18 +268,18 @@
 <!-- Floating Batch Action Bar -->
 <div id="batch-action-bar">
     <span class="fw-semibold small"><span id="batch-count">0</span> selected</span>
-    <button class="btn btn-sm btn-danger" onclick="deleteBatchFiles()"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg>
+    <button type="button" class="btn btn-sm btn-danger" data-sup-action="batch-delete"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg>
         Delete selected
     </button>
-    <button class="btn btn-sm btn-outline-secondary" onclick="clearBatchSelection()">Cancel</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-sup-action="batch-clear">Cancel</button>
 </div>
 
 <!-- Lightbox Modal Container -->
 <div id="photo-display-area" class="sup-lightbox">
     <div class="sup-stage">
-        <button type="button" class="sup-lb-btn sup-lb-close" onclick="closeLightbox()" aria-label="Close"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg></button>
-        <button type="button" class="sup-lb-btn sup-lb-prev" onclick="prevLightboxImage()" aria-label="Previous"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"/></svg></button>
-        <button type="button" class="sup-lb-btn sup-lb-next" onclick="nextLightboxImage()" aria-label="Next"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708"/></svg></button>
+        <button type="button" class="sup-lb-btn sup-lb-close" data-sup-action="lb-close" aria-label="Close"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.146 2.854a.5.5 0 1 1 .708-.708L8 7.293l5.146-5.147a.5.5 0 0 1 .708.708L8.707 8l5.147 5.146a.5.5 0 0 1-.708.708L8 8.707l-5.146 5.147a.5.5 0 0 1-.708-.708L7.293 8z"/></svg></button>
+        <button type="button" class="sup-lb-btn sup-lb-prev" data-sup-action="lb-prev" aria-label="Previous"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0"/></svg></button>
+        <button type="button" class="sup-lb-btn sup-lb-next" data-sup-action="lb-next" aria-label="Next"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708"/></svg></button>
         <div id="photo"></div>
     </div>
     <div class="sup-info">
@@ -377,352 +287,6 @@
     </div>
 </div>
 
-<script>
-    // Store metadata for all items in page
-    const photosMeta = {{ top_photos_meta_json|safe }};
-    let activePhotoIds = [{% for item in top_photos %}"{{ item.id }}"{% if not forloop.last %},{% endif %}{% endfor %}];
-    let currentLightboxIdx = -1;
-    let isLightboxOpen = false;
-
-    function formatBytesStr(kb) {
-        if (!kb) return "0.0 MB";
-        let mb = kb / 1024.0;
-        if (mb >= 1024.0 * 1024.0) {
-            return (mb / (1024.0 * 1024.0)).toFixed(2) + " TB";
-        } else if (mb >= 1024.0) {
-            return (mb / 1024.0).toFixed(2) + " GB";
-        } else {
-            return mb.toFixed(1) + " MB";
-        }
-    }
-
-    function openLightboxById(id) {
-        const idx = activePhotoIds.indexOf(id);
-        if (idx !== -1) {
-            showLightboxAtIndex(idx);
-        }
-    }
-
-    function showLightboxAtIndex(idx) {
-        if (idx < 0 || idx >= activePhotoIds.length) return;
-        currentLightboxIdx = idx;
-        isLightboxOpen = true;
-        const id = activePhotoIds[idx];
-        const meta = photosMeta[id];
-        if (!meta) return;
-
-        const displayArea = document.getElementById("photo-display-area");
-        displayArea.style.visibility = "visible";
-
-        const photoContainer = document.getElementById("photo");
-        photoContainer.innerHTML = "";
-
-        const mediaUrl = `/photo_cdn/${meta.photo_hash}/${meta.path}`;
-        if (meta.video) {
-            const vid = document.createElement("video");
-            vid.src = mediaUrl;
-            vid.controls = true;
-            vid.autoplay = true;
-            vid.loop = true;
-            vid.style.maxHeight = "90vh";
-            vid.style.maxWidth = "90vw";
-            photoContainer.appendChild(vid);
-        } else {
-            const img = document.createElement("img");
-            img.src = mediaUrl;
-            img.style.maxHeight = "90vh";
-            img.style.maxWidth = "90vw";
-            img.style.objectFit = "contain";
-            photoContainer.appendChild(img);
-        }
-
-        // Render Sidebar info
-        const infoSidebar = document.querySelector("#photo-display-area .sup-info");
-        infoSidebar.innerHTML = `
-            <div class="sup-info-head">
-                <div class="sup-info-name">${meta.filepath ? meta.filepath.split('/').pop() : 'File Details'}</div>
-                <div class="sup-info-sub">ID: ${meta.id}</div>
-            </div>
-
-            <div class="sup-info-section">
-                <div class="ins-label">File details</div>
-                <div class="sup-info-row"><span>Type</span><strong>${meta.video ? 'Video' : 'Photo'}</strong></div>
-                ${meta.width ? `<div class="sup-info-row"><span>Dimensions</span><strong>${meta.width} × ${meta.height} (${meta.megapixels || ''} MP)</strong></div>` : ''}
-                ${meta.date_taken ? `<div class="sup-info-row"><span>Date Taken</span><strong>${new Date(meta.date_taken).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })}</strong></div>` : ''}
-                <div class="sup-info-row"><span>Optimized Size</span><strong>${formatBytesStr(meta.size)}</strong></div>
-                <div class="sup-info-row"><span>Total Size</span><strong>${formatBytesStr(meta.size_total || meta.size)}</strong></div>
-            </div>
-
-            ${meta.camera_model || meta.camera_make ? `
-            <div class="sup-info-section">
-                <div class="ins-label">Camera</div>
-                ${meta.camera_make ? `<div class="sup-info-row"><span>Make</span><strong>${meta.camera_make}</strong></div>` : ''}
-                ${meta.camera_model ? `<div class="sup-info-row"><span>Model</span><strong>${meta.camera_model}</strong></div>` : ''}
-            </div>` : ''}
-
-            ${meta.location_city ? `
-            <div class="sup-info-section">
-                <div class="ins-label">Location</div>
-                <div class="d-flex align-items-center gap-2"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.166 8.94c-.524 1.062-1.234 2.12-1.96 3.07A32 32 0 0 1 8 14.58a32 32 0 0 1-2.206-2.57c-.726-.95-1.436-2.008-1.96-3.07C3.304 7.867 3 6.862 3 6a5 5 0 0 1 10 0c0 .862-.305 1.867-.834 2.94M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10"/><path d="M8 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4m0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6"/></svg><strong>${meta.location_city}${meta.location_country ? ', ' + meta.location_country : ''}</strong></div>
-            </div>` : ''}
-
-            <div class="sup-info-actions">
-                ${meta.has_orig ? `
-                <button class="btn btn-sm btn-outline-warning w-100" onclick="deleteOriginalFile('${meta.id}', '${meta.filepath ? meta.filepath.split('/').pop().replace(/'/g, "\\'") : ''}', '${formatBytesStr((meta.size_total || meta.size) - meta.size)}')">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg> Delete original only (${formatBytesStr((meta.size_total || meta.size) - meta.size)})
-                </button>` : ''}
-                <button class="btn btn-sm btn-danger w-100" onclick="deleteSingleFile('${meta.id}', '${meta.filepath ? meta.filepath.split('/').pop().replace(/'/g, "\\'") : ''}')">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M6.5 1h3a.5.5 0 0 1 .5.5v1H6v-1a.5.5 0 0 1 .5-.5M11 2.5v-1A1.5 1.5 0 0 0 9.5 0h-3A1.5 1.5 0 0 0 5 1.5v1H1.5a.5.5 0 0 0 0 1h.538l.853 10.66A2 2 0 0 0 4.885 16h6.23a2 2 0 0 0 1.994-1.84l.853-10.66h.538a.5.5 0 0 0 0-1zm1.958 1-.846 10.58a1 1 0 0 1-.997.92h-6.23a1 1 0 0 1-.997-.92L3.042 3.5zm-7.487 1a.5.5 0 0 1 .528.47l.5 8.5a.5.5 0 0 1-.998.06L5 5.03a.5.5 0 0 1 .47-.53Zm5.058 0a.5.5 0 0 1 .47.53l-.5 8.5a.5.5 0 1 1-.998-.06l.5-8.5a.5.5 0 0 1 .528-.47M8 4.5a.5.5 0 0 1 .5.5v8.5a.5.5 0 0 1-1 0V5a.5.5 0 0 1 .5-.5"/></svg> Delete entire item
-                </button>
-            </div>
-        `;
-    }
-
-    function closeLightbox() {
-        isLightboxOpen = false;
-        document.getElementById("photo-display-area").style.visibility = "hidden";
-        document.getElementById("photo").innerHTML = "";
-    }
-
-    function prevLightboxImage() {
-        if (isLightboxOpen && currentLightboxIdx > 0) {
-            showLightboxAtIndex(currentLightboxIdx - 1);
-        }
-    }
-
-    function nextLightboxImage() {
-        if (isLightboxOpen && currentLightboxIdx < activePhotoIds.length - 1) {
-            showLightboxAtIndex(currentLightboxIdx + 1);
-        }
-    }
-
-    document.addEventListener('keydown', function(e) {
-        if (!isLightboxOpen) return;
-        if (e.key === 'Escape') closeLightbox();
-        else if (e.key === 'ArrowLeft') prevLightboxImage();
-        else if (e.key === 'ArrowRight') nextLightboxImage();
-    });
-
-    // --- Deletion Handlers ---
-
-    function deleteOriginalFile(id, filename, overheadStr) {
-        if (!confirm(`Are you sure you want to delete the original source file for '${filename}' (${overheadStr})?\n\nThis will free up disk space while keeping the optimized file in your library.`)) {
-            return;
-        }
-
-        const r = new XMLHttpRequest();
-        r.open("POST", `/photos/delete-original/${id}/`);
-        r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-        r.onload = function() {
-            if (r.status === 200) {
-                const res = JSON.parse(r.responseText);
-                if (res.status === 'success') {
-                    updateRowAfterOriginalDeleted(id, res);
-                    if (isLightboxOpen && activePhotoIds[currentLightboxIdx] === id) {
-                        showLightboxAtIndex(currentLightboxIdx);
-                    }
-                } else {
-                    alert("Failed to delete original file: " + (res.data || "Unknown error"));
-                }
-            } else {
-                alert("Failed to delete original file. You may not have authorization.");
-            }
-        };
-        r.onerror = function() {
-            alert("Network error occurred while deleting original file.");
-        };
-        r.send();
-    }
-
-    function updateRowAfterOriginalDeleted(id, res) {
-        const row = document.getElementById(`row-${id}`);
-        if (row) {
-            row.dataset.totKb = res.size_total;
-
-            const totCell = row.children[7];
-            if (totCell) {
-                totCell.innerHTML = `${res.tot_size_str}`;
-            }
-
-            const badgesContainer = row.querySelector('.badge-container-orig');
-            if (badgesContainer) {
-                badgesContainer.innerHTML = '';
-            }
-
-            const origBtn = row.querySelector('.btn-del-orig');
-            if (origBtn) {
-                origBtn.remove();
-            }
-        }
-
-        if (photosMeta[id]) {
-            photosMeta[id].size_total = res.size_total;
-            photosMeta[id].has_orig = false;
-            photosMeta[id].has_raw = false;
-        }
-
-        recalculateStats();
-    }
-
-    function deleteSingleFile(id, filename) {
-        if (!confirm(`Are you sure you want to permanently delete '${filename}'?\nThis will remove the file and all associated thumbnails from storage.`)) {
-            return;
-        }
-
-        const r = new XMLHttpRequest();
-        r.open("POST", `/photos/delete/${id}/`);
-        r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-        r.onload = function() {
-            if (r.status === 200) {
-                if (isLightboxOpen && activePhotoIds[currentLightboxIdx] === id) {
-                    closeLightbox();
-                }
-                removeRowFromTable(id);
-            } else {
-                alert("Failed to delete file. You may not have authorization to delete this item.");
-            }
-        };
-        r.onerror = function() {
-            alert("Network error occurred while attempting to delete file.");
-        };
-        r.send();
-    }
-
-    function removeRowFromTable(id) {
-        const row = document.getElementById(`row-${id}`);
-        if (row) {
-            row.remove();
-        }
-
-        activePhotoIds = activePhotoIds.filter(pid => pid !== id);
-
-        const countEl = document.getElementById("stat-total-items");
-        if (countEl) {
-            countEl.textContent = activePhotoIds.length;
-        }
-
-        recalculateStats();
-        updateBatchSelection();
-    }
-
-    function recalculateStats() {
-        let totKbSum = 0;
-        let optKbSum = 0;
-        let photos = 0;
-        let videos = 0;
-
-        activePhotoIds.forEach(id => {
-            const row = document.getElementById(`row-${id}`);
-            if (row) {
-                const tot = parseFloat(row.dataset.totKb) || 0;
-                const opt = parseFloat(row.dataset.optKb) || 0;
-                totKbSum += tot;
-                optKbSum += opt;
-
-                const isVid = row.querySelector('.sup-video') !== null;
-                if (isVid) videos++;
-                else photos++;
-            }
-        });
-
-        const totEl = document.getElementById("stat-tot-size");
-        const optEl = document.getElementById("stat-opt-size");
-        const overheadEl = document.getElementById("stat-overhead-size");
-        const photoCntEl = document.getElementById("stat-photo-count");
-        const videoCntEl = document.getElementById("stat-video-count");
-
-        if (totEl) totEl.textContent = formatBytesStr(totKbSum);
-        if (optEl) optEl.textContent = formatBytesStr(optKbSum);
-        if (overheadEl) overheadEl.textContent = formatBytesStr(Math.max(0, totKbSum - optKbSum));
-        if (photoCntEl) photoCntEl.textContent = photos;
-        if (videoCntEl) videoCntEl.textContent = videos;
-    }
-
-    // --- Batch Selection Handlers ---
-
-    function toggleSelectAll(master) {
-        const checkboxes = document.querySelectorAll('.row-checkbox');
-        checkboxes.forEach(cb => {
-            cb.checked = master.checked;
-        });
-        updateBatchSelection();
-    }
-
-    function updateBatchSelection() {
-        const selected = document.querySelectorAll('.row-checkbox:checked');
-        const count = selected.length;
-        const bar = document.getElementById('batch-action-bar');
-        const countSpan = document.getElementById('batch-count');
-        const master = document.getElementById('select-all-checkbox');
-
-        if (countSpan) countSpan.textContent = count;
-
-        if (count > 0) {
-            bar.style.display = 'flex';
-        } else {
-            bar.style.display = 'none';
-        }
-
-        const allCheckboxes = document.querySelectorAll('.row-checkbox');
-        if (master && allCheckboxes.length > 0) {
-            master.checked = selected.length === allCheckboxes.length;
-        }
-    }
-
-    function clearBatchSelection() {
-        const checkboxes = document.querySelectorAll('.row-checkbox');
-        checkboxes.forEach(cb => cb.checked = false);
-        const master = document.getElementById('select-all-checkbox');
-        if (master) master.checked = false;
-        updateBatchSelection();
-    }
-
-    function deleteBatchFiles() {
-        const selected = Array.from(document.querySelectorAll('.row-checkbox:checked')).map(cb => cb.value);
-        if (selected.length === 0) return;
-
-        if (!confirm(`Are you sure you want to permanently delete the ${selected.length} selected files?\nThis action cannot be undone.`)) {
-            return;
-        }
-
-        let completed = 0;
-        let failed = 0;
-
-        selected.forEach(id => {
-            const r = new XMLHttpRequest();
-            r.open("POST", `/photos/delete/${id}/`);
-            r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-            r.onload = function() {
-                if (r.status === 200) {
-                    removeRowFromTable(id);
-                } else {
-                    failed++;
-                }
-                completed++;
-                checkBatchDone();
-            };
-            r.onerror = function() {
-                failed++;
-                completed++;
-                checkBatchDone();
-            };
-            r.send();
-        });
-
-        function checkBatchDone() {
-            if (completed === selected.length) {
-                clearBatchSelection();
-                if (failed > 0) {
-                    alert(`Batch deletion completed with ${failed} failure(s).`);
-                }
-            }
-        }
-    }
-
-    function changeLimit(val) {
-        const params = new URLSearchParams(window.location.search);
-        params.set('limit', val);
-        window.location.search = params.toString();
-    }
-</script>
+{{ top_photos_meta_json|json_script:"sup-photos-meta" }}
+<script src="{% static 'photo/superlatives.js' %}"></script>
 {% endblock %}

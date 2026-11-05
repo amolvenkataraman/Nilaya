@@ -6,7 +6,10 @@ const GeoguessrEnt = {
 
     init() {
         const defaultCenter = [43.6425662, -79.3870568];
-        this.photoId = window.PHOTO_ID || '';
+        // Photo id and CSRF token come from data-* attributes on the page container.
+        const page = document.querySelector('.geoguessr-ent-container');
+        this.photoId = page.dataset.photoId || '';
+        this.csrf = page.dataset.csrf || '';
 
         // Initialize Map
         this.Map = L.map('mapid').setView(defaultCenter, 10);
@@ -72,7 +75,7 @@ const GeoguessrEnt = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': window.CSRF_TOKEN || ''
+                    'X-CSRFToken': this.csrf
                 },
                 body: JSON.stringify({
                     photo: this.photoId,

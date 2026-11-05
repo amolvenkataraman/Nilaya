@@ -10,262 +10,64 @@
 {% endblock %}
 
 {% block page_body %}
-<div class="albums-container">
+<div class="albums-container" data-user-id="{{ request.user.id }}" data-create-url="{% url 'create_share_album' %}">
     <div class="albums-header">
-        <div>
+        <div class="albums-heading">
             <h1>Albums</h1>
+            {% if albums %}<span class="album-count">{{ albums|length }}</span>{% endif %}
+        </div>
+        <div class="albums-tools">
             {% if albums %}
-            <div class="album-count">{{ albums|length }} album{{ albums|length|pluralize }}</div>
-            {% endif %}
-        </div>
-        <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#createAlbumModal">
-            <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2z"/></svg>
-            New album
-        </button>
-    </div>
-
-    <!-- Controls (Sort and View Mode) -->
-    {% if albums %}
-    <div class="albums-controls">
-        <!-- View Toggle buttons -->
-        <div class="view-toggle-group" role="group" aria-label="View">
-            <button type="button" class="btn btn-sm" id="btn-list-view">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
-                List
-            </button>
-            <button type="button" class="btn btn-sm" id="btn-grid-view">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
-                Grid
-            </button>
-        </div>
-
-        <!-- Sort selector -->
-        <div class="albums-sort">
-            <label for="albums-sort-select">Sort</label>
-            <select class="form-select form-select-sm" id="albums-sort-select">
-                <option value="created_desc">Creation time (Newest first)</option>
-                <option value="created_asc">Creation time (Oldest first)</option>
-                <option value="id_asc">Original ID</option>
-                <option value="oldest_desc">Oldest photo (Descending)</option>
-                <option value="oldest_asc">Oldest photo (Ascending)</option>
-                <option value="newest_desc">Newest photo (Descending)</option>
-                <option value="newest_asc">Newest photo (Ascending)</option>
-                <option value="items_desc">Total items (Descending)</option>
-                <option value="items_asc">Total items (Ascending)</option>
-                <option value="storage_desc">Total storage (Descending)</option>
-                <option value="storage_asc">Total storage (Ascending)</option>
+            <select class="form-select form-select-sm albums-sort-select" id="albums-sort-select" aria-label="Sort albums">
+                <option value="created_desc">Recently created</option>
+                <option value="created_asc">Oldest created</option>
+                <option value="newest_desc">Most recent photo</option>
+                <option value="oldest_asc">Oldest photo</option>
+                <option value="items_desc">Most items</option>
+                <option value="storage_desc">Largest</option>
+                <option value="name_asc">Name</option>
             </select>
+            <div class="view-toggle-group" role="group" aria-label="View">
+                <button type="button" class="btn btn-sm" id="btn-grid-view" aria-label="Grid" title="Grid">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                </button>
+                <button type="button" class="btn btn-sm" id="btn-list-view" aria-label="List" title="List">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>
+                </button>
+            </div>
+            {% endif %}
+            <button type="button" class="btn btn-sm btn-primary albums-new" data-bs-toggle="modal" data-bs-target="#createAlbumModal">
+                <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2z"/></svg>
+                New album
+            </button>
         </div>
     </div>
-    {% endif %}
 
     {% if albums %}
-    <div id="albums-container" class="albums-list">
-        <!-- Dynamically rendered via Javascript -->
-    </div>
+    <div id="albums-container" class="albums-grid"></div>
     {% else %}
     <div class="no-albums">
-        <p>No albums yet.</p>
-        <button type="button" class="btn btn-sm btn-outline-secondary mt-3" data-bs-toggle="modal" data-bs-target="#createAlbumModal">Create an album</button>
+        <p>No albums yet. Albums collect photos from across your library and can be shared.</p>
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#createAlbumModal">Create an album</button>
     </div>
     {% endif %}
 </div>
 
 {{ albums|json_script:"albums-data" }}
 
-<script>
-    document.addEventListener("DOMContentLoaded", () => {
-        const scriptEl = document.getElementById('albums-data');
-        if (!scriptEl) return;
-        
-        const rawAlbums = JSON.parse(scriptEl.textContent);
-        rawAlbums.forEach((a, i) => a.initial_index = i);
-
-        const currentUserId = "{{ request.user.id }}";
-        const albumsContainer = document.getElementById('albums-container');
-
-        let viewMode = localStorage.getItem('albums_view_mode') || 'list';
-        let sortType = localStorage.getItem('albums_sort_type') || 'created_desc';
-
-        const sortSelect = document.getElementById('albums-sort-select');
-        const btnList = document.getElementById('btn-list-view');
-        const btnGrid = document.getElementById('btn-grid-view');
-
-        if (sortSelect) sortSelect.value = sortType;
-        updateViewButtons();
-        renderAlbums();
-
-        if (btnList) {
-            btnList.addEventListener('click', () => {
-                viewMode = 'list';
-                localStorage.setItem('albums_view_mode', 'list');
-                updateViewButtons();
-                renderAlbums();
-            });
-        }
-
-        if (btnGrid) {
-            btnGrid.addEventListener('click', () => {
-                viewMode = 'grid';
-                localStorage.setItem('albums_view_mode', 'grid');
-                updateViewButtons();
-                renderAlbums();
-            });
-        }
-
-        if (sortSelect) {
-            sortSelect.addEventListener('change', (e) => {
-                sortType = e.target.value;
-                localStorage.setItem('albums_sort_type', sortType);
-                renderAlbums();
-            });
-        }
-
-        function updateViewButtons() {
-            if (!btnList || !btnGrid) return;
-            if (viewMode === 'list') {
-                btnList.classList.add('active');
-                btnGrid.classList.remove('active');
-            } else {
-                btnGrid.classList.add('active');
-                btnList.classList.remove('active');
-            }
-        }
-
-        function sortAlbums(sortVal, list) {
-            return [...list].sort((a, b) => {
-                if (sortVal === 'created_asc') {
-                    return a.initial_index - b.initial_index;
-                } else if (sortVal === 'created_desc') {
-                    return b.initial_index - a.initial_index;
-                } else if (sortVal === 'id_asc') {
-                    return a.id.localeCompare(b.id);
-                } else if (sortVal === 'oldest_desc') {
-                    if (!a.oldest_date) return 1;
-                    if (!b.oldest_date) return -1;
-                    return new Date(b.oldest_date) - new Date(a.oldest_date);
-                } else if (sortVal === 'oldest_asc') {
-                    if (!a.oldest_date) return 1;
-                    if (!b.oldest_date) return -1;
-                    return new Date(a.oldest_date) - new Date(b.oldest_date);
-                } else if (sortVal === 'newest_desc') {
-                    if (!a.newest_date) return 1;
-                    if (!b.newest_date) return -1;
-                    return new Date(b.newest_date) - new Date(a.newest_date);
-                } else if (sortVal === 'newest_asc') {
-                    if (!a.newest_date) return 1;
-                    if (!b.newest_date) return -1;
-                    return new Date(a.newest_date) - new Date(b.newest_date);
-                } else if (sortVal === 'items_desc') {
-                    return (b.photo_count + b.video_count) - (a.photo_count + a.video_count);
-                } else if (sortVal === 'items_asc') {
-                    return (a.photo_count + a.video_count) - (b.photo_count + b.video_count);
-                } else if (sortVal === 'storage_desc') {
-                    return b.space_used_kb - a.space_used_kb;
-                } else if (sortVal === 'storage_asc') {
-                    return a.space_used_kb - b.space_used_kb;
-                }
-                return 0;
-            });
-        }
-
-        function renderAlbums() {
-            if (!albumsContainer) return;
-            const sorted = sortAlbums(sortType, rawAlbums);
-            
-            if (viewMode === 'grid') {
-                albumsContainer.className = 'albums-grid';
-            } else {
-                albumsContainer.className = 'albums-list';
-            }
-
-            let html = '';
-            sorted.forEach(album => {
-                const isOwned = album.owner === currentUserId;
-                const ownerBadge = isOwned 
-                    ? '<span class="badge badge-owned">Owned</span>' 
-                    : '<span class="badge badge-shared">Shared</span>';
-                const publicBadge = album.public 
-                    ? '<span class="badge badge-public">Public</span>' 
-                    : '';
-
-                let coverImgHtml = '';
-                if (album.cover_photo_id) {
-                    if (album.cover_photo_hash) {
-                        coverImgHtml = `<img src="/private/${album.cover_photo_hash}/photo_cache/thumbnail/${album.cover_photo_id}.webp" alt="" loading="lazy" />`;
-                    } else {
-                        coverImgHtml = `<img src="/photos/photo/${album.cover_photo_id}/thumbnail/" alt="" loading="lazy" />`;
-                    }
-                } else {
-                    coverImgHtml = `
-                        <div class="album-cover-placeholder">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                        </div>
-                    `;
-                }
-
-                const statsHtml = `
-                    <div class="album-stats-row">
-                        <span class="stat-badge stat-photos">${album.photo_count} photo${album.photo_count === 1 ? '' : 's'}</span>
-                        <span class="stat-badge stat-videos">${album.video_count} video${album.video_count === 1 ? '' : 's'}</span>
-                        <span class="stat-badge stat-space">${album.space_used}</span>
-                    </div>`;
-                const descHtml = album.description
-                    ? `<div class="album-desc">${escapeHtml(album.description)}</div>`
-                    : '';
-
-                if (viewMode === 'grid') {
-                    html += `
-                        <a href="/photos/?album=${album.id}" class="album-card grid-card">
-                            <div class="album-cover-wrapper">${coverImgHtml}</div>
-                            <div class="album-gradient"></div>
-                            <div class="album-content">
-                                <div class="album-title">
-                                    <span class="title-text">${escapeHtml(album.name)}</span>
-                                    <div class="badge-container">${ownerBadge}${publicBadge}</div>
-                                </div>
-                                <div class="album-details">
-                                    ${descHtml}
-                                    ${statsHtml}
-                                </div>
-                            </div>
-                        </a>
-                    `;
-                } else {
-                    html += `
-                        <a href="/photos/?album=${album.id}" class="album-card list-card">
-                            <div class="album-cover-sidebar">${coverImgHtml}</div>
-                            <div class="album-content">
-                                <div class="album-title">
-                                    <span class="title-text">${escapeHtml(album.name)}</span>
-                                    <div class="badge-container">${ownerBadge}${publicBadge}</div>
-                                </div>
-                                <div class="album-details">
-                                    ${descHtml}
-                                    ${statsHtml}
-                                </div>
-                            </div>
-                        </a>
-                    `;
-                }
-        });
-        albumsContainer.innerHTML = html;
-    }
-    });
-</script>
 
 <!-- Create Album Modal -->
 <div class="modal fade" id="createAlbumModal" tabindex="-1" aria-labelledby="createAlbumModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="createAlbumModalLabel">Create New Shared Album</h5>
+                <h5 class="modal-title" id="createAlbumModalLabel">New album</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="create-album-form">
                     <div class="mb-3">
-                        <label for="new-album-name" class="form-label">Album Name</label>
+                        <label for="new-album-name" class="form-label">Name</label>
                         <input type="text" class="form-control" id="new-album-name" required placeholder="e.g. Summer Vacation">
                     </div>
                     <div class="mb-3">
@@ -274,46 +76,17 @@
                     </div>
                     <div class="form-check mb-2">
                         <input type="checkbox" class="form-check-input" id="new-album-public">
-                        <label class="form-check-label" for="new-album-public" style="user-select: none; cursor: pointer;">Make this album public</label>
+                        <label class="form-check-label album-public-label" for="new-album-public">Public album</label>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="saveNewAlbumBtn">Create Album</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-primary" id="saveNewAlbumBtn">Create</button>
             </div>
         </div>
     </div>
 </div>
 
-<script>
-    document.getElementById('saveNewAlbumBtn').addEventListener('click', () => {
-        const name = document.getElementById('new-album-name').value.trim();
-        const desc = document.getElementById('new-album-desc').value.trim();
-        const publicStatus = document.getElementById('new-album-public').checked;
-
-        if (!name) {
-            alert('Album name is required');
-            return;
-        }
-
-        const r = new XMLHttpRequest();
-        r.open("POST", "{% url 'create_share_album' %}");
-        r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-        r.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-        r.onload = () => {
-            const res = JSON.parse(r.responseText);
-            if (res.status === 'success') {
-                location.reload();
-            } else {
-                alert('Error creating album: ' + (res.message || 'unknown error'));
-            }
-        };
-        r.send(JSON.stringify({
-            name: name,
-            description: desc,
-            public: publicStatus
-        }));
-    });
-</script>
+<script src="{% static 'photo/albums.js' %}"></script>
 {% endblock %}
