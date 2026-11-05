@@ -1,3 +1,89 @@
 {% extends "base.html" %}
+{% load static %}
+
 {% block page_title %}Tasks{% endblock %}
-{% block page_body %}<div class="p-4 app-muted">The Tasks page is being built.</div>{% endblock %}
+
+{% block page_styles %}
+<link href="{% static 'tasks/tasks.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block page_script %}
+<script type="module" src="{% static 'tasks/tasks.js' %}"></script>
+{% endblock %}
+
+{% block left_sidebar %}
+<nav class="tk-side" aria-label="Task lists">
+    <ul class="tk-nav" id="tk-smart">
+        <li class="tk-skel-line"></li><li class="tk-skel-line"></li><li class="tk-skel-line"></li><li class="tk-skel-line"></li>
+    </ul>
+
+    <section class="tk-side-sec" aria-labelledby="tk-projects-h">
+        <div class="tk-side-head">
+            <button type="button" class="tk-side-toggle" data-collapse="projects" aria-expanded="true" id="tk-projects-h">Projects</button>
+            <button type="button" class="tk-icon-btn" id="tk-new-project" title="New project" aria-label="New project"></button>
+        </div>
+        <ul class="tk-tree" id="tk-projects" role="tree"><li class="tk-skel-line"></li><li class="tk-skel-line"></li></ul>
+        <button type="button" class="tk-side-more" id="tk-archived-toggle">Show archived</button>
+    </section>
+
+    <section class="tk-side-sec" aria-labelledby="tk-labels-h">
+        <div class="tk-side-head">
+            <button type="button" class="tk-side-toggle" data-collapse="labels" aria-expanded="true" id="tk-labels-h">Labels</button>
+            <button type="button" class="tk-icon-btn" id="tk-new-label" title="New label" aria-label="New label"></button>
+        </div>
+        <ul class="tk-nav tk-nav-sm" id="tk-labels"></ul>
+    </section>
+
+    <section class="tk-side-sec" aria-labelledby="tk-views-h">
+        <div class="tk-side-head">
+            <button type="button" class="tk-side-toggle" data-collapse="views" aria-expanded="true" id="tk-views-h">Saved views</button>
+        </div>
+        <ul class="tk-nav tk-nav-sm" id="tk-views"></ul>
+    </section>
+</nav>
+{% endblock %}
+
+{% block page_body %}
+{{ boot|json_script:"tk-boot" }}
+<div class="tk-app" id="tk-app">
+    <header class="tk-head">
+        <div class="tk-title-row">
+            <span class="tk-title-mark" id="tk-title-mark" aria-hidden="true"></span>
+            <h1 class="tk-title" id="tk-title">Tasks</h1>
+            <span class="tk-subhead" id="tk-sub"></span>
+            <div class="tk-grow"></div>
+            <div class="tk-seg" id="tk-layouts" role="tablist" aria-label="Layout"></div>
+            <div class="tk-head-actions" id="tk-head-actions"></div>
+        </div>
+        <div class="tk-toolbar" id="tk-toolbar">
+            <label class="tk-search">
+                <span class="visually-hidden">Search tasks</span>
+                <input type="search" id="tk-q" placeholder="Search" autocomplete="off" spellcheck="false">
+                <kbd>/</kbd>
+            </label>
+            <div class="tk-chips" id="tk-filter-chips"></div>
+            <div class="tk-grow"></div>
+            <div class="tk-tools" id="tk-tools"></div>
+        </div>
+    </header>
+
+    <form class="tk-quick" id="tk-quick" autocomplete="off">
+        <span class="tk-quick-plus" aria-hidden="true"></span>
+        <label class="visually-hidden" for="tk-quick-input">Add a task</label>
+        <input id="tk-quick-input" maxlength="512" placeholder="Add a task — try “Pay rent tomorrow 5pm *bills +Home !3 every month”">
+        <kbd class="tk-quick-kbd">Q</kbd>
+        <div class="tk-quick-preview" id="tk-quick-preview" aria-live="polite"></div>
+    </form>
+
+    <div class="tk-bulk" id="tk-bulk" hidden></div>
+
+    <div class="tk-view" id="tk-view" tabindex="-1">
+        <div class="tk-skeleton" aria-hidden="true">
+            <div></div><div></div><div></div><div></div><div></div>
+        </div>
+    </div>
+</div>
+
+<aside class="tk-drawer" id="tk-drawer" aria-label="Task details" hidden></aside>
+<div class="tk-toasts" id="tk-toasts" role="status" aria-live="polite"></div>
+{% endblock %}
