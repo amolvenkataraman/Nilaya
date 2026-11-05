@@ -104,7 +104,7 @@ const MapApp = {
                         await this.fetchLocationsForGroup(data.group);
                     }
                 } else {
-                    alert('Error saving location: ' + res.message);
+                    alert('Error saving location: ' + res.data);
                 }
             } catch (error) {
                 console.error('Error saving location:', error);
@@ -132,7 +132,7 @@ const MapApp = {
                         }
                     }
                 } else {
-                    alert('Error deleting location: ' + res.message);
+                    alert('Error deleting location: ' + res.data);
                 }
             } catch (error) {
                 console.error('Error deleting location:', error);
@@ -155,7 +155,7 @@ const MapApp = {
                     MapApp.UI.closeGroupModal();
                     await this.fetchLocationGroups();
                 } else {
-                    alert('Error creating group: ' + res.message);
+                    alert('Error creating group: ' + res.data);
                 }
             } catch (error) {
                 console.error('Error creating group:', error);

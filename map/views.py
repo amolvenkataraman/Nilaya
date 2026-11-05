@@ -1,9 +1,11 @@
+from decimal import Decimal
+from django.core.exceptions import ValidationError
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
 from django.db.models import Q
 from .models import Location, LocationGroup
-from Comptech.utils import error_response, success_response, login_required_api
+from Comptech.utils import error_response, success_response, login_required_api, server_error
 import json
 import urllib.request
 import urllib.parse
@@ -58,9 +60,9 @@ def add_group(request):
                 'is_public': group.is_public
             }
         })
-        
+
     except Exception as e:
-        return error_response(str(e), 400)
+        return server_error(e)
 
 
 @login_required_api
@@ -97,75 +99,71 @@ def locations(request):
         return error_response("Group not found", 404)
 
 
+def _location_fields(data, user):
+    """Validated model fields from a location payload: only the keys that were sent,
+    so an edit never wipes fields the form doesn't include (notes, altitude, ...)."""
+    fields = {}
+    for key in ("name", "description", "latitude", "longitude", "altitude", "category", "address", "notes"):
+        if key in data:
+            value = data[key]
+            if key in ("latitude", "longitude", "altitude"):
+                # the UI round-trips floats (43.472300000000004); store 6 decimals like the column
+                value = None if value in ("", None) else Decimal(str(value)).quantize(Decimal("0.000001"))
+            fields[key] = value
+    if "rating" in data:  # the form sends strings ("4"); empty = no rating
+        rating = int(data["rating"]) if str(data["rating"]).strip() else None
+        if rating is not None and not 1 <= rating <= 5:
+            raise ValidationError({"rating": "Rating must be 1-5"})
+        fields["rating"] = rating
+    group_id = data.get("group_id", data.get("group"))
+    if group_id not in (None, ""):
+        fields["group"] = LocationGroup.objects.get(id=int(group_id), owner=user)  # own groups only
+    return fields
+
+
+def _save_location(location, fields):
+    for key, value in fields.items():
+        setattr(location, key, value)
+    location.full_clean()  # lat/lng ranges, category choices, required name
+    location.save()
+
+
 @login_required_api
 def add_location(request):
     """API endpoint to add a new location."""
     if request.method != 'POST':
         return error_response("Method not allowed", 405)
-
     try:
-        data = json.loads(request.body)
-        # print(data)
-        group = LocationGroup.objects.get(id=int(data.get('group_id')))
-        
-        # Check if user has write access to this group
-        if not (group.owner == request.user):
-            return error_response("Not authorized", 401)
-        
-        location = Location.objects.create(
-            name=data.get('name'),
-            description=data.get('description', ''),
-            latitude=data.get('latitude'),
-            longitude=data.get('longitude'),
-            altitude=data.get('altitude'),
-            category=data.get('category', 'other'),
-            address=data.get('address', ''),
-            group=group,
-            rating=data.get('rating') if data.get('rating') in range(1, 6) else None,
-            notes=data.get('notes', '')
-        )
-        
+        fields = _location_fields(json.loads(request.body), request.user)
+        if "group" not in fields:
+            return error_response("Group is required")
+        _save_location(Location(category="other"), fields)
         return success_response("Location added successfully")
-        
     except LocationGroup.DoesNotExist:
         return error_response("Group not found", 404)
-    except Exception as e:
-        return error_response(str(e), 400)
+    except ValidationError as e:
+        return error_response("; ".join(f"{k}: {', '.join(v)}" for k, v in e.message_dict.items()))
+    except (ValueError, TypeError):
+        return error_response("Invalid location data")
 
 
 @login_required_api
 def edit_location(request, location_id):
-    """API endpoint to edit a location."""
+    """API endpoint to edit a location (only the fields that are sent change)."""
     if request.method != 'POST':
         return error_response("Method not allowed", 405)
-
-    # print(location_id)
-    # print(request.body)
     try:
-        location = Location.objects.get(id=location_id)
-        
-        # Check if user has write access to this group
-        if not (location.group.owner == request.user):
+        location = Location.objects.select_related('group').get(id=location_id)
+        if location.group.owner != request.user:
             return error_response("Not authorized", 401)
-
-        data = json.loads(request.body)
-
-        location.name = data.get('name')
-        location.description = data.get('description')
-        location.latitude = data.get('latitude')
-        location.longitude = data.get('longitude')
-        location.altitude = data.get('altitude')
-        location.category = data.get('category')
-        location.address = data.get('address')
-
-        location.save()
-
+        _save_location(location, _location_fields(json.loads(request.body), request.user))
         return success_response("Location updated successfully")
-    
-    except Location.DoesNotExist:
-        return error_response("Location not found", 404)
-    except Exception as e:
-        return error_response(str(e), 400)
+    except (Location.DoesNotExist, LocationGroup.DoesNotExist):
+        return error_response("Location or group not found", 404)
+    except ValidationError as e:
+        return error_response("; ".join(f"{k}: {', '.join(v)}" for k, v in e.message_dict.items()))
+    except (ValueError, TypeError):
+        return error_response("Invalid location data")
 
 
 @login_required_api
@@ -187,8 +185,8 @@ def nominatim_search(request):
         with urllib.request.urlopen(req, timeout=10) as response:
             data = json.loads(response.read().decode('utf-8'))
         return JsonResponse(data, safe=False)
-    except Exception as e:
-        return error_response(str(e), 502)
+    except Exception:
+        return error_response("Place search is unavailable right now", 502)
 
 
 @login_required_api
