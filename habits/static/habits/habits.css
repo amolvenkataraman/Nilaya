@@ -35,6 +35,16 @@
 .hb-link:hover { text-decoration: underline; }
 .hb-btn-danger { --bs-btn-color: var(--app-danger); --bs-btn-border-color: var(--hb-line); --bs-btn-hover-bg: var(--app-danger-soft); --bs-btn-hover-color: var(--app-danger); --bs-btn-hover-border-color: var(--app-danger); }
 
+/* ---- connection banner, saved copies, card errors */
+.hb-banner { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -4px 0 12px; padding: 6px 8px 6px 12px; font-size: 0.8125rem;
+    color: var(--app-fg); background: var(--app-warning-soft); border: 1px solid color-mix(in srgb, var(--app-warning) 35%, transparent); border-radius: var(--app-radius-sm); }
+.hb-banner[hidden] { display: none; }
+.hb-banner > span { flex: 1; min-width: 0; }
+.hb-banner-btn { border: 1px solid var(--hb-line); background: var(--app-surface); color: var(--app-fg); border-radius: var(--app-radius-sm); padding: 2px 10px; font: inherit; font-weight: 550; }
+.hb-banner-btn:hover:not(:disabled) { background: var(--app-overlay); }
+.hb-saved { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.03em; text-transform: uppercase; color: var(--app-muted); border: 1px solid var(--hb-line); border-radius: 4px; padding: 1px 6px; }
+.hb-card-err { display: flex; align-items: center; gap: 10px; color: var(--app-muted); font-size: 0.8125rem; padding: 6px 0; }
+
 /* ---- summary */
 .hb-summary { display: flex; align-items: center; gap: 16px; padding: 14px 16px; margin-bottom: 16px;
     background: var(--app-surface); border: 1px solid var(--hb-line); border-radius: var(--app-radius); }
@@ -75,7 +85,8 @@
 .hb-mark.is-done { background: var(--c); border-color: var(--c); color: #fff; }
 [data-bs-theme="dark"] .hb-mark.is-done { color: var(--app-bg); }
 .hb-mark.is-skipped { border-style: dashed; }
-.hb-mark.is-ring { border: 0; }
+.hb-mark.is-ring { border: 0; position: relative; }
+.hb-mark.is-ring.is-today::after { content: ""; position: absolute; right: 1px; bottom: 1px; width: 10px; height: 10px; border-radius: 50%; background: var(--c); border: 2px solid var(--app-surface); }
 .hb-mark.is-ring .hb-ring-text { font-size: 12px; }
 .hb-mark.is-ring.is-done .hb-ring-text { fill: var(--c); }
 .hb-mark.is-over .hb-ring-fg { stroke: var(--app-danger); }

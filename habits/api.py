@@ -38,6 +38,14 @@ GUIDE_INTRO = """Track habits you want to build (or limit), one entry per habit 
 - **Score** is a smoothed habit strength from 0 to 100 (recent days weigh more, like Loop Habit Tracker).
 - **Heatmap** `levels` has one character per day from `start` to `end` (today): `0`-`4` intensity,
   `s` skipped, `o` not scheduled, `-` before the habit started. `values` holds each day's amount (or null).
+- **Today's flags** (`GET today`, `POST {id}/check`), kept separate on purpose:
+  `done` = a finished checklist item (an `at_least` habit whose day/period goal is met; always false for
+  `at_most`); `goal_met` = the goal is reached, or an `at_most` limit is kept so far; `done_today` = today's
+  own entry does the job (a ticked yes/no habit, a daily amount reached, or anything logged towards a
+  week/month goal), so a weekly habit ticked today is `done_today` but not `done` until the week's goal
+  is met; `status` sums it up in one word: `done`, `partial` (progress, goal not met yet), `pending`,
+  `kept` / `over` (limits), `skipped`, `off` (not scheduled today, or paused). Show a tick for
+  `done_today`, a finished row for `done`, and limits by `kept` / `over`.
 - **Reminders:** `reminder_time` (local `HH:MM`) on `reminder_days` (same bitmask) notifies through the
   user's notification channels if the habit isn't done yet. `PATCH settings` turns on an evening nudge
   ("2 habits left today").
@@ -127,7 +135,10 @@ class HabitPatch(Schema):
 class TodayHabitOut(Schema):
     habit: HabitOut
     due: bool = Field(..., description="Scheduled today and active")
-    done: bool = Field(..., description="Today's (or this period's) goal is met")
+    done: bool = Field(..., description="Checklist item finished: an at_least habit whose day/period goal is met (always false for at_most)")
+    goal_met: bool = Field(..., description="Day/period goal reached (at_least) or limit kept so far (at_most)")
+    done_today: bool = Field(..., description="Today's own entry does the job (yes/no ticked, daily amount reached, or any amount towards a week/month goal)")
+    status: Literal["done", "partial", "pending", "kept", "over", "skipped", "off"]
     over: bool = Field(..., description="An at_most limit is exceeded")
     value: float = Field(..., description="Today's value")
     skipped: bool
@@ -144,6 +155,8 @@ class TodayOut(Schema):
     total: int = Field(..., description="Due at-least habits today")
     left: int
     over: int = Field(..., description="Limits exceeded today")
+    week_done: int = Field(..., description="Days/periods met in the last 7 days, all active habits")
+    week_judged: int = Field(..., description="Days/periods judged (met or missed) in the last 7 days")
     habits: list[TodayHabitOut]
 
 
@@ -153,6 +166,10 @@ class EntryOut(Schema):
     value: float
     note: str
     skipped: bool
+
+
+class EntrySavedOut(EntryOut):
+    today: TodayHabitOut = Field(..., description="The habit's Today row after the change (status, streak)")
 
 
 class EntryIn(Schema):
@@ -326,7 +343,7 @@ def today(request):
     return svc.today_summary(request.user)
 
 
-@router.get("/overview", response=OverviewOut, summary="Today's progress, this week's rate and every streak")
+@router.get("/overview", response=OverviewOut, summary="Today's progress, this week's rate and every habit's current and best streak")
 def overview(request):
     return svc.overview(request.user)
 
@@ -341,13 +358,16 @@ def list_entries(request, start: datetime.date, end: datetime.date, habit: Optio
     return list(qs.order_by("date").values("habit_id", "date", "value", "note", "skipped"))
 
 
-@router.put("/entries/{uuid:habit_id}/{day}", response=EntryOut, summary="Log or edit a day (backfill); omitted fields keep their value")
+@router.put("/entries/{uuid:habit_id}/{day}", response=EntrySavedOut,
+            summary="Log or edit a day (backfill); omitted fields keep their value; an all-empty day is removed")
 def put_entry(request, habit_id: uuid.UUID, day: datetime.date, payload: EntryIn):
     h = _habit(request.user, habit_id)
     data = payload.dict(exclude_unset=True)
     note = _clean(data["note"]) if data.get("note") is not None else None
-    return _rule(svc.save_entry, h, day, svc.local_today(request.user),
-                 value=data.get("value"), note=note, skipped=data.get("skipped"))
+    today = svc.local_today(request.user)
+    e = _rule(svc.save_entry, h, day, today, value=data.get("value"), note=note, skipped=data.get("skipped"))
+    return {"habit_id": h.id, "date": day, "value": e.value, "note": e.note, "skipped": e.skipped,
+            "today": svc.habit_today(h, today)}
 
 
 @router.delete("/entries/{uuid:habit_id}/{day}", response={204: None}, summary="Clear a day")

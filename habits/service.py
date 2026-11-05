@@ -270,19 +270,44 @@ def _units_with_streak(h, entries, today, since):
 
 
 def today_state(h, entries, today, units=None):
-    """Due / done / progress for one habit today, from its entries map."""
+    """Today's status for one habit, from its entries map. The flags are deliberately separate:
+
+    - goal_met:   this day's/period's goal is reached (at_least) or the limit is kept so far (at_most)
+    - done:       a checklist item that's finished: an at_least habit whose goal is met (never at_most)
+    - done_today: today's own entry does the job (yes/no ticked; a daily amount reached; any amount
+                  logged towards a week/month goal). A weekly habit can be done_today and not goal_met.
+    - status:     one word for widgets: done, partial, pending, kept, over, skipped, off
+    """
     units = evaluate(h, entries, today, period_start(h.period, today)) if units is None else units
     value, skipped = entries.get(today, (0.0, False))
     live = (not h.archived and not h.paused and h.start_date <= today
             and (not h.end_date or today <= h.end_date))
     cur = units[-1] if units and units[-1].end >= today else None
+    at_most = h.goal == Habit.Goal.AT_MOST
+    goal_met = bool(cur and cur.status == DONE) and not skipped
+    over = bool(cur and cur.status == MISSED and at_most)
+    if skipped or at_most:
+        done_today = False
+    elif h.kind == Habit.Kind.YESNO:
+        done_today = value >= 1
+    else:
+        done_today = value >= h.target - EPS if h.period == Habit.Period.DAY else value > 0
+    due = live and matches_rule(h, today) and not skipped
+    period_value = cur.total if cur else 0.0
+    if skipped:
+        status = "skipped"
+    elif not due and not done_today:
+        status = "off"
+    elif at_most:
+        status = "over" if over else "kept"
+    elif goal_met:
+        status = "done"
+    else:
+        status = "partial" if done_today or value > 0 or period_value > 0 else "pending"
     return {
-        "due": live and matches_rule(h, today) and not skipped,
-        "done": bool(cur and cur.status == DONE) and not skipped,
-        "over": bool(cur and cur.status == MISSED and h.goal == Habit.Goal.AT_MOST),
-        "value": value, "skipped": skipped,
-        "period_value": cur.total if cur else 0.0,
-        "period_required": cur.required if cur else h.target,
+        "due": due, "done": goal_met and not at_most, "goal_met": goal_met, "done_today": done_today,
+        "over": over, "status": status, "value": value, "skipped": skipped,
+        "period_value": period_value, "period_required": cur.required if cur else h.target,
     }
 
 
@@ -298,7 +323,10 @@ def fetch_since(today):
 def today_row(h, entries, today, note=""):
     units, entries = _units_with_streak(h, entries, today, _since(h, today))
     state = today_state(h, entries, today, units)
-    return {"habit": h, **state, "note": note, "streak": streaks(units)[0], "streak_unit": h.period}
+    lo = today - dt.timedelta(days=6)
+    week = [u.status for u in units if u.end >= lo and u.status in (DONE, MISSED)]
+    return {"habit": h, **state, "note": note, "streak": streaks(units)[0], "streak_unit": h.period,
+            "_week": (week.count(DONE), len(week))}
 
 
 def habit_today(h, today):
@@ -318,8 +346,10 @@ def today_summary(user, now=None, habits=None):
     rows = [today_row(h, entries[h.pk], today, notes.get(h.pk, "")) for h in habits]
     due = [r for r in rows if r["due"] and r["habit"].goal == Habit.Goal.AT_LEAST]
     done = sum(r["done"] for r in due)
+    week_done, week_judged = (sum(r["_week"][i] for r in rows) for i in (0, 1))
     return {"date": today, "done": done, "total": len(due), "left": len(due) - done,
-            "over": sum(r["over"] for r in rows), "habits": rows}
+            "over": sum(r["over"] for r in rows), "week_done": week_done, "week_judged": week_judged,
+            "habits": rows}
 
 
 # ------------------------------------------------------------------ stats
@@ -466,6 +496,9 @@ def save_entry(h, day, today, *, value=None, note=None, skipped=None):
                     for k, v in fields.items():
                         setattr(entry, k, v)
                     entry.save(update_fields=[*fields, "updated_on"])
+                if not entry.value and not entry.skipped and not entry.note:  # nothing left: keep the table lean
+                    entry.delete()
+                    return Entry(habit=h, date=day, value=0)
                 return entry
         except IntegrityError:
             continue

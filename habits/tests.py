@@ -161,6 +161,9 @@ class ApiTests(TestCase):
         self.assertEqual([(e["date"], e["skipped"]) for e in got], [(str(y), True)])
         self.assertEqual(self.call("delete", f"entries/{h.id}/{y}").status_code, 204)
         self.assertFalse(h.entries.exists())
+        self.call("put", f"entries/{h.id}/{self.today}", {"value": 1})
+        r = self.call("put", f"entries/{h.id}/{self.today}", {"value": 0, "note": ""}).json()  # emptied: row removed
+        self.assertEqual((r["today"]["done_today"], h.entries.count()), (False, 0))
 
     def test_validation(self):
         base = {"name": "Read", "start_date": str(self.today)}
@@ -199,12 +202,18 @@ class ApiTests(TestCase):
         mk(self.u, name="Off", schedule="weekdays", weekdays=not_today)
         mk(self.u, name="Paused", paused=True)
         mk(self.u, name="Gone", archived=True)
+        weekly = mk(self.u, name="Weekly", target=3, period="week", start_date=self.today)
+        log(weekly, self.today)
+        mk(self.u, name="Limit", kind="measurable", unit="cups", goal="at_most", target=2)
         r = self.call("get", "today").json()
         self.assertEqual(r["date"], str(self.today))
         got = {h["habit"]["name"]: (h["due"], h["done"], h["streak"]) for h in r["habits"]}
         self.assertEqual(got, {"Done": (True, True, 4), "Open": (True, False, 0), "Off": (False, False, 0),
-                               "Paused": (False, False, 0)})
-        self.assertEqual((r["done"], r["total"]), (1, 2))
+                               "Paused": (False, False, 0), "Weekly": (True, False, 0), "Limit": (True, False, 31)})
+        flags = {h["habit"]["name"]: (h["goal_met"], h["done_today"], h["status"]) for h in r["habits"]}
+        self.assertEqual(flags["Weekly"], (False, True, "partial"))   # ticked today, week goal still open
+        self.assertEqual(flags["Limit"], (True, False, "kept"))       # within the limit: kept, not "done"
+        self.assertEqual((r["done"], r["total"]), (1, 3))
 
 
 class ReminderTests(TestCase):
