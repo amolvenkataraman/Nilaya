@@ -176,8 +176,9 @@ button.chip:hover { color: var(--app-fg); }
 .error-box { padding: 0.75rem 1rem; color: var(--app-danger); font-size: var(--fs-sm); display: flex; gap: var(--sp-2); align-items: center; }
 
 /* ---------- Skeletons */
-.sk { display: block; border-radius: 4px; background: linear-gradient(90deg, var(--app-surface-2) 0%, color-mix(in srgb, var(--app-surface-2) 55%, var(--app-surface)) 50%, var(--app-surface-2) 100%); background-size: 200% 100%; animation: sk 1.3s ease-in-out infinite; }
-@keyframes sk { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+.sk { display: block; border-radius: 4px; background: var(--app-surface-2); animation: sk 1.3s ease-in-out infinite; }
+/* An opacity pulse runs on the compositor (animating background-position repainted every frame). */
+@keyframes sk { 50% { opacity: 0.5; } }
 .sk-line { height: 0.75rem; margin: 0.5rem 0; }
 @media (prefers-reduced-motion: reduce) { .sk { animation: none; } * { transition-duration: 0s !important; animation-duration: 0s !important; } }
 

@@ -379,8 +379,10 @@ function InfoPanel({ photo, onClose }: { photo: Photo; onClose: () => void }) {
   const q = useQuery({ queryKey: ['photos', 'details', photo.id], queryFn: () => get<PhotoDetails>(`photos/${photo.id}/details`), staleTime: 10 * 60_000 })
   const d: Partial<PhotoDetails> & Photo = { ...photo, ...(q.data ?? {}) }
   const when = d.date_taken ? new Date(d.date_taken) : null
-  const lat = typeof d.lat === 'number' && isFinite(d.lat) ? d.lat : null
-  const lon = typeof d.lon === 'number' && isFinite(d.lon) ? d.lon : null
+  // A coordinate of exactly 0 is broken GPS (e.g. a phone writing longitude 0.0): shown as no location.
+  const ok = typeof d.lat === 'number' && typeof d.lon === 'number' && isFinite(d.lat) && isFinite(d.lon) && d.lat !== 0 && d.lon !== 0
+  const lat = ok ? d.lat : null
+  const lon = ok ? d.lon : null
   const mp = d.megapixels ?? (d.width && d.height ? (d.width * d.height) / 1e6 : null)
   const exposure = [
     num(d.fnumber) ? `f/${num(d.fnumber)}` : null,
@@ -435,7 +437,7 @@ function InfoPanel({ photo, onClose }: { photo: Photo; onClose: () => void }) {
             )}
           </>
         ), 'loc')}
-        {(lat === null || lon === null || (lat === 0 && lon === 0)) && row('pin', (
+        {(lat === null || lon === null) && row('pin', (
           <Link className="viewer-addloc" to={`/photos/locate?photo=${d.id}`}><Icon name="plus" size={14} />Add location</Link>
         ), 'addloc')}
         {d.hidden && row('ban', <span className="chip warning">Hidden: only you can see it</span>, 'hid')}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
 import { Link, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { get, safeHref } from '../../lib/api'
@@ -10,17 +10,22 @@ import { useHotkey } from '../../components/ui'
 import { PhotoStream, usePhotoParam, type Zoom } from './PhotoStream'
 import { Viewer } from './Viewer'
 import { fmtBytes } from './util'
-import { BrowsePage, StatsPage, StoragePage } from './Explore'
 import { LabelMenu, SelectToggle } from './select'
 import { FiltersButton, Scrubber } from './Filters'
-import { PhotoMapPage } from './PhotoMap'
 import { AlbumPage, AlbumsPage } from './albums'
 import { DayPage } from './DayPage'
 import { SuperlativesPage } from './Superlatives'
-import { GeoguessrPage, LocatePage } from './Games'
 import { startIngest, useAlbums, useHiddenMode, useLibraries, useLibraryVisibility, useToggleHidden } from './actions'
 import { PageHead } from './parts'
 import './photos.css'
+
+// Rarely opened screens load on demand, so the timeline doesn't pull in Leaflet (map, games) or Explore.
+const PhotoMapPage = lazy(() => import('./PhotoMap').then((m) => ({ default: m.PhotoMapPage })))
+const GeoguessrPage = lazy(() => import('./Games').then((m) => ({ default: m.GeoguessrPage })))
+const LocatePage = lazy(() => import('./Games').then((m) => ({ default: m.LocatePage })))
+const BrowsePage = lazy(() => import('./Explore').then((m) => ({ default: m.BrowsePage })))
+const StatsPage = lazy(() => import('./Explore').then((m) => ({ default: m.StatsPage })))
+const StoragePage = lazy(() => import('./Explore').then((m) => ({ default: m.StoragePage })))
 
 const useSummary = () => useQuery({ queryKey: ['photos', 'summary'], queryFn: () => get<PhotoSummary>('photos/summary'), staleTime: 10 * 60_000 })
 
@@ -65,20 +70,22 @@ export default function PhotosPage() {
           <button onClick={() => toggleHidden.mutate(false)} disabled={toggleHidden.isPending}>Turn off</button>
         </div>
       )}
-      <Routes>
-        <Route index element={<TimelinePage zoom={zoom} />} />
-        <Route path="albums" element={<AlbumsPage />} />
-        <Route path="albums/:id" element={<AlbumPage zoom={zoom} />} />
-        <Route path="day/:date" element={<DayPage zoom={zoom} />} />
-        <Route path="superlatives" element={<SuperlativesPage />} />
-        <Route path="stats" element={<StatsPage />} />
-        <Route path="storage" element={<StoragePage />} />
-        <Route path="browse" element={<BrowsePage />} />
-        <Route path="map" element={<PhotoMapPage />} />
-        <Route path="geoguessr" element={<GeoguessrPage />} />
-        <Route path="locate" element={<LocatePage />} />
-        <Route path="*" element={<TimelinePage zoom={zoom} />} />
-      </Routes>
+      <Suspense fallback={<div className="app-loading" aria-busy="true" />}>
+        <Routes>
+          <Route index element={<TimelinePage zoom={zoom} />} />
+          <Route path="albums" element={<AlbumsPage />} />
+          <Route path="albums/:id" element={<AlbumPage zoom={zoom} />} />
+          <Route path="day/:date" element={<DayPage zoom={zoom} />} />
+          <Route path="superlatives" element={<SuperlativesPage />} />
+          <Route path="stats" element={<StatsPage />} />
+          <Route path="storage" element={<StoragePage />} />
+          <Route path="browse" element={<BrowsePage />} />
+          <Route path="map" element={<PhotoMapPage />} />
+          <Route path="geoguessr" element={<GeoguessrPage />} />
+          <Route path="locate" element={<LocatePage />} />
+          <Route path="*" element={<TimelinePage zoom={zoom} />} />
+        </Routes>
+      </Suspense>
     </AppShell>
   )
 }

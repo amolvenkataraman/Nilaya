@@ -6,15 +6,14 @@ import { Avatar, Confirm, Dialog, ErrorBox, Menu, MenuItem } from '../../compone
 import { Ring, TaskCheck, dueTone, fmtMinutes, hoverText } from '../../components/TaskRow'
 import { toast } from '../../components/toast'
 import { keys, useBuckets, useCreateTask, useMoveTask, useSetDone, useTasks } from '../../lib/queries'
-import { dueLabel } from '../../lib/dates'
+import { fmtStamp, dueLabel } from '../../lib/dates'
 import type { Bucket, Label, Task } from '../../lib/types'
 import { useDeleteBucket, useReorderTasks, useSaveBucket } from './api'
 import { previewQuick } from '../../lib/quick'
 import type { Selection } from './selection'
-import { repeatText } from './util'
+import { boardParams, repeatText } from './util'
 
 /** The board's task query (shared with the page, which reads the same cache for the bulk bar). */
-export const boardParams = (projectId: string, q: string) => ({ project: projectId, top_level: true, sort: 'position', limit: 500, q: q || undefined })
 /** WIP counts open top-level tasks, as the server does. */
 const openCount = (items: Task[]) => items.filter((t) => !t.done && !t.parent_id).length
 const atLimit = (b: Bucket, items: Task[]) => b.limit > 0 && !b.is_done && openCount(items) >= b.limit
@@ -227,7 +226,7 @@ function Card({ task, labels, buckets, dragging, picked, draggable, onOpen, onTo
           {task.priority >= 15 && <span className={'task-flag ' + (task.priority >= 20 ? 'urgent' : 'high')}><Icon name="flag" size={12} />{task.priority_label}</span>}
           {task.done && task.done_at ? <span className="meta-count"><Icon name="check" size={12} />{dueLabel(task.done_at)}</span>
             : task.due && <span className={'meta-due ' + tone}><Icon name="calendar" size={12} />{dueLabel(task.due)}</span>}
-          {future && <span className="meta-count" title={`Starts ${new Date(task.start!).toLocaleString()}`}><Icon name="play" size={12} />{dueLabel(task.start!)}</span>}
+          {future && <span className="meta-count" title={`Starts ${fmtStamp(task.start!)}`}><Icon name="play" size={12} />{dueLabel(task.start!)}</span>}
           {!!task.subtasks && <span className="meta-count"><Icon name="subtask" size={12} />{task.subtasks_done}/{task.subtasks}</span>}
           {!!task.comments && <span className="meta-count"><Icon name="comment" size={12} />{task.comments}</span>}
           {task.repeat_mode > 0 && <span className="meta-count" title={repeatText(task.repeat_mode, task.repeat_every)}><Icon name="repeat" size={12} /></span>}

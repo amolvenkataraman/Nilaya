@@ -85,6 +85,8 @@ export interface UserBrief { id: UUID; username: string; name: string }
 export interface Overview {
   inbox: number; today: number; overdue: number; upcoming: number; no_date: number; favorites: number; assigned: number
   done_this_week: number; inbox_id: UUID
+  /** Tasks completed since the start of today (user's time zone); requested from the backend. */
+  done_today?: number
 }
 export interface Project {
   id: UUID; parent_id: UUID | null; name: string; description: string; colour: string; is_inbox: boolean; archived: boolean

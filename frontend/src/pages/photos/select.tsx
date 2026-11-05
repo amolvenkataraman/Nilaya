@@ -8,16 +8,20 @@ import { toast } from '../../components/toast'
 import { api, post, safeHref } from '../../lib/api'
 import type { Album, Photo } from '../../lib/types'
 import { fmtBytes } from './util'
+import { fmtStamp, fmtTime } from '../../lib/dates'
 import { copyLinks, removeFromAlbum, setAlbumCover, useAlbumMutations, useAlbums, useHiddenMode } from './actions'
 
 // ---------------------------------------------------------------- tiny external stores
 function store<T>(initial: T) {
   let v = initial
   const subs = new Set<() => void>()
+  const subscribe = (cb: () => void) => (subs.add(cb), () => void subs.delete(cb))
   return {
     get: () => v,
     set: (next: T) => ((v = next), subs.forEach((s) => s())),
-    use: () => useSyncExternalStore((cb) => (subs.add(cb), () => subs.delete(cb)), () => v),
+    use: () => useSyncExternalStore(subscribe, () => v),
+    /** Re-render only when `pick(value)` changes (it must return a primitive or a stable reference). */
+    useSelect: <U,>(pick: (v: T) => U): U => useSyncExternalStore(subscribe, () => pick(v)),
   }
 }
 
@@ -80,7 +84,7 @@ export function setTileLabel(v: TileLabel) {
 
 export function labelText(p: Photo, l: TileLabel): string {
   switch (l) {
-    case 'time': return p.date_taken ? new Date(p.date_taken).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : ''
+    case 'time': return p.date_taken ? fmtTime(new Date(p.date_taken)) : ''
     case 'city': return p.city ?? ''
     case 'camera': return p.camera ?? ''
     case 'mp': return p.megapixels ? `${p.megapixels.toFixed(1)} MP` : ''
@@ -93,7 +97,7 @@ export function labelText(p: Photo, l: TileLabel): string {
 /** Everything about a tile, for its tooltip. */
 export function tileTitle(p: Photo): string {
   const lines: string[] = []
-  if (p.date_taken) lines.push(new Date(p.date_taken).toLocaleString())
+  if (p.date_taken) lines.push(fmtStamp(p.date_taken))
   if (p.city || p.country) lines.push([p.city, p.country].filter(Boolean).join(', '))
   if (p.camera) lines.push(p.camera)
   const tech = [p.width && p.height ? `${p.width}×${p.height}` : '', p.megapixels ? `${p.megapixels.toFixed(1)} MP` : '', p.size_kb ? fmtBytes(p.size_kb) : '',

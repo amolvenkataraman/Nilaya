@@ -137,3 +137,6 @@ export function rescheduleTo(t: Pick<Task, 'due' | 'start'>, day: Date): { due: 
   if (t.start) out.start = new Date(new Date(t.start).getTime() + (nd.getTime() - old.getTime())).toISOString()
   return out
 }
+
+/** The board's list query (also read by the page for its counts). */
+export const boardParams = (projectId: string, q: string) => ({ project: projectId, top_level: true, sort: 'position', limit: 500, q: q || undefined })

@@ -15,3 +15,24 @@ export function prefetchDashboard(qc: QueryClient) {
   p(keys.insights('week', today), () => get('calendar/insights', { period: 'week', date: today }))
   p(keys.notifCount, () => get('notifications/unread-count'))
 }
+
+/** Every page: the shell's own data (account, unread badge), started before any page chunk arrives. */
+export function prefetchShell(qc: QueryClient) {
+  qc.prefetchQuery({ queryKey: keys.me, queryFn: () => get('me') })
+  qc.prefetchQuery({ queryKey: keys.notifCount, queryFn: () => get('notifications/unread-count') })
+}
+
+/** Route loaders: a page's first requests start in parallel with its code chunk (same keys as its hooks). */
+export function prefetchTasks(qc: QueryClient) {
+  qc.prefetchQuery({ queryKey: keys.overview, queryFn: () => fetchOverview(qc) })
+}
+export function prefetchCalendar(qc: QueryClient) {
+  qc.prefetchQuery({ queryKey: keys.calendars, queryFn: () => get('calendar/calendars', {}), staleTime: 5 * 60_000 })
+}
+export function prefetchPhotos(qc: QueryClient) {
+  const p = (queryKey: readonly unknown[], path: string) => qc.prefetchQuery({ queryKey, queryFn: () => get(path), staleTime: 5 * 60_000 })
+  p(['photos', 'summary'], 'photos/summary')
+  p(['photos', 'albums'], 'photos/albums')
+  p(['photos', 'libraries'], 'photos/libraries')
+  p(['photos', 'hidden-mode'], 'photos/hidden-mode')
+}

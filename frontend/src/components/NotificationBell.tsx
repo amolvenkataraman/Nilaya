@@ -3,7 +3,7 @@ import { Icon } from './Icon'
 import { Menu, SkeletonRows } from './ui'
 import { useInbox, useMarkRead, useReadAll, useUnreadCount } from '../lib/queries'
 import { appRoute, safeHref } from '../lib/api'
-import { shortStamp } from '../lib/dates'
+import { fmtStamp, shortStamp } from '../lib/dates'
 import type { Notification } from '../lib/types'
 
 /** Open what a notification points at: a new-UI route when one exists, else the classic page. */
@@ -48,7 +48,7 @@ export function NotificationRow({ n, onOpen, compact, onDelete, selected }: {
       <button className="notif-main" onClick={() => onOpen(n)}>
         <span className="notif-line">
           <span className="notif-title">{n.title}{n.priority >= 15 && <span className={'chip notif-prio' + (n.priority >= 20 ? ' danger' : ' warning')}>{n.priority >= 20 ? 'Urgent' : 'High'}</span>}</span>
-          <time className="notif-time" dateTime={n.created_on} title={new Date(n.created_on).toLocaleString()}>{ago(n.created_on)}</time>
+          <time className="notif-time" dateTime={n.created_on} title={fmtStamp(n.created_on)}>{ago(n.created_on)}</time>
         </span>
         {n.body && <span className="notif-body">{n.body}</span>}
         {n.source && <span className="notif-meta">{n.source}</span>}

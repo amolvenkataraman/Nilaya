@@ -7,7 +7,8 @@ import { Icon } from '../../components/Icon'
 import { Dialog } from '../../components/ui'
 import { ApiError, get, post } from '../../lib/api'
 import type { Calendar } from '../../lib/types'
-import { personName, type CalendarDetail, type Subscriber } from './CalendarSettings'
+import type { CalendarDetail, Subscriber } from './CalendarSettings'
+import { personName } from './calendarCommon'
 
 export function SubscribeDialog({ open, onClose, onSettings, onNewCalendar }: {
   open: boolean; onClose: () => void; onSettings: (c: Calendar) => void; onNewCalendar: () => void

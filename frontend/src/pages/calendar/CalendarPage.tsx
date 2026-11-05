@@ -11,7 +11,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import type { AgendaItem, CalEvent, Calendar, Task } from '../../lib/types'
 import { Switch } from '../../components/ui'
 import { useBirthdays, usePhotoCounts, useRangeTasks, useShowBirthdays, useShowTasks } from './extras'
-import { CalendarMenu, CalendarSettings, NewCalendarDialog } from './CalendarSettings'
+import { CalendarMenu } from './calendarCommon'
 import { EventPeek } from './EventPeek'
 import { EventSearch } from './EventSearch'
 import { InlineFail } from '../../components/resilience'
@@ -19,7 +19,6 @@ import { readable, SURFACE } from '../../lib/colour'
 import { useTheme } from '../../lib/theme'
 import { AgendaView } from './AgendaView'
 import { EventDialog, type EventDraft } from './EventDialog'
-import { InsightsPanel } from './Insights'
 import { DayList, MonthView } from './MonthView'
 import { WeekView } from './WeekView'
 import { useUpdateCalendar, useUpdateEvent } from './api'
@@ -32,6 +31,10 @@ const FALLBACK = '#64748b'
 // The Tasks app's drawer, loaded only when a task chip is opened.
 const TaskDrawer = lazy(() => import('../tasks/TaskDrawer').then((m) => ({ default: m.TaskDrawer })))
 const AvailabilityPage = lazy(() => import('./Availability'))
+// Opened on demand: the settings drawer (with its time-zone list), New calendar and Insights.
+const CalendarSettings = lazy(() => import('./CalendarSettings').then((m) => ({ default: m.CalendarSettings })))
+const NewCalendarDialog = lazy(() => import('./CalendarSettings').then((m) => ({ default: m.NewCalendarDialog })))
+const InsightsPanel = lazy(() => import('./Insights').then((m) => ({ default: m.InsightsPanel })))
 
 /** /calendar/* : the calendar, or someone's availability at /calendar/availability/:username. */
 export default function CalendarPage() {
@@ -270,13 +273,13 @@ function CalendarMain() {
   )
 
   const insightsPanel = state.insights && (
-    <InsightsPanel
+    <Suspense fallback={null}><InsightsPanel
       period={state.insights}
       date={state.date}
       onPeriod={(p) => update({ insights: p })}
       onDate={(d) => update({ date: d })}
       onClose={() => update({ insights: null })}
-    />
+    /></Suspense>
   )
 
   return (
@@ -368,8 +371,8 @@ function CalendarMain() {
       {peek && !draft && (
         <EventPeek key={peek.event.id} event={peek.event} anchor={peek.anchor} calendar={calendars.data?.find((c) => c.id === peek.event.calendar_id)} onClose={closePeek} onEdit={editEvent} />
       )}
-      <CalendarSettings calendar={settingsFor} onClose={() => setSettingsFor(null)} />
-      {newCal && <NewCalendarDialog open onClose={() => setNewCal(false)} onCreated={(c) => setSettingsFor(c)} />}
+      {settingsFor && <Suspense fallback={null}><CalendarSettings calendar={settingsFor} onClose={() => setSettingsFor(null)} /></Suspense>}
+      {newCal && <Suspense fallback={null}><NewCalendarDialog open onClose={() => setNewCal(false)} onCreated={(c) => setSettingsFor(c)} /></Suspense>}
       <SubscribeDialog open={dlg === 'subscribe'} onClose={() => setDlg(null)} onSettings={setSettingsFor} onNewCalendar={() => setNewCal(true)} />
       {dlg === 'categories' && <CategoriesDialog open onClose={() => setDlg(null)} />}
       <PersonDialog open={dlg === 'person'} onClose={() => setDlg(null)} />

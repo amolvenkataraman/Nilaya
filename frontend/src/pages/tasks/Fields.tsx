@@ -6,7 +6,7 @@ import { Icon } from '../../components/Icon'
 import { Avatar, Menu, MenuItem } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { useBuckets, useMe, useMoveTask, useProjects } from '../../lib/queries'
-import { addDays, dayKey, fmtDate, fmtTime, isEndOfDay, shortStamp, startOfDay } from '../../lib/dates'
+import { fmtStamp, addDays, dayKey, fmtDate, fmtTime, isEndOfDay, shortStamp, startOfDay } from '../../lib/dates'
 import type { Label, TaskDetail, TaskPatch, UserBrief } from '../../lib/types'
 import { fmtMinutes } from '../../components/TaskRow'
 import { useMembers, useSaveLabel, type ProjectWithOwner } from './api'
@@ -249,7 +249,7 @@ export function RemindersField({ task, save }: { task: TaskDetail; save: Save })
   return (
     <div className="rems">
       {rems.map((r, i) => (
-        <span key={r.id ?? i} className={'chip rem' + (r.sent ? ' sent' : '')} title={r.fire_at ? `Fires ${new Date(r.fire_at).toLocaleString()}` : 'Needs a date on the task'}>
+        <span key={r.id ?? i} className={'chip rem' + (r.sent ? ' sent' : '')} title={r.fire_at ? `Fires ${fmtStamp(r.fire_at)}` : 'Needs a date on the task'}>
           <Icon name="bell" size={11} />
           {reminderText(r) ?? (r.at ? fmtWhen(r.at) : '')}
           {r.sent ? <span className="muted"> · sent</span> : r.relative_to && r.fire_at ? <span className="muted"> · {shortStamp(r.fire_at)}</span> : !r.fire_at ? <span className="muted"> · needs a date</span> : null}

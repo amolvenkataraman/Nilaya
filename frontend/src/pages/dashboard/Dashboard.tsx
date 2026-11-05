@@ -1,6 +1,6 @@
 // Home: a calm, dense personal command centre. Today's agenda (now/next), tasks due, the week in
 // hours, photos, unread notifications and quick links.
-import { lazy, Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { AppShell, AppLogo } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
@@ -18,10 +18,10 @@ import {
 } from '../../lib/queries'
 import { dayKey, fmtDate, fmtLongDate, fmtTime, greeting, groupByDue, isSameDay, relTime, addDays, startOfDay, startOfWeek, weekdayName } from '../../lib/dates'
 import type { AgendaItem } from '../../lib/types'
+// Imported statically: a lazy card under Suspense made React 19 hold the fallback ~300 ms. Its data
+// is still fetched only when the card is near the viewport (WhenVisible).
+import { HabitsTodayCard } from '../habits/HabitsToday'
 import './dashboard.css'
-
-// Habits lives in its own chunk (shared with the Habits app), fetched only when its card is near the viewport.
-const HabitsTodayCard = lazy(() => import('../habits/HabitsToday').then((m) => ({ default: m.HabitsTodayCard })))
 
 function CardSkeleton({ className, title, rows }: { className: string; title: string; rows: number }) {
   return (
@@ -107,9 +107,7 @@ export default function Dashboard() {
           <Boundary className="a-tasks" label="tasks"><TasksCard className="a-tasks" /></Boundary>
           <Boundary className="a-week" label="this week"><WeekCard className="a-week" now={now} /></Boundary>
           <WhenVisible className="a-habits" title="Habits" rows={4}>
-            <Suspense fallback={<CardSkeleton className="a-habits" title="Habits" rows={4} />}>
-              <Boundary className="a-habits" label="habits"><HabitsTodayCard className="a-habits" /></Boundary>
-            </Suspense>
+            <Boundary className="a-habits" label="habits"><HabitsTodayCard className="a-habits" /></Boundary>
           </WhenVisible>
           <WhenVisible className="a-inbox" title="Notifications" rows={3}>
             <Boundary className="a-inbox" label="notifications"><InboxCard className="a-inbox" /></Boundary>

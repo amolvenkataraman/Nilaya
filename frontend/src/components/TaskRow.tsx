@@ -1,7 +1,7 @@
 // One task in a list: round check, title, and a quiet meta line (due, project, labels, counts).
-import type { DragEvent, ReactNode } from 'react'
+import { memo, type DragEvent, type ReactNode } from 'react'
 import { Icon } from './Icon'
-import { dayDiff, dueLabel, isEndOfDay } from '../lib/dates'
+import { dayDiff, dueLabel, fmtNumericDay, fmtStamp, isEndOfDay } from '../lib/dates'
 import type { Label, Project, Task } from '../lib/types'
 
 export function TaskCheck({ task, onToggle, size }: { task: Task; onToggle: () => void; size?: 'lg' }) {
@@ -46,9 +46,9 @@ export function hoverText(t: Task, labels: Label[], project?: string): string {
   if (t.description) lines.push(t.description.slice(0, 280) + (t.description.length > 280 ? '…' : ''))
   lines.push('')
   if (project) lines.push(`Project: ${project}`)
-  if (t.done && t.done_at) lines.push(`Completed: ${new Date(t.done_at).toLocaleString()}`)
-  if (t.due) lines.push(`Due: ${new Date(t.due).toLocaleString()}`)
-  if (t.start) lines.push(`Start: ${new Date(t.start).toLocaleString()}`)
+  if (t.done && t.done_at) lines.push(`Completed: ${fmtStamp(t.done_at)}`)
+  if (t.due) lines.push(`Due: ${fmtStamp(t.due)}`)
+  if (t.start) lines.push(`Start: ${fmtStamp(t.start)}`)
   lines.push(`Priority: ${t.priority_label}`)
   if (t.repeat_mode) lines.push(`Repeats: ${t.repeat_mode === 2 ? 'monthly' : t.repeat_mode === 3 ? 'after completion' : t.repeat_every ? `every ${Math.round(t.repeat_every / 86400)} day(s)` : 'yes'}`)
   if (t.reminders.length) lines.push(`Reminders: ${t.reminders.length}`)
@@ -58,7 +58,7 @@ export function hoverText(t: Task, labels: Label[], project?: string): string {
   if (labels.length) lines.push(`Labels: ${labels.map((l) => l.name).join(', ')}`)
   if (t.subtasks) lines.push(`Subtasks: ${t.subtasks_done ?? 0}/${t.subtasks}`)
   if (t.comments) lines.push(`Comments: ${t.comments}`)
-  lines.push(`Created ${new Date(t.created_on).toLocaleDateString()} by ${t.owner.name || t.owner.username} · updated ${new Date(t.updated_on).toLocaleDateString()}`)
+  lines.push(`Created ${fmtNumericDay(t.created_on)} by ${t.owner.name || t.owner.username} · updated ${fmtNumericDay(t.updated_on)}`)
   return lines.join('\n')
 }
 
@@ -72,7 +72,8 @@ export function dueTone(iso: string | null, done: boolean, now = new Date()): ''
   return ''
 }
 
-export function TaskRow({ task, project, projectPath, labels, onToggle, onOpen, selected, showProject = true, extra, draggable, onDragStart, onDragEnd, titleSlot }: {
+/** Memoized: a row re-renders only when its own props change (callers pass stable props where it matters). */
+export const TaskRow = memo(function TaskRow({ task, project, projectPath, labels, onToggle, onOpen, selected, showProject = true, extra, draggable, onDragStart, onDragEnd, titleSlot }: {
   task: Task
   project?: Project
   /** "Work › Website" for nested projects. */
@@ -125,7 +126,9 @@ export function TaskRow({ task, project, projectPath, labels, onToggle, onOpen, 
     >
       <TaskCheck task={task} onToggle={onToggle} />
       <div className="task-main">
-        {titleSlot ?? <button type="button" className="task-title" onClick={(e) => (e.stopPropagation(), onOpen())} title={hoverText(task, taskLabels, projectPath ?? project?.name)}>
+        {titleSlot ?? <button type="button" className="task-title" onClick={(e) => (e.stopPropagation(), onOpen())}
+          // The hover text is built when the pointer arrives, not for every row on every render.
+          onPointerEnter={(e) => { e.currentTarget.title = hoverText(task, taskLabels, projectPath ?? project?.name) }}>
           {task.title}
           {task.description && <Icon name="list" size={12} className="task-desc-icon" title="Has a description" />}
         </button>}
@@ -140,4 +143,4 @@ export function TaskRow({ task, project, projectPath, labels, onToggle, onOpen, 
       {extra}
     </div>
   )
-}
+})

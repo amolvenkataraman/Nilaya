@@ -8,7 +8,7 @@ import type { CalEvent, Calendar, Category, EventDetail, EventIn } from '../../l
 import { useQuery } from '@tanstack/react-query'
 import { get, post } from '../../lib/api'
 import { Attendees, type AttendeeDraft } from './Attendees'
-import { CAL_COLOURS } from './CalendarSettings'
+import { CAL_COLOURS } from './calendarCommon'
 import { minutesText } from './EventPeek'
 import { useCreateEvent, useDeleteEvent, useDuplicateEvent, useTaskFromEvent, useUpdateEvent, type Scope } from './api'
 

@@ -231,10 +231,3 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
 }
 
 /** Small "timeline" glyph for the layout switch (the shared icon set has none). */
-export function TimelineIcon({ size = 14 }: { size?: number }) {
-  return (
-    <svg width={size / 16 + 'rem'} height={size / 16 + 'rem'} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" aria-hidden="true" focusable="false">
-      <path d="M4 6h9M8 12h11M6 18h8" />
-    </svg>
-  )
-}

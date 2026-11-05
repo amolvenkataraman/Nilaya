@@ -15,4 +15,6 @@ node -e 'const [a,b]=process.versions.node.split(".").map(Number); if (a<20||(a=
 npm ci --no-audit --no-fund
 npm test --silent
 npm run build
+# Precompressed copies for nginx's gzip_static (served instead of compressing on every request).
+find ../static_files/static/app -type f \( -name '*.js' -o -name '*.css' -o -name '*.svg' -o -name '*.html' \) -exec gzip -9 -kf {} +
 echo "Built into $(cd ../static_files/static/app && pwd)"

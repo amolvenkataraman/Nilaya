@@ -282,7 +282,7 @@ export function LocatePage() {
   }, [pin, map])
   // A photo that already has a location (opened by id): start from it.
   useEffect(() => {
-    if (photo && photo.lat != null && photo.lon != null && (photo.lat !== 0 || photo.lon !== 0)) {
+    if (photo && photo.lat != null && photo.lon != null && photo.lat !== 0 && photo.lon !== 0) {
       setPin({ lat: photo.lat, lng: photo.lon })
       map.current?.setView([photo.lat, photo.lon], Math.max(map.current.getZoom(), 14))
     }
@@ -387,14 +387,14 @@ export function LocatePage() {
             <option value="">Any month</option>
             {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
           </select>
-          <label className="row xsmall" style={{ gap: '0.375rem' }} title="Photos saved at 0,0 (a missing GPS fix), newest first">
-            <input type="checkbox" checked={zero} onChange={(e) => setParam('zero', e.target.checked ? '1' : null)} />Only photos at 0,0
+          <label className="row xsmall" style={{ gap: '0.375rem' }} title="Photos with a coordinate of exactly 0 (a broken GPS fix: 0,0, or e.g. the right latitude with longitude 0), newest first">
+            <input type="checkbox" checked={zero} onChange={(e) => setParam('zero', e.target.checked ? '1' : null)} />Only broken GPS (0 coordinate)
           </label>
         </div>
       </header>
       <div className="gg-panels">
         <div className="gg-photo">
-          {none ? <p className="gg-msg">{zero ? 'No photos are stored at 0,0.' : 'All photos have a location.'}{done > 0 && ` You placed ${done} this session.`}</p>
+          {none ? <p className="gg-msg">{zero ? 'No photos have broken GPS.' : 'All photos have a location.'}{done > 0 && ` You placed ${done} this session.`}</p>
             : q.isError ? <p className="gg-msg">{only && q.error instanceof ApiError && q.error.status === 404 ? "This photo isn't available." : "Couldn't load the next photo."}</p>
             : photo ? <Shot key={photo.id} photo={photo} /> : <span className="spinner gg-spin" aria-label="Loading" />}
           {photo && (

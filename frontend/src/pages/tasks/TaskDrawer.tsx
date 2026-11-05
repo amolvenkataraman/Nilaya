@@ -11,7 +11,7 @@ import { toast } from '../../components/toast'
 import {
   keys, useComments, useLabels, useMe, useMoveTask, useProjects, useSetDone, useTask, useTasks, useUpdateTask,
 } from '../../lib/queries'
-import { relTime, shortStamp } from '../../lib/dates'
+import { fmtStamp, relTime, shortStamp } from '../../lib/dates'
 import { PRIORITIES, type Project, type Task, type TaskDetail, type TaskPage } from '../../lib/types'
 import { useAddComment, useDeleteComment, useDeleteWithUndo, useDuplicateTask, useEditComment } from './api'
 import './tasks.css'
@@ -120,7 +120,7 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
 
         <p className="detail-facts muted xsmall">
           {task.done && task.done_at ? <span><Icon name="check" size={11} /> Completed {shortStamp(task.done_at)}</span> : null}
-          {!task.done && task.repeat_mode > 0 && task.done_at ? <span title={new Date(task.done_at).toLocaleString()}><Icon name="repeat" size={11} /> Last done {relTime(new Date(task.done_at))}</span> : null}
+          {!task.done && task.repeat_mode > 0 && task.done_at ? <span title={fmtStamp(task.done_at)}><Icon name="repeat" size={11} /> Last done {relTime(new Date(task.done_at))}</span> : null}
           {isOverdue(task) ? <span className="danger-text"><Icon name="alert" size={11} /> Overdue since {shortStamp(task.due!)}</span> : null}
           {task.event_id ? <Link to={`/calendar?event=${task.event_id}`}><Icon name="calendar" size={11} /> From a calendar event</Link> : null}
           {me && task.owner.id !== me.id ? <span><Icon name="user" size={11} /> Owned by {task.owner.name || task.owner.username}</span> : null}
@@ -265,7 +265,7 @@ function Comments({ taskId }: { taskId: string }) {
               <div className="comment-main">
                 <div className="comment-head">
                   <strong>{c.author.name || c.author.username}</strong>
-                  <span className="muted" title={new Date(c.created_on).toLocaleString()}>{shortStamp(c.created_on)}{c.edited_on ? ' · edited' : ''}</span>
+                  <span className="muted" title={fmtStamp(c.created_on)}>{shortStamp(c.created_on)}{c.edited_on ? ' · edited' : ''}</span>
                   {mine && editing?.id !== c.id && (
                     <span className="comment-tools">
                       <button className="btn ghost sm" onClick={() => setEditing({ id: c.id, body: c.body })}>Edit</button>

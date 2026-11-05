@@ -43,12 +43,14 @@ proxy at http://127.0.0.1:5173/accounts/login/ and you land on the app.
 ## Build
 
 ```
-frontend/build.sh      # nvm use 22 if available, npm ci, tests, typecheck + vite build
+frontend/build.sh      # nvm use 22 if available, npm ci, tests, typecheck + vite build, then .gz copies
 ```
 
 Output goes to `static_files/static/app/` (gitignored). It is self-contained under `/static/app/`:
 hashed JS/CSS in `assets/`, plus `index.html`, `theme.js` and `favicon.ico`. `Comptech/spa.py` serves
 `index.html` for any `/app/...` URL (login required) and returns 503 if the build is missing.
+Each JS/CSS/SVG/HTML file also gets a `.gz` copy (gzip -9) for nginx's `gzip_static on`, so nginx sends
+the precompressed file instead of compressing on every request (a cold Photos load goes from ~744 KB to ~227 KB).
 
 ## Deploy (manual copy, no Node on the server)
 

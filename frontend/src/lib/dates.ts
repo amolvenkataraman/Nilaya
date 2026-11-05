@@ -55,9 +55,23 @@ const timeFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2
 export function fmtTime(d: Date): string {
   return timeFmt.format(d)
 }
-export function fmtDate(d: Date, opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }): string {
-  return new Intl.DateTimeFormat(undefined, opts).format(d)
+// Building an Intl.DateTimeFormat costs ~70 µs; formatting with a cached one ~1.5 µs.
+const fmtCache = new Map<string, Intl.DateTimeFormat>()
+/** A shared formatter for these options (default locale). */
+export function dateFormatter(opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+  const key = JSON.stringify(opts)
+  let f = fmtCache.get(key)
+  if (!f) fmtCache.set(key, (f = new Intl.DateTimeFormat(undefined, opts)))
+  return f
 }
+export function fmtDate(d: Date, opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }): string {
+  return dateFormatter(opts).format(d)
+}
+/** Same text as Date#toLocaleString() / toLocaleDateString(), from cached formatters. */
+const FULL: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' }
+const NUMERIC_DAY: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'numeric', day: 'numeric' }
+export const fmtStamp = (d: Date | string) => dateFormatter(FULL).format(typeof d === 'string' ? new Date(d) : d)
+export const fmtNumericDay = (d: Date | string) => dateFormatter(NUMERIC_DAY).format(typeof d === 'string' ? new Date(d) : d)
 export function fmtLongDate(d: Date): string {
   return fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })
 }

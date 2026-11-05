@@ -8,7 +8,7 @@ import { toast } from '../../components/toast'
 import { del, get, patch, post } from '../../lib/api'
 import { keys, useCategories } from '../../lib/queries'
 import type { Category } from '../../lib/types'
-import { CAL_COLOURS } from './CalendarSettings'
+import { CAL_COLOURS } from './calendarCommon'
 
 type Patch = Partial<Pick<Category, 'name' | 'colour' | 'icon' | 'position'>>
 const onError = (e: unknown) => toast.error((e as Error).message)

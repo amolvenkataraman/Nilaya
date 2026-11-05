@@ -2,7 +2,7 @@
 // subtasks, inline rename and subtask add), board, table, calendar and timeline layouts; natural-language
 // quick add; a detail drawer (?task=<id>); bulk actions; the classic keyboard shortcuts and focus mode.
 // URL holds the state (lib/qs.ts plus ?label/prio/assignee/group/done and layout=timeline|calendar, kept here).
-import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react'
+import { Suspense, lazy, memo, useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from 'react'
 import { useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { AppShell } from '../../components/AppShell'
@@ -16,20 +16,30 @@ import { TaskTable } from './TaskTable'
 import { nextTaskState, parseTaskState, serializeTaskState, type Sort, type TaskState, type SmartView } from '../../lib/qs'
 import { groupByDay, groupByDue, fmtDate, isSameDay, addDays, dayKey, parseDayKey, startOfDay, weekdayName } from '../../lib/dates'
 import { PRIORITIES, type Label, type Overview, type Project, type SavedView, type Task, type TaskPage } from '../../lib/types'
-import { Board, boardParams } from './Board'
 import { TaskDrawer } from './TaskDrawer'
 import { ProjectDialog, ProjectMenu, SaveViewDialog, viewFilters } from './ProjectDialog'
 import { ShareDialog } from './ProjectShare'
 import { LabelDialog } from './Labels'
-import { Timeline, TimelineIcon } from './Timeline'
-import { Calendar } from './Calendar'
 import { BulkBar } from './BulkBar'
 import { TasksSidebar, VIEWS, ViewMenu } from './Sidebar'
 import { ShortcutsDialog, useTaskKeys } from './Shortcuts'
 import { useSelection, type Selection } from './selection'
 import { plural, useBulkOps, useDeleteWithUndo, useHiddenTasks, useReorderTasks, useSaveView } from './api'
-import { fitsList, nestTasks } from './util'
+import { boardParams, fitsList, nestTasks } from './util'
 import './tasks.css'
+
+// Layouts other than the list load on demand.
+const Board = lazy(() => import('./Board').then((m) => ({ default: m.Board })))
+const Timeline = lazy(() => import('./Timeline').then((m) => ({ default: m.Timeline })))
+const Calendar = lazy(() => import('./Calendar').then((m) => ({ default: m.Calendar })))
+
+export function TimelineIcon({ size = 14 }: { size?: number }) {
+  return (
+    <svg width={size / 16 + 'rem'} height={size / 16 + 'rem'} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.75} strokeLinecap="round" aria-hidden="true" focusable="false">
+      <path d="M4 6h9M8 12h11M6 18h8" />
+    </svg>
+  )
+}
 
 const SORT_LABELS: Record<Sort, string> = { position: 'Manual', due: 'Due date', priority: 'Priority', created: 'Newest', updated: 'Recently updated', title: 'Title' }
 /** Page-only URL keys, kept while moving around inside one list (dropped when switching lists). */
@@ -127,7 +137,8 @@ export default function TasksPage() {
   }, [params, isProjectList, state.view, showCompleted, isList, isTable]) // eslint-disable-line react-hooks/exhaustive-deps
   const doneQuery = useTasks(doneParams ?? {}, !!doneParams)
   const todayStart = startOfDay(new Date()).toISOString()
-  const doneToday = useTasks({ view: 'done', done_after: todayStart, limit: 1 }, state.view === 'today' && !state.q)
+  // "X of Y done today": from the overview's done_today once the API has it; until then one limit=1 request.
+  const doneToday = useTasks({ view: 'done', done_after: todayStart, limit: 1 }, state.view === 'today' && !state.q && overview?.done_today === undefined)
   const bParams = state.project ? boardParams(state.project, state.q) : {}
   const boardTasks = useTasks(bParams, isBoard)
   const setDone = useSetDone()
@@ -146,14 +157,8 @@ export default function TasksPage() {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set())
   const [collapsedTasks, setCollapsedTasks] = useState(() => readSet(COLLAPSED_TASKS))
   const [focus, setFocus] = useState(false)
-  const [q, setQ] = useState(state.q)
   const sel = useSelection()
   const touch = useMediaQuery('(hover: none)')
-  useEffect(() => setQ(state.q), [state.q])
-  useEffect(() => {
-    const t = setTimeout(() => q !== state.q && update({ q }, true), 300)
-    return () => clearTimeout(t)
-  }, [q]) // eslint-disable-line
   // A new list (or filter, or layout) starts with nothing selected, no open sections collapsed, no focus mode.
   useEffect(() => sel.clear(), [state.project, state.view, state.saved, state.q, labelFilter, prioMin, assignee, layout]) // eslint-disable-line
   useEffect(() => { setCollapsedSections(new Set()); setSelected(null) }, [state.project, state.view, state.saved])
@@ -439,36 +444,23 @@ export default function TasksPage() {
     return n
   })
   const canEditTask = (t: Task) => !me || t.owner.id === me.id || (t.project_id ? (byId.get(t.project_id)?.role ?? 0) >= 1 : true)
+  // Rows are memoized (ListRow); their handlers go through this ref, so they always see the latest page state.
+  const rowActs = useRef<RowActions>(null!)
+  rowActs.current = {
+    sel, order, toggle, open: openTask, rename: (id) => setEditing(id), startDrag, endDrag: () => setDrag(null),
+    finishEdit: (t, v) => { setEditing(null); if (v && v !== t.title) updateTask.mutate({ id: t.id, body: { title: v } }) },
+    addSub: (t, collapsed) => { setAddingSub(t.id); if (collapsed) toggleCollapsedTask(t.id) },
+    toggleCollapsed: toggleCollapsedTask,
+  }
   const rowFor = (t: Task, depth: number, nKids: number, root: boolean, showProject: boolean): ReactNode => {
-    const collapsed = collapsedTasks.has(t.id)
     const editable = canEditTask(t) && !t.id.startsWith('temp-')
+    const doneView = state.view === 'done'
     return (
-      <Pickable key={t.id} id={t.id} title={t.title} sel={sel} order={order} touch={touch} depth={depth} root={root}
-        onRename={editable && state.view !== 'done' ? () => setEditing(t.id) : undefined} onOpen={() => openTask(t)}>
-        {nKids > 0 && (
-          <button className="row-twisty" onClick={(e) => (e.stopPropagation(), toggleCollapsedTask(t.id))} aria-expanded={!collapsed} aria-label={collapsed ? `Show ${plural(nKids, 'subtask')}` : 'Hide subtasks'}>
-            <Icon name={collapsed ? 'chevronRight' : 'chevronDown'} size={12} />
-          </button>
-        )}
-        <TaskRow
-          task={t}
-          project={t.project_id ? byId.get(t.project_id) : undefined}
-          showProject={showProject}
-          projectPath={t.project_id ? pathOf.get(t.project_id) : undefined}
-          labels={labels}
-          selected={sel.ids.has(t.id) || t.id === state.task || t.id === selected}
-          onToggle={() => toggle(t)}
-          onOpen={() => openTask(t)}
-          draggable={!touch && editable && state.view !== 'done' && editing !== t.id}
-          onDragStart={(e) => startDrag(e, t)}
-          onDragEnd={() => setDrag(null)}
-          titleSlot={editing === t.id ? <InlineTitle task={t} onDone={(v) => { setEditing(null); if (v && v !== t.title) updateTask.mutate({ id: t.id, body: { title: v } }) }} /> : undefined}
-          extra={editable && !t.done && state.view !== 'done' ? (
-            <button className="btn ghost icon sm row-act" title="Add subtask" aria-label={`Add subtask to "${t.title}"`}
-              onClick={(e) => { e.stopPropagation(); setAddingSub(t.id); if (collapsed) toggleCollapsedTask(t.id) }}><Icon name="plus" size={14} /></button>
-          ) : undefined}
-        />
-      </Pickable>
+      <ListRow key={t.id} t={t} depth={depth} nKids={nKids} root={root} showProject={showProject} collapsed={collapsedTasks.has(t.id)}
+        project={t.project_id ? byId.get(t.project_id) : undefined} projectPath={t.project_id ? pathOf.get(t.project_id) : undefined} labels={labels}
+        picked={sel.ids.has(t.id)} selected={sel.ids.has(t.id) || t.id === state.task || t.id === selected}
+        canRename={editable && !doneView} canDrag={!touch && editable && !doneView && editing !== t.id} canAddSub={editable && !t.done && !doneView}
+        editing={editing === t.id} touch={touch} acts={rowActs} />
     )
   }
   const rowsOf = (t: Task, depth: number, showProject: boolean): ReactNode[] => {
@@ -490,7 +482,7 @@ export default function TasksPage() {
   const filtersActive = !!(labelFilter || prioMin || assignee || state.q)
   const savedDirty = !!saved && (!!labelFilter || !!prioMin || !!assignee || search.has('sort') || (!!state.q && state.q !== saved.filters.q))
   const updateSaved = (v: SavedView) => saveView.mutate({ id: v.id, body: { filters: viewFilters(params) } }, { onSuccess: () => { toast.show('View updated'); setSearch(new URLSearchParams({ saved: v.id })) } })
-  const doneTodayN = doneToday.data?.total ?? 0
+  const doneTodayN = overview?.done_today ?? doneToday.data?.total ?? 0
   const projectPct = items.length ? Math.round(((items.length - open.length) / items.length) * 100) : 0
   const writable = (project?.role ?? 0) >= 1
 
@@ -519,14 +511,14 @@ export default function TasksPage() {
     />
   )
 
+  const navFirst = useRef<string | undefined>(undefined)
+  navFirst.current = navOrder[0]
+  const commitSearch = useCallback((q: string) => update({ q }, true), [update])
+  const searchEnter = useCallback(() => { if (navFirst.current) setSelected(navFirst.current) }, [])
+
   const topbar = (
     <div className="tasks-top">
-      <label className="tasks-search">
-        <Icon name="search" size={14} />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tasks" aria-label="Search tasks"
-          onKeyDown={(e) => { if (e.key === 'Escape') { e.stopPropagation(); if (q) setQ(''); else (e.target as HTMLInputElement).blur() } if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); (e.target as HTMLInputElement).blur(); if (navOrder[0]) setSelected(navOrder[0]) } }} />
-        {q ? <button className="btn ghost icon sm" onClick={() => setQ('')} aria-label="Clear search"><Icon name="x" size={12} /></button> : <span className="kbd search-slash">/</span>}
-      </label>
+      <TaskSearch value={state.q} onCommit={commitSearch} onEnter={searchEnter} />
     </div>
   )
 
@@ -554,7 +546,7 @@ export default function TasksPage() {
             {isProjectList && !isBoard && !isCal && tasks.data && items.length > 0 && (
               <p className="muted small row tasks-progress" title={`${projectPct}% complete`}><Ring value={projectPct} size={14} />{open.length} open · {items.length - open.length} done</p>
             )}
-            {state.view === 'today' && !state.q && tasks.data && doneToday.data && (doneTodayN + totalOpen > 0) && (
+            {state.view === 'today' && !state.q && tasks.data && (overview?.done_today !== undefined || doneToday.data) && (doneTodayN + totalOpen > 0) && (
               <p className="muted small row tasks-progress"><Ring value={Math.round((doneTodayN / (doneTodayN + totalOpen)) * 100)} size={14} />{doneTodayN} of {doneTodayN + totalOpen} done today</p>
             )}
             {project?.description && <p className="muted small truncate">{project.description}</p>}
@@ -633,6 +625,7 @@ export default function TasksPage() {
           </div>
         )}
 
+        <Suspense fallback={<SkeletonRows rows={8} />}>
         {isBoard && state.project ? (
           <Board projectId={state.project} labels={labels} q={state.q} onOpen={openTask} writable={writable} hidden={hidden} sel={sel} selected={state.task ?? selected} />
         ) : isCal ? (
@@ -692,6 +685,7 @@ export default function TasksPage() {
             {canReorder && open.length > 1 && !touch && <p className="muted xsmall tasks-hint">Drag tasks to reorder them, or onto a project in the sidebar to move them. Double-click a title to rename.</p>}
           </div>
         )}
+        </Suspense>
       </div>
       {(isList || isTable || isBoard) && picked.length > 0 && <BulkBar tasks={picked} projects={projects} labels={labels} onClear={sel.clear} />}
       <TaskDrawer id={state.task} onClose={() => update({ task: null })} onOpen={(id) => update({ task: id })} />
@@ -761,14 +755,57 @@ function InlineTitle({ task, onDone }: { task: Task; onDone: (v: string | null) 
 
 /** One list row that can be picked: a checkbox in the gutter, Ctrl/Cmd/Shift-click, long-press on touch.
  *  A mouse click on the title opens the task after a beat, so a double-click can rename it instead. */
-function Pickable({ id, title, sel, order, touch, depth, root, onRename, onOpen, children }: {
-  id: string; title: string; sel: Selection; order: string[]; touch: boolean; depth: number; root: boolean
+type RowActions = {
+  sel: Selection; order: string[]; toggle: (t: Task) => void; open: (t: Task) => void; rename: (id: string) => void
+  startDrag: (e: DragEvent, t: Task) => void; endDrag: () => void; finishEdit: (t: Task, v: string | null) => void
+  addSub: (t: Task, collapsed: boolean) => void; toggleCollapsed: (id: string) => void
+}
+
+/** One list row (selection wrapper, subtask twisty, TaskRow). Memoized: typing, selecting another row or a
+ *  new page of results re-renders only rows whose own props changed. */
+const ListRow = memo(function ListRow({ t, depth, nKids, root, showProject, collapsed, project, projectPath, labels, picked, selected, canRename, canDrag, canAddSub, editing, touch, acts }: {
+  t: Task; depth: number; nKids: number; root: boolean; showProject: boolean; collapsed: boolean; project?: Project; projectPath?: string
+  labels?: Label[]; picked: boolean; selected: boolean; canRename: boolean; canDrag: boolean; canAddSub: boolean; editing: boolean; touch: boolean
+  acts: { current: RowActions }
+}) {
+  return (
+    <Pickable id={t.id} title={t.title} picked={picked} acts={acts} touch={touch} depth={depth} root={root}
+      onRename={canRename ? () => acts.current.rename(t.id) : undefined} onOpen={() => acts.current.open(t)}>
+      {nKids > 0 && (
+        <button className="row-twisty" onClick={(e) => (e.stopPropagation(), acts.current.toggleCollapsed(t.id))} aria-expanded={!collapsed} aria-label={collapsed ? `Show ${plural(nKids, 'subtask')}` : 'Hide subtasks'}>
+          <Icon name={collapsed ? 'chevronRight' : 'chevronDown'} size={12} />
+        </button>
+      )}
+      <TaskRow
+        task={t}
+        project={project}
+        showProject={showProject}
+        projectPath={projectPath}
+        labels={labels}
+        selected={selected}
+        onToggle={() => acts.current.toggle(t)}
+        onOpen={() => acts.current.open(t)}
+        draggable={canDrag}
+        onDragStart={(e) => acts.current.startDrag(e, t)}
+        onDragEnd={() => acts.current.endDrag()}
+        titleSlot={editing ? <InlineTitle task={t} onDone={(v) => acts.current.finishEdit(t, v)} /> : undefined}
+        extra={canAddSub ? (
+          <button className="btn ghost icon sm row-act" title="Add subtask" aria-label={`Add subtask to "${t.title}"`}
+            onClick={(e) => { e.stopPropagation(); acts.current.addSub(t, collapsed) }}><Icon name="plus" size={14} /></button>
+        ) : undefined}
+      />
+    </Pickable>
+  )
+})
+
+function Pickable({ id, title, picked, acts, touch, depth, root, onRename, onOpen, children }: {
+  id: string; title: string; picked: boolean; acts: { current: RowActions }; touch: boolean; depth: number; root: boolean
   onRename?: () => void; onOpen: () => void; children: ReactNode
 }) {
   const press = useRef<{ timer: number; x: number; y: number; fired: boolean } | null>(null)
   const pointer = useRef('mouse')
   const clickTimer = useRef(0)
-  const on = sel.ids.has(id)
+  const on = picked
   const cancel = () => { if (press.current && !press.current.fired) { clearTimeout(press.current.timer); press.current = null } }
   useEffect(() => () => clearTimeout(clickTimer.current), [])
   return (
@@ -781,7 +818,7 @@ function Pickable({ id, title, sel, order, touch, depth, root, onRename, onOpen,
         pointer.current = e.pointerType
         if (e.pointerType !== 'touch' || (e.target as HTMLElement).closest('.check,.sel-box,.row-twisty,.row-act')) return
         const p = { x: e.clientX, y: e.clientY, fired: false, timer: 0 }
-        p.timer = window.setTimeout(() => { p.fired = true; sel.toggle(id); navigator.vibrate?.(10) }, 450)
+        p.timer = window.setTimeout(() => { p.fired = true; acts.current.sel.toggle(id); navigator.vibrate?.(10) }, 450)
         press.current = p
       }}
       onPointerMove={(e) => { const p = press.current; if (p && !p.fired && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 8) cancel() }}
@@ -792,6 +829,7 @@ function Pickable({ id, title, sel, order, touch, depth, root, onRename, onOpen,
         if (press.current?.fired) { press.current = null; e.stopPropagation(); e.preventDefault(); return }
         const target = e.target as HTMLElement
         if (target.closest('.check,.sel-box,.row-twisty,.row-act,.inline-title')) return
+        const { sel, order } = acts.current
         if (sel.click(e, id, order)) { e.stopPropagation(); e.preventDefault(); return }
         if (sel.ids.size) {
           // While selecting on a phone, taps add/remove rows; a plain mouse click ends the selection and opens the task.
@@ -809,7 +847,7 @@ function Pickable({ id, title, sel, order, touch, depth, root, onRename, onOpen,
       }}
     >
       <input type="checkbox" className="sel-box" checked={on} aria-label={`Select "${title}"`}
-        onChange={(e) => ((e.nativeEvent as MouseEvent).shiftKey ? sel.range(order, id) : sel.toggle(id))} />
+        onChange={(e) => ((e.nativeEvent as MouseEvent).shiftKey ? acts.current.sel.range(acts.current.order, id) : acts.current.sel.toggle(id))} />
       {children}
     </div>
   )
@@ -834,3 +872,25 @@ function emptyText(view: SmartView | null): string {
     default: return 'No tasks here. Add one above.'
   }
 }
+
+/** The search box keeps its own text, so typing re-renders only this input (the list updates once,
+ *  300 ms after the last keystroke, through the URL). */
+const TaskSearch = memo(function TaskSearch({ value, onCommit, onEnter }: { value: string; onCommit: (q: string) => void; onEnter: () => void }) {
+  const [q, setQ] = useState(value)
+  useEffect(() => setQ(value), [value])
+  useEffect(() => {
+    const t = setTimeout(() => q !== value && onCommit(q), 300)
+    return () => clearTimeout(t)
+  }, [q, value, onCommit])
+  return (
+    <label className="tasks-search">
+      <Icon name="search" size={14} />
+      <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search tasks" aria-label="Search tasks"
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') { e.stopPropagation(); if (q) setQ(''); else e.currentTarget.blur() }
+          if (e.key === 'Enter' || e.key === 'ArrowDown') { e.preventDefault(); e.currentTarget.blur(); onEnter() }
+        }} />
+      {q ? <button className="btn ghost icon sm" onClick={() => setQ('')} aria-label="Clear search"><Icon name="x" size={12} /></button> : <span className="kbd search-slash">/</span>}
+    </label>
+  )
+})

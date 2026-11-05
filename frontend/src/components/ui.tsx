@@ -266,7 +266,7 @@ export function Avatar({ name, src, size = 1.75 }: { name: string; src?: string 
   // Only same-site image paths: the profile picture is served by the app itself.
   const safe = src && /^\/(?![/\\])/.test(src) && !broken ? src : null
   return safe ? (
-    <img className="avatar" src={safe} alt="" style={style} onError={() => setBroken(true)} />
+    <img className="avatar" src={safe} alt="" style={style} width={Math.round(size * 16)} height={Math.round(size * 16)} loading="lazy" decoding="async" onError={() => setBroken(true)} />
   ) : (
     <span className="avatar" style={style} aria-hidden="true">{initials}</span>
   )

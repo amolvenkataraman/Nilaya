@@ -109,21 +109,32 @@ export function restoreCache(qc: QueryClient) {
 
 export function persistCache(qc: QueryClient) {
   let timer: ReturnType<typeof setTimeout> | null = null
+  // Serialized form per data object: entries that didn't change since the last save aren't re-serialized.
+  const seen = new WeakMap<object, string>()
+  let last = ''
   const save = () => {
     timer = null
-    const out: [unknown[], unknown, number][] = []
+    const out: string[] = []
     let total = 0
     for (const q of qc.getQueryCache().getAll()) {
       const key = q.queryKey as unknown[]
-      if (q.state.status !== 'success' || !PERSIST.has(String(key[0])) || q.state.data === undefined) continue
-      if ((q.state.data as { pages?: unknown })?.pages) continue // infinite lists: too big, cheap to refetch
-      const json = JSON.stringify(q.state.data)
+      const data = q.state.data
+      if (q.state.status !== 'success' || !PERSIST.has(String(key[0])) || data === undefined) continue
+      if ((data as { pages?: unknown })?.pages) continue // infinite lists: too big, cheap to refetch
+      let json = typeof data === 'object' && data !== null ? seen.get(data) : undefined
+      if (json === undefined) {
+        json = JSON.stringify(data)
+        if (typeof data === 'object' && data !== null) seen.set(data, json)
+      }
       if (json.length > MAX_ENTRY || total + json.length > MAX_TOTAL) continue
       total += json.length
-      out.push([key, q.state.data, q.state.dataUpdatedAt])
+      out.push(`[${JSON.stringify(key)},${json},${q.state.dataUpdatedAt}]`)
     }
+    const body = out.join(',')
+    if (body === last) return // nothing new to write
+    last = body
     try {
-      sessionStorage.setItem(STORE, JSON.stringify({ at: Date.now(), q: out }))
+      sessionStorage.setItem(STORE, `{"at":${Date.now()},"q":[${body}]}`)
     } catch { /* quota or blocked: just don't persist */ }
   }
   qc.getQueryCache().subscribe((e) => {

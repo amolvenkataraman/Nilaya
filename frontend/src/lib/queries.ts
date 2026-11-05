@@ -43,7 +43,7 @@ export function useUpdateMe() {
 
 export const useUnreadCount = () =>
   // The only poll in the app: 60 s, paused while the tab is hidden (refetchIntervalInBackground: false).
-  useQuery({ queryKey: keys.notifCount, queryFn: () => get<Count>('notifications/unread-count'), refetchInterval: 60_000, refetchIntervalInBackground: false })
+  useQuery({ queryKey: keys.notifCount, queryFn: () => get<Count>('notifications/unread-count'), staleTime: 30_000, refetchInterval: 60_000, refetchIntervalInBackground: false })
 
 export const useInbox = (unreadOnly = false, limit = 30) =>
   useQuery({ queryKey: [...keys.inbox(unreadOnly), limit], queryFn: () => get<Inbox>('notifications/', { unread_only: unreadOnly || undefined, limit }) })
@@ -284,7 +284,7 @@ export const useAgenda = (days: number, includeOverdue = false) =>
   useQuery({
     queryKey: [...keys.agenda(days), includeOverdue],
     queryFn: () => get<AgendaItem[]>('calendar/agenda', { days, include_overdue: includeOverdue || undefined }),
-    staleTime: 2 * 60_000,
+    staleTime: 60_000, // today's agenda: fresher than the 2 min default
   })
 export const useInsights = (period: 'week' | 'month', date: string) =>
   useQuery({

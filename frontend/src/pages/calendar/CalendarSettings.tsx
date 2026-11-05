@@ -1,4 +1,4 @@
-// Calendar settings drawer (from a calendar's "…" menu) and the New calendar dialog.
+// Calendar settings drawer (from a calendar's "…" menu) and the New calendar dialog; loaded on demand.
 // Contract: GET/PATCH /calendar/calendars/{id}, .../subscribers, .../invites, .../sync,
 // DELETE /calendar/calendars/{id}?confirm=<name>, GET /calendar/icons. While the detail endpoints
 // aren't deployed the drawer falls back to the list item and the fields PATCH already accepts.
@@ -6,14 +6,13 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { Dialog, Drawer, ErrorBox, Menu, MenuItem, SkeletonRows, Switch } from '../../components/ui'
+import { Dialog, Drawer, ErrorBox, SkeletonRows, Switch } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { ApiError, del, get, patch, post } from '../../lib/api'
 import { fmtDate, parseDayKey, shortStamp } from '../../lib/dates'
 import type { Calendar } from '../../lib/types'
+import { CAL_COLOURS, copyText, personName, publicUrl, type Person } from './calendarCommon'
 
-type Person = { id: string; username: string; first_name?: string; last_name?: string; name?: string }
-export const personName = (u: Person) => u.name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username
 export interface CalendarDetail extends Calendar {
   calendar_colour: string // the calendar's own colour (PATCH calendar_colour)
   my_colour: string | null // my personal colour for it (PATCH my_colour)
@@ -31,14 +30,8 @@ type CalendarPatchBody = Partial<{
 export interface Subscriber { id: number; user: Person; role: 'owner' | 'admin' | 'subscriber'; display_busy: number }
 export interface Invite { id: number; code: string; role: 'admin' | 'subscriber'; expires_on: string | null; max_uses: number | null; uses: number; active: boolean; usable: boolean }
 
-export const CAL_COLOURS = ['#3b82f6', '#0891b2', '#10b981', '#16a34a', '#f59e0b', '#ea580c', '#ef4444', '#db2777', '#8b5cf6', '#64748b']
 const FALLBACK_ICONS = ['calendar', 'user', 'users', 'tasks', 'flag', 'star', 'home', 'map', 'clock', 'bell', 'photo', 'repeat']
 
-/** The classic public page (read-only month view, anyone with the link). */
-export const publicUrl = (id: number) => `${window.location.origin}/calendar/public/${id}/`
-export function copyText(text: string, done = 'Copied') {
-  navigator.clipboard?.writeText(text).then(() => toast.show(done), () => toast.show(text))
-}
 const ZONES: string[] = (() => { try { return (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.('timeZone') ?? [] } catch { return [] } })()
 
 const notFound = (e: unknown) => e instanceof ApiError && (e.status === 404 || e.status === 405)
@@ -467,48 +460,5 @@ export function NewCalendarDialog({ open, onClose, onCreated }: { open: boolean;
         <Picker label="Icon" value={icon} options={icons} onPick={setIcon} render={(i) => <Icon name={i} size={15} />} />
       </form>
     </Dialog>
-  )
-}
-
-/** "…" menu next to a calendar in the sidebar. */
-export function CalendarMenu({ calendar, onSettings, onOnly }: { calendar: Calendar; onSettings: () => void; onOnly?: () => void }) {
-  const qc = useQueryClient()
-  const editor = calendar.role === 'owner' || calendar.role === 'admin'
-  const sync = useMutation({
-    mutationFn: () => post<{ ok: boolean; not_modified?: boolean; last_sync_error?: string }>(`calendar/calendars/${calendar.id}/sync`),
-    onSuccess: (r) => (r.ok ? toast.show(r.not_modified ? `"${calendar.name}" is up to date` : `Synced "${calendar.name}"`) : toast.error(r.last_sync_error || 'Sync failed')),
-    onError: (e) => toast.error(e instanceof ApiError && e.status === 503 ? 'Syncing is off on this server (offline mode).' : (e as Error).message),
-    onSettled: () => qc.invalidateQueries({ queryKey: ['calendar'] }),
-  })
-  const leave = useMutation({
-    mutationFn: () => del(`calendar/calendars/${calendar.id}/subscription`),
-    onSuccess: () => toast.show(`Left "${calendar.name}"`),
-    onError,
-    onSettled: () => qc.invalidateQueries({ queryKey: ['calendar'] }),
-  })
-  const [confirmLeave, setConfirmLeave] = useState(false)
-  return (
-    <>
-    <Menu align="end" label={`${calendar.name} options`} trigger={(p) => (
-      <button {...p} className="btn ghost icon sm cal-more" aria-label={`${calendar.name} options`} onClick={(e) => { e.preventDefault(); e.stopPropagation(); p.onClick() }}>
-        <Icon name="more" size={14} />
-      </button>
-    )}>
-      {(close) => (
-        <>
-          {onOnly && <MenuItem icon="calendar" onClick={() => (close(), onOnly())}>Display this only</MenuItem>}
-          <MenuItem icon="settings" onClick={() => (close(), onSettings())}>Settings and sharing</MenuItem>
-          {calendar.synced && editor && <MenuItem icon="refresh" onClick={() => (close(), sync.mutate())}>Sync now</MenuItem>}
-          {calendar.public && <MenuItem icon="link" onClick={() => (close(), copyText(publicUrl(calendar.id), 'Public link copied'))}>Copy public link</MenuItem>}
-          {calendar.role !== 'owner' && <MenuItem icon="logout" danger onClick={() => (close(), setConfirmLeave(true))}>Leave calendar</MenuItem>}
-        </>
-      )}
-    </Menu>
-    <Dialog open={confirmLeave} onClose={() => setConfirmLeave(false)} title={`Leave "${calendar.name}"?`} width="26rem"
-      footer={<><span className="spacer" /><button className="btn" onClick={() => setConfirmLeave(false)}>Cancel</button>
-        <button className="btn primary" style={{ background: 'var(--app-danger)', borderColor: 'var(--app-danger)', color: '#fff' }} onClick={() => (setConfirmLeave(false), leave.mutate())}>Leave</button></>}>
-      <p className="muted small">Its events disappear from your calendar. You can rejoin with an invite code.</p>
-    </Dialog>
-    </>
   )
 }
