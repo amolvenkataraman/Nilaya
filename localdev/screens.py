@@ -1,6 +1,7 @@
 """Screenshot pages of the local instance in light and dark, desktop and phone.
 
     .venv/bin/python localdev/screens.py / /calendar/ /accounts/login/ ...
+    .venv/bin/python localdev/screens.py --quick /calendar/     (light + desktop only)
     (needs: uv pip install --python .venv playwright && .venv/bin/playwright install chromium)
 
 Writes PNGs to localdev/data/screens/<page>-<theme>-<width>.png. Logs in as amol
@@ -19,13 +20,13 @@ PUBLIC = ("/accounts/login/", "/accounts/register/")
 SIZES = {"desktop": (1366, 850), "phone": (390, 844)}
 
 
-def main(paths):
+def main(paths, themes=("light", "dark"), sizes=SIZES):
     OUT.mkdir(parents=True, exist_ok=True)
     errors = []
     with sync_playwright() as p:
         browser = p.chromium.launch()
-        for theme in ("light", "dark"):
-            for size, (w, h) in SIZES.items():
+        for theme in themes:
+            for size, (w, h) in sizes.items():
                 for public in (True, False):
                     batch = [x for x in paths if (x in PUBLIC) == public]
                     if not batch:
@@ -54,4 +55,9 @@ def main(paths):
 
 
 if __name__ == "__main__":
-    main(sys.argv[1:] or ["/"])
+    args = sys.argv[1:]
+    if args and args[0] in ("--quick", "--quick-dark"):  # one theme, desktop only
+        theme = "dark" if args[0] == "--quick-dark" else "light"
+        main(args[1:] or ["/"], themes=(theme,), sizes={"desktop": SIZES["desktop"]})
+    else:
+        main(args or ["/"])
