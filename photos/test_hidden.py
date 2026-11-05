@@ -46,6 +46,21 @@ class HiddenPhotoTests(TestCase):
                              HTTP_AUTHORIZATION=f"Bearer {token}")
         self.assertEqual(r.status_code, 403)
 
+    def test_library_owner_controls_photos_an_editor_imported(self):
+        editor = ComptechUser.objects.create_user("eve", password="pw")
+        Album_Subscriber.objects.create(album=self.shown.album, user=editor, subscribe_type=1)
+        imported = Photo.objects.create(owner=editor, album=self.shown.album, filepath="c.jpg", orientation="1",
+                                        date_taken=timezone.now())  # ingest sets the owner to whoever ran it
+        hide = lambda hidden: self.client.post("/api/v2/photos/hide", {"ids": [str(imported.id)], "hidden": hidden},
+                                               content_type="application/json").json()["changed"]
+        self.client.force_login(editor)
+        self.assertEqual(hide(True), 1)
+        self.client.force_login(self.owner)
+        self.client.post("/api/v2/photos/hidden-mode", {"show": True}, content_type="application/json")
+        self.assertIn(str(imported.id), self.ids())
+        self.assertTrue(self.client.get(f"/api/v2/photos/{imported.id}/details").json()["mine"])
+        self.assertEqual(hide(False), 1)
+
     def test_show_hidden_expires(self):
         self.secret.hidden = True
         self.secret.save()

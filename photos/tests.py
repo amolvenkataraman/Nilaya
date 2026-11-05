@@ -1,6 +1,7 @@
 import datetime
 import json
 import re
+from unittest import mock
 
 from django.test import TestCase
 from django.utils import timezone
@@ -139,6 +140,17 @@ class DeletePermissionTests(TestCase):
         r = self.client.post("/api/v2/photos/delete", {"ids": [str(self.photo.id)]}, content_type="application/json")
         self.assertEqual(r.json(), {"deleted": 1})
         self.assertFalse(Photo.objects.filter(id=self.photo.id).exists())
+
+    def test_deletes_and_classic_location_saves_refresh_the_summary_views(self):
+        Photo.objects.filter(id=self.photo.id).update(latitude=48.85, longitude=2.35, location_city="Paris", location_country="FR")
+        self.client.force_login(self.owner)
+        with mock.patch("photos.cache.schedule_matview_refresh") as refresh, self.captureOnCommitCallbacks(execute=True):
+            self.client.post("/photos/geoguessr_ent/", {"photo": str(self.photo.id), "lat": None, "lng": None},
+                             content_type="application/json")
+            self.photo.refresh_from_db()
+            self.assertEqual((self.photo.latitude, self.photo.location_city), (None, None))  # the place went too
+            self.client.post(f"/photos/delete/{self.photo.id}/")
+        self.assertEqual([c.args for c in refresh.call_args_list], [(("photos_photo_location_cache",),), ()])
 
     def test_add_and_remove_from_a_shared_album(self):
         sa = ShareAlbum.objects.create(owner=self.owner, name="Best")

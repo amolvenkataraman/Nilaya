@@ -1,13 +1,17 @@
 """Photos V2 API: only photos from albums you subscribe to; cursor paging."""
 
 import datetime
+from unittest import mock
 
 from django.test import TestCase
 from django.utils import timezone
 
 from users.models import ComptechUser
 
-from .models import Album, Album_Subscriber, Photo
+from .models import Album, Album_Subscriber, Photo, ShareAlbum, ShareAlbum_Photo, ShareAlbum_Subscriber, refresh_photo_matviews
+
+# Tests that read photos_photo_daily / photos_photo_location_cache call refresh_photo_matviews() after
+# writing: materialized views on Postgres (the refresh sees the test transaction's rows), plain views on SQLite.
 
 
 class PhotosApiTests(TestCase):
@@ -69,7 +73,32 @@ class PhotosApiTests(TestCase):
         st = self.client.get("/api/v2/photos/storage").json()
         self.assertEqual((st["video"]["count"], st["video"]["total_kb"], st["video"]["length_s"]), (1, 1500, 30))
 
+    def test_stats_on_feb_29(self):
+        leap_day = datetime.datetime(2024, 2, 29, 12, tzinfo=datetime.timezone.utc)
+        self.client.force_login(self.user)
+        with mock.patch("django.utils.timezone.now", return_value=leap_day):
+            r = self.client.get("/api/v2/photos/stats")
+        self.assertEqual(r.status_code, 200)  # "day is out of range for month" before
+
+    def test_album_and_library_totals_leave_out_hidden_photos_and_do_not_multiply_by_members(self):
+        p0, p1, p2 = self.photos
+        Photo.objects.filter(id__in=[p0.id, p1.id]).update(size_total=100)
+        Photo.objects.filter(id=p2.id).update(size_total=100, hidden=True)
+        sa = ShareAlbum.objects.create(owner=self.user, name="Trip")
+        for p in self.photos:
+            ShareAlbum_Photo.objects.create(sharealbum=sa, photo=p)
+        for u in (self.user, self.stranger):
+            ShareAlbum_Subscriber.objects.create(album=sa, user=u, subscribe_type=0 if u == self.user else 2)
+        self.client.force_login(self.user)
+        a = self.client.get("/api/v2/photos/albums").json()[0]
+        self.assertEqual((a["count"], a["size_kb"]), (2, 200))
+        self.assertEqual(self.client.get("/api/v2/photos/libraries").json()[0]["count"], 2)
+        self.client.post("/api/v2/photos/hidden-mode", {"show": True}, content_type="application/json")
+        a = self.client.get("/api/v2/photos/albums").json()[0]
+        self.assertEqual((a["count"], a["size_kb"]), (3, 300))
+
     def test_counts_per_day(self):
+        refresh_photo_matviews()
         self.client.force_login(self.user)
         day = timezone.localdate().isoformat()
         r = self.client.get("/api/v2/photos/counts", {"start": day, "end": day}).json()
@@ -78,6 +107,7 @@ class PhotosApiTests(TestCase):
     def test_points_days_and_album_size(self):
         p = self.photos[0]
         Photo.objects.filter(id=p.id).update(latitude=43.47, longitude=-80.54, size_total=500, size=400)
+        refresh_photo_matviews()
         self.client.force_login(self.user)
         pts = self.client.get("/api/v2/photos/points", {"south": 43, "west": -81, "north": 44, "east": -80}).json()
         self.assertEqual([(round(x["lat"], 2), x["count"]) for x in pts], [(43.47, 1)])
@@ -94,6 +124,7 @@ class PhotosApiTests(TestCase):
         for i, alt in enumerate((1500, 1999, 2000, 9000)):
             Photo.objects.create(owner=self.user, album=album, filepath=f"alt{i}.jpg", orientation="1", date_taken=base,
                                  latitude=10 + i, longitude=10, altitude=alt)
+        refresh_photo_matviews()
         self.client.force_login(self.user)
         pts = self.client.get("/api/v2/photos/points", {"south": 0, "west": 0, "north": 20, "east": 20}).json()
         self.assertEqual(sorted(round(p["lat"]) for p in pts), [10, 11])  # 1500 m and 1999 m stay
@@ -105,6 +136,7 @@ class PhotosApiTests(TestCase):
         then = today.replace(year=today.year - (4 if (today.month, today.day) == (2, 29) else 1))
         old = Photo.objects.create(owner=self.user, album=self.photos[0].album, filepath="old.jpg", orientation="1",
                                    date_taken=timezone.make_aware(datetime.datetime.combine(then, datetime.time(12))))
+        refresh_photo_matviews()
         self.assertEqual(self.client.get("/api/v2/photos/summary").json()["photos"], 4)  # cache invalidated
         otd = self.client.get("/api/v2/photos/on-this-day").json()
         self.assertEqual([(g["year"], [p["id"] for p in g["items"]]) for g in otd], [(then.year, [str(old.id)])])

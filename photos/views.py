@@ -13,7 +13,7 @@ from .indeximg import photo_ingest_for_album
 from .tasks import ingest_all_photos
 from notifications.service import notify
 from .AI.objects import NAME_TO_ID_MAPPING
-from .hidden import visible, show_hidden
+from .hidden import can_control, visible, show_hidden
 from scheduler.models import *
 from django.conf import settings as _settings
 BASE_DIR, TIME_ZONE = _settings.BASE_DIR, _settings.TIME_ZONE
@@ -26,6 +26,9 @@ import pytz
 import json
 import base64
 from collections import Counter
+from django.db import transaction
+from . import cache as photo_cache
+from .models import Album, BROKEN_GPS
 
 def get_bounds_from_request(request):
     bounds_b64 = request.GET.get('bounds')
@@ -447,7 +450,7 @@ def geoguessr(request):
     album_subs = request.user.album_subscribed.filter(visible=True)
     albums = [i.album for i in album_subs]
 
-    photo = visible(Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False), request).exclude(latitude=0, longitude=0).order_by("?").first()
+    photo = visible(Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False), request).exclude(BROKEN_GPS).order_by("?").first()
     if photo is None:
         return error_response("No geotagged photos available", 404)
 
@@ -467,7 +470,7 @@ def geoguessr_ent(request):
             oq = oq & Q(date_taken__month=request.GET.get('month'))
 
         if request.GET.get('zero'):
-            photo = visible(Photo.objects.filter(oq & Q(album__in=albums) & (Q(latitude=0) & Q(longitude=0))), request).order_by('-date_taken').first()
+            photo = visible(Photo.objects.filter(oq & Q(album__in=albums) & BROKEN_GPS), request).order_by('-date_taken').first()
         else:
             photo = visible(Photo.objects.filter(oq & Q(album__in=albums) & (Q(latitude__isnull=True) | Q(longitude__isnull=True))), request).order_by("?").first()
 
@@ -490,10 +493,8 @@ def geoguessr_ent(request):
         albums = [i.album for i in album_subs]
 
         if p.album in albums:
-            p.latitude = b['lat']
-            p.longitude = b['lng']
-            p.refresh_city_data()
-            p.save()
+            p.set_location(b['lat'], b['lng'])  # clears city/country for null or broken (0) coordinates
+            transaction.on_commit(lambda: photo_cache.schedule_matview_refresh(("photos_photo_location_cache",)))
             print(f"Saved location ({b['lat']}, {b['lng']}) for photo {b['photo']}")
             with open(os.path.join(BASE_DIR, "photo_gg_ent_log.txt"), "a") as f:
                 f.write(f"{b['photo']} --> ({b['lat']}, {b['lng']}) [{request.user.username}]\n")
@@ -570,6 +571,7 @@ def get_photos_for_date(request):
     # Apply all static filters once before the date loop
     qs, _fctx = _apply_standard_filters(qs, request)
     uid = request.user.id if request.user.is_authenticated else None
+    owned = set(Album.objects.filter(owner_id=uid).values_list('id', flat=True)) if uid else set()  # may hide/unhide
 
     numdays   = int(request.GET.get("ndays"))   if request.GET.get("ndays")   else None
     numphotos = int(request.GET.get("nphotos")) if request.GET.get("nphotos") else None
@@ -602,7 +604,8 @@ def get_photos_for_date(request):
 
         ans.append({
             'date':       datetime.datetime.strftime(dt, "%Y-%m-%d"),
-            'photos':     [{**p.getinfo_zip(), 'hidden': p.hidden, 'mine': p.owner_id == uid} for p in day_qs],
+            'photos':     [{**p.getinfo_zip(), 'hidden': p.hidden, 'mine': p.owner_id == uid or p.album_id in owned}
+                           for p in day_qs],
             'cities':     [list(c) for c in citcount],
             'total_size': total_size,
         })
@@ -662,7 +665,7 @@ def get_photo(request, photo_id, ret_type):
 
 
     if ret_type == "info":
-        mine = request.user.is_authenticated and photo.owner_id == request.user.id
+        mine = can_control(photo, request.user)  # may hide/unhide
         return JsonResponse({**photo.getinfo(), "hidden": photo.hidden, "mine": mine})
     elif ret_type == "thumbnail":
         if photo.video:
@@ -715,6 +718,7 @@ def del_photo_req(request, photo_id):
         p = Photo.objects.filter(id=photo_id)[0]
         if p.album in albums or request.user.is_superuser:
             delete_photo(p)
+            transaction.on_commit(photo_cache.schedule_matview_refresh)  # per-day counts and the heat map
             return success_response()
         else:
             return error_response("Not authorized", 401)
@@ -755,6 +759,7 @@ def delete_photo_original(request, photo_id):
             p.orig_filepath = None
             p.update_file_sizes()
             p.save()
+            transaction.on_commit(photo_cache.schedule_matview_refresh)  # sizes per day; the original's own row is gone
 
         return JsonResponse({
             "status": "success",

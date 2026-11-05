@@ -335,6 +335,17 @@ class Photo(models.Model):
                 self.save()
         except: pass
 
+    def set_location(self, lat, lng):
+        """Entered coordinates (None clears them), with the city/country that go with them. A 0
+        coordinate is broken GPS (BROKEN_GPS), not a place: the city/country are cleared too."""
+        self.latitude, self.longitude = lat, lng
+        if not lat or not lng:
+            self.location_city = self.location_country = None
+            self.save(update_fields=["latitude", "longitude", "location_city", "location_country"])
+        else:
+            self.save(update_fields=["latitude", "longitude"])
+            self.refresh_city_data()  # offline reverse geocoding: city/country
+
     def refresh_gps_data(self):
         try:
             gpsdata = gpsphoto.getGPSData(self.album.location + self.filepath)
@@ -764,10 +775,14 @@ def refresh_photo_matviews(views=MATVIEWS):
     bump()  # cached photo stats are stale too
     if connection.vendor != 'postgresql':
         return
+    import contextlib
+    from django.db import transaction
     with connection.cursor() as cursor:
         for view in views:
             try:
-                cursor.execute(f'REFRESH MATERIALIZED VIEW CONCURRENTLY {view};')
+                # Inside a transaction (tests, atomic requests) a failed attempt must not abort it: savepoint.
+                with transaction.atomic() if connection.in_atomic_block else contextlib.nullcontext():
+                    cursor.execute(f'REFRESH MATERIALIZED VIEW CONCURRENTLY {view};')
             except Exception:  # first refresh after creation, or no unique index yet
                 cursor.execute(f'REFRESH MATERIALIZED VIEW {view};')
 

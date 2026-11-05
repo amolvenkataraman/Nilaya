@@ -1,7 +1,7 @@
 """Hidden photos. A hidden photo is left out of every listing, count, map and album for
-everyone. Its owner can reveal their own hidden photos by turning on show-hidden mode,
-which lives only in the browser session and switches itself off after WINDOW (and on
-logout). API keys can't turn it on.
+everyone. Whoever controls it (see `controls`) can hide and unhide it, and reveal it by
+turning on show-hidden mode, which lives only in the browser session and switches itself
+off after WINDOW (and on logout). API keys can't turn it on.
 
 Use `visible(qs, request)` on any Photo queryset that's shown to a user.
 """
@@ -35,9 +35,19 @@ def set_show_hidden(request, on):
     return show_hidden(request)
 
 
+def controls(user, prefix=""):
+    """Photos this user may hide, unhide and reveal: the ones they imported (Photo.owner) and every
+    photo in a library they own (Album.owner), so an editor's ingest never locks the owner out."""
+    return Q(**{f"{prefix}owner": user}) | Q(**{f"{prefix}album__owner": user})
+
+
+def can_control(photo, user):
+    return user is not None and user.is_authenticated and user.id in (photo.owner_id, photo.album.owner_id)
+
+
 def visible(qs, request=None, prefix=""):
     """Filter a queryset (of Photo, or related through `prefix`, e.g. "photo__") to what this request may see."""
-    hidden, owner = f"{prefix}hidden", f"{prefix}owner"
+    hidden = f"{prefix}hidden"
     if show_hidden(request):
-        return qs.filter(Q(**{hidden: False}) | Q(**{owner: request.user}))
+        return qs.filter(Q(**{hidden: False}) | controls(request.user, prefix))
     return qs.filter(**{hidden: False})

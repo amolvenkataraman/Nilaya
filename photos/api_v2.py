@@ -9,7 +9,8 @@ import os
 import uuid
 from typing import Literal, Optional
 
-from django.db.models import Count, Max, Min, Q, Sum
+from django.db.models import Count, Max, Min, OuterRef, Q, Subquery, Sum
+from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja import Query, Router, Schema
@@ -331,8 +332,10 @@ def libraries(request):
     subs = list(Album_Subscriber.objects.filter(user=request.user).select_related("album").order_by("album__name"))
     ids = sorted(s.album_id for s in subs)
     # Photo counts scan each library: cached (invalidated on photo changes); roles and switches are live.
+    # Hidden photos only count in show-hidden mode (which is never cached).
     counts = photo_cache.cached(request, "library-counts", lambda: dict(
-        Photo.objects.filter(album_id__in=ids).values_list("album_id").annotate(n=Count("id"))), ids)
+        hidden_mode.visible(Photo.objects.filter(album_id__in=ids), request)
+        .values_list("album_id").annotate(n=Count("id")).order_by()), ids)
     return [{"id": s.album_id, "name": s.album.name, "role": ("owner", "editor", "viewer")[s.subscribe_type],
              "visible": s.visible, "count": counts.get(s.album_id, 0)} for s in subs]
 
@@ -350,11 +353,20 @@ def sidebar(request):
             "hidden_mode": get_hidden_mode(request)}
 
 
+def _album_totals(request):
+    """count and size_kb of a shared album (OuterRef "pk") as subqueries: joining photos and members in one
+    query multiplied the size by the number of members. Hidden photos count only in show-hidden mode."""
+    from .models import ShareAlbum_Photo
+    rows = hidden_mode.visible(ShareAlbum_Photo.objects.filter(sharealbum=OuterRef("pk")), request, prefix="photo__") \
+        .order_by().values("sharealbum")
+    return {"count": Coalesce(Subquery(rows.annotate(n=Count("id")).values("n")), 0),
+            "size_kb": Coalesce(Subquery(rows.annotate(s=Sum("photo__size_total")).values("s")), 0)}
+
+
 @router.get("/albums", response=list[ShareAlbumOut], summary="Shared albums you own or were added to")
 def albums(request):
     qs = (ShareAlbum.objects.filter(Q(owner=request.user) | Q(sharealbum_users_subscribed__user=request.user))
-          .distinct().select_related("cover_photo__album").annotate(count=Count("sharealbum_photos", distinct=True),
-                                                                    size_kb=Sum("sharealbum_photos__photo__size_total"))
+          .distinct().select_related("cover_photo__album").annotate(**_album_totals(request))
           .order_by("name"))
     out = []
     for a in qs:
@@ -392,14 +404,13 @@ ROLE_TO_TYPE = {"editor": 1, "viewer": 2}
 TYPE_TO_ROLE = {0: "owner", 1: "editor", 2: "viewer"}
 
 
-def _album_out(a, user):
-    from .models import ShareAlbum_Photo
+def _album_out(a, request):
     photos = Photo.objects.filter(photo_in_sharealbum__sharealbum=a)
     cover = a.cover_photo if a.cover_photo_id and not a.cover_photo.hidden else \
         photos.filter(hidden=False).select_related("album").order_by("-date_taken").first()
-    agg = photos.aggregate(n=Count("id"), size=Sum("size_total"))
-    return {"id": a.id, "name": a.name, "description": a.description, "public": a.public, "mine": a.owner_id == user.id,
-            "count": agg["n"], "size_kb": agg["size"] or 0, "cover": cover}
+    agg = hidden_mode.visible(photos, request).aggregate(n=Count("id"), size=Sum("size_total"))  # same as /albums
+    return {"id": a.id, "name": a.name, "description": a.description, "public": a.public,
+            "mine": a.owner_id == request.user.id, "count": agg["n"], "size_kb": agg["size"] or 0, "cover": cover}
 
 
 def _own_share_album(user, album_id):
@@ -413,7 +424,7 @@ def create_album(request, payload: AlbumIn):
     a = ShareAlbum.objects.create(owner=request.user, name=bleach.clean(payload.name),
                                   description=bleach.clean(payload.description), public=payload.public)
     ShareAlbum_Subscriber.objects.create(album=a, user=request.user, subscribe_type=0)
-    return 201, _album_out(a, request.user)
+    return 201, _album_out(a, request)
 
 
 @router.patch("/albums/{uuid:album_id}", response=ShareAlbumOut, summary="Rename, describe, make public, set the cover (owner)")
@@ -433,7 +444,7 @@ def update_album(request, album_id: uuid.UUID, payload: AlbumPatch):
             raise HttpError(400, "That photo isn't in this album")
         a.cover_photo_id = data["cover_photo_id"]
     a.save()
-    return _album_out(a, request.user)
+    return _album_out(a, request)
 
 
 @router.delete("/albums/{uuid:album_id}", response={204: None}, summary="Delete a shared album (owner); the photos stay")
@@ -588,7 +599,7 @@ class PhotoDetailOut(PhotoOut):
         ids = sorted(set((o.ai_index_info or {}).get("objects") or []))
         return [{"id": i, "name": browse.object_label(i)} for i in ids]
     @staticmethod
-    def resolve_mine(o, context): return o.owner_id == context["request"].user.id
+    def resolve_mine(o, context): return hidden_mode.can_control(o, context["request"].user)  # may hide/unhide
 
 
 @router.get("/browse/{category}", summary="Cities, countries, cameras or objects with counts (for search pages)")
@@ -622,9 +633,10 @@ def _stats(request):
         prev = qs.filter(date_taken__gte=now - datetime.timedelta(days=2 * days), date_taken__lt=now - datetime.timedelta(days=days)).count()
         periods[key] = {"count": cur, "previous": prev}
     ytd_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    year_ago = now.replace(year=now.year - 1, day=28) if (now.month, now.day) == (2, 29) else now.replace(year=now.year - 1)
     periods["ytd"] = {"count": qs.filter(date_taken__gte=ytd_start).count(),
                       "previous": qs.filter(date_taken__gte=ytd_start.replace(year=now.year - 1),
-                                            date_taken__lt=now.replace(year=now.year - 1)).count()}
+                                            date_taken__lt=year_ago).count()}
     dated = qs.exclude(date_taken__isnull=True)
     hours = dict(dated.annotate(h=ExtractHour("date_taken", tzinfo=tz)).values_list("h").annotate(n=Count("id")))
     weekdays = dict(dated.annotate(d=ExtractIsoWeekDay("date_taken", tzinfo=tz)).values_list("d").annotate(n=Count("id")))
@@ -731,13 +743,7 @@ def set_location(request, photo_id: uuid.UUID, payload: LocationIn):
     if (payload.lat is None) != (payload.lng is None):
         raise HttpError(422, "Give both lat and lng, or both null to clear")
     p = get_object_or_404(_editable_library(request.user).select_related("album").distinct(), id=photo_id)
-    p.latitude, p.longitude = payload.lat, payload.lng
-    if payload.lat is None:
-        p.location_city = p.location_country = None
-        p.save(update_fields=["latitude", "longitude", "location_city", "location_country"])
-    else:
-        p.save(update_fields=["latitude", "longitude"])
-        p.refresh_city_data()  # offline reverse geocoding: city/country
+    p.set_location(payload.lat, payload.lng)
     try:  # same audit trail as the classic tool
         with open(os.path.join(settings.BASE_DIR, "photo_gg_ent_log.txt"), "a") as f:
             f.write(f"{p.id} --> ({payload.lat}, {payload.lng}) [{request.user.username}]\n")
@@ -787,6 +793,9 @@ def delete_photos(request, payload: IdsIn):
     photos = list(_editable_library(request.user).filter(id__in=payload.ids).select_related("album").distinct())
     for p in photos:
         delete_photo(p)
+    if photos:
+        from django.db import transaction
+        transaction.on_commit(photo_cache.schedule_matview_refresh)  # per-day counts and the heat map
     return {"deleted": len(photos)}
 
 
@@ -816,10 +825,10 @@ def remove_from_album(request, album_id: uuid.UUID, payload: IdsIn):
     return {"removed": removed}
 
 
-@router.post("/hide", summary="Hide or unhide your own photos")
+@router.post("/hide", summary="Hide or unhide photos you imported or that are in a library you own")
 def hide(request, payload: HideIn):
-    changed = Photo.objects.filter(id__in=payload.ids, owner=request.user).exclude(hidden=payload.hidden) \
-        .update(hidden=payload.hidden)
+    changed = Photo.objects.filter(hidden_mode.controls(request.user), id__in=payload.ids) \
+        .exclude(hidden=payload.hidden).update(hidden=payload.hidden)
     if changed:
         from django.db import transaction
         transaction.on_commit(photo_cache.schedule_matview_refresh)  # both views leave hidden photos out

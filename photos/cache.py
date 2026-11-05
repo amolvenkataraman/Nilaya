@@ -3,7 +3,7 @@
 summary, stats, storage and browse each scan the whole library (seconds on hundreds of thousands
 of photos). Their results are cached per user in the shared cache (Redis in production) under a
 "generation" number that goes up whenever photos change: any Photo save or delete (signals in
-apps.py), and every view refresh (ingest, hiding, location entry). Bulk .update() calls that skip
+apps.py), and every view refresh (ingest, hiding, deletes, location entry). Bulk .update() calls that skip
 both are covered by the 15-minute expiry. The cache is never required: if it's down, the value
 is computed as before.
 """
