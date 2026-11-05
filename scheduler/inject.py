@@ -16,7 +16,8 @@ def tz_diff(date, tz1, tz2):
             .seconds/3600
 
 def inject_uw_courses(month, year, uid, subcode, catnum):
-    sqliteConnection = sqlite3.connect('UW_Courses.db')
+    from django.conf import settings
+    sqliteConnection = sqlite3.connect(str(settings.BASE_DIR / 'UW_Courses.db'))
     cursor = sqliteConnection.cursor()
 
     if int(month) >= 9: tc1 = 9
@@ -24,7 +25,7 @@ def inject_uw_courses(month, year, uid, subcode, catnum):
     else: tc1 = 1
     tc = ((int(year) - 1900) * 10) + tc1
 
-    colour = COLOURS[int(catnum) % 20] if catnum.isdigit() else COLOURS[ord(catnum[-1])]
+    colour = COLOURS[int(catnum) % 20] if catnum.isdigit() else COLOURS[ord(catnum[-1]) % len(COLOURS)]
     calcode = -1 * ((int(catnum) if catnum.isdigit() else ord(catnum[-1])) + ord(subcode[-1]))
 
     cals = [
@@ -47,7 +48,12 @@ def inject_uw_courses(month, year, uid, subcode, catnum):
 
     evs = []
 
-    res = cursor.execute(f"SELECT classNumber, courseComponent, classSection, scheduleStartDate, scheduleEndDate, classMeetingStartTime, classMeetingEndTime, classMeetingWeekPatternCode, locationName, instructorName FROM classes WHERE termCode = {tc} AND courseId = (SELECT courseId FROM courses WHERE termCode = {tc} AND subjectCode = '{subcode}' AND catalogNumber = '{catnum}') ORDER BY classMeetingStartTime;")
+    res = cursor.execute(
+        "SELECT classNumber, courseComponent, classSection, scheduleStartDate, scheduleEndDate, classMeetingStartTime, classMeetingEndTime, classMeetingWeekPatternCode, locationName, instructorName "
+        "FROM classes WHERE termCode = ? AND courseId = (SELECT courseId FROM courses WHERE termCode = ? AND subjectCode = ? AND catalogNumber = ?) "
+        "ORDER BY classMeetingStartTime;",
+        (tc, tc, subcode, catnum),
+    )
     clss = res.fetchall()
 
     for c in clss:

@@ -13,7 +13,7 @@ def ingest_all_photos(user_id=None):
     if user_id:
         try:
             user = ComptechUser.objects.get(id=user_id)
-        except User.DoesNotExist:
+        except ComptechUser.DoesNotExist:
             logger.error(f"User with ID {user_id} does not exist.")
             return
         album_subs = user.album_subscribed.all()

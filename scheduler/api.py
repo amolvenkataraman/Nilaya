@@ -14,6 +14,19 @@ import json
 import pytz
 import bleach
 
+def overlapping(start, end):
+    """Events overlapping [start, end); assignments (no end) count at their start."""
+    return Q(startdate__lt=end) & (Q(enddate__gt=start) | Q(enddate__isnull=True, startdate__gte=start))
+
+def month_bounds(year, month):
+    tz = pytz.timezone(TIME_ZONE)
+    return (tz.localize(datetime.datetime(year, month, 1)),
+            tz.localize(datetime.datetime(year + month // 12, month % 12 + 1, 1)))
+
+def can_edit_calendar(user, calendar):
+    """True if the user is the owner (0) or an editor (1) of the calendar."""
+    return calendar.users_subscribed.filter(user=user, subscribe_type__in=[0, 1]).exists()
+
 @login_required_api
 def get_events(request):
     month = request.GET.get("month")
@@ -105,6 +118,7 @@ def sync_events(request):
         else: return error_response("Calendar is a local calendar")
 
         if status: return success_response()
+        return error_response("Calendar sync failed", 502)
 
     else: return error_response("Server is in offline mode")
 
@@ -179,7 +193,7 @@ def calendar(request):
     elif request.method == 'POST':
         b = json.loads(request.body.decode('utf8'))
         try:
-            c = Calendar(name=b['name'], colour=b['color'])
+            c = Calendar(name=bleach.clean(b['name']), colour=b['color'])
             c.owner = request.user
             c.save()
             s = Subscriber(user=request.user, calendar=c, subscribe_type=0, colour=b['color'])
@@ -218,6 +232,9 @@ def create_edit_event(request):
     except IndexError:
         return error_response("Calendar does not exist")
 
+    if not can_edit_calendar(request.user, reqcal):
+        return error_response("Not authorized", 401)
+
     try:
         if req["name"] == "": req["name"] = "Unnamed"
 
@@ -227,11 +244,11 @@ def create_edit_event(request):
                 e = Event.objects.filter(id=req['old_id'])[0]
             except IndexError:
                 return error_response("Event does not exist", 401)
-            try:
-                if reqcal.users_subscribed.filter(user=request.user)[0].subscribe_type not in [0, 1]:
-                    return error_response("Not authorized", 401)
-            except IndexError:
+            # Must also be able to edit the calendar the event currently lives in
+            if not can_edit_calendar(request.user, e.calendar):
                 return error_response("Not authorized", 401)
+        else:
+            return error_response("Invalid command")
 
         e.calendar = reqcal
         e.category = req["category"]
@@ -241,7 +258,7 @@ def create_edit_event(request):
         e.priority = req["priority"]
 
         if "location" in req:
-            e.location = req["location"]
+            e.location = bleach.clean(req["location"]) if req["location"] else req["location"]
 
         if req['type'] == "ade":
             e.startdate = req["start"]
@@ -330,9 +347,10 @@ def todo(request, command):
             elif command == "edit":
                 try: t = Todo.objects.filter(id=req["old_id"])[0]
                 except IndexError: return error_response("Todo does not exist")
+                if t.user != request.user: return error_response("Not authorized", 401)
             if req["name"] == "": req["name"] = "Unnamed"
             t.name = bleach.clean(req['name'])
-            t.description = req['description']
+            t.description = bleach.clean(req['description'])
             t.user = request.user
             t.priority = req['priority']
             if req['completion'] != " ":  t.complete_by = req['completion']

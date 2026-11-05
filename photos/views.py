@@ -4,6 +4,7 @@ from django.http import HttpResponse, JsonResponse, FileResponse
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from wsgiref.util import FileWrapper
 from .models import *
 from .indeximg import photo_ingest_for_album
@@ -297,10 +298,12 @@ def map(request):
     album_subs = request.user.album_subscribed.all()
     albums = [i.album.id for i in album_subs]
 
-    if f_album != None: albums = [f_album]
+    if f_album != None:
+        if f_album not in [str(a) for a in albums]:
+            return error_response("Not authorized", 401)
+        albums = [f_album]
 
     photos = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False)
-    print(PhotoLocationCache.objects.filter(album_id__in=albums).count())
 
     if date != None:
         try:
@@ -341,7 +344,11 @@ def map_new(request):
     album_subs = request.user.album_subscribed.filter(visible=True)
     albums = [i.album.id for i in album_subs]
 
-    if f_album != None: albums = [f_album]
+    if f_album != None:
+        # Check against all subscriptions (not just visible ones) but never beyond them
+        if f_album not in [str(a.album_id) for a in request.user.album_subscribed.all()]:
+            return error_response("Not authorized", 401)
+        albums = [f_album]
 
     locs = PhotoLocationCache.objects.filter(album_id__in=albums)
 
@@ -366,6 +373,8 @@ def geoguessr(request):
     albums = [i.album for i in album_subs]
 
     photo = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False).exclude(latitude=0, longitude=0).order_by("?").first()
+    if photo is None:
+        return error_response("No geotagged photos available", 404)
 
     return render(request, 'photos/geoguessr.html', { 'photo': {**photo.getinfo_zip(), **photo.get_gps_data()} })
 
@@ -387,10 +396,19 @@ def geoguessr_ent(request):
         else:
             photo = Photo.objects.filter(oq & Q(album__in=albums) & (Q(latitude__isnull=True) | Q(longitude__isnull=True))).order_by("?").first()
 
+        if photo is None:
+            return error_response("No photos without a location", 404)
+
         return render(request, 'photos/geoguessr_ent.html', { 'photo': photo.getinfo_zip() })
 
     elif request.method == "POST":
-        b = json.loads(request.body.decode('utf8'))
+        try:
+            b = json.loads(request.body.decode('utf8'))
+            p = Photo.objects.get(id=b['photo'])
+        except (ValueError, KeyError):
+            return error_response("Malformed request")
+        except Photo.DoesNotExist:
+            return error_response("Photo does not exist", 404)
 
         album_subs = request.user.album_subscribed.all()
         albums = [i.album for i in album_subs]
@@ -401,7 +419,7 @@ def geoguessr_ent(request):
             p.refresh_city_data()
             p.save()
             print(f"Saved location ({b['lat']}, {b['lng']}) for photo {b['photo']}")
-            with open("/home/user/photo_gg_ent_log.txt", "a") as f:
+            with open(os.path.join(BASE_DIR, "photo_gg_ent_log.txt"), "a") as f:
                 f.write(f"{b['photo']} --> ({b['lat']}, {b['lng']}) [{request.user.username}]\n")
             return success_response("Success!")
         else: return error_response("Not authorized", 401)
@@ -425,6 +443,8 @@ def event(request, event_id):
 
     try:
         e = Event.objects.filter(id=event_id)[0]
+        if not (e.public or e.calendar.public or e.calendar.users_subscribed.filter(user=request.user).exists()):
+            return error_response("Not authorized", 401)
 
         if e.enddate == None: return error_response("Event is not bounded on the end time.")
         context = {
@@ -445,7 +465,8 @@ def view_photo(request, photo_id):
             return render(request, 'photos/view_photo.html', { 'video': p.video, 'p_id': p.id, 'img_path': f"/photo_cdn/{p.photo_hash}/{p.get_path()}" })
         else:
             return error_response("Not authorized", 401)
-    except IndexError: pass
+    except IndexError:
+        return error_response("Photo does not exist", 404)
 
 def get_photos_for_date(request):
     """AJAX endpoint called repeatedly as the user scrolls.
@@ -547,12 +568,14 @@ def get_photo(request, photo_id, ret_type):
             return error_response("Album does not exist", 404)
 
     else:
+        if not request.user.is_authenticated:
+            return error_response("Not logged in", 401)
         album_subs = request.user.album_subscribed.all()
         albums = [i.album for i in album_subs]
 
         try:
             photo = Photo.objects.filter(id=photo_id)[0]
-        except:
+        except (IndexError, ValueError, ValidationError):
             return error_response("Invalid photo")
 
         if photo.album not in albums and not request.user.is_superuser:
@@ -609,7 +632,8 @@ def del_photo_req(request, photo_id):
             return success_response()
         else:
             return error_response("Not authorized", 401)
-    except IndexError: pass
+    except IndexError:
+        return error_response("Photo does not exist", 404)
 
 
 @post_request_only
@@ -854,7 +878,14 @@ def manage_subscribers(request, album_id):
             
             if not username:
                 return error_response("Username is required", 400)
-                
+            # Only Editor (1) or Viewer (2) can be granted; Owner (0) is reserved
+            try:
+                sub_type = int(sub_type)
+            except (TypeError, ValueError):
+                return error_response("Invalid subscribe type", 400)
+            if sub_type not in (1, 2):
+                return error_response("Invalid subscribe type", 400)
+
             try:
                 target_user = ComptechUser.objects.get(username=username)
             except ComptechUser.DoesNotExist:

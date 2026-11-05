@@ -1280,7 +1280,7 @@
                 const res = JSON.parse(r.responseText)['albums'];
                 dropdown.innerHTML = '<option value="">Select an album...</option>';
                 res.forEach(album => {
-                    dropdown.innerHTML += `<option value="${album.id}">${album.name}</option>`;
+                    dropdown.innerHTML += `<option value="${album.id}">${escapeHtml(album.name)}</option>`;
                 });
                 selectAlbumModal.show();
             };
@@ -1442,7 +1442,7 @@
                         container.innerHTML += `
                             <div class="list-group-item d-flex justify-content-between align-items-center">
                                 <div>
-                                    <strong>@${sub.username}</strong>
+                                    <strong>@${escapeHtml(sub.username)}</strong>
                                     <span class="badge bg-secondary ms-2">${role}</span>
                                 </div>
                                 <button class="btn btn-sm btn-outline-danger" onclick="removeSubscriber(${sub.id})">Remove</button>

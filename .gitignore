@@ -9,6 +9,8 @@ media_private
 SSL
 CT_env
 secret.txt
+google_api_key.txt
+uwaterloo_api_key.txt
 db_password.txt
 salt.txt
 nohup.out
