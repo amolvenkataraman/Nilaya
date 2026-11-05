@@ -2,7 +2,7 @@
  * Also the project, label and sharing dialogs, which the header reuses. */
 
 import { $, h, clear, icon, menu, dialog, confirmDialog, toast, api, draggable, between, store, avatar } from "./lib.js";
-import { S, app, emit, project, loadMeta, refreshCounts, loadMembers, COLOURS } from "./store.js";
+import { S, app, emit, project, isOwner, refreshCounts, refreshProjects, loadMembers, health, retryNow, COLOURS } from "./store.js";
 
 export const SMART = [
     { id: "inbox", label: "Inbox", icon: "inbox", count: "inbox" },
@@ -37,13 +37,18 @@ function navLink(params, kids, extra = {}) {
     }, kids);
 }
 
+const retryNote = (text) => h("li.tk-side-warn", { role: "status" }, h("span", text),
+    h("button.tk-link-btn", { type: "button", onclick: () => retryNow() }, health.retrying ? "Retrying…" : "Retry"));
+
 export function renderSidebar() {
     const ov = S.overview || {};
-    clear($("#tk-smart"), SMART.map((v) => {
+    const failing = ["meta", "counts", "projects"].some((k) => health.failures.has(k));
+    clear($("#tk-smart"), failing ? retryNote(S.overview ? (S.metaStale ? "Saved copy · counts may be old" : "Counts may be out of date") : "Couldn't load counts") : null,
+        SMART.map((v) => {
         const isInbox = v.id === "inbox";
         const active = isInbox ? isActive("project", ov.inbox_id) : isActive("view", v.id);
         const n = ov[v.count] || 0;
-        return h("li", navLink(isInbox ? { project: ov.inbox_id } : { view: v.id }, [
+        return h("li", navLink(isInbox ? (ov.inbox_id ? { project: ov.inbox_id } : { view: "inbox" }) : { view: v.id }, [
             icon(v.icon, 16, "tk-nav-ico"), h("span.tk-nav-label", v.label),
             n ? h("span.tk-count" + (v.alert ? ".is-alert" : ""), { title: v.hint || null }, String(n)) : null,
         ], { "aria-current": active ? "page" : null, class: active ? "is-active" : null, dataset: isInbox ? { pid: ov.inbox_id } : {} }));
@@ -91,7 +96,7 @@ function renderProjects() {
             kids.length && open ? h("ul", { role: "group" }, build(p.id, depth + 1)) : null);
     });
     const items = build(null, 0);
-    clear(tree, items.length ? items : h("li.tk-side-empty", "No projects yet"));
+    clear(tree, items.length ? items : !S.overview && health.failures.has("meta") ? retryNote("Couldn't load projects") : h("li.tk-side-empty", "No projects yet"));
 }
 
 export function projectMenu(anchor, p) {
@@ -105,7 +110,7 @@ export function projectMenu(anchor, p) {
         !p.is_inbox && { sep: true },
         !p.is_inbox && { label: p.archived ? "Unarchive" : "Archive", icon: "archive", disabled: !admin,
           onClick: () => patchProject(p, { archived: !p.archived }).then(() => toast(p.archived ? "Project archived" : "Project restored")) },
-        !p.is_inbox && { label: "Delete project…", icon: "trash", danger: true, disabled: !admin, onClick: () => deleteProject(p) },
+        !p.is_inbox && { label: "Delete project…", icon: "trash", danger: true, disabled: !isOwner(p), onClick: () => deleteProject(p) },
     ]);
 }
 
@@ -113,7 +118,7 @@ export async function patchProject(p, patch) {
     try {
         Object.assign(p, await api("PATCH", `projects/${p.id}`, patch));
         emit("meta");
-        refreshCounts();
+        if ("archived" in patch) refreshCounts();  // archived projects drop out of the smart-view counts
     } catch (e) { toast(e.message, { error: true }); throw e; }
 }
 
@@ -122,8 +127,12 @@ async function deleteProject(p) {
     if (!await confirmDialog("Delete project", `Delete “${p.name}”${n ? ` and its ${n} open task${n > 1 ? "s" : ""}` : ""}? Subprojects are deleted too. This can't be undone.`)) return;
     try {
         await api("DELETE", `projects/${p.id}`);
-        if (S.route.scope === "project" && S.route.id === p.id) app.go({ project: S.overview.inbox_id });
-        await loadMeta();
+        const gone = new Set([p.id]);
+        for (let grew = true; grew;) { grew = false; for (const x of S.projects) if (gone.has(x.parent_id) && !gone.has(x.id)) { gone.add(x.id); grew = true; } }
+        S.projects = S.projects.filter((x) => !gone.has(x.id));
+        if (S.route.scope === "project" && gone.has(S.route.id)) app.go({ project: S.overview.inbox_id });
+        emit("meta");
+        refreshCounts();
         toast("Project deleted");
     } catch (e) { toast(e.message, { error: true }); }
 }
@@ -165,7 +174,8 @@ export async function projectDialog(p = null, parentId = null) {
         },
     });
     if (!saved) return;
-    await loadMeta();
+    if (p) Object.assign(p, saved); else S.projects.push(saved);
+    emit("meta");
     if (!p) app.go({ project: saved.id });
     toast(p ? "Project saved" : `Created “${saved.name}”`);
 }
@@ -178,8 +188,12 @@ export async function shareDialog(p) {
         s.value = String(value);
         return s;
     };
-    const draw = async () => {
-        const members = await loadMembers(p.id, true);
+    const draw = async (fetch = true) => {
+        let members;
+        try { members = fetch ? await loadMembers(p.id, true) : S.members.get(p.id) || []; }
+        catch (err) { clear(list, h("li.app-muted", `Couldn't load people: ${err.message}`)); return; }
+        p.shared = !isOwner(p) || members.length > 0;
+        emit("meta");
         clear(list, members.length ? members.map((m) => h("li",
             avatar(m.user), h("span.tk-member-name", m.user.name, h("span.app-muted", ` @${m.user.username}`)),
             p.role >= 2 ? roleSelect(m.role, async (e) => {
@@ -189,7 +203,11 @@ export async function shareDialog(p) {
             (p.role >= 2 || m.user.username === S.me.username) ? h("button.tk-icon-btn", {
                 type: "button", "aria-label": `Remove ${m.user.username}`,
                 onclick: async () => {
-                    try { await api("DELETE", `projects/${p.id}/members/${m.id}`); draw(); refreshCounts(); }
+                    try {
+                        await api("DELETE", `projects/${p.id}/members/${m.id}`);
+                        S.members.set(p.id, S.members.get(p.id).filter((x) => x.id !== m.id));
+                        draw(false);
+                    }
                     catch (err) { toast(err.message, { error: true }); }
                 },
             }, icon("x", 14)) : null)) : h("li.app-muted", "Only you have access."));
@@ -203,11 +221,11 @@ export async function shareDialog(p) {
                 const u = username.value.trim().replace(/^@/, "");
                 if (!u) return username.focus();
                 try {
-                    await api("POST", `projects/${p.id}/members`, { username: u, role: +role.value });
+                    const m = await api("POST", `projects/${p.id}/members`, { username: u, role: +role.value });
+                    S.members.set(p.id, [...(S.members.get(p.id) || []).filter((x) => x.id !== m.id), m]);
                     username.value = "";
                     toast(`Shared with @${u}`);
-                    draw();
-                    refreshCounts();
+                    draw(false);
                 } catch (err) { toast(err.status === 404 ? `No user called @${u}` : err.message, { error: true }); }
             },
         }, "Invite"));
@@ -261,7 +279,7 @@ export function setupProjectDrag() {
             }
             Object.assign(ctx.p, patch);
             renderProjects();
-            await patchProject(ctx.p, patch).catch(loadMeta);
+            await patchProject(ctx.p, patch).catch(refreshProjects);
         },
     });
 }

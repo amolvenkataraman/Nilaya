@@ -1,10 +1,10 @@
 /* Tasks app entry: URL routing (?project= ?view= ?label= ?saved= ?layout= ?q= ?task=), header, toolbar,
  * quick add with a live parse preview, bulk actions, keyboard shortcuts and focus mode. */
 
-import { $, $$, h, clear, icon, ring, api, qs, toast, menu, popover, closePopover, dialog, debounce, store,
+import { $, $$, h, clear, icon, ring, api, qs, toast, menu, popover, closePopover, dialog, debounce, store, session,
     fmtDay, startOfDay, addDays, endOfDay, isAllDay } from "./lib.js";
 import { S, app, on, emit, adopt, project, label, loadMeta, refreshCounts, loadBuckets, quickAdd, setDone, patchTask,
-    moveTask, deleteTasks, canEdit, PRIORITIES, inboxId } from "./store.js";
+    moveTask, deleteTasks, canEdit, PRIORITIES, inboxId, health, failed, recovered, retryNow, refreshProjects } from "./store.js";
 import { parseQuick } from "./parse.js";
 import { SMART, renderSidebar, setupProjectDrag, projectDialog, projectMenu, shareDialog, labelDialog, saveViewDialog, savedViewMenu } from "./sidebar.js";
 import { renderList, setupListDrag, inlineEdit, toggleDone, manualOrder } from "./list.js";
@@ -78,7 +78,8 @@ app.closeTask = () => {
     else { history.replaceState({ tk: true }, "", app.href(app.params())); applyRoute(); }
 };
 
-app.reload = () => load(true);
+app.reload = () => load({ quiet: true, force: true });
+app.refreshView = () => load({ quiet: true });
 app.render = () => scheduleRender();
 
 function defaultLayout(r) {
@@ -101,7 +102,7 @@ function applyRoute() {
     S.showDone = showDone;
     if (scopeChanged) { S.selected.clear(); S.cursor = r.task || null; S.collapsedSections.clear(); exitFocus(false); }
     const key = JSON.stringify([r.scope, r.id, r.layout, r.q, f, showDone]);
-    if (key !== lastKey) { lastKey = key; load(!scopeChanged); }
+    if (key !== lastKey) { lastKey = key; load({ quiet: !scopeChanged }); }
     else scheduleRender();
     $("#tk-q").value = r.q;
     if (r.task && r.task !== prevTask) openDetail(r.task);
@@ -127,56 +128,156 @@ function scopeParams() {
     return p;
 }
 
+// What the tasks on screen cover, so a layout switch inside the same list can reuse them instead of refetching.
+// kind: "open" (open tasks), "all" (open + done: the board), "range" (calendar month).
+let have = null;
+let lastSync = 0;
+const scopeKey = () => JSON.stringify([S.route.scope, S.route.id, S.route.q, S.filters.priority_min, S.filters.labels, S.filters.assignee,
+    S.filters.sort, S.route.scope === "saved" ? S.views.find((v) => v.id === S.route.id)?.filters : null]);
+const needKind = (layout) => (layout === "calendar" ? "range" : layout === "board" ? "all" : "open");
+
 let loadSeq = 0;
-async function load(quiet = false) {
-    const seq = ++loadSeq, r = S.route;
-    if (!quiet) { S.loading = true; skeleton(); }
-    renderChrome();
-    try {
-        const base = scopeParams();
-        const jobs = {};
-        if (r.layout === "calendar") {
+async function load({ quiet = false, force = false } = {}) {
+    const seq = ++loadSeq, r = S.route, sk = scopeKey(), kind = needKind(r.layout);
+    const range = kind === "range" ? calendarRange().start.toISOString() : "";
+    const covers = (h) => h && h.sk === sk && ((h.kind === kind && h.range === range) || (h.kind === "all" && kind === "open"));
+    const reuse = !force && covers(have);
+    const base = scopeParams();
+    const jobs = {};
+    if (!reuse) {
+        if (kind === "range") {
             const { start, end } = calendarRange();
             const p = { ...base, due_after: start.toISOString(), due_before: end.toISOString(), limit: 1000 };
             if (r.scope === "project") delete p.done;
             if (["today", "upcoming", "overdue", "nodate"].includes(p.view)) delete p.view;
             jobs.cal = api("GET", qs(p));
-        } else if (r.layout === "board") {
+        } else if (kind === "all") {
             const p = { ...base, limit: 1000 };
             delete p.done;
             jobs.list = api("GET", qs(p));
-            jobs.buckets = loadBuckets(r.id, true);
+            if (!S.buckets.has(r.id)) jobs.buckets = loadBuckets(r.id);
         } else {
             jobs.list = api("GET", qs({ ...base, limit: 1000 }));
         }
-        if (r.scope === "project" && r.layout !== "board") jobs.doneCount = api("GET", qs({ project: r.id, done: true, limit: 1 }));
-        if (S.showDone && r.id !== "done" && ["list", "table"].includes(r.layout)) {
-            const p = { ...base, done: true, sort: "done", limit: 100 };
-            if (p.view && p.view !== "favorites" && p.view !== "assigned") delete p.view;
-            jobs.done = api("GET", qs(p));
+    }
+    const fromAll = kind === "open" && (reuse ? have.kind === "all" : false);
+    // Progress ring: the project's done count is fetched once, then kept up to date locally.
+    if (r.scope === "project" && kind === "open" && !fromAll && (force || !S.doneCounts.has(r.id))) jobs.doneCount = api("GET", qs({ project: r.id, done: true, limit: 1 }));
+    if (S.showDone && r.id !== "done" && ["list", "table"].includes(r.layout) && !fromAll && (force || !reuse || !have.done)) {
+        const p = { ...base, done: true, sort: "done", limit: 100 };
+        if (p.view && p.view !== "favorites" && p.view !== "assigned") delete p.view;
+        jobs.done = api("GET", qs(p));
+    }
+    if (r.scope === "view" && r.id === "today" && (force || !reuse || S.doneToday == null)) {
+        jobs.doneToday = api("GET", qs({ view: "done", done_after: startOfDay(new Date()).toISOString(), limit: 1 }));
+    }
+
+    if (reuse) {  // derive what the layout needs from what's loaded
+        if (fromAll) {
+            S.total = S.tasks.filter((t) => !t.done).length;
+            if (r.scope === "project") { S.doneCounts.set(r.id, S.tasks.filter((t) => t.done).length); S.doneCount = S.doneCounts.get(r.id); }
+            if (S.showDone) S.done = S.tasks.filter((t) => t.done);
         }
-        if (r.scope === "view" && r.id === "today") jobs.doneToday = api("GET", qs({ view: "done", sort: "done", limit: 200 }));
+        if (!S.showDone && !fromAll) S.done = [];
+        if (r.scope === "project" && S.doneCounts.has(r.id)) S.doneCount = S.doneCounts.get(r.id);
+    }
+    if (!Object.keys(jobs).length) { S.loading = false; scheduleRender(true); return; }
+
+    if (!reuse && !quiet) {
+        // First paint: the saved copy of this list if there is one, else a skeleton.
+        if (!(have === null && paintSaved(sk, kind, range))) { S.loading = true; skeleton(); }
+    }
+    renderChrome();
+    try {
         const keys = Object.keys(jobs), vals = await Promise.all(Object.values(jobs));
         if (seq !== loadSeq) return;
         const res = Object.fromEntries(keys.map((k, i) => [k, vals[i]]));
         if (res.cal) S.calTasks = res.cal.items.map(adopt);
         if (res.list) { S.tasks = res.list.items.map(adopt); S.total = res.list.total; }
-        S.done = res.done ? res.done.items.map(adopt) : [];
-        if (res.doneCount) S.doneCount = res.doneCount.total;
-        else if (res.done) S.doneCount = res.done.total;
-        if (res.doneToday) {
-            const t0 = startOfDay(new Date());
-            S.doneToday = res.doneToday.items.filter((t) => t.done_at && new Date(t.done_at) >= t0).length;
-        }
+        if (res.done) S.done = res.done.items.map(adopt);
+        else if (!S.showDone) S.done = [];
+        if (res.doneCount) S.doneCounts.set(r.id, res.doneCount.total);
+        if (r.scope === "project") S.doneCount = S.doneCounts.get(r.id) ?? (res.done ? res.done.total : 0);
+        if (res.doneToday) S.doneToday = res.doneToday.total;
+        if (!reuse) have = { sk, kind, range, done: !!res.done };
+        else if (res.done) have.done = true;
+        lastSync = Date.now();
+        S.fromSaved = false;
         S.loading = false;
+        recovered("list");
+        saveList();
         scheduleRender(true);
     } catch (e) {
         if (seq !== loadSeq) return;
         S.loading = false;
-        clear(view, h("div.tk-empty", e.status === 404 ? "This list doesn't exist or isn't shared with you." : `Couldn't load tasks: ${e.message}`));
+        if (failed("list", () => load({ quiet: true, force: true }), e)) {
+            // Keep whatever is on screen for this list; otherwise the saved copy; otherwise say so, with a retry.
+            if (covers(have) || paintSaved(sk, kind, range)) { scheduleRender(true); return; }
+            have = null;
+            clear(view, h("div.tk-empty.tk-load-error", h("p", "Couldn't load these tasks. The server may be restarting."),
+                h("button.tk-btn", { type: "button", onclick: () => retryNow() }, icon("repeat", 14), "Try again")));
+        } else {
+            have = null;
+            clear(view, h("div.tk-empty", e.status === 404 ? "This list doesn't exist or isn't shared with you." : `Couldn't load tasks: ${e.message}`));
+        }
+        renderChrome();
     }
 }
-on("reload", () => load(true));
+on("reload", () => load({ quiet: true, force: true }));
+
+/** The last list shown, kept in sessionStorage so a reload while the server restarts still paints something. */
+function saveList() {
+    const r = S.route;
+    session.set("list", { sk: have.sk, kind: have.kind, range: have.range, tasks: S.tasks, total: S.total, calTasks: S.calTasks || [],
+        done: S.done, doneCount: S.doneCount, doneToday: S.doneToday, buckets: r.scope === "project" ? S.buckets.get(r.id) || null : null });
+}
+
+function paintSaved(sk, kind, range) {
+    const saved = session.get("list");
+    const v = saved?.v;
+    if (!v || v.sk !== sk || !(v.kind === kind && v.range === range) && !(v.kind === "all" && kind === "open")) return false;
+    S.tasks = v.tasks.map(adopt);
+    S.total = v.total;
+    S.calTasks = v.calTasks.map(adopt);
+    S.done = v.done.map(adopt);
+    S.doneCount = v.doneCount;
+    S.doneToday = v.doneToday;
+    if (v.buckets && !S.buckets.has(S.route.id)) S.buckets.set(S.route.id, v.buckets);
+    have = { sk, kind: v.kind, range: v.range, done: v.done.length > 0 };
+    S.fromSaved = saved.at;
+    S.loading = false;
+    scheduleRender(true);
+    emit("health");
+    return true;
+}
+
+/** Refresh what's on screen: on focus after a while away, and every few minutes while the page is visible. No other polling. */
+function syncNow() {
+    if (health.failures.size || S.loading) return;
+    loadMeta();
+    load({ quiet: true, force: true });
+}
+const SYNC_AFTER = 2 * 60 * 1000, SYNC_EVERY = 5 * 60 * 1000;
+const syncIfStale = () => { if (!document.hidden && lastSync && Date.now() - lastSync > SYNC_AFTER) syncNow(); };
+addEventListener("focus", syncIfStale);
+document.addEventListener("visibilitychange", syncIfStale);
+setInterval(() => { if (!document.hidden && Date.now() - lastSync >= SYNC_EVERY) syncNow(); }, 60 * 1000);
+
+// ------------------------------------------------------------------ "Couldn't refresh · Retry" banner
+
+function renderBanner() {
+    const el = $("#tk-banner");
+    // The drawer's parts (details, comments, subtasks) show their own inline notes; this banner is about the list and sidebar.
+    const failing = ["list", "meta", "counts", "projects"].some((k) => health.failures.has(k));
+    el.hidden = !failing && !S.fromSaved;
+    if (el.hidden) return;
+    const when = S.fromSaved ? new Date(S.fromSaved).toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" }) : "";
+    clear(el, icon("overdue", 14),
+        h("span.tk-banner-text", failing ? "Couldn't refresh" : "Saved copy", S.fromSaved ? ` · saved copy from ${when}` : ""),
+        failing ? (health.retrying ? h("span.tk-banner-muted", "Retrying…")
+            : h("button.tk-banner-btn", { type: "button", onclick: () => retryNow() }, "Retry")) : null);
+}
+on("health", renderBanner);
 
 function skeleton() {
     clear(view, h("div.tk-skeleton", { "aria-hidden": "true" }, Array.from({ length: 6 }, () => h("div"))));
@@ -224,6 +325,7 @@ function renderNow() {
 on("tasks", () => scheduleRender());
 on("task", () => scheduleRender());
 on("meta", () => { renderSidebar(); renderChrome(); });
+on("health", () => renderSidebar());
 
 function scopeInfo() {
     const r = S.route;
@@ -382,7 +484,7 @@ q.addEventListener("input", debounce(() => {
     const url = app.href(p);
     history.replaceState(history.state, "", url);
     applyRoute();
-}, 250));
+}, 300));
 q.addEventListener("keydown", (e) => {
     if (e.key === "Escape") { e.stopPropagation(); if (q.value) { q.value = ""; q.dispatchEvent(new Event("input")); } else q.blur(); }
     if (e.key === "Enter" || e.key === "ArrowDown") { e.preventDefault(); moveCursor(1, true); }
@@ -437,18 +539,63 @@ quickForm.addEventListener("submit", async (e) => {
         const t = await quickAdd(text, extra);
         if (r.scope === "view" && r.id === "favorites") await patchTask(t, { favorite: true });
         if (r.scope === "view" && r.id === "assigned") await patchTask(t, { assignees: [S.me.username] });
-        S.flash = t.id;
-        await load(true);
-        if (!S.tasks.includes(t)) {
+        // Show it here if it belongs to this list (no reload); otherwise say where it went.
+        const fits = matchesScope(t);
+        if (fits === null) load({ quiet: true, force: true });
+        else if (fits) { insertTask(t); S.flash = t.id; scheduleRender(true); }
+        if (fits === false) {
             const p = project(t.project_id);
             toast(`Added to ${p ? (p.is_inbox ? "Inbox" : p.name) : "a project"}`, { action: "Open", onAction: () => app.openTask(t.id) });
         }
-        if (parsed.project && !S.projects.some((x) => x.name.toLowerCase() === parsed.project.toLowerCase())) await loadMeta();
     } catch (err) {
         quickInput.value = text;
         toast(err.message, { error: true });
     }
 });
+
+/** Does a task belong in the current list? Mirrors the server's filters; null = can't tell (reload instead). */
+function matchesScope(t) {
+    const p = scopeParams();
+    if (p.due_before || p.due_after || p.parent || p.top_level || p.done_after) return null;
+    const now = new Date(), endToday = endOfDay(now), due = t.due ? new Date(t.due) : null;
+    if (p.project && t.project_id !== p.project) return false;
+    if (!p.project && project(t.project_id)?.archived) return false;
+    const views = {
+        today: () => due && due <= endToday,
+        upcoming: () => due && due >= startOfDay(now) && due <= addDays(endToday, 7),
+        overdue: () => due && due < now,
+        nodate: () => !due,
+        favorites: () => t.favorite,
+        assigned: () => (t.assignees || []).some((a) => a.username === S.me.username),
+        done: () => true,
+    };
+    if (p.view && !views[p.view]?.()) return false;
+    const wantDone = p.view === "done" ? true : p.done ?? (p.view || !p.project ? false : null);
+    if (wantDone != null && !!t.done !== !!wantDone) return false;
+    if (p.label && !String(p.label).split(",").every((id) => (t.labels || []).includes(+id))) return false;
+    if (p.priority_min && t.priority < +p.priority_min) return false;
+    if (p.assignee && !(t.assignees || []).some((a) => a.username === p.assignee)) return false;
+    if (p.q && !`${t.title} ${t.description || ""}`.toLowerCase().includes(String(p.q).toLowerCase())) return false;
+    return true;
+}
+
+const SORT_CMP = {
+    position: (a, b) => a.position - b.position,
+    due: (a, b) => (a.due ? new Date(a.due) : Infinity) - (b.due ? new Date(b.due) : Infinity) || b.priority - a.priority,
+    priority: (a, b) => b.priority - a.priority || (a.due ? new Date(a.due) : Infinity) - (b.due ? new Date(b.due) : Infinity),
+    title: (a, b) => a.title.localeCompare(b.title),
+    created: (a, b) => new Date(b.created_on) - new Date(a.created_on),
+    updated: (a, b) => new Date(b.updated_on) - new Date(a.updated_on),
+    done: (a, b) => new Date(b.done_at || 0) - new Date(a.done_at || 0),
+};
+
+/** Put a new task where the server's sort would. */
+function insertTask(t) {
+    if (S.route.layout === "calendar") { if (t.due) S.calTasks = [...(S.calTasks || []), t]; return; }
+    if (S.tasks.includes(t)) return;
+    S.tasks = [...S.tasks, t].sort(SORT_CMP[scopeParams().sort] || SORT_CMP.position);
+    S.total += 1;
+}
 
 // ================================================================== selection, cursor and bulk actions
 
@@ -544,7 +691,6 @@ function renderBulk() {
                     S.selected.clear();
                     await Promise.allSettled(ts.map((t) => moveTask(t, { project_id: p.id })));
                     toast(`Moved ${ts.length} task${ts.length > 1 ? "s" : ""} to ${p.name}`);
-                    load(true);
                 },
             }))),
         }, icon("folder", 14), h("span.tk-btn-label", "Move")),
@@ -665,7 +811,7 @@ $("#tk-new-project").append(icon("plus", 14));
 $("#tk-new-label").append(icon("plus", 14));
 $("#tk-new-project").addEventListener("click", () => projectDialog());
 $("#tk-new-label").addEventListener("click", () => labelDialog());
-$("#tk-archived-toggle").addEventListener("click", async () => { S.showArchived = !S.showArchived; await loadMeta(); });
+$("#tk-archived-toggle").addEventListener("click", async () => { S.showArchived = !S.showArchived; await refreshProjects(); });
 for (const btn of $$(".tk-side-toggle")) {
     const key = "side." + btn.dataset.collapse;
     const apply = (collapsed) => {
@@ -685,12 +831,8 @@ setupCalendarDrag(view);
 setupProjectDrag();
 
 (async () => {
-    try {
-        await loadMeta();
-    } catch (e) {
-        clear(view, h("div.tk-empty", `Couldn't load tasks: ${e.message}`));
-        return;
-    }
+    // Never blank out: if the sidebar can't load, the list still tries (and both retry on their own).
+    try { await loadMeta(); } catch (e) { toast(`Couldn't load your lists: ${e.message}`, { error: true }); }
     if (!history.state) history.replaceState({ tk: true, opened: false }, "", location.href);
     applyRoute();
 })();

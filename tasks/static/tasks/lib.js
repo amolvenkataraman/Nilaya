@@ -168,14 +168,28 @@ export function qs(params) {
     return s ? "?" + s : "";
 }
 
+/**
+ * fetch() wrapper. GETs revalidate with the server's ETag (cache: "no-cache" -> If-None-Match -> 304s), so they are
+ * cheap when nothing changed and never stale. Errors carry .status, and .transient for "server unreachable / restarting"
+ * (no response or 5xx), which the app treats as "keep what's on screen and retry later".
+ */
 export async function api(method, path, body, opts = {}) {
     const init = { method, credentials: "same-origin", headers: { Accept: "application/json" }, keepalive: !!opts.keepalive };
-    if (method !== "GET") init.headers["X-CSRFToken"] = csrf();
+    if (method === "GET") init.cache = "no-cache";
+    else init.headers["X-CSRFToken"] = csrf();
     if (body !== undefined) {
         init.headers["Content-Type"] = "application/json";
         init.body = JSON.stringify(body);
     }
-    const r = await fetch((opts.base ?? API) + path, init);
+    let r;
+    try {
+        r = await fetch((opts.base ?? API) + path, init);
+    } catch (_) {
+        const err = new Error("Couldn't reach the server");
+        err.status = 0;
+        err.transient = true;
+        throw err;
+    }
     if (!r.ok) {
         let msg = `Something went wrong (${r.status})`;
         try {
@@ -184,12 +198,30 @@ export async function api(method, path, body, opts = {}) {
             else if (Array.isArray(j.detail)) msg = j.detail.map((d) => d.msg).join("; ");
         } catch (_) { /* not JSON */ }
         if (r.status === 403 && msg.includes("CSRF")) msg = "Your session expired. Reload the page.";
+        if (r.status >= 502) msg = "The server is restarting. Try again in a moment.";
         const err = new Error(msg);
         err.status = r.status;
+        err.transient = r.status >= 500;
         throw err;
     }
     return r.status === 204 ? null : r.json();
 }
+
+/** sessionStorage with timestamps: survives a reload (e.g. during a server restart), never other tabs or devices. */
+export const session = {
+    get(key, maxAge = Infinity) {
+        try {
+            const v = JSON.parse(sessionStorage.getItem("tk." + key));
+            return v && Date.now() - v.at <= maxAge ? v : null;
+        } catch (_) { return null; }
+    },
+    set(key, value) {
+        try {
+            // Drawer-only extras (_comments, _subs, ...) stay out of the copy.
+            sessionStorage.setItem("tk." + key, JSON.stringify({ at: Date.now(), v: value }, (k, x) => (k.startsWith("_") ? undefined : x)));
+        } catch (_) { /* quota or private mode: the copy is optional */ }
+    },
+};
 
 // ------------------------------------------------------------------ dates
 

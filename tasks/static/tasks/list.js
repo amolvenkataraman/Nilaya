@@ -2,7 +2,7 @@
  * multi-select and drag to reorder, reschedule (drop on a date section) or move (drop on a project). */
 
 import { h, clear, icon, avatar, fmtDay, startOfDay, addDays, DAY, endOfDay, draggable, between, toast } from "./lib.js";
-import { S, app, emit, project, label, prioLevel, canEdit, setDone, patchTask, moveTask, quickAdd } from "./store.js";
+import { S, app, emit, project, label, prioLevel, canEdit, setDone, patchTask, moveTask, quickAdd, reorderTasks } from "./store.js";
 
 // ------------------------------------------------------------------ shared row bits (also used by board/table)
 
@@ -362,11 +362,8 @@ export function setupListDrag(view) {
                 const sibs = S.tasks.filter((x) => (x.parent_id || null) === (t.parent_id || null) && x !== t && !x.done)
                     .sort((a, b) => a.position - b.position);
                 const i = sibs.indexOf(d.other);
-                const [a, b] = d.where === "before" ? [sibs[i - 1], sibs[i]] : [sibs[i], sibs[i + 1]];
-                const position = between(a?.position, b?.position);
-                t.position = position;
-                S.tasks.sort((x, y) => x.position - y.position);
-                await moveTask(t, { position });
+                sibs.splice(d.where === "before" ? i : i + 1, 0, t);
+                await reorderTasks(S.route.id, sibs);
             } else if (d.kind === "date") {
                 let due = null;
                 if (d.due !== "none") {

@@ -19,8 +19,7 @@ export function renderBoard(root) {
     for (const b of buckets) {
         const cards = S.tasks.filter((t) => !onBoard.has(t.parent_id) && (ids.has(t.bucket_id) ? t.bucket_id : fallback?.id) === b.id)
             .sort((x, y) => x.position - y.position);
-        // The server's WIP check counts every open task in the column, subtasks included.
-        const open = S.tasks.filter((t) => !t.done && (ids.has(t.bucket_id) ? t.bucket_id : fallback?.id) === b.id).length;
+        const open = cards.filter((t) => !t.done && !t.parent_id).length;  // WIP counts open top-level tasks (as the server does)
         const over = b.limit && !b.is_done && open > b.limit;
         const col = h("section.tk-col" + (b.is_done ? ".is-done-col" : ""), { dataset: { bid: b.id }, "aria-label": b.name });
         const name = h("h2.tk-col-name", { title: writable ? "Double-click to rename" : null }, b.name);
@@ -65,20 +64,19 @@ function addCard(b, p) {
     const btn = h("button.tk-col-add", { type: "button" }, icon("plus", 14), "Add task");
     const wrap = h("div.tk-col-foot", btn);
     btn.addEventListener("click", () => {
-        const input = h("textarea.tk-card-input", { rows: 2, maxlength: 512, placeholder: "Task title — Enter to add, Esc to close", "aria-label": "New task" });
+        const input = h("textarea.tk-card-input", { rows: 2, maxlength: 512, placeholder: "Task — e.g. “Review copy fri *design”. Enter to add", "aria-label": "New task" });
         const form = h("form.tk-card-form", input);
         const submit = async () => {
             const text = input.value.trim();
             if (!text) return;
             input.value = "";
             try {
-                const cards = S.tasks.filter((t) => t.bucket_id === b.id);
-                const t = await createTask({ title: text, project_id: p.id, bucket_id: b.id,
-                    position: between(Math.max(0, ...cards.map((c) => c.position)), null) });
-                S.tasks.push(t);
+                const t = await quickAdd(text, { project_id: p.id, bucket_id: b.id });  // natural language works here too
+                if (t.project_id === p.id) S.tasks.push(t);
+                else toast(`Added to ${project(t.project_id)?.name || "another project"}`);
                 app.keepBoardInput = b.id;
                 emit("tasks");
-            } catch (e) { toast(e.message, { error: true }); }
+            } catch (e) { input.value = text; toast(e.message, { error: true }); }
         };
         input.addEventListener("keydown", (e) => {
             if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); submit(); }
@@ -219,7 +217,7 @@ export function setupBoardDrag(view) {
             const buckets = S.buckets.get(t.project_id) || [];
             const b = buckets.find((x) => x.id === tg.bid);
             if (b && tg.bid !== t.bucket_id && b.limit && !b.is_done &&
-                S.tasks.filter((x) => x.bucket_id === b.id && !x.done).length >= b.limit) {
+                S.tasks.filter((x) => x.bucket_id === b.id && !x.done && !x.parent_id).length >= b.limit) {
                 toast(`“${b.name}” is at its limit of ${b.limit}`, { error: true });
                 return;
             }
@@ -363,12 +361,12 @@ export function renderCalendar(root) {
     }
     for (const list of byDay.values()) list.sort((a, b) => (a.done - b.done) || new Date(a.due) - new Date(b.due));
     const sel = S.calSelected || dayKey(today);
-    const nav = (n) => { S.calMonth = new Date(m.getFullYear(), m.getMonth() + n, 1); app.reload(); };
+    const nav = (n) => { S.calMonth = new Date(m.getFullYear(), m.getMonth() + n, 1); app.refreshView(); };
     const head = h("div.tk-cal-head",
         h("h2.tk-cal-title", fmtMonth.format(m)),
         h("div.tk-btn-group",
             h("button.tk-btn.tk-btn-icon", { type: "button", "aria-label": "Previous month", onclick: () => nav(-1) }, icon("chevL", 14)),
-            h("button.tk-btn", { type: "button", onclick: () => { S.calMonth = null; S.calSelected = null; app.reload(); } }, "Today"),
+            h("button.tk-btn", { type: "button", onclick: () => { S.calMonth = null; S.calSelected = null; app.refreshView(); } }, "Today"),
             h("button.tk-btn.tk-btn-icon", { type: "button", "aria-label": "Next month", onclick: () => nav(1) }, icon("chevR", 14))));
     const grid = h("div.tk-cal-grid", { role: "grid", "aria-label": fmtMonth.format(m) });
     for (let i = 0; i < 7; i++) grid.append(h("div.tk-cal-wd", { role: "columnheader" }, weekday(addDays(start, i))));

@@ -3,7 +3,7 @@
 import { $, h, clear, icon, avatar, popover, closePopover, menu, dialog, confirmDialog, toast, api, qs, fmtDay, fmtDateTime,
     ago, toInput, fromInput, startOfDay, addDays, endOfDay, isAllDay, fmtMinutes, parseMinutes, dayKey } from "./lib.js";
 import { S, app, emit, on, adopt, project, label, canEdit, patchTask, setDone, moveTask, quickAdd, deleteTasks, duplicateTask,
-    loadBuckets, assignable, PRIORITIES, prioLevel, COLOURS } from "./store.js";
+    loadBuckets, assignable, PRIORITIES, prioLevel, COLOURS, failed, recovered, retryNow } from "./store.js";
 import { labelDialog } from "./sidebar.js";
 
 const drawer = () => document.getElementById("tk-drawer");
@@ -25,23 +25,53 @@ export async function openDetail(id) {
         document.body.classList.add("tk-drawer-open");
         if (cur) build(); else clear(el, h("div.tk-dr-loading", h("div.tk-skeleton", h("div"), h("div"), h("div"))));
     }
+    // One request for the task itself (fresh fields + relations). Comments and subtasks are fetched only when the
+    // task has some, and each part can fail on its own without closing the drawer.
+    const early = known && known.comments > 0 && !known._comments ? loadComments(known) : null;
     try {
-        const [t, comments] = await Promise.all([api("GET", id), api("GET", `${id}/comments`)]);
+        const t = await api("GET", id);
         if (token !== loadToken) return;
         cur = adopt(t);
-        cur._comments = comments;
+        cur._detailError = null;
+        recovered("detail");
         build();
-        loadSubtasks();
-        if (cur.project_id) loadBuckets(cur.project_id).then(() => token === loadToken && renderProps()).catch(() => {});
     } catch (e) {
         if (token !== loadToken) return;
-        toast(e.status === 404 ? "That task doesn't exist or isn't shared with you." : e.message, { error: true });
-        app.closeTask();
+        if (!failed("detail", () => openDetail(id), e)) {
+            toast(e.status === 404 ? "That task doesn't exist or isn't shared with you." : e.message, { error: true });
+            app.closeTask();
+            return;
+        }
+        if (!cur) {
+            clear(el, h("div.tk-dr-head", h("div.tk-grow"), h("button.tk-icon-btn", { type: "button", "aria-label": "Close details", onclick: () => app.closeTask() }, icon("x", 16))),
+                h("div.tk-dr-body", h("div.tk-dr-warn", h("span", "Couldn't load this task. The server may be restarting."),
+                    h("button.tk-link-btn", { type: "button", onclick: () => retryNow() }, "Retry"))));
+            return;
+        }
+        cur._detailError = e.message;
+        build();
     }
+    if (!early && cur.comments > 0 && !cur._comments) loadComments(cur);
+    loadSubtasks();
+    if (cur.project_id && !S.buckets.has(cur.project_id)) loadBuckets(cur.project_id).then(() => token === loadToken && renderProps()).catch(() => {});
+}
+
+async function loadComments(t) {
+    t._commentsError = null;
+    if (cur === t) renderComments();
+    try {
+        t._comments = await api("GET", `${t.id}/comments`);
+        recovered("comments");
+    } catch (e) {
+        t._commentsError = e.message;
+        failed("comments", () => (cur === t ? loadComments(t) : recovered("comments")), e);
+    }
+    if (cur === t) renderComments();
 }
 
 export function closeDetail() {
     loadToken++;
+    for (const k of ["detail", "comments", "subtasks"]) recovered(k);  // nothing to retry for a closed drawer
     cur = null;
     parts = {};
     const el = drawer();
@@ -95,6 +125,8 @@ function build() {
     parts.foot = h("div.tk-dr-foot");
 
     clear(drawer(), parts.head, h("div.tk-dr-body",
+        t._detailError ? h("div.tk-dr-warn", { role: "status" }, h("span", "Showing what's loaded. Couldn't get the latest details."),
+            h("button.tk-link-btn", { type: "button", onclick: () => retryNow() }, "Retry")) : null,
         h("div.tk-dr-titlebar", parts.check, parts.title),
         parts.props,
         h("section.tk-dr-sec", h("h3.tk-dr-h", "Description"), parts.desc),
@@ -139,7 +171,7 @@ function renderHead() {
             onclick: (e) => menu(e.currentTarget, [
                 { label: "Copy link", icon: "link", onClick: () => { navigator.clipboard?.writeText(`${location.origin}/tasks/?task=${t.id}`); toast("Link copied"); } },
                 { label: "Duplicate", icon: "copy", disabled: !canEdit(t), onClick: async () => { const c = await duplicateTask(t); app.openTask(c.id); } },
-                t.parent_id && { label: "Make top-level task", icon: "chevL", disabled: !canEdit(t), onClick: () => patchTask(t, { parent_id: null }).then(() => app.reload()) },
+                t.parent_id && { label: "Make top-level task", icon: "chevL", disabled: !canEdit(t), onClick: () => patchTask(t, { parent_id: null }).then(() => emit("tasks")) },
                 { sep: true },
                 { label: "Delete task", icon: "trash", danger: true, hint: "Del", disabled: !canEdit(t), onClick: () => deleteTasks([t]) },
             ], { align: "end" }),
@@ -425,12 +457,17 @@ function timeSpentInput(t, ro) {
 async function loadSubtasks() {
     const t = cur;
     if (!t) return;
+    if (!t.subtasks) { t._subs = []; renderSubtasks(); return; }  // nothing to fetch
+    t._subsError = null;
     try {
         const r = await api("GET", qs({ parent: t.id, project: t.project_id, sort: "position", limit: 200 }));
-        if (cur !== t) return;
         t._subs = r.items.map(adopt);
-        renderSubtasks();
-    } catch (_) { /* optional */ }
+        recovered("subtasks");
+    } catch (e) {
+        t._subsError = e.message;
+        failed("subtasks", () => (cur === t ? loadSubtasks() : recovered("subtasks")), e);
+    }
+    if (cur === t) renderSubtasks();
 }
 
 function renderSubtasks() {
@@ -457,6 +494,9 @@ function renderSubtasks() {
     clear(parts.subtasks,
         h("h3.tk-dr-h", "Subtasks", subs.length ? h("span.tk-dr-count", `${doneN}/${subs.length}`) : null),
         subs.length ? h("div.tk-subbar", h("span", { style: { width: `${(doneN / subs.length) * 100}%` } })) : null,
+        t._subsError ? h("div.tk-dr-warn", h("span", `Couldn't load ${t.subtasks} subtask${t.subtasks > 1 ? "s" : ""}.`),
+            h("button.tk-link-btn", { type: "button", onclick: () => loadSubtasks() }, "Retry"))
+            : !t._subs && t.subtasks ? h("div.tk-dr-empty", "Loading subtasks…") : null,
         h("ul.tk-sublist", subs.map((s) => h("li.tk-sub" + (s.done ? ".is-done" : ""),
             h("button.tk-check.p" + prioLevel(s.priority) + (s.done ? ".is-done" : ""), {
                 type: "button", role: "checkbox", "aria-checked": String(!!s.done), "aria-label": `Complete ${s.title}`, disabled: !canEdit(s),
@@ -560,6 +600,9 @@ function renderComments() {
     });
     clear(parts.comments,
         h("h3.tk-dr-h", "Comments", comments.length ? h("span.tk-dr-count", String(comments.length)) : null),
+        t._commentsError ? h("div.tk-dr-warn", h("span", "Couldn't load comments."),
+            h("button.tk-link-btn", { type: "button", onclick: () => loadComments(t) }, "Retry"))
+            : !t._comments && t.comments ? h("div.tk-dr-empty", "Loading comments…") : null,
         h("ul.tk-comments", comments.map((c) => comment(t, c))),
         form);
 }
