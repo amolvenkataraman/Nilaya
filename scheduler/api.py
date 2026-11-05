@@ -143,23 +143,26 @@ def get_availability(request, username):
     return success_response({"busy": [[e.startdate, e.enddate] for e in evs]})
 
 def get_calendar_events(request):
+    """Events of one calendar for a day (?timespan=day&time=YYYY-MM-DD) or a month
+    (?timespan=month&time=YYYY-MM). Public calendars: anyone; otherwise subscribers."""
+    c = Calendar.objects.filter(id=request.GET.get("calendar") or 0).first()
+    if c is None:
+        return error_response("Calendar does not exist", 404)
+    if not (c.public or (request.user.is_authenticated and c.users_subscribed.filter(user=request.user).exists())):
+        return error_response("Not authorized", 401)
     try:
-        c = Calendar.objects.filter(id=request.GET.get("calendar"))[0]
-        if c.public == True or (request.user.is_authenticated and c.users_subscribed.filter(user=request.user)[0].subscribe_type in [0, 1]):
-            tsp = request.GET.get("timespan")
-            t = request.GET.get("time")
-            if tsp == "day":
-                if len(t.split("-")) == 3:
-                    sd = datetime.datetime.fromisoformat(t + " 00:00:00")
-                    events = Event.objects.filter(
-                        Q(calendar=c) & Q(Q(startdate__gte=sd, enddate__lte=sd + datetime.timedelta(days=1)) | Q(startdate__lte=sd, enddate__gt=sd + datetime.timedelta(days=1)) | (Q(enddate=None, startdate__gte=sd, startdate__lte=sd + datetime.timedelta(days=1))))
-                    ).order_by('startdate', '-enddate', 'name').iterator()
-                    return JsonResponse({"events": [i.getinfo() for i in events]})
-                else: return error_response("Malformed time")
-
+        parts = [int(x) for x in (request.GET.get("time") or "").split("-")]
+        if request.GET.get("timespan") == "day" and len(parts) == 3:
+            start = pytz.timezone(TIME_ZONE).localize(datetime.datetime(*parts))
+            end = start + datetime.timedelta(days=1)
+        elif request.GET.get("timespan") == "month" and len(parts) == 2:
+            start, end = month_bounds(parts[0], parts[1])
         else:
-            return error_response("Not authorized", 401)
-    except IndexError: return error_response("Calendar does not exist")
+            raise ValueError
+    except ValueError:
+        return error_response("Malformed time")
+    events = Event.objects.filter(overlapping(start, end), calendar=c).order_by('startdate', '-enddate', 'name')
+    return JsonResponse({"events": [i.getinfo() for i in events]})
 
 @login_required_api
 def calendar(request):
@@ -380,75 +383,75 @@ def todo(request, command):
 
 @login_required_api
 def subscribe(request):
-    invitecode = request.GET.get('code')
-    if invitecode is None: return error_response("No invite code provided")
-    invite = Invite.objects.filter(code=invitecode)
-    try:
-        invite = invite[0]
-    except IndexError: return error_response("Invalid invite code")
-    if not invite.active: return error_response("Invite code is not active")
+    """GET: preview the calendar behind an invite code (or a public ?calendar=id).
+    POST: subscribe to it."""
+    invite = None
+    if request.GET.get('calendar'):
+        calendar_ = Calendar.objects.filter(id=request.GET['calendar'], public=True).first()
+        if calendar_ is None:
+            return error_response("Calendar is not public")
+    else:
+        invite = Invite.objects.filter(code=request.GET.get('code') or "").select_related('calendar__owner').first()
+        if invite is None:
+            return error_response("Invalid invite code")
+        if not invite.active:
+            return error_response("Invite code is not active")
+        calendar_ = invite.calendar
+    if request.user.calendar_subscribed.filter(calendar=calendar_).exists():
+        return error_response("You are already subscribed to this calendar")
 
     if request.method == 'GET':
-        calendar_ = invite.calendar
-        if calendar_ in request.user.calendar_subscribed.all(): return error_response("You are already subscribed to this calendar")
-        return success_response(calendar_.getinfo())
+        owner = calendar_.owner
+        return success_response({**calendar_.getinfo(), "owner": {
+            "id": owner.id, "first_name": owner.first_name, "last_name": owner.last_name}})
 
-    elif request.method == 'POST':
-        calendar_ = invite.calendar
-        if calendar_ in request.user.calendar_subscribed.all(): return error_response("You are already subscribed to this calendar")
-        s = Subscriber(calendar=calendar_, user=request.user, colour=calendar_.color)
-        s.save()
+    Subscriber.objects.create(calendar=calendar_, user=request.user, colour=calendar_.colour)
+    if invite is not None:
         invite.uses += 1
-        invite.save()
-        return success_response("Success")
+        invite.save(update_fields=["uses"])
+    return success_response("Success")
 
 @post_request_only
 @login_required_api
 def unsubscribe(request):
-    try:
-        calendar_ = Calendar.objects.filter(id=request.GET.get("calendar"))[0]
-        try:
-            sub = calendar_.users_subscribed.filter(user=request.user)[0]
-            sub.delete()
-            return success_response()
-        except IndexError: return error_response("Not subscribed to this calendar")
-    except IndexError: return error_response("Invalid Calendar ID")
+    sub = request.user.calendar_subscribed.filter(calendar_id=request.GET.get("calendar")).first()
+    if sub is None:
+        return error_response("Not subscribed to this calendar")
+    if sub.subscribe_type == 0:
+        return error_response("Owners can't unsubscribe from their own calendar")
+    sub.delete()
+    return success_response()
 
 @post_request_only
 @login_required_api
 def invite(request):
-    invitecode = request.GET.get("code")
     option = request.GET.get("option")
-    if invitecode == None: return error_response("No Invite Code provided")
-    if option == None: return error_response("No Choice provided")
 
-    elif option == "active":
-        try: invite = Invite.objects.filter(code=invitecode)[0]
-        except IndexError: return error_response("Invalid invite")
-
-        try:
-            if Subscriber.objects.filter(calendar=invite.calendar, user=request.user)[0].subscribe_type not in [0, 1]:
-                return error_response("Not authorized", 401)
-        except IndexError: return error_response("Not authorized", 401)
-
-        invite.active = not invite.active
-        invite.save()
-        return success_response()
-
-    elif option == "create":
-        calendar = request.GET.get("calendar")
-        if calendar == None: return error_response("No Calendar provided")
-        try: calendar = Calendar.objects.filter(id=calendar)[0]
-        except IndexError: return error_response("Invalid Calendar")
-        if calendar.users_subscribed.filter(user=request.user)[0].subscribe_type not in [0, 1]:
+    if option == "active":  # toggle an existing invite (by id)
+        invite = Invite.objects.filter(id=request.GET.get("invite") or 0).select_related('calendar').first()
+        if invite is None:
+            return error_response("Invalid invite")
+        if not can_edit_calendar(request.user, invite.calendar):
             return error_response("Not authorized", 401)
+        invite.active = not invite.active
+        invite.save(update_fields=["active"])
+        return success_response({"active": invite.active})
 
-        try:
-            invite = Invite(code=invitecode, active=True, calendar=calendar)
-            invite.save()
-            return success_response(invite.getinfo())
-        except Exception as ex:
-            return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
+    if option == "create":
+        code = (request.GET.get("code") or "").strip()
+        if not code:
+            return error_response("No invite code provided")
+        calendar = Calendar.objects.filter(id=request.GET.get("calendar") or 0).first()
+        if calendar is None:
+            return error_response("Invalid calendar")
+        if not can_edit_calendar(request.user, calendar):
+            return error_response("Not authorized", 401)
+        if Invite.objects.filter(code=code).exists():
+            return error_response("That invite code is already in use")
+        invite = Invite.objects.create(code=code, active=True, calendar=calendar)
+        return success_response(invite.getinfo())
+
+    return error_response("Unknown option")
 
 
 def get_block_status(request):

@@ -1033,17 +1033,17 @@ function create_calendar() {
         else {
             $('.subscribe-warn').html("")
             r = new XMLHttpRequest()
-            r.open("GET", `${URLS['subscribe']}?code=` + subscribeCode)
+            r.open("GET", `${URLS['subscribe']}?code=` + encodeURIComponent(subscribeCode))
             r.onload = () => {
                 res = JSON.parse(r.responseText)
                 if (res["status"] == "error") {
                     $('.subscribe-warn').html(res["data"])
                 }
                 else {
-                    $('.modal-body').html(subscribe_confirm({ "name": res["datasubscribename"], "owner": `${res["data"]["owner"]["first_name"]} ${res["data"]["owner"]["last_name"]}` }))
+                    $('.modal-body').html(subscribe_confirm({ "name": res["data"]["name"], "owner": `${res["data"]["owner"]["first_name"]} ${res["data"]["owner"]["last_name"]}` }))
                     document.querySelector('.subscribe-confirm-btn').onclick = () => {
                         r = new XMLHttpRequest()
-                        r.open("POST", `${URLS['subscribe']}?code=` + subscribeCode)
+                        r.open("POST", `${URLS['subscribe']}?code=` + encodeURIComponent(subscribeCode))
                         r.setRequestHeader("X-CSRFToken", CSRF_TOKEN)
                         r.onload = () => {
                             res = JSON.parse(r.responseText)
@@ -2231,7 +2231,7 @@ function sync_events(btn) {
 function unsubscribe(btn) {
     cal = data["calendars"][btn.parentElement.parentElement.dataset.calendar]
     var r = new XMLHttpRequest()
-    r.open('POST', `${URLS['unsubscribe']}?calendar=${cal["id"]}`)
+    r.open('POST', `${URLS['unsubscribe']}?calendar=${cal["calendar"]["id"]}`)
     r.setRequestHeader("X-CSRFToken", CSRF_TOKEN)
     r.onload = () => {
         res = JSON.parse(r.responseText)
@@ -2247,7 +2247,7 @@ function unsubscribe(btn) {
 
 function create_invite(c) {
     var r = new XMLHttpRequest();
-    r.open('POST', `${URLS['invite']}?code=${document.querySelector('.invite-text').value}&calendar=${c["id"]}&option=create`);
+    r.open('POST', `${URLS['invite']}?code=${encodeURIComponent(document.querySelector('.invite-text').value)}&calendar=${c["id"]}&option=create`);
     r.setRequestHeader("X-CSRFToken", CSRF_TOKEN);
     r.onload = () => {
         res = JSON.parse(r.responseText);
@@ -2263,22 +2263,15 @@ function create_invite(c) {
 
 function toggle_invite(cb) {
     var r = new XMLHttpRequest()
-    r.open('POST', `${URLS['invite']}?code=${cb.dataset.invite}&option=active`)
+    r.open('POST', `${URLS['invite']}?invite=${encodeURIComponent(cb.dataset.invite)}&option=active`)
     r.setRequestHeader("X-CSRFToken", CSRF_TOKEN)
     r.onload = () => {
         res = JSON.parse(r.responseText)
-        if (res["status"] === "error") { alert("Something went wrong on the server-side. Please try again.") }
-        else {
-            for (i = 0; i < data["calendars"][cb.dataset.class]["invites"].length; i++) {
-                if (data["calendars"][cb.dataset.class]["invites"][i]["id"] == cb.dataset.invite) {
-                    if (data["calendars"][cb.dataset.class]["invites"][i]["active"] == true) { data["calendars"][cb.dataset.class]["invites"][i]["active"] = false }
-                    else { data["calendars"][cb.dataset.class]["invites"][i]["active"] = true }
-                }
-            }
-            cb.disabled = false
-        }
+        if (res["status"] === "error") { alert(res["data"]); cb.checked = !cb.checked }
+        else { cb.checked = res["data"]["active"] }
+        cb.disabled = false
     }
-    request.send()
+    r.send()
 }
 
 function toggle_calendar_enable(e) {
