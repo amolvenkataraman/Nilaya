@@ -1,8 +1,8 @@
 /* Board (kanban), table, calendar (month) and timeline (Gantt) layouts. */
 
-import { h, append, clear, icon, menu, dialog, confirmDialog, toast, api, draggable, between, store, startOfDay, addDays, dayKey,
+import { h, append, clear, icon, ring, fmtMinutes, fmtDateTime, menu, dialog, confirmDialog, toast, api, draggable, between, store, startOfDay, addDays, dayKey,
     DAY, fmtDay, fmtMonth, monthDay, weekday, time, isAllDay, endOfDay } from "./lib.js";
-import { S, app, emit, project, label, canEdit, patchTask, moveTask, createTask, quickAdd, loadBuckets, prioLevel } from "./store.js";
+import { S, app, emit, project, label, canEdit, patchTask, moveTask, createTask, quickAdd, loadBuckets, prioLevel, repeatText, pathText } from "./store.js";
 import { checkbox, toggleDone, dueChip, labelChips, prioFlag, assigneeStack, isOverdue } from "./list.js";
 
 // ================================================================== board
@@ -49,12 +49,17 @@ function card(t) {
     const labels = labelChips(t, 4);
     append(el, [
         (t.labels || []).length ? h("div.tk-card-labels", labels) : null,
-        h("div.tk-card-title", checkbox(t, (x) => { toggleDone(x); }), h("span.tk-title-text", t.title)),
-        h("div.tk-card-meta", dueChip(t, true),
-            t.subtasks ? h("span.tk-meta", icon("subtask", 12), `${t.subtasks_done}/${t.subtasks}`) : null,
-            t.comments ? h("span.tk-meta", icon("comment", 12), String(t.comments)) : null,
-            t.repeat_mode ? h("span.tk-meta", icon("repeat", 12)) : null,
-            t.percent ? h("span.tk-meta", `${t.percent}%`) : null,
+        h("div.tk-card-title", checkbox(t, (x) => { toggleDone(x); }), h("span.tk-title-text", t.title),
+            t.description ? icon("list", 12, "tk-has-desc") : null),
+        h("div.tk-card-meta",
+            t.done && t.done_at ? h("span.tk-meta", { title: `Completed ${fmtDateTime(t.done_at)}` }, icon("done", 12), fmtDay(t.done_at, false)) : dueChip(t, true),
+            t.start && !t.done && new Date(t.start) > new Date() ? h("span.tk-meta", { title: `Starts ${fmtDateTime(t.start)}` }, icon("play", 12), fmtDay(t.start, false)) : null,
+            t.subtasks ? h("span.tk-meta", { title: "Subtasks done" }, icon("subtask", 12), `${t.subtasks_done}/${t.subtasks}`) : null,
+            t.comments ? h("span.tk-meta", { title: "Comments" }, icon("comment", 12), String(t.comments)) : null,
+            t.repeat_mode ? h("span.tk-meta", { title: repeatText(t) }, icon("repeat", 12)) : null,
+            t.reminders?.some((r) => !r.sent) ? h("span.tk-meta", { title: "Reminder set" }, icon("bell", 12)) : null,
+            t.percent ? h("span.tk-meta", { title: `${t.percent}% done` }, ring(t.percent / 100, 12), `${t.percent}%`) : null,
+            t.time_spent ? h("span.tk-meta", { title: "Time spent" }, icon("clock", 12), fmtMinutes(t.time_spent)) : null,
             h("span.tk-grow"), prioFlag(t), assigneeStack(t, 2))]);
     if (!el.querySelector(".tk-card-meta").querySelector(".tk-meta,.tk-flag,.tk-avatars")) el.querySelector(".tk-card-meta").remove();
     return el;
@@ -267,6 +272,10 @@ const COLS = [
     { key: "assignees", label: "Assignees", val: (t) => (t.assignees || []).map((a) => a.name).join(",") },
     { key: "percent", label: "Progress", val: (t) => t.percent },
     { key: "done", label: "Done", val: (t) => (t.done ? 1 : 0) },
+    { key: "completed", label: "Completed", val: (t) => t.done_at || "" },
+    { key: "time", label: "Time spent", val: (t) => t.time_spent || 0 },
+    { key: "repeat", label: "Repeat", val: (t) => repeatText(t) },
+    { key: "reminders", label: "Reminders", val: (t) => (t.reminders || []).length },
     { key: "created", label: "Created", val: (t) => t.created_on },
     { key: "updated", label: "Updated", val: (t) => t.updated_on },
 ];
@@ -302,7 +311,11 @@ export function renderTable(root) {
             case "title": return h("td.tk-td-title", h("div.tk-td-title-in", checkbox(t), h("span.tk-title-text", t.title),
                 t.subtasks ? h("span.tk-meta", icon("subtask", 12), `${t.subtasks_done}/${t.subtasks}`) : null,
                 t.comments ? h("span.tk-meta", icon("comment", 12), String(t.comments)) : null));
-            case "project": { const p = project(t.project_id); return h("td", p ? h("span.tk-meta", h("span.tk-dot", { style: { background: p.colour || "var(--app-muted)" } }), p.name) : ""); }
+            case "project": { const p = project(t.project_id); return h("td", p ? h("span.tk-meta", { title: pathText(t.project_id) }, h("span.tk-dot", { style: { background: p.colour || "var(--app-muted)" } }), p.is_inbox ? "Inbox" : p.name) : ""); }
+            case "completed": return h("td", t.done_at ? h("span", { title: fmtDateTime(t.done_at) }, fmtDay(t.done_at)) : h("span.app-muted", "—"));
+            case "time": return h("td", t.time_spent ? fmtMinutes(t.time_spent) : h("span.app-muted", "—"));
+            case "repeat": return h("td", repeatText(t) || h("span.app-muted", "—"));
+            case "reminders": return h("td", (t.reminders || []).length ? h("span.tk-meta", icon("bell", 12), String(t.reminders.length)) : h("span.app-muted", "—"));
             case "due": return h("td", t.due ? h("span" + (isOverdue(t) ? ".tk-text-danger" : ""), fmtDay(t.due)) : h("span.app-muted", "—"));
             case "start": return h("td", t.start ? fmtDay(t.start) : h("span.app-muted", "—"));
             case "priority": return h("td", h("span.tk-prio-txt.p" + prioLevel(t.priority), t.priority ? t.priority_label : "—"));
@@ -310,8 +323,8 @@ export function renderTable(root) {
             case "assignees": return h("td", assigneeStack(t, 4) || h("span.app-muted", "—"));
             case "percent": return h("td", t.percent ? `${t.percent}%` : h("span.app-muted", "—"));
             case "done": return h("td", t.done ? icon("check", 14, "tk-text-success") : "");
-            case "created": return h("td.app-muted", new Date(t.created_on).toLocaleDateString());
-            case "updated": return h("td.app-muted", new Date(t.updated_on).toLocaleDateString());
+            case "created": return h("td.app-muted", { title: `${fmtDateTime(t.created_on)}${t.owner ? ` by ${t.owner.name}` : ""}` }, new Date(t.created_on).toLocaleDateString());
+            case "updated": return h("td.app-muted", { title: fmtDateTime(t.updated_on) }, new Date(t.updated_on).toLocaleDateString());
             default: return h("td");
         }
     };

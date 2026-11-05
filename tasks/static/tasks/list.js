@@ -1,8 +1,9 @@
 /* List view: date / priority / project sections, nested subtasks, inline edit, inline subtasks,
  * multi-select and drag to reorder, reschedule (drop on a date section) or move (drop on a project). */
 
-import { h, clear, icon, avatar, fmtDay, startOfDay, addDays, DAY, endOfDay, draggable, between, toast } from "./lib.js";
-import { S, app, emit, project, label, prioLevel, canEdit, setDone, patchTask, moveTask, quickAdd, reorderTasks } from "./store.js";
+import { h, clear, icon, ring, avatar, fmtDay, fmtDateTime, fmtMinutes, ago, startOfDay, addDays, DAY, endOfDay, draggable, between, toast } from "./lib.js";
+import { S, app, emit, project, label, prioLevel, canEdit, setDone, patchTask, moveTask, quickAdd, reorderTasks, projectPath, pathText,
+    repeatText } from "./store.js";
 
 // ------------------------------------------------------------------ shared row bits (also used by board/table)
 
@@ -46,17 +47,54 @@ export function toggleDone(t) {
     setDone(t, done).catch(() => { delete t._fading; });
 }
 
+const dayWord = (iso) => { const d = fmtDay(iso, false); return /^(Today|Tomorrow|Yesterday)$/.test(d) ? d.toLowerCase() : d; };
+const nextReminder = (t) => (t.reminders || []).filter((r) => !r.sent && r.fire_at).map((r) => r.fire_at).sort()[0];
+
+/** The secondary line under a task title: everything useful at a glance, quietly. */
 export function metaBits(t, { showProject = true } = {}) {
-    const p = showProject ? project(t.project_id) : null;
+    const path = showProject ? projectPath(t.project_id) : [];
+    const leaf = path.at(-1);
+    const start = t.start ? new Date(t.start) : null;
+    const next = nextReminder(t);
     return [
-        dueChip(t),
-        t.repeat_mode ? h("span.tk-meta", { title: "Repeats" }, icon("repeat", 12)) : null,
-        t.subtasks ? h("span.tk-meta", { title: "Subtasks" }, icon("subtask", 12), `${t.subtasks_done}/${t.subtasks}`) : null,
-        t.comments ? h("span.tk-meta", { title: "Comments" }, icon("comment", 12), String(t.comments)) : null,
-        t.reminders?.some((r) => !r.sent) ? h("span.tk-meta", { title: "Reminder set" }, icon("bell", 12)) : null,
+        t.done && t.done_at ? h("span.tk-meta", { title: `Completed ${fmtDateTime(t.done_at)}` }, icon("done", 12), `Completed ${dayWord(t.done_at)}`) : dueChip(t),
+        start && !t.done && start > new Date() ? h("span.tk-meta", { title: `Starts ${fmtDateTime(t.start)}` }, icon("play", 12), `Starts ${dayWord(t.start)}`) : null,
+        t.repeat_mode ? h("span.tk-meta", { title: repeatText(t) }, icon("repeat", 12), repeatText(t, true)) : null,
+        t.subtasks ? h("span.tk-meta", { title: `${t.subtasks_done} of ${t.subtasks} subtasks done` }, icon("subtask", 12), `${t.subtasks_done}/${t.subtasks}`) : null,
+        t.comments ? h("span.tk-meta", { title: `${t.comments} comment${t.comments > 1 ? "s" : ""}` }, icon("comment", 12), String(t.comments)) : null,
+        next && !t.done ? h("span.tk-meta", { title: `Next reminder ${fmtDateTime(next)}` }, icon("bell", 12), fmtDay(next)) : null,
+        t.percent ? h("span.tk-meta", { title: `${t.percent}% done` }, ring(t.percent / 100, 12), `${t.percent}%`) : null,
+        t.time_spent ? h("span.tk-meta", { title: "Time spent" }, icon("clock", 12), fmtMinutes(t.time_spent)) : null,
         labelChips(t),
-        p ? h("span.tk-meta.tk-meta-proj", h("span.tk-dot", { style: { background: p.colour || "var(--app-muted)" } }), p.name) : null,
+        leaf ? h("span.tk-meta.tk-meta-proj", { title: pathText(t.project_id) }, h("span.tk-dot", { style: { background: leaf.colour || "var(--app-muted)" } }),
+            path.length > 1 ? h("span.tk-meta-parent", path.slice(0, -1).map((p) => p.name).join(" › ") + " ›") : null,
+            leaf.is_inbox ? "Inbox" : leaf.name) : null,
     ];
+}
+
+/** Hover card: the whole task at a glance (mouse only; touch users open the drawer). */
+export function taskSummary(t) {
+    const rows = [];
+    const add = (k, ...v) => { if (v.flat().some((x) => x != null && x !== "")) rows.push(h("dt", k), h("dd", v)); };
+    add("Project", pathText(t.project_id));
+    if (t.done) add("Completed", t.done_at ? fmtDateTime(t.done_at) : "Yes");
+    add("Due", t.due ? fmtDateTime(t.due) : "");
+    add("Start", t.start ? fmtDateTime(t.start) : "");
+    add("Priority", t.priority ? t.priority_label : "");
+    add("Repeat", repeatText(t));
+    const next = nextReminder(t);
+    add("Reminders", (t.reminders || []).length ? `${t.reminders.length}${next ? ` · next ${fmtDateTime(next)}` : ""}` : "");
+    add("Progress", t.percent ? `${t.percent}%` : "");
+    add("Time spent", fmtMinutes(t.time_spent));
+    add("Assignees", (t.assignees || []).map((a) => a.name).join(", "));
+    add("Labels", (t.labels || []).map((id) => label(id)?.name).filter(Boolean).join(", "));
+    add("Subtasks", t.subtasks ? `${t.subtasks_done} of ${t.subtasks} done` : "");
+    add("Comments", t.comments ? String(t.comments) : "");
+    add("Created", `${fmtDateTime(t.created_on)}${t.owner ? ` by ${t.owner.name}` : ""}`);
+    add("Updated", ago(t.updated_on));
+    return [h("div.tk-hc-title", t.title),
+        t.description ? h("div.tk-hc-desc", t.description.length > 280 ? t.description.slice(0, 280) + "…" : t.description) : null,
+        h("dl.tk-hc-grid", rows)];
 }
 
 export function prioFlag(t) {

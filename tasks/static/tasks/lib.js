@@ -531,6 +531,41 @@ export function draggable(root, opts) {
     root.addEventListener("contextmenu", (e) => { if (pending || active) e.preventDefault(); });
 }
 
+/** Show build(el) in a small card after hovering an element matching selector (mouse only). */
+export function hovercard(root, selector, build) {
+    let timer = null, card = null, cur = null, quietUntil = 0;
+    const hide = () => { clearTimeout(timer); card?.remove(); card = null; cur = null; };
+    root.addEventListener("pointerover", (e) => {
+        if (e.pointerType !== "mouse" || Date.now() < quietUntil) return;
+        const el = e.target.closest(selector);
+        if (!el || el === cur) return;
+        hide();
+        cur = el;
+        timer = setTimeout(() => {
+            if (!el.isConnected || document.body.classList.contains("tk-is-dragging") || document.querySelector(".tk-pop")) return;
+            const content = build(el);
+            if (!content) return;
+            card = h("div.tk-hovercard", { role: "tooltip" }, content);
+            document.body.append(card);
+            const r = el.getBoundingClientRect(), cw = card.offsetWidth, ch = card.offsetHeight;
+            let top = r.bottom + 6;
+            if (top + ch > innerHeight - 8) top = Math.max(8, r.top - ch - 6);
+            card.style.left = Math.max(8, Math.min(r.left, innerWidth - cw - 8)) + "px";
+            card.style.top = top + "px";
+        }, 600);
+    });
+    root.addEventListener("pointerout", (e) => {
+        const el = e.target.closest(selector);
+        if (el && el === cur && !el.contains(e.relatedTarget)) hide();
+    });
+    // A click means "act", not "peek": no card for that element until the pointer leaves it.
+    // (Views re-render under a still pointer after an action, so stay quiet for a moment too.)
+    const suppress = () => { const el = cur; hide(); cur = el; quietUntil = Date.now() + 1200; };
+    root.addEventListener("pointerdown", suppress);
+    addEventListener("scroll", suppress, true);
+    addEventListener("keydown", suppress, true);
+}
+
 /** Midpoint position between two neighbours (either may be missing). */
 export function between(before, after) {
     if (before == null && after == null) return 1;

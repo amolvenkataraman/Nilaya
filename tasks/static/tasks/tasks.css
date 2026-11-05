@@ -723,6 +723,34 @@ body.tk-is-dragging, body.tk-is-dragging * { cursor: grabbing !important; user-s
 .tk-comment-input { font-size: .8125rem; resize: vertical; }
 .tk-dr-foot { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .5rem; color: var(--app-muted); font-size: .75rem; padding-top: .75rem; border-top: 1px solid var(--tk-hair); }
 
+/* ------------------------------------------------------------------ hover card, status line */
+
+.tk-hovercard {
+    position: fixed; z-index: 1095; pointer-events: none;
+    width: min(20rem, calc(100vw - 16px)); padding: .625rem .75rem;
+    background: var(--app-surface); color: var(--app-fg);
+    border: 1px solid var(--app-border); border-radius: var(--app-radius);
+    box-shadow: var(--app-shadow); font-size: .75rem;
+    animation: tk-fade .12s ease-out;
+}
+@keyframes tk-fade { from { opacity: 0; transform: translateY(2px); } }
+.tk-hc-title { font-size: .8125rem; font-weight: 600; margin-bottom: .25rem; overflow-wrap: anywhere; }
+.tk-hc-desc {
+    color: var(--app-muted); white-space: pre-wrap; overflow-wrap: anywhere; margin-bottom: .5rem;
+    display: -webkit-box; -webkit-line-clamp: 4; -webkit-box-orient: vertical; overflow: hidden;
+}
+.tk-hc-grid { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: .1875rem .75rem; margin: 0; }
+.tk-hc-grid dt { color: var(--app-muted); font-weight: 400; }
+.tk-hc-grid dd { margin: 0; overflow-wrap: anywhere; }
+.tk-meta-parent { color: color-mix(in srgb, var(--app-muted) 75%, transparent); }
+.tk-meta .tk-ring { flex: none; }
+.tk-dr-status { display: flex; flex-wrap: wrap; gap: .25rem 1rem; margin-top: -.75rem; padding-left: 2rem; }
+.tk-dr-status[hidden] { display: none; }
+.tk-dr-fact { display: inline-flex; align-items: center; gap: .3125rem; color: var(--app-muted); font-size: .75rem; text-decoration: none; }
+a.tk-dr-fact:hover { color: var(--app-accent); }
+.tk-dr-fact.is-done { color: var(--app-success); }
+.tk-dr-fact.is-alert { color: var(--app-danger); }
+
 /* ------------------------------------------------------------------ popovers, menus, dialogs */
 
 .tk-pop {

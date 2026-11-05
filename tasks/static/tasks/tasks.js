@@ -1,13 +1,13 @@
 /* Tasks app entry: URL routing (?project= ?view= ?label= ?saved= ?layout= ?q= ?task=), header, toolbar,
  * quick add with a live parse preview, bulk actions, keyboard shortcuts and focus mode. */
 
-import { $, $$, h, clear, icon, ring, api, qs, toast, menu, popover, closePopover, dialog, debounce, store, session,
+import { $, $$, h, clear, icon, ring, api, qs, toast, menu, popover, closePopover, dialog, debounce, store, session, hovercard,
     fmtDay, startOfDay, addDays, endOfDay, isAllDay } from "./lib.js";
 import { S, app, on, emit, adopt, project, label, loadMeta, refreshCounts, loadBuckets, quickAdd, setDone, patchTask,
     moveTask, deleteTasks, canEdit, PRIORITIES, inboxId, health, failed, recovered, retryNow, refreshProjects } from "./store.js";
 import { parseQuick } from "./parse.js";
 import { SMART, renderSidebar, setupProjectDrag, projectDialog, projectMenu, shareDialog, labelDialog, saveViewDialog, savedViewMenu } from "./sidebar.js";
-import { renderList, setupListDrag, inlineEdit, toggleDone, manualOrder } from "./list.js";
+import { renderList, setupListDrag, inlineEdit, toggleDone, manualOrder, taskSummary } from "./list.js";
 import { renderBoard, setupBoardDrag, renderTable, tableColumnsMenu, renderCalendar, calendarRange, setupCalendarDrag, renderTimeline } from "./views.js";
 import { openDetail, closeDetail, isOpen, currentTask } from "./detail.js";
 
@@ -826,6 +826,10 @@ for (const btn of $$(".tk-side-toggle")) {
 // ================================================================== boot
 
 setupListDrag(view);
+hovercard(view, ".tk-list .tk-title-text, .tk-card .tk-title-text, .tk-table .tk-title-text, .tk-cal-chip, .tk-tl-name, .tk-tl-bar", (el) => {
+    const t = S.byId.get(el.closest("[data-tid]")?.dataset.tid);
+    return t && t.id !== S.route.task ? taskSummary(t) : null;  // the open task is already in the drawer
+});
 setupBoardDrag(view);
 setupCalendarDrag(view);
 setupProjectDrag();

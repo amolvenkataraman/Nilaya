@@ -3,7 +3,8 @@
 import { $, h, clear, icon, avatar, popover, closePopover, menu, dialog, confirmDialog, toast, api, qs, fmtDay, fmtDateTime,
     ago, toInput, fromInput, startOfDay, addDays, endOfDay, isAllDay, fmtMinutes, parseMinutes, dayKey } from "./lib.js";
 import { S, app, emit, on, adopt, project, label, canEdit, patchTask, setDone, moveTask, quickAdd, deleteTasks, duplicateTask,
-    loadBuckets, assignable, PRIORITIES, prioLevel, COLOURS, failed, recovered, retryNow } from "./store.js";
+    loadBuckets, assignable, PRIORITIES, prioLevel, COLOURS, failed, recovered, retryNow, REPEAT_PRESETS, REPEAT_UNITS as UNITS, repeatText,
+    projectPath } from "./store.js";
 import { labelDialog } from "./sidebar.js";
 
 const drawer = () => document.getElementById("tk-drawer");
@@ -83,6 +84,8 @@ export function closeDetail() {
 on("task", (t) => {
     if (!cur || t !== cur) return;
     renderHead();
+    renderStatus();
+    renderFoot();
     renderProps();
     const title = parts.title;
     if (title && document.activeElement !== title) { title.value = cur.title; autosize(title); }
@@ -128,16 +131,39 @@ function build() {
         t._detailError ? h("div.tk-dr-warn", { role: "status" }, h("span", "Showing what's loaded. Couldn't get the latest details."),
             h("button.tk-link-btn", { type: "button", onclick: () => retryNow() }, "Retry")) : null,
         h("div.tk-dr-titlebar", parts.check, parts.title),
+        parts.status = h("div.tk-dr-status"),
         parts.props,
         h("section.tk-dr-sec", h("h3.tk-dr-h", "Description"), parts.desc),
         parts.subtasks, parts.relations, parts.comments, parts.foot));
     renderHead();
+    renderStatus();
     renderProps();
     renderSubtasks();
     renderRelations();
     renderComments();
-    parts.foot.append(h("span", `Created by ${t.owner?.name || "?"} · ${fmtDateTime(t.created_on)}`), h("span", `Updated ${ago(t.updated_on)}`));
+    renderFoot();
     requestAnimationFrame(() => { autosize(parts.title); autosize(parts.desc); });
+}
+
+/** Quiet facts under the title: completion, origin, who owns it. */
+function renderStatus() {
+    if (!parts.status || !cur) return;
+    const t = cur, bits = [];
+    if (t.done) bits.push(h("span.tk-dr-fact.is-done", icon("done", 12), t.done_at ? `Completed ${fmtDateTime(t.done_at)}` : "Completed"));
+    if (t.repeat_mode && t.done_at && !t.done) bits.push(h("span.tk-dr-fact", { title: fmtDateTime(t.done_at) }, icon("repeat", 12), `Last done ${ago(t.done_at)}`));
+    if (isOverdueT(t)) bits.push(h("span.tk-dr-fact.is-alert", icon("overdue", 12), `Overdue since ${fmtDay(t.due)}`));
+    if (t.event_id) bits.push(h("a.tk-dr-fact", { href: "/calendar/" }, icon("calendar", 12), "From a calendar event"));
+    if (t.owner && t.owner.username !== S.me.username) bits.push(h("span.tk-dr-fact", icon("user", 12), `Owned by ${t.owner.name}`));
+    clear(parts.status, bits);
+    parts.status.hidden = !bits.length;
+}
+
+function renderFoot() {
+    if (!parts.foot || !cur) return;
+    const t = cur;
+    clear(parts.foot,
+        h("span", { title: fmtDateTime(t.created_on) }, `Created ${ago(t.created_on)}${t.owner ? ` by ${t.owner.name}` : ""}`),
+        h("span", { title: fmtDateTime(t.updated_on) }, `Updated ${ago(t.updated_on)}`));
 }
 
 function autosize(el) { if (!el) return; el.style.height = "auto"; el.style.height = el.scrollHeight + "px"; }
@@ -155,8 +181,9 @@ function renderHead() {
     const t = cur, p = project(t.project_id), parent = t.parent_id ? S.byId.get(t.parent_id) : null;
     clear(parts.head,
         h("nav.tk-crumbs", { "aria-label": "Breadcrumb" },
-            p ? h("a.tk-crumb", { href: app.href({ project: p.id }), onclick: (e) => { e.preventDefault(); app.go({ project: p.id, task: t.id }); } },
-                h("span.tk-dot", { style: { background: p.colour || "var(--app-muted)" } }), p.name) : null,
+            projectPath(t.project_id).map((x, i) => [i ? icon("chevR", 12, "tk-crumb-sep") : null,
+                h("a.tk-crumb", { href: app.href({ project: x.id }), onclick: (e) => { e.preventDefault(); app.go({ project: x.id, task: t.id }); } },
+                    h("span.tk-dot", { style: { background: x.colour || "var(--app-muted)" } }), x.is_inbox ? "Inbox" : x.name)]),
             t.parent_id ? [icon("chevR", 12, "tk-crumb-sep"), h("a.tk-crumb", {
                 href: app.href({ ...app.params(), task: t.parent_id }),
                 onclick: (e) => { e.preventDefault(); app.openTask(t.parent_id); },
@@ -185,29 +212,6 @@ function prop(name, ico, value, onClick, { empty = false, ro = false } = {}) {
     return [h("div.tk-prop-k", icon(ico, 14), name),
         h("div.tk-prop-v", ro || !onClick ? h("div.tk-prop-static" + (empty ? ".is-empty" : ""), value)
             : h("button.tk-prop-btn" + (empty ? ".is-empty" : ""), { type: "button", onclick: (e) => onClick(e.currentTarget) }, value))];
-}
-
-const REPEAT_PRESETS = [
-    { label: "Does not repeat", mode: 0, every: null },
-    { label: "Every day", mode: 1, every: 86400 },
-    { label: "Every week", mode: 1, every: 604800 },
-    { label: "Every 2 weeks", mode: 1, every: 1209600 },
-    { label: "Every month", mode: 2, every: null },
-    { label: "Every year", mode: 1, every: 31536000 },
-];
-const UNITS = [["hours", 3600], ["days", 86400], ["weeks", 604800], ["months", 2592000], ["years", 31536000]];
-
-export function repeatText(t) {
-    if (!t.repeat_mode) return "";
-    if (t.repeat_mode === 2) return "Every month";
-    const preset = REPEAT_PRESETS.find((p) => p.mode === t.repeat_mode && p.every === t.repeat_every);
-    let s = preset ? preset.label : (() => {
-        const [name, secs] = [...UNITS].reverse().find(([, s]) => t.repeat_every % s === 0) || ["minutes", 60];
-        const n = t.repeat_every / secs;
-        return `Every ${n} ${n === 1 ? name.replace(/s$/, "") : name}`;
-    })();
-    if (t.repeat_mode === 3) s += " after completion";
-    return s;
 }
 
 function renderProps() {
@@ -403,7 +407,8 @@ function remindersValue(t, ro) {
     const save = (list) => patchTask(t, { reminders: list.map((r) => ({ at: r.at || null, relative_to: r.relative_to || "", offset: r.offset || 0 })) }).catch(() => {});
     return h("div.tk-rems",
         rems.map((r, i) => h("span.tk-rem" + (r.sent ? ".is-sent" : ""), { title: r.fire_at ? `Fires ${fmtDateTime(r.fire_at)}` : "Needs a date on the task" },
-            icon("bell", 12), reminderText(r), r.sent ? h("span.app-muted", " · sent") : null,
+            icon("bell", 12), reminderText(r),
+            r.sent ? h("span.app-muted", " · sent") : r.relative_to && r.fire_at ? h("span.app-muted", ` · ${fmtDateTime(r.fire_at)}`) : !r.fire_at ? h("span.app-muted", " · needs a date") : null,
             ro ? null : h("button.tk-x", { type: "button", "aria-label": "Remove reminder", onclick: () => save(rems.filter((_, j) => j !== i)) }, icon("x", 12)))),
         ro ? (rems.length ? null : h("span.app-muted", "None")) : h("button.tk-prop-btn.is-empty.tk-add-inline", {
             type: "button",
@@ -522,7 +527,7 @@ function renderRelations() {
     const groups = {};
     for (const r of rels) (groups[r.kind] = groups[r.kind] || []).push(r);
     clear(parts.relations,
-        h("h3.tk-dr-h", "Relations", ro ? null : h("button.tk-link-btn", { type: "button", onclick: (e) => relationPicker(e.currentTarget) }, icon("plus", 12), "Add")),
+        h("h3.tk-dr-h", "Relations", rels.length ? h("span.tk-dr-count", String(rels.length)) : null, ro ? null : h("button.tk-link-btn", { type: "button", onclick: (e) => relationPicker(e.currentTarget) }, icon("plus", 12), "Add")),
         rels.length ? Object.entries(groups).map(([kind, items]) => h("div.tk-relgroup", h("div.tk-relkind", KINDS[kind] || kind),
             items.map((r) => h("div.tk-rel" + (r.other_done ? ".is-done" : ""),
                 icon(r.other_done ? "done" : "link", 14),

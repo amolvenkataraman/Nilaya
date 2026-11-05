@@ -114,6 +114,40 @@ export const PRIORITIES = [
 ];
 export function prioLevel(p) { return p > 15 ? 4 : p > 10 ? 3 : p > 5 ? 2 : p > 0 ? 1 : 0; }
 
+/** Root → leaf projects for a project id (for "Work › Website relaunch" paths). */
+export function projectPath(id) {
+    const out = [];
+    for (let p = project(id), n = 0; p && n < 20; p = project(p.parent_id), n++) out.unshift(p);
+    return out;
+}
+export const pathText = (id) => projectPath(id).map((p) => (p.is_inbox ? "Inbox" : p.name)).join(" › ");
+
+export const REPEAT_PRESETS = [
+    { label: "Does not repeat", short: "", mode: 0, every: null },
+    { label: "Every day", short: "Daily", mode: 1, every: 86400 },
+    { label: "Every week", short: "Weekly", mode: 1, every: 604800 },
+    { label: "Every 2 weeks", short: "Every 2 wk", mode: 1, every: 1209600 },
+    { label: "Every month", short: "Monthly", mode: 2, every: null },
+    { label: "Every year", short: "Yearly", mode: 1, every: 31536000 },
+];
+export const REPEAT_UNITS = [["hours", 3600], ["days", 86400], ["weeks", 604800], ["months", 2592000], ["years", 31536000]];
+
+/** "Every week", "Every 3 days after completion"; short=true gives "Weekly" for rows. */
+export function repeatText(t, short = false) {
+    if (!t.repeat_mode) return "";
+    const preset = t.repeat_mode === 2 ? REPEAT_PRESETS[4] : REPEAT_PRESETS.find((p) => p.mode === t.repeat_mode && p.every === t.repeat_every)
+        || (t.repeat_mode === 3 ? REPEAT_PRESETS.find((p) => p.mode === 1 && p.every === t.repeat_every) : null);
+    let s;
+    if (preset) s = short ? preset.short : preset.label;
+    else {
+        const [name, secs] = [...REPEAT_UNITS].reverse().find(([, x]) => t.repeat_every % x === 0) || ["minutes", 60];
+        const n = t.repeat_every / secs;
+        s = `Every ${n} ${n === 1 ? name.replace(/s$/, "") : name}`;
+    }
+    if (t.repeat_mode === 3) s += short ? " after done" : " after completion";
+    return s;
+}
+
 // ------------------------------------------------------------------ sidebar data (projects, labels, views, counts)
 
 const archivedQs = () => qs({ include_archived: S.showArchived || "" });
@@ -136,8 +170,8 @@ export async function loadMeta({ force = false } = {}) {
             Object.assign(S, { projects: cached.v.projects, labels: cached.v.labels, views: cached.v.views });
             S.overview = await api("GET", "overview");
         } else {
-            const [overview, projects, labels, views] = await Promise.all([
-                api("GET", "overview"), api("GET", "projects" + archivedQs()), api("GET", "labels"), api("GET", "views")]);
+            // One request for the whole sidebar: counts + projects + labels + saved views.
+            const { projects, labels, views, ...overview } = await api("GET", "overview" + qs({ include: S.showArchived ? "projects,labels,views,archived" : "projects,labels,views" }));
             Object.assign(S, { overview, projects, labels, views });
         }
         S.metaStale = false;
