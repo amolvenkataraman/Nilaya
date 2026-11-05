@@ -983,7 +983,8 @@ function toggle_calendar_visibility(e, only) {
 
     // Send the background request to persist the toggle on the server
     const r = new XMLHttpRequest();
-    r.open("GET", `${URLS['toggle_visibility']}?calendar=${calId}`);
+    r.open("POST", `${URLS['toggle_visibility']}?calendar=${calId}`);
+    r.setRequestHeader("X-CSRFToken", CSRF_TOKEN);
     r.onload = () => {
         const res = JSON.parse(r.responseText);
         if (res['status'] !== 'success') {
@@ -2276,7 +2277,8 @@ function toggle_invite(cb) {
 
 function toggle_calendar_enable(e) {
     r = new XMLHttpRequest();
-    r.open('GET', `${URLS['calendar']}?id=${e.dataset.calendar}&command=active`);
+    r.open('POST', `${URLS['calendar']}?id=${e.dataset.calendar}&command=active`);
+    r.setRequestHeader("X-CSRFToken", CSRF_TOKEN);
     r.onload = () => {
         $('#big-modal').modal("hide");
         populate_calendar(m, y, true);

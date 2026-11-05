@@ -166,56 +166,44 @@ def get_calendar_events(request):
 
 @login_required_api
 def calendar(request):
-    if request.method == 'GET':
-        cid = request.GET.get("id")
-        if cid == None:
-            return error_response("Calendar ID not provided")
-        try:
-            c_ = Calendar.objects.filter(id=cid)[0]
-            if len(c_.users_subscribed.filter(user=request.user)) > 0:
-                command = request.GET.get("command")
-                if command == "info" or command == None:
-                    return JsonResponse({**c_.getinfo(), **c_.get_subs()})
-                elif command == "active":
-                    if c_.users_subscribed.filter(user=request.user)[0].subscribe_type in [0, 1]:
-                        c_.active = not c_.active
-                        c_.save()
-                        return success_response()
-                    else:
-                        return error_response("Not authorized", 401)
-            else:
+    """GET ?id=: calendar info (subscribers + invites for owners/admins only).
+    POST ?id=&command=active: toggle active (owners/admins). POST (JSON body): create."""
+    cid = request.GET.get("id")
+    if cid is not None:
+        c_ = Calendar.objects.filter(id=cid).first()
+        sub = c_.users_subscribed.filter(user=request.user).first() if c_ else None
+        if sub is None:
+            return error_response("Not authorized", 401)
+        editor = sub.subscribe_type in (0, 1)
+        if request.method == 'GET':
+            return JsonResponse({**c_.getinfo(), **c_.get_subs(editor=editor)})
+        if request.GET.get("command") == "active":
+            if not editor:
                 return error_response("Not authorized", 401)
-        except IndexError:
-            return HttpResponseBadRequest("Invalid Calendar")
-
-    elif request.method == 'POST':
-        b = json.loads(request.body.decode('utf8'))
-        try:
-            c = Calendar(name=bleach.clean(b['name']), colour=b['color'])
-            c.owner = request.user
-            c.save()
-            s = Subscriber(user=request.user, calendar=c, subscribe_type=0, colour=b['color'])
-            s.save()
+            c_.active = not c_.active
+            c_.save(update_fields=["active"])
             return success_response()
-        except Exception as ex:
-            return server_error(ex)
+        return error_response("Unknown command")
 
+    if request.method == 'POST':
+        try:
+            b = json.loads(request.body.decode('utf8'))
+            c = Calendar.objects.create(name=bleach.clean(b['name']), colour=b['color'], owner=request.user)
+            Subscriber.objects.create(user=request.user, calendar=c, subscribe_type=0, colour=b['color'])
+            return success_response()
+        except (ValueError, KeyError):
+            return error_response("Name and colour required")
+    return error_response("Calendar ID not provided")
+
+@post_request_only
 @login_required_api
 def toggle_visibility(request):
-    calendar = request.GET.get("calendar")
-    if calendar == None:
-        return error_response("Calendar ID not provided")
-    try:
-        c_ = Calendar.objects.filter(id=calendar)[0]
-        qs = c_.users_subscribed.filter(user=request.user)
-        if len(qs) > 0:
-            qs[0].visible = not qs[0].visible
-            qs[0].save()
-            return success_response()
-        else:
-            return error_response("Not authorized", 401)
-    except IndexError:
-        return error_response("Invalid Calendar")
+    sub = request.user.calendar_subscribed.filter(calendar_id=request.GET.get("calendar") or 0).first()
+    if sub is None:
+        return error_response("Not subscribed to this calendar")
+    sub.visible = not sub.visible
+    sub.save(update_fields=["visible"])
+    return success_response()
 
 @post_request_only
 @login_required_api

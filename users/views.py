@@ -111,6 +111,8 @@ def profile_view(request, user=None):
 
 # Log a user out and redirect to login
 def logout_view(request):
+    if request.method != 'POST':  # never change state on GET (e.g. a link or <img> elsewhere)
+        return redirect('index')
     logout(request)
     return redirect('login')
 

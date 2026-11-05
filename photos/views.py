@@ -613,11 +613,14 @@ def get_photo(request, photo_id, ret_type):
     else:
         return error_response("Invalid return type")
 
+@post_request_only
 @login_required_api
 def ingest_photos(request):
+    # Only owners/editors can trigger an ingest (it writes into the album's library).
+    if not request.user.album_subscribed.filter(subscribe_type__in=[0, 1]).exists():
+        return error_response("Only album owners and editors can ingest photos", 403)
     try:
         ingest_all_photos.delay(user_id=request.user.id)
-        
         return success_response("Ingest started")
     except Exception as ex:
         return server_error(ex)
@@ -917,6 +920,7 @@ def manage_subscribers(request, album_id):
             return error_response("Invalid action", 400)
 
 
+@post_request_only
 @login_required_api
 def toggle_album_visibility(request, album_id):
     try:
@@ -927,6 +931,7 @@ def toggle_album_visibility(request, album_id):
     except Album_Subscriber.DoesNotExist:
         return error_response("Album subscription not found", 404)
 
+@post_request_only
 @login_required_api
 def display_only_album(request, album_id):
     try:

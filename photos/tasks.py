@@ -16,7 +16,7 @@ def ingest_all_photos(user_id=None):
         except ComptechUser.DoesNotExist:
             logger.error(f"User with ID {user_id} does not exist.")
             return
-        album_subs = user.album_subscribed.all()
+        album_subs = user.album_subscribed.filter(subscribe_type__in=[0, 1])  # owner/editor only
         albums = [i.album for i in album_subs]
     else:
         albums = list(Album.objects.all())

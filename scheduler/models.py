@@ -22,6 +22,11 @@ class Invite(models.Model):
     def get_user_objs(cls, user):
         pass
 
+def user_brief(user):
+    """The minimum other people need to recognise a user."""
+    return {"id": str(user.id), "username": user.username,
+            "first_name": user.first_name, "last_name": user.last_name}
+
 class Calendar(models.Model):
     name = models.CharField(max_length=64)
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='calendar_owner')
@@ -50,12 +55,14 @@ class Calendar(models.Model):
 
         return ans
 
-    def get_subs(self):
-        return {
-            "owner": self.owner.getinfo(),
-            "subscribers": [i.getinfo(user=True) for i in self.users_subscribed.all()],
-            "invites": [i.getinfo() for i in Invite.objects.filter(calendar=self)]
-        }
+    def get_subs(self, editor=False):
+        """Who's in the calendar. Only names are shared (no birthdays, groups or
+        admin flags); the subscriber list and invite codes are for owners/admins."""
+        ans = {"owner": user_brief(self.owner), "subscribers": [], "invites": []}
+        if editor:
+            ans["subscribers"] = [i.getinfo(user=True) for i in self.users_subscribed.select_related('user')]
+            ans["invites"] = [i.getinfo() for i in Invite.objects.filter(calendar=self)]
+        return ans
 
 class Subscriber(models.Model):
     calendar = models.ForeignKey(Calendar, on_delete=models.CASCADE, related_name='users_subscribed')
@@ -82,7 +89,7 @@ class Subscriber(models.Model):
 
         if cal: ans["calendar"] = self.calendar.getinfo()
     
-        if user: ans["user"] = self.user.getinfo()
+        if user: ans["user"] = user_brief(self.user)
 
         return ans
 

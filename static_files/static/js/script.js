@@ -18,13 +18,16 @@ function escapeHtml(value) {
         .replace(/'/g, "&#39;");
 }
 
+// CSRF token for POST requests from any page (read from Django's cookie).
+function csrfToken() {
+    return decodeURIComponent((document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1] || "");
+}
+
 function toggle_dark_mode() {
     r = new XMLHttpRequest();
-    // Static file: Django template tags are not rendered here, so use the
-    // literal route and read the CSRF token from its cookie.
-    const csrf = (document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1] || "";
+    // Static file: Django template tags are not rendered here, so use the literal route.
     r.open("POST", "/accounts/darkmode/");
-    r.setRequestHeader("X-CSRFToken", csrf);
+    r.setRequestHeader("X-CSRFToken", csrfToken());
     r.onload = () => {window.location.reload();}
     r.send();
 }

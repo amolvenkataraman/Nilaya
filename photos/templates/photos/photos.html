@@ -611,7 +611,8 @@
 
     function ingest_photos() {
         var r = new XMLHttpRequest();
-        r.open("GET", `{% url 'ingest_photos' %}`)
+        r.open("POST", `{% url 'ingest_photos' %}`)
+        r.setRequestHeader("X-CSRFToken", csrfToken())
         r.onload = () => {
             res = JSON.parse(r.responseText);
             if (res['status'] == 'success') {
