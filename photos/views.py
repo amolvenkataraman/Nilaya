@@ -9,6 +9,7 @@ from wsgiref.util import FileWrapper
 from .models import *
 from .indeximg import photo_ingest_for_album
 from .tasks import ingest_all_photos
+from notifications.service import notify
 from .AI.objects import NAME_TO_ID_MAPPING
 from scheduler.models import *
 from django.conf import settings as _settings
@@ -902,6 +903,9 @@ def manage_subscribers(request, album_id):
                 
             sub = ShareAlbum_Subscriber(album=album, user=target_user, subscribe_type=sub_type)
             sub.save()
+            notify(target_user, f"{request.user.get_full_name() or request.user.username} shared \"{album.name}\" with you",
+                   f"You can {'edit' if sub_type == 1 else 'view'} this album.", source="Photos",
+                   url=f"/photos/?album={album.id}")
             return success_response()
             
         elif action == "remove":

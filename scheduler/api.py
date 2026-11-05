@@ -10,6 +10,7 @@ from django.conf import settings as _settings
 CALENDAR_VARS, ONLINE_MODE, TIME_ZONE = _settings.CALENDAR_VARS, _settings.ONLINE_MODE, _settings.TIME_ZONE
 from Comptech.utils import *
 from photos.models import *
+from notifications.service import notify, Priority
 
 import datetime
 import json
@@ -394,6 +395,9 @@ def subscribe(request):
             "id": owner.id, "first_name": owner.first_name, "last_name": owner.last_name}})
 
     Subscriber.objects.create(calendar=calendar_, user=request.user, colour=calendar_.colour)
+    if calendar_.owner_id != request.user.id:
+        notify(calendar_.owner, f"{request.user.get_full_name() or request.user.username} subscribed to {calendar_.name}",
+               "Manage subscribers in the calendar's settings.", source="Calendar", url="/calendar/")
     if invite is not None:
         invite.uses += 1
         invite.save(update_fields=["uses"])

@@ -6,6 +6,7 @@ from django.conf import settings as _settings
 ONLINE_MODE = _settings.ONLINE_MODE
 from scheduler.models import *
 from scheduler.sync import *
+from notifications.service import notify, Priority
 from django.utils import timezone
 import datetime
 
@@ -18,6 +19,7 @@ def autosync_calendars():
         c = Calendar.objects.filter(calendar_type__gt=0, auto_sync=True, active=True)
         for cal in c:
             print(f"Syncing {cal.name}...")
+            status = None
             try:
                 tzoffset = datetime.datetime.now(pytz.timezone(timezone.get_current_timezone_name())).strftime('%z')
 
@@ -38,9 +40,15 @@ def autosync_calendars():
                 elif cal.calendar_type == 50: # UWaterloo WCMS
                     status = sync_uwaterloo(cal, start_time, end_time)
 
+                if status is False:
+                    raise RuntimeError("source unavailable")
                 print(f"{cal.name} has been synced!")
 
-            except: print(f"An error ocurred syncing {cal.name}")
+            except Exception as ex:
+                print(f"An error ocurred syncing {cal.name}: {type(ex).__name__}")
+                notify(cal.owner, f"Couldn't sync {cal.name}",
+                       "The calendar's source didn't respond or returned an error. Its events weren't updated.",
+                       source="Calendar", url="/calendar/", priority=Priority.HIGH)
     else:
         print("Calendar sync task has been cancelled because the server is in offline mode.")
 
