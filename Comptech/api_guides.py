@@ -29,6 +29,7 @@ ISO 8601 datetimes with offsets (UTC).""",
 - **Buckets** are kanban columns. Exactly one per project may be `is_done`: moving a task into it completes the
   task, and completing a task moves it there. `limit` is a WIP limit; a move into a full column returns 400.
 - **Priority** is 0–20: 0 None, 5 Low, 10 Medium (the default), 15 High, 20 Urgent. `priority_label` gives the name.
+- **Importing from another app:** `POST /` also takes `done` + `done_at` (create it already completed, at that time), `created_at`, `end` and `ref` (the original id, e.g. `vikunja:#12`); `PATCH` takes `done_at`, `created_at`, `end` and `ref` to backfill. Dates must be in the past.
 - **Repeating** (`repeat_mode`): 0 none, 1 every `repeat_every` seconds after the due date, 2 monthly,
   3 every `repeat_every` seconds after completion. Completing a repeating task moves its dates forward and
   keeps it open (`POST {id}/done` returns `repeated: true`).

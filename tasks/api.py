@@ -173,6 +173,8 @@ class TaskOut(Schema):
     description: str
     done: bool
     done_at: Optional[datetime.datetime]
+    end: Optional[datetime.datetime] = None   # imported end date, if any
+    ref: str = ""                             # the original app's id, for imports
     due: Optional[datetime.datetime]
     start: Optional[datetime.datetime]
     priority: int
@@ -207,6 +209,12 @@ class TaskOut(Schema):
     def resolve_done(o): return o.completed
     @staticmethod
     def resolve_done_at(o): return o.completed_on
+
+    @staticmethod
+    def resolve_end(o): return (o.custom_info or {}).get("end")
+
+    @staticmethod
+    def resolve_ref(o): return (o.custom_info or {}).get("ref") or ""
     @staticmethod
     def resolve_due(o): return o.complete_by
     @staticmethod
@@ -264,6 +272,12 @@ class TaskIn(Schema):
     position: Optional[float] = None
     percent: int = Field(0, ge=0, le=100)
     time_spent: int = Field(0, ge=0, le=SMALLINT)
+    # Importing from another app (e.g. Vikunja) keeps the original history:
+    done: bool = False                                     # create it already completed
+    done_at: Optional[datetime.datetime] = None            # when it was completed (default: now)
+    created_at: Optional[datetime.datetime] = None         # when it was created (default: now)
+    end: Optional[datetime.datetime] = None                # an end date, kept alongside start/due
+    ref: str = Field("", max_length=64)                    # the original app's id, e.g. "vikunja:#12"
 
 
 class TaskPatch(Schema):
@@ -282,6 +296,10 @@ class TaskPatch(Schema):
     favorite: Optional[bool] = None
     colour: Optional[str] = Field(None, pattern=HEX)
     reminders: Optional[list[ReminderIn]] = None  # replaces the list
+    done_at: Optional[datetime.datetime] = None     # correct when a completed task was done (backfill)
+    created_at: Optional[datetime.datetime] = None  # correct when it was created (backfill)
+    end: Optional[datetime.datetime] = None
+    ref: Optional[str] = Field(None, max_length=64)
 
 
 class MoveIn(Schema):
@@ -415,7 +433,39 @@ def _assignees(t, usernames):
     return users
 
 
+def _history_time(value, what):
+    """Imported timestamps: real moments in the past (a day of clock skew allowed)."""
+    if value is None:
+        return None
+    if timezone.is_naive(value):
+        value = timezone.make_aware(value)
+    if value > timezone.now() + datetime.timedelta(days=1) or value.year < 1990:
+        raise HttpError(400, f"{what} must be a past date")
+    return value
+
+
 def _apply_task(user, t, data):
+    if data.get("created_at"):
+        t.created_on = _history_time(data["created_at"], "created_at")
+    if "end" in data or data.get("ref") is not None:
+        ci = dict(t.custom_info or {})
+        if "end" in data:
+            if data["end"]:
+                ci["end"] = data["end"].isoformat()
+            else:
+                ci.pop("end", None)
+        if data.get("ref") is not None:
+            ref = _clean(data["ref"])[:64]
+            if ref:
+                ci["ref"] = ref
+            else:
+                ci.pop("ref", None)
+        t.custom_info = ci
+    if data.get("done"):  # create, already completed (no repeat step: it's history)
+        t.completed, t.status = True, 100
+        t.completed_on = _history_time(data.get("done_at"), "done_at") or timezone.now()
+    elif data.get("done_at") and t.completed:  # backfill on an existing completed task
+        t.completed_on = _history_time(data["done_at"], "done_at")
     simple = {"title": "name", "due": "complete_by", "start": "start_on", "priority": "priority",
               "percent": "percent_complete", "time_spent": "time_spent", "repeat_mode": "repeat_mode",
               "repeat_every": "repeat_every", "favorite": "favorite", "colour": "colour"}
@@ -797,6 +847,8 @@ def _create(user, data, parsed_labels=()):
         bucket = get_object_or_404(Bucket, id=data["bucket_id"], project=project)
     t = Todo(user=user, project=project, bucket=bucket or project.buckets.filter(is_done=False).first())
     _apply_task(user, t, data)
+    if t.completed and not bucket:
+        t.bucket = project.buckets.filter(is_done=True).first() or t.bucket
     t.position = data.get("position") if data.get("position") is not None else \
         (Todo.objects.filter(project=project).aggregate(m=Max("position"))["m"] or 0) + 1
     with transaction.atomic():

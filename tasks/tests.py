@@ -58,6 +58,17 @@ class TaskApiTests(TestCase):
         r = self.client.patch(f"/api/v2/tasks/{t['id']}", {"title": "Changed"}, content_type="application/json")
         self.assertIn(r.status_code, (403, 404))
 
+    def test_import_keeps_completion_and_creation_dates(self):
+        p = self.post("projects", {"name": "From Vikunja"}).json()
+        t = self.post("", {"title": "Old done task", "project_id": p["id"], "done": True, "done_at": "2025-03-04T10:00:00Z",
+                           "created_at": "2025-02-01T09:00:00Z", "end": "2025-03-05T10:00:00Z", "ref": "vikunja:#12"}).json()
+        self.assertEqual((t["done"], t["done_at"][:10], t["created_on"][:10], t["ref"]), (True, "2025-03-04", "2025-02-01", "vikunja:#12"))
+        self.assertEqual(self.client.get("/api/v2/tasks/overview").json()["done_today"], 0)  # history isn't "done today"
+        r = self.client.patch(f"/api/v2/tasks/{t['id']}", {"done_at": "2025-03-06T10:00:00Z"}, content_type="application/json").json()
+        self.assertEqual(r["done_at"][:10], "2025-03-06")
+        bad = self.post("", {"title": "Future", "done": True, "done_at": "2999-01-01T00:00:00Z"})
+        self.assertEqual(bad.status_code, 400)
+
     def test_orphan_todos_land_in_the_inbox(self):
         Todo.objects.create(user=self.owner, name="From the calendar")
         inbox = self.client.get("/api/v2/tasks/overview").json()["inbox_id"]
