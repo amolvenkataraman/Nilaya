@@ -284,6 +284,7 @@ class QuickIn(Schema):
     text: str = Field(..., min_length=1, max_length=512)
     project_id: Optional[uuid.UUID] = None
     parent_id: Optional[uuid.UUID] = None
+    bucket_id: Optional[int] = None  # e.g. "Add task" in a board column
 
 
 class DoneOut(Schema):
@@ -555,6 +556,21 @@ def delete_project(request, project_id: uuid.UUID):
     return 204, None
 
 
+class ReorderIn(Schema):
+    ids: list[uuid.UUID] = Field(..., max_length=2000)
+
+
+@router.post("/projects/{uuid:project_id}/reorder", response={204: None}, summary="Set task order (positions 0..n) in a project")
+def reorder_tasks(request, project_id: uuid.UUID, payload: ReorderIn):
+    p = _project(request.user, project_id, ProjectMember.Role.WRITE)
+    tasks = {t.id: t for t in Todo.objects.filter(project=p, id__in=payload.ids)}
+    ordered = [tasks[i] for i in payload.ids if i in tasks]
+    for pos, t in enumerate(ordered):
+        t.position = pos
+    Todo.objects.bulk_update(ordered, ["position"])
+    return 204, None
+
+
 @router.get("/projects/{uuid:project_id}/members", response=list[MemberOut])
 def list_members(request, project_id: uuid.UUID):
     p = _project(request.user, project_id)
@@ -746,6 +762,7 @@ def quick_add(request, payload: QuickIn):
         match = svc.accessible_projects(user).filter(name__iexact=p["project"], archived=False).first()
         project_id = match.id if match else svc.create_project(user, _clean(p["project"])[:128]).id
     data = {"title": p["title"][:256], "project_id": project_id, "parent_id": payload.parent_id, "due": p["due"],
+            "bucket_id": payload.bucket_id if not p["project"] else None,
             "priority": p["priority"] or 10, "repeat_mode": p["repeat_mode"], "repeat_every": p["repeat_every"]}
     if p["due"]:
         data["reminders"] = [{"relative_to": "due", "offset": 0, "at": None}]

@@ -51,6 +51,16 @@ class TaskApiTests(TestCase):
         inbox = self.client.get("/api/v2/tasks/overview").json()["inbox_id"]
         self.assertEqual(str(Todo.objects.get().project_id), inbox)
 
+    def test_reorder_and_quick_add_into_a_column(self):
+        p = self.post("projects", {"name": "Board"}).json()
+        todo, doing, done = self.client.get(f"/api/v2/tasks/projects/{p['id']}/buckets").json()
+        q = self.post("quick", {"text": "Fix bug tomorrow !3", "project_id": p["id"], "bucket_id": doing["id"]}).json()
+        self.assertEqual((q["bucket_id"], q["priority"]), (doing["id"], 15))
+        a, b = self.post("", {"title": "A", "project_id": p["id"]}).json(), self.post("", {"title": "B", "project_id": p["id"]}).json()
+        self.post(f"projects/{p['id']}/reorder", {"ids": [b["id"], q["id"], a["id"]]})
+        order = [t["title"] for t in self.client.get(f"/api/v2/tasks/?project={p['id']}&sort=position").json()["items"]]
+        self.assertEqual(order, ["B", "Fix bug", "A"])
+
     def test_done_after_filter(self):
         t = self.post("", {"title": "Ship it", "percent": 40, "time_spent": 30}).json()
         self.assertEqual((t["percent"], t["time_spent"]), (40, 30))

@@ -75,6 +75,7 @@ class PhotoOut(Schema):
 class PageOut(Schema):
     items: list[PhotoOut]
     next_before: Optional[datetime.datetime]
+    next_before_id: Optional[uuid.UUID] = None  # pass both back: photos can share a timestamp
 
 
 class LibraryOut(Schema):
@@ -118,19 +119,25 @@ def library(user, request=None):
     return hidden_mode.visible(qs, request)
 
 
-def _page(qs, before, limit):
+def _page(qs, before, limit, before_id=None):
+    """Newest first, keyset-paged on (date_taken, id) so photos with the same timestamp aren't skipped."""
     qs = qs.exclude(date_taken__isnull=True)
-    if before:
+    anchor = qs.filter(id=before_id).values_list("date_taken", flat=True).first() if before_id else None
+    if anchor:  # the exact stored timestamp (JSON rounds to milliseconds, so don't trust the echoed one)
+        qs = qs.filter(Q(date_taken__lt=anchor) | Q(date_taken=anchor, id__lt=before_id))
+    elif before:
         qs = qs.filter(date_taken__lt=before)
-    items = list(qs.select_related("album").order_by("-date_taken")[: max(1, min(limit, 300)) + 1])
+    limit = max(1, min(limit, 300))
+    items = list(qs.select_related("album").order_by("-date_taken", "-id")[: limit + 1])
     more = len(items) > limit
     items = items[:limit]
-    return {"items": items, "next_before": items[-1].date_taken if more and items else None}
+    last = items[-1] if more and items else None
+    return {"items": items, "next_before": last.date_taken if last else None, "next_before_id": last.id if last else None}
 
 
 @router.get("/timeline", response=PageOut, summary="Newest first; pass next_before to get the next page")
 def timeline(request, before: Optional[datetime.datetime] = None, limit: int = 120,
-             video: Optional[bool] = None, country: str = "", city: str = ""):
+             video: Optional[bool] = None, country: str = "", city: str = "", before_id: Optional[uuid.UUID] = None):
     qs = library(request.user, request)
     if video is not None:
         qs = qs.filter(video=video)
@@ -138,12 +145,14 @@ def timeline(request, before: Optional[datetime.datetime] = None, limit: int = 1
         qs = qs.filter(location_country=country)
     if city:
         qs = qs.filter(location_city=city)
-    return _page(qs, before, limit)
+    return _page(qs, before, limit, before_id)
 
 
 @router.get("/on-this-day", response=list[YearGroup], summary="Photos from today's date in earlier years")
 def on_this_day(request, per_year: int = 12):
-    today = timezone.localdate()
+    import pytz
+    tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else None
+    today = timezone.localdate(timezone=tz)  # the user's date, not the server's
     qs = (library(request.user, request).select_related("album")
           .filter(date_taken__month=today.month, date_taken__day=today.day, date_taken__year__lt=today.year)
           .order_by("-date_taken"))
@@ -193,11 +202,12 @@ def albums(request):
 
 
 @router.get("/albums/{uuid:album_id}/photos", response=PageOut)
-def album_photos(request, album_id: uuid.UUID, before: Optional[datetime.datetime] = None, limit: int = 120):
+def album_photos(request, album_id: uuid.UUID, before: Optional[datetime.datetime] = None, limit: int = 120,
+                 before_id: Optional[uuid.UUID] = None):
     album = get_object_or_404(ShareAlbum.objects.filter(
         Q(owner=request.user) | Q(sharealbum_users_subscribed__user=request.user) | Q(public=True)).distinct(),
         id=album_id)
-    return _page(hidden_mode.visible(Photo.objects.filter(photo_in_sharealbum__sharealbum=album), request), before, limit)
+    return _page(hidden_mode.visible(Photo.objects.filter(photo_in_sharealbum__sharealbum=album), request), before, limit, before_id)
 
 
 @router.get("/{uuid:photo_id}", response=PhotoOut)

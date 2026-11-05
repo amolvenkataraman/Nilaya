@@ -28,6 +28,21 @@ class PhotosApiTests(TestCase):
         self.assertEqual([p["id"] for p in rest["items"]], [str(self.photos[2].id)])
         self.assertIsNone(rest["next_before"])
 
+    def test_cursor_does_not_skip_photos_with_the_same_timestamp(self):
+        same = self.photos[0].date_taken
+        burst = [Photo.objects.create(owner=self.user, album=self.photos[0].album, filepath=f"b{i}.jpg", orientation="1",
+                                      date_taken=same) for i in range(3)]
+        self.client.force_login(self.user)
+        seen, params = [], {"limit": 2}
+        while True:
+            page = self.client.get("/api/v2/photos/timeline", params).json()
+            seen += [p["id"] for p in page["items"]]
+            if not page["next_before"]:
+                break
+            params = {"limit": 2, "before": page["next_before"], "before_id": page["next_before_id"]}
+        self.assertEqual(len(seen), len(set(seen)))
+        self.assertEqual(len(seen), 3 + len(burst))
+
     def test_other_users_cannot_see_the_library(self):
         self.client.force_login(self.stranger)
         self.assertEqual(self.client.get(f"/api/v2/photos/{self.photos[0].id}").status_code, 404)
