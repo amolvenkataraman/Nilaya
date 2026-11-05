@@ -1,0 +1,170 @@
+/* Amol Superapp design system: one set of tokens for every page, light + dark.
+ * Loaded after Bootstrap 5.3. Bootstrap's own components follow data-bs-theme;
+ * these tokens give the app its accent, surfaces, radius and type, and every
+ * page/app stylesheet should use the --app-* variables instead of literal colours. */
+
+:root,
+[data-bs-theme="light"] {
+    --app-bg: #f4f6f8;
+    --app-surface: #ffffff;
+    --app-surface-2: #eef1f5;
+    --app-fg: #1b222c;
+    --app-muted: #5d6878;
+    --app-border: #dbe0e7;
+    --app-accent: #0f6d77;
+    --app-accent-hover: #0b5960;
+    --app-accent-fg: #ffffff;
+    --app-accent-soft: #e2f1f2;
+    --app-danger: #c0392b;
+    --app-warning: #b7791f;
+    --app-success: #2f855a;
+    --app-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.06);
+    --app-overlay: rgba(16, 24, 40, 0.08);
+}
+
+[data-bs-theme="dark"] {
+    --app-bg: #0f141a;
+    --app-surface: #171e26;
+    --app-surface-2: #1f2832;
+    --app-fg: #e5eaf0;
+    --app-muted: #97a3b4;
+    --app-border: #2b3643;
+    --app-accent: #3cc3cf;
+    --app-accent-hover: #6bd5de;
+    --app-accent-fg: #0b1116;
+    --app-accent-soft: #15333a;
+    --app-danger: #f2766b;
+    --app-warning: #f0c060;
+    --app-success: #6fcf97;
+    --app-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.35);
+    --app-overlay: rgba(255, 255, 255, 0.07);
+    color-scheme: dark;
+}
+
+/* Bootstrap mapped onto the tokens, so its components match the app in both themes. */
+:root,
+[data-bs-theme] {
+    --app-radius: 10px;
+    --app-radius-sm: 6px;
+    --app-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    --app-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+    --bs-body-bg: var(--app-bg);
+    --bs-body-color: var(--app-fg);
+    --bs-body-font-family: var(--app-font);
+    --bs-secondary-color: var(--app-muted);
+    --bs-tertiary-bg: var(--app-surface-2);
+    --bs-secondary-bg: var(--app-surface-2);
+    --bs-border-color: var(--app-border);
+    --bs-border-radius: var(--app-radius-sm);
+    --bs-border-radius-lg: var(--app-radius);
+    --bs-link-color: var(--app-accent);
+    --bs-link-color-rgb: 15, 109, 119;
+    --bs-link-hover-color: var(--app-accent-hover);
+    --bs-primary: var(--app-accent);
+    --bs-focus-ring-color: color-mix(in srgb, var(--app-accent) 35%, transparent);
+}
+[data-bs-theme="dark"] { --bs-link-color-rgb: 60, 195, 207; }
+
+body {
+    background: var(--app-bg);
+    color: var(--app-fg);
+    font-family: var(--app-font);
+}
+
+.btn-primary {
+    --bs-btn-bg: var(--app-accent);
+    --bs-btn-border-color: var(--app-accent);
+    --bs-btn-color: var(--app-accent-fg);
+    --bs-btn-hover-bg: var(--app-accent-hover);
+    --bs-btn-hover-border-color: var(--app-accent-hover);
+    --bs-btn-hover-color: var(--app-accent-fg);
+    --bs-btn-active-bg: var(--app-accent-hover);
+    --bs-btn-active-border-color: var(--app-accent-hover);
+    --bs-btn-active-color: var(--app-accent-fg);
+    --bs-btn-disabled-bg: var(--app-accent);
+    --bs-btn-disabled-border-color: var(--app-accent);
+    --bs-btn-disabled-color: var(--app-accent-fg);
+}
+.btn-outline-primary {
+    --bs-btn-color: var(--app-accent);
+    --bs-btn-border-color: var(--app-accent);
+    --bs-btn-hover-bg: var(--app-accent);
+    --bs-btn-hover-border-color: var(--app-accent);
+    --bs-btn-hover-color: var(--app-accent-fg);
+    --bs-btn-active-bg: var(--app-accent-hover);
+    --bs-btn-active-color: var(--app-accent-fg);
+}
+.form-control:focus, .form-select:focus, .form-check-input:focus {
+    border-color: var(--app-accent);
+    box-shadow: 0 0 0 0.2rem var(--bs-focus-ring-color);
+}
+.form-check-input:checked { background-color: var(--app-accent); border-color: var(--app-accent); }
+.dropdown-menu { --bs-dropdown-link-active-bg: var(--app-accent); --bs-dropdown-link-active-color: var(--app-accent-fg); }
+.nav-pills { --bs-nav-pills-link-active-bg: var(--app-accent); --bs-nav-pills-link-active-color: var(--app-accent-fg); }
+:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+
+/* ---------- Shared building blocks ---------- */
+
+.app-card {
+    background: var(--app-surface);
+    border: 1px solid var(--app-border);
+    border-radius: var(--app-radius);
+    box-shadow: var(--app-shadow);
+}
+.app-muted { color: var(--app-muted); }
+
+/* Icon-only buttons (navbar, toolbars): inherit the text colour in both themes. */
+.unstyled-button,
+.unstyled-button:hover,
+.unstyled-button:focus {
+    color: inherit;
+    text-decoration: none;
+    border: none;
+    background: none;
+    border-radius: var(--app-radius-sm);
+}
+.unstyled-button:hover,
+.unstyled-button:focus-visible { background-color: var(--app-overlay); }
+
+.theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.85rem;
+}
+.theme-toggle svg { display: none; }
+[data-theme-pref="system"] .theme-toggle .ti-system,
+[data-theme-pref="light"] .theme-toggle .ti-light,
+[data-theme-pref="dark"] .theme-toggle .ti-dark { display: inline; }
+
+/* ---------- Sign-in / account pages ---------- */
+
+.auth-shell {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 32px max(16px, env(safe-area-inset-left, 0px)) 32px max(16px, env(safe-area-inset-right, 0px));
+    background:
+        radial-gradient(900px 500px at 15% -10%, var(--app-accent-soft), transparent 60%),
+        var(--app-bg);
+}
+.auth-card {
+    width: 100%;
+    max-width: 400px;
+    padding: 32px 28px;
+    display: grid;
+    gap: 20px;
+}
+.auth-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; }
+.auth-brand .mark {
+    width: 34px; height: 34px; border-radius: 9px;
+    display: grid; place-items: center;
+    background: var(--app-accent); color: var(--app-accent-fg);
+    font-weight: 700;
+}
+.auth-card h1 { font-size: 1.4rem; font-weight: 650; margin: 0; }
+.auth-card .lead-text { color: var(--app-muted); margin: 4px 0 0; font-size: 0.95rem; }
+.auth-card form { display: grid; gap: 14px; }
+.auth-card .form-text ul { margin: 6px 0 0; padding-left: 18px; }
+.auth-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 0.875rem; color: var(--app-muted); }

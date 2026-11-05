@@ -75,3 +75,5 @@ static_files/static/js/heatmap/heatmap.min.js
 static_files/static/js/moment/moment.min.js
 static_files/static/css/leaflet/leaflet.css
 static_files/static/js/popper/popper.js.map
+static_files/static/vendor/bootstrap-5.3.3/bootstrap.min.css
+static_files/static/vendor/bootstrap-5.3.3/bootstrap.bundle.min.js
