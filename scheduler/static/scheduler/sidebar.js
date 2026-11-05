@@ -231,8 +231,7 @@
         ]);
         row.append(main, open);
 
-        // "+ Task" needs a plain event id (an occurrence of a repeating deadline has "<series>:<start>").
-        if (it.kind === 'deadline' && !it.done && !String(it.id).includes(':')) {
+        if (it.kind === 'deadline' && !it.done) {
             if (it.has_todo) {
                 row.append(h('span', { class: 'ag-intask', title: 'Already in Tasks' }, [icon('check'), ' Task']));
             } else {
