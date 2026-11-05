@@ -244,6 +244,7 @@ CELERY_BEAT_SCHEDULE = {
     'task-reminders': {'task': 'tasks.tasks.send_due_reminders', 'schedule': 60.0},
     'auto-reminders': {'task': 'tasks.tasks.send_auto_reminders', 'schedule': 60.0},
     'habit-reminders': {'task': 'habits.tasks.send_habit_reminders', 'schedule': 60.0},
+    'contact-reminders': {'task': 'contacts.tasks.send_contact_reminders', 'schedule': crontab(minute=0, hour=8)},
     'cleanup-notifications': {'task': 'notifications.tasks.cleanup_expired_notifications', 'schedule': 6 * 3600.0},
 }
 
