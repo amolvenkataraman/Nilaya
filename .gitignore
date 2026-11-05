@@ -83,3 +83,6 @@ static_files/static/vendor/leaflet-markercluster-1.5.3/MarkerCluster.css
 # New React UI (frontend/): dependencies and build output (built by frontend/build.sh)
 frontend/node_modules/
 static_files/static/app/
+
+# Location-entry audit log (written by the app)
+photo_gg_ent_log.txt

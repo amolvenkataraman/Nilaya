@@ -12,7 +12,7 @@ from typing import Literal, Optional
 from django.db.models import Count, Max, Min, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from ninja import Router, Schema
+from ninja import Query, Router, Schema
 
 from ninja import Field
 from ninja.errors import HttpError
@@ -646,8 +646,11 @@ def game_round(request):
 
 
 @router.get("/locate/next", response=PhotoOut, summary="Location entry: the next photo without a location (optionally a year/month)")
-def locate_next(request, year: Optional[int] = None, month: Optional[int] = None, zero: bool = False):
+def locate_next(request, year: Optional[int] = None, month: Optional[int] = None, zero: bool = False,
+                exclude: list[uuid.UUID] = Query([], max_length=200, description="Photos skipped this session")):
     qs = library(request.user, request, listing=True).select_related("album")
+    if exclude:
+        qs = qs.exclude(id__in=exclude)
     if year:
         qs = qs.filter(date_taken__year=year)
     if month:
@@ -661,8 +664,9 @@ def locate_next(request, year: Optional[int] = None, month: Optional[int] = None
 
 
 class LocationIn(Schema):
-    lat: float = Field(..., ge=-90, le=90)
-    lng: float = Field(..., ge=-180, le=180)
+    """Both null clears the location (the classic tool's Clear)."""
+    lat: Optional[float] = Field(..., ge=-90, le=90)
+    lng: Optional[float] = Field(..., ge=-180, le=180)
 
 
 @router.post("/{uuid:photo_id}/location", response=PhotoOut, summary="Set a photo's location (library owners/editors)")
@@ -670,10 +674,16 @@ def set_location(request, photo_id: uuid.UUID, payload: LocationIn):
     from django.conf import settings
     from django.db import transaction
     from .models import refresh_photo_matviews
+    if (payload.lat is None) != (payload.lng is None):
+        raise HttpError(422, "Give both lat and lng, or both null to clear")
     p = get_object_or_404(_editable_library(request.user).select_related("album").distinct(), id=photo_id)
     p.latitude, p.longitude = payload.lat, payload.lng
-    p.save(update_fields=["latitude", "longitude"])
-    p.refresh_city_data()  # offline reverse geocoding: city/country
+    if payload.lat is None:
+        p.location_city = p.location_country = None
+        p.save(update_fields=["latitude", "longitude", "location_city", "location_country"])
+    else:
+        p.save(update_fields=["latitude", "longitude"])
+        p.refresh_city_data()  # offline reverse geocoding: city/country
     try:  # same audit trail as the classic tool
         with open(os.path.join(settings.BASE_DIR, "photo_gg_ent_log.txt"), "a") as f:
             f.write(f"{p.id} --> ({payload.lat}, {payload.lng}) [{request.user.username}]\n")

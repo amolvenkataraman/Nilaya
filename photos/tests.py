@@ -171,6 +171,7 @@ class GeoGamesTests(TestCase):
         self.client.force_login(self.viewer)
         self.assertEqual(self.client.get("/api/v2/photos/game/round").json()["id"], str(self.tagged.id))
         self.assertEqual(self.client.get("/api/v2/photos/locate/next").json()["id"], str(self.untagged.id))
+        self.assertEqual(self.client.get(f"/api/v2/photos/locate/next?exclude={self.untagged.id}").status_code, 404)  # skipped
 
     def test_only_owners_and_editors_can_set_a_location(self):
         body = {"lat": 48.85, "lng": 2.35}
@@ -185,3 +186,5 @@ class GeoGamesTests(TestCase):
         self.assertEqual((r.status_code, round(r.json()["lat"], 2)), (200, 48.85))
         bad = self.client.post(f"/api/v2/photos/{self.untagged.id}/location", {"lat": 95, "lng": 0}, content_type="application/json")
         self.assertEqual(bad.status_code, 422)
+        r = self.client.post(f"/api/v2/photos/{self.untagged.id}/location", {"lat": None, "lng": None}, content_type="application/json")
+        self.assertEqual((r.status_code, r.json()["lat"]), (200, None))  # cleared, like the classic Clear button
