@@ -92,6 +92,10 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# Other sites can't frame us (clickjacking); our own pages can (the calendar shows
+# a day's / an event's photos in an iframe).
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 ROOT_URLCONF = 'Comptech.urls'
 
 TEMPLATES = [
