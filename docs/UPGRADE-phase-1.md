@@ -20,7 +20,7 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 | `SITE_URL` (links in notifications and feeds) | Already `https://app.example.com`; change it if your domain differs |
 
 ### Behaviour changes users will notice
-- **Deleting photos** (and deleting originals) now needs owner or editor access to the library; viewers can no longer delete files.
+- **Deleting photos** (and deleting originals) and **setting photo locations** in the location-entry tool now need owner or editor access to the library; viewers could do both before.
 - **Dark mode** is chosen per device from the user menu (the old per-account switch is gone).
 - **Calendar categories** are now named, per-owner categories made from the old numbers; repeating events from ICS/Google feeds keep their rules.
 - **Heatmaps** leave out photos taken at 2000 m and up (was over 1000 m).
