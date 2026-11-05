@@ -7,7 +7,7 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-        <title>{% block page_title %} {% endblock page_title %}</title>
+        <title>{% block page_title %}{% endblock page_title %} · AVNet Superapp</title>
         <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}" />
 
         <!-- Scripts and stylesheets -->
@@ -91,7 +91,7 @@
                     <ul class="dropdown-menu dropdown-menu-end" role="menu" aria-labelledby="appsDropdownBtn">
                         <li><a class="dropdown-item" href="{% url 'display_calendar' %}">Calendar</a></li>
                         <li><a class="dropdown-item" href="{% url 'photos' %}">Photos</a></li>
-                        <li><a class="dropdown-item" href="{% url 'map' %}">Map</a></li>
+                        <li><a class="dropdown-item" href="{% url 'map' %}">Places</a></li>
                         <li><hr class="dropdown-divider"></li>
                         <li><a class="dropdown-item" href="{% url 'apps' %}">All Apps</a></li>
                     </ul>

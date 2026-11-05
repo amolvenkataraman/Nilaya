@@ -11,7 +11,7 @@ from ninja import NinjaAPI
 from ninja.security import django_auth
 
 api = NinjaAPI(
-    title="Amol Superapp API",
+    title="AVNet Superapp API",
     version="2.0",
     urls_namespace="api-v2",
     auth=django_auth,

@@ -18,6 +18,9 @@ from django.urls import include, path, re_path
 from django.conf.urls.static import static
 from django.conf import settings
 
+admin.site.site_header = admin.site.site_title = "AVNet Superapp admin"
+admin.site.index_title = "Administration"
+
 from Comptech.api_v2 import api as api_v2
 
 urlpatterns = [

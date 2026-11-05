@@ -21,7 +21,7 @@ log = logging.getLogger("comptech.notifications")
 __all__ = ["notify", "notify_many", "deliver", "Priority"]
 
 
-def notify(user, title, body="", *, source="Superapp", priority=Priority.NORMAL, url="",
+def notify(user, title, body="", *, source="AVNet Superapp", priority=Priority.NORMAL, url="",
            expires_in=None, deliver_now=True):
     n = Notification.objects.create(
         user=user, title=title[:128], description=body or None, source=source[:128],

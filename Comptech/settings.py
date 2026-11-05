@@ -54,7 +54,7 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = ''
 EMAIL_HOST_PASSWORD = _read_secret('email_password.txt', required=False)
 EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = 'Amol Superapp <noreply@example.com>'
+DEFAULT_FROM_EMAIL = 'AVNet Superapp <noreply@example.com>'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False # True in development, False in production

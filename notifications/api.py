@@ -179,7 +179,7 @@ def delete_channel(request, channel_id: uuid.UUID):
 @router.post("/channels/{uuid:channel_id}/test", response=TestOut, summary="Send a test message to one channel now")
 def test_channel(request, channel_id: uuid.UUID):
     channel = get_object_or_404(NotificationChannel, id=channel_id, user=request.user)
-    sample = Notification(user=request.user, title="Test notification", source="Superapp",
+    sample = Notification(user=request.user, title="Test notification", source="AVNet Superapp",
                           description="If you can read this, this channel works.", url="/notifications/",
                           priority=Priority.NORMAL, created_on=timezone.now())
     try:

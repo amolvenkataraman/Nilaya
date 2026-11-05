@@ -1,5 +1,5 @@
 
-# Comptech
+# AVNet Superapp (V1)
 My very own tech giant. (Recovered backup from April 2024 modified for running with the current server setup)
 
 ### WARNING: This is a half-decade old codebase carrying all the technical debt that high school me created. I strongly suggest NOT deploying this until I make my full rewrite (currently a work in progress). This repository is only to serve as a memory of my old code, and as a reference for the aforementioned full rewrite. This version is currently NOT STABLE ENOUGH FOR PRODUCTION.
@@ -22,6 +22,6 @@ My very own tech giant. (Recovered backup from April 2024 modified for running w
 4. Run the commands `python manage.py makemigrations` and `python manage.py migrate` to set up the database.
 5. Run the command `python manage.py createsuperuser` and follow the instructions to create an admin user.
 6. Start the server by running the command `python manage.py runserver`.
-7. Visit `127.0.0.1:8000` in your browser to view the website. Congratulations! 🎉 You have successfully set up Comptech on your computer.
+7. Visit `127.0.0.1:8000` in your browser to view the website. Congratulations! 🎉 You have successfully set up AVNet Superapp on your computer.
 8. Not so quick. When you try to visit the website, you might get an error. This is because there are no background images to display on the login page.
 9. To fix this, login to the admin page by visiting `127.0.0.1:8000/admin` and log in with the credentials you entered in step 5. After logging in, click on *Bg_images* and click on the *ADD BG_IMAGE* button on the top right. Upload a large landscape image, fill in the textboxes and click *Save*. You will now have a background image when you visit the login page.
