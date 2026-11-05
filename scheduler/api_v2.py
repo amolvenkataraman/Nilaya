@@ -457,7 +457,8 @@ def insights(request, period: Literal["week", "month"] = "week", date: Optional[
     return {
         "period": period, "start": first, "end": last - datetime.timedelta(days=1),
         "totals": cur["totals"],
-        "previous": {k: prev["totals"][k] for k in ("events", "hours", "deadlines", "meeting_hours", "focus_hours")},
+        "previous": {**{k: prev["totals"][k] for k in ("events", "hours", "deadlines", "meeting_hours", "focus_hours")},
+                     "photos": library(request.user).filter(date_taken__gte=prev_start, date_taken__lt=start).count()},
         "by_category": cur["by_category"], "by_calendar": cur["by_calendar"],
         "by_weekday": cur["by_weekday"], "by_hour": cur["by_hour"], "heat": cur["heat"], "per_day": cur["per_day"],
         "todos": {"completed": todos.filter(completed_on__gte=start, completed_on__lt=end).count(),
