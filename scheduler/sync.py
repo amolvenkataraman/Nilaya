@@ -27,6 +27,23 @@ from scheduler import recurrence as rec
 
 # Timeout (seconds) for all outbound sync requests
 SYNC_TIMEOUT = 30
+PREVIEW_MAX_BYTES = 20 * 1024 * 1024  # a preview reads at most this much of a feed
+
+
+def source_url(url):
+    """webcal:// (what calendar apps hand out) is plain HTTP(S); requests can't fetch the scheme itself."""
+    url = (url or "").strip()
+    low = url.lower()
+    if low.startswith("webcals://"):
+        return "https://" + url[10:]
+    if low.startswith("webcal://"):
+        return "https://" + url[9:]
+    return url
+
+
+def _google_events_url(calendar_id):
+    from urllib.parse import quote
+    return f"https://www.googleapis.com/calendar/v3/calendars/{quote(calendar_id.strip(), safe='@.')}/events"
 
 # Synced descriptions are rendered as HTML by the calendar UI, so keep basic
 # formatting but strip scripts, event handlers and javascript: URLs.
@@ -299,7 +316,7 @@ def sync_ical(calendar, start, end, url=None, conditional=False):
         if calendar.sync_etag: headers["If-None-Match"] = calendar.sync_etag
         if calendar.sync_last_modified: headers["If-Modified-Since"] = calendar.sync_last_modified
     try:
-        r = requests.get(url, timeout=SYNC_TIMEOUT, headers=headers)
+        r = requests.get(source_url(url), timeout=SYNC_TIMEOUT, headers=headers)
         if r.status_code == 304:
             return "not_modified"
         r.raise_for_status()
@@ -401,7 +418,7 @@ def sync_google(calendar, start, end, token, url=None):
                       "showDeleted": "true", "maxResults": 2500}
             if page:
                 params["pageToken"] = page
-            r = requests.get(f"https://www.googleapis.com/calendar/v3/calendars/{url}/events", params=params,
+            r = requests.get(_google_events_url(url), params=params,
                              headers={'Authorization': f'Bearer {token}'} if token != None else None,
                              timeout=SYNC_TIMEOUT)
             r.raise_for_status()
@@ -449,6 +466,53 @@ def sync_uwaterloo(calendar, start, end):
         return False
 
     return True
+
+
+def preview_source(calendar_type, url, tz):
+    """Fetch a source without saving anything: its name, how many events it has and the next few,
+    so people can check a link before creating a calendar from it. Raises ValueError with a
+    readable message when the source can't be read."""
+    now = timezone.now()
+    if calendar_type == 1:
+        try:
+            r = requests.get(source_url(url), timeout=SYNC_TIMEOUT, stream=True)
+            r.raise_for_status()
+            body = r.raw.read(PREVIEW_MAX_BYTES + 1, decode_content=True)
+        except requests.RequestException as ex:
+            raise ValueError(f"Couldn't download the feed ({type(ex).__name__}).")
+        if len(body) > PREVIEW_MAX_BYTES:
+            raise ValueError("The feed is too large to preview.")
+        try:
+            name = str(icalendar.Calendar.from_ical(body).get("X-WR-CALNAME") or "")
+            items = parse_ics(body, tz)
+        except Exception:
+            raise ValueError("That link isn't an iCalendar (.ics) feed.")
+        def when(it):
+            return rec.local_midnight(it["start_day"], tz) if it.get("all_day") else it.get("start")
+        masters = [it for it in items if it.get("recurrence_id") is None and it.get("status") != "cancelled"]
+        upcoming = sorted((it for it in masters if it.get("rrule") or (when(it) and when(it) >= now)),
+                          key=lambda it: (not it.get("rrule") and when(it)) or now)[:5]
+        return {"name": name[:64], "events": len(masters), "series": sum(1 for it in masters if it.get("rrule")),
+                "upcoming": [{"name": it.get("name") or "(no title)", "start": when(it), "all_day": it.get("all_day", False),
+                              "repeats": bool(it.get("rrule"))} for it in upcoming]}
+    if calendar_type == 2:
+        try:
+            r = requests.get(_google_events_url(url), timeout=SYNC_TIMEOUT, params={
+                "key": GOOGLE_API_KEY, "timeMin": now.isoformat(), "singleEvents": "true", "orderBy": "startTime",
+                "maxResults": 5})
+            r.raise_for_status()
+            res = r.json()
+        except requests.RequestException as ex:
+            code = getattr(getattr(ex, "response", None), "status_code", None)
+            raise ValueError("Google says this calendar isn't public or doesn't exist." if code in (403, 404)
+                             else f"Couldn't reach Google Calendar ({type(ex).__name__}).")
+        upcoming = []
+        for e in res.get("items", []):
+            start, day, _ = _google_time(e.get("start"), tz)
+            upcoming.append({"name": e.get("summary") or "(no title)", "start": start or (rec.local_midnight(day, tz) if day else None),
+                             "all_day": day is not None, "repeats": bool(e.get("recurringEventId"))})
+        return {"name": (res.get("summary") or "")[:64], "events": None, "series": None, "upcoming": upcoming}
+    raise ValueError("Previews are available for iCalendar links and Google calendars.")
 
 
 def window_strings(cal, now=None):

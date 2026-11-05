@@ -100,6 +100,36 @@ class CalendarIn(Schema):
     description: str = Field("", max_length=2000)
     time_zone: str = ""
     tags: list[str] = []
+    # A synced calendar: 1 iCalendar link, 2 public Google calendar (its ID), 50 UWaterloo WCMS
+    calendar_type: Literal[0, 1, 2, 50] = 0
+    calendar_url: Optional[str] = Field(None, max_length=256)
+    auto_sync: bool = False
+    sync_past_months: int = Field(1, ge=0, le=120)
+    sync_future_months: int = Field(6, ge=0, le=120)
+
+
+def _check_source(calendar_type, url):
+    """A synced calendar needs a source; links must be http(s) or webcal (Google takes a calendar ID)."""
+    url = (url or "").strip()
+    if calendar_type == 0:
+        return None
+    if not url:
+        raise HttpError(400, "A synced calendar needs a link (or a Google calendar ID)")
+    if calendar_type in (1, 50) and not url.lower().startswith(("http://", "https://", "webcal://", "webcals://")):
+        raise HttpError(400, "Use an http(s) or webcal link")
+    return url
+
+
+class PreviewIn(Schema):
+    calendar_type: Literal[1, 2] = 1
+    url: str = Field(..., min_length=1, max_length=256)
+
+
+class SyncIn(Schema):
+    """A one-off sync of a chosen range (the classic Sync dialog). Months: [start, end)."""
+    start: Optional[datetime.date] = None
+    end: Optional[datetime.date] = None
+    token: Optional[str] = Field(None, max_length=4096)  # Google OAuth access token for a private calendar
 
 
 class CalendarPatch(Schema):
@@ -187,10 +217,14 @@ def create_calendar(request, payload: CalendarIn):
         raise HttpError(400, "Unknown icon")
     if payload.time_zone and not rec.valid_zone(payload.time_zone):
         raise HttpError(400, "Unknown time zone")
+    url = _check_source(payload.calendar_type, payload.calendar_url)
     with transaction.atomic():
         c = Calendar.objects.create(name=bleach.clean(payload.name), colour=payload.colour.lower(), owner=request.user,
                                     icon=payload.icon, description=bleach.clean(payload.description),
-                                    time_zone=payload.time_zone, tags=svc.clean_tags(payload.tags))
+                                    time_zone=payload.time_zone, tags=svc.clean_tags(payload.tags),
+                                    calendar_type=payload.calendar_type, calendar_url=url,
+                                    auto_sync=payload.auto_sync and payload.calendar_type != 0,
+                                    sync_past_months=payload.sync_past_months, sync_future_months=payload.sync_future_months)
         sub = Subscriber.objects.create(user=request.user, calendar=c, subscribe_type=0, colour=payload.colour.lower())
     return 201, _calendar_out(sub)
 
@@ -230,7 +264,7 @@ def update_calendar(request, calendar_id: int, payload: CalendarPatch):
         if k == "time_zone" and v and not rec.valid_zone(v):
             raise HttpError(400, "Unknown time zone")
         if k == "calendar_url":
-            v = v.strip() or None
+            v = _check_source(data.get("calendar_type", c.calendar_type), v) if v.strip() else None
             if v != c.calendar_url:
                 c.sync_etag, c.sync_last_modified = "", ""
                 changed += ["sync_etag", "sync_last_modified"]
@@ -255,16 +289,47 @@ def delete_calendar(request, calendar_id: int, confirm: str):
     return 204, None
 
 
-@router.post("/calendars/{int:calendar_id}/sync", summary="Sync a calendar from its source now")
+@router.post("/preview-source", summary="Read a calendar link (or public Google calendar ID) without saving: name, counts, next events")
+def preview_source(request, payload: PreviewIn):
+    from .sync import preview_source as preview
+    if not settings.ONLINE_MODE:
+        raise HttpError(503, "The server is in offline mode")
+    _check_source(payload.calendar_type, payload.url)
+    try:
+        tz = rec.zone(request.user.timezone if rec.valid_zone(request.user.timezone) else "")
+        return preview(payload.calendar_type, payload.url, tz)
+    except ValueError as ex:
+        raise HttpError(422, str(ex))
+
+
+@router.post("/calendars/{int:calendar_id}/sync", summary="Sync a calendar from its source now (its window, or a chosen range of months)")
 def sync_now(request, calendar_id: int):
+    """Body optional: {start, end, token} (SyncIn). Without one, the calendar's own window."""
+    from pydantic import ValidationError
     from .sync import sync_calendar
+
+    try:
+        is_json = request.content_type == "application/json" and request.body.strip()
+        payload = SyncIn.model_validate_json(request.body) if is_json else None
+    except ValidationError as ex:
+        raise HttpError(422, ex.errors(include_url=False, include_context=False)[0]["msg"])
 
     c = _sub(request.user, calendar_id, editor=True).calendar
     if c.calendar_type == 0:
         raise HttpError(400, "This is a local calendar")
+    if not c.calendar_url:
+        raise HttpError(400, "Add the calendar's link first")
     if not settings.ONLINE_MODE:
         raise HttpError(503, "The server is in offline mode")
-    status = sync_calendar(c, conditional=False)
+    start = end = None
+    if payload and (payload.start or payload.end):
+        if not (payload.start and payload.end) or payload.end <= payload.start:
+            raise HttpError(400, "Pick a start month before the end month")
+        if (payload.end - payload.start).days > 3 * 366:
+            raise HttpError(400, "Sync up to three years at a time")
+        at = lambda d: datetime.datetime(d.year, d.month, d.day, tzinfo=c.tz).isoformat()
+        start, end = at(payload.start), at(payload.end)
+    status = sync_calendar(c, start, end, token=(payload.token or None) if payload else None, conditional=False)
     c.refresh_from_db(fields=["last_synced_at", "last_sync_error"])
     return {"ok": bool(status), "not_modified": status == "not_modified", "last_synced_at": c.last_synced_at,
             "last_sync_error": c.last_sync_error}
@@ -821,10 +886,13 @@ def _save(e):
 @router.get("/events", response=list[EventOut], summary="Events overlapping [start, end), repeating events expanded")
 def list_events(request, start: datetime.datetime, end: datetime.datetime,
                 calendar: Optional[int] = None, include_hidden: bool = False, q: str = "", tag: str = "",
-                include_cancelled: bool = False):
+                include_cancelled: bool = False, include_inactive: bool = False):
     if end <= start or end - start > datetime.timedelta(days=400):
         raise HttpError(400, "Pick a range of up to 400 days")
-    subs = svc.visible_calendar_ids(request.user, include_hidden=include_hidden).select_related("calendar")
+    # Inactive (disabled) calendars stay out of the normal view, but asking for one by id, or with
+    # include_inactive, shows its events (to look something up before re-enabling it).
+    subs = svc.visible_calendar_ids(request.user, include_hidden=include_hidden or calendar is not None,
+                                    include_inactive=include_inactive or calendar is not None).select_related("calendar")
     if calendar is not None:
         subs = subs.filter(calendar_id=calendar)
     subs = {s.calendar_id: s for s in subs}

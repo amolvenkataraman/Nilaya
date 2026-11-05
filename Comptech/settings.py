@@ -270,6 +270,8 @@ CELERY_BEAT_SCHEDULE = {
     'habit-reminders': {'task': 'habits.tasks.send_habit_reminders', 'schedule': 60.0},
     'contact-reminders': {'task': 'contacts.tasks.send_contact_reminders', 'schedule': crontab(minute=0, hour=8)},
     'cleanup-notifications': {'task': 'notifications.tasks.cleanup_expired_notifications', 'schedule': 6 * 3600.0},
+    # Every calendar with "Sync automatically" on (ICS feeds use conditional GETs: cheap when unchanged).
+    'calendar-autosync': {'task': 'scheduler.tasks.autosync_calendars', 'schedule': 30 * 60.0},
 }
 
 

@@ -26,6 +26,15 @@ class CalendarApiTests(TestCase):
         Subscriber.objects.create(calendar=self.shared, user=self.user, subscribe_type=2)
         self.client.force_login(self.user)
 
+    def test_inactive_calendars_are_hidden_unless_asked_for(self):
+        Event.objects.create(calendar=self.cal, name="Old plan", startdate=at(5, 9), enddate=at(5, 10))
+        Calendar.objects.filter(id=self.cal.id).update(active=False)
+        rng = {"start": at(1, 0).isoformat(), "end": at(30, 0).isoformat()}
+        names = lambda **q: [e["name"] for e in self.client.get("/api/v2/calendar/events", {**rng, **q}).json()]
+        self.assertEqual(names(), [])
+        self.assertEqual(names(calendar=self.cal.id), ["Old plan"])
+        self.assertEqual(names(include_inactive="true"), ["Old plan"])
+
     def test_subscribers_are_read_only_and_bad_ranges_rejected(self):
         body = {"calendar_id": self.shared.id, "name": "x", "start": at(5, 9).isoformat()}
         self.assertEqual(self.client.post("/api/v2/calendar/events", body, content_type="application/json").status_code, 403)

@@ -1,6 +1,9 @@
 """Tasks: quick-add parsing, recurring, kanban done-sync, WIP limits, sharing roles, Inbox."""
 
 import datetime
+from datetime import datetime as _dt
+
+dt_parse = _dt.fromisoformat
 
 import pytz
 from django.test import TestCase
@@ -82,6 +85,9 @@ class TaskApiTests(TestCase):
         self.assertTrue(r["repeated"])
         self.assertFalse(r["task"]["done"])
         self.assertGreater(r["task"]["due"], due)
+        undone = self.client.post(f"/api/v2/tasks/{t['id']}/done?done=false").json()  # Undo puts the dates back
+        self.assertEqual(dt_parse(undone["task"]["due"]), dt_parse(due))
+        self.assertEqual(self.post("", {"title": "Someday", "priority": 0}).json()["priority_label"], "None")
 
     def test_done_column_sync_and_wip_limit(self):
         p = self.post("projects", {"name": "Reno"}).json()

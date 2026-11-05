@@ -7,7 +7,7 @@ from pathlib import Path
 from unittest import mock
 from zoneinfo import ZoneInfo
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 
 from users.models import ComptechUser
 
@@ -77,6 +77,32 @@ class SyncTests(TestCase):
         stamps = dict(Event.objects.filter(calendar=self.cal).values_list("id", "updated_on"))
         self.ics("feed.ics")  # e.g. a feed without ETags: same content again
         self.assertEqual(dict(Event.objects.filter(calendar=self.cal).values_list("id", "updated_on")), stamps)
+
+    @override_settings(ONLINE_MODE=True)
+    def test_create_from_a_webcal_link_preview_and_sync_a_chosen_range(self):
+        feed = (DATA / "feed.ics").read_bytes()
+        stream = lambda *a, **k: mock.Mock(status_code=200, headers={}, raw=mock.Mock(read=lambda n, decode_content: feed),
+                                           raise_for_status=lambda: None)
+        with mock.patch("scheduler.sync.requests.get", side_effect=stream) as g:
+            pv = self.client.post("/api/v2/calendar/preview-source", {"url": "webcal://x/f.ics"}, content_type="application/json")
+        self.assertEqual(pv.status_code, 200, pv.content)
+        self.assertEqual(g.call_args.args[0], "https://x/f.ics")  # webcal is fetched over https
+        self.assertEqual((pv.json()["series"], pv.json()["events"] >= 2), (2, True))
+        bad = self.client.post("/api/v2/calendar/calendars", {"name": "X", "calendar_type": 1, "calendar_url": "ftp://x"},
+                               content_type="application/json")
+        self.assertEqual(bad.status_code, 400)
+        cal = self.client.post("/api/v2/calendar/calendars", {"name": "Uni", "calendar_type": 1, "calendar_url": "webcal://x/f.ics",
+                                                              "auto_sync": True}, content_type="application/json").json()
+        with mock.patch("scheduler.sync.requests.get", return_value=response(feed)) as g:
+            r = self.client.post(f"/api/v2/calendar/calendars/{cal['id']}/sync",
+                                 {"start": "2026-11-01", "end": "2026-12-01", "token": "tok"}, content_type="application/json")
+            self.assertEqual((r.status_code, r.json()["ok"]), (200, True))
+            r = self.client.post(f"/api/v2/calendar/calendars/{cal['id']}/sync")  # no body: its own window
+            self.assertEqual(r.status_code, 200)
+        self.assertEqual(g.call_args.args[0], "https://x/f.ics")
+        self.assertTrue(Event.objects.filter(calendar_id=cal["id"], sync_id="single-1@example.org").exists())
+        self.assertEqual(self.client.post(f"/api/v2/calendar/calendars/{cal['id']}/sync", {"start": "2026-12-01", "end": "2026-11-01"},
+                                          content_type="application/json").status_code, 400)
 
     def test_ics_not_modified_skips_the_import(self):
         with mock.patch("scheduler.sync.requests.get", return_value=response(b"", status=304)):

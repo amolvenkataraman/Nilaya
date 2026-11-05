@@ -12,7 +12,7 @@ from scheduler.models import Todo
 
 from .models import Bucket, Label, Project, ProjectMember, Reminder
 
-PRIORITIES = [(5, "Low"), (10, "Medium"), (15, "High"), (20, "Urgent")]
+PRIORITIES = [(0, "None"), (5, "Low"), (10, "Medium"), (15, "High"), (20, "Urgent")]
 DEFAULT_BUCKETS = [("To do", False), ("Doing", False), ("Done", True)]
 
 
@@ -82,10 +82,41 @@ def _add_months(dt, n):
     return dt.replace(year=y, month=m, day=min(dt.day, calendar.monthrange(y, m)[1]))
 
 
+UNDO_REPEAT_WINDOW = datetime.timedelta(hours=1)
+
+
+def _shift_dates(todo, shift):
+    if todo.complete_by:
+        todo.complete_by += shift
+    if todo.start_on:
+        todo.start_on += shift
+
+
 def set_done(todo, done):
     """Complete or reopen. A repeating task moves its dates forward and stays open.
-    Returns True if the task repeated."""
+    Reopening a repeating task within an hour of completing it undoes that step (dates and
+    reminders move back). Returns True if the task repeated."""
     now = timezone.now()
+    info = todo.custom_info or {}
+    if not done and todo.repeat_mode and not todo.completed and info.get("last_shift_s") is not None:
+        try:
+            recent = now - datetime.datetime.fromisoformat(info["last_done"]) <= UNDO_REPEAT_WINDOW
+        except (KeyError, TypeError, ValueError):
+            recent = False
+        if recent:
+            shift = -datetime.timedelta(seconds=info["last_shift_s"])
+            _shift_dates(todo, shift)
+            todo.completed_on = None
+            todo.custom_info = {k: v for k, v in info.items() if k not in ("last_shift_s", "last_done")}
+            todo.custom_info["times_done"] = max(0, info.get("times_done", 1) - 1)
+            todo.save()
+            for r in todo.reminders.all():
+                if r.at:
+                    r.at += shift
+                r.sent_at = None
+                r.resolve()
+                r.save()
+            return False
     if done and todo.repeat_mode and (todo.complete_by or todo.start_on):
         anchor = todo.complete_by or todo.start_on
         if todo.repeat_mode == 2:
@@ -100,12 +131,9 @@ def set_done(todo, done):
         else:
             new_anchor = anchor
         shift = new_anchor - anchor
-        if todo.complete_by:
-            todo.complete_by += shift
-        if todo.start_on:
-            todo.start_on += shift
+        _shift_dates(todo, shift)
         todo.completed_on = now
-        todo.custom_info = {**(todo.custom_info or {}), "last_done": now.isoformat(),
+        todo.custom_info = {**(todo.custom_info or {}), "last_done": now.isoformat(), "last_shift_s": shift.total_seconds(),
                             "times_done": (todo.custom_info or {}).get("times_done", 0) + 1}
         todo.save()
         for r in todo.reminders.all():
