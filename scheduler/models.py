@@ -281,6 +281,7 @@ class Event(models.Model):
     colour = models.CharField(max_length=7, null=True, blank=True)   # overrides category/calendar colour
     icon = models.CharField(max_length=24, null=True, blank=True)
     tags = models.JSONField(default=list, blank=True)
+    time_zone = models.CharField(max_length=64, blank=True, default='')  # repeats in this zone; "" = the calendar's
     # Recurrence (RFC 5545). Override rows point at their series with original_start.
     rrule = models.TextField(blank=True, default='')
     exdates = models.JSONField(default=list, blank=True)   # occurrence keys, "YYYY-MM-DDTHH:MM:SSZ"
@@ -318,10 +319,12 @@ class Event(models.Model):
     # public became visibility; old code and the legacy UI keep reading/writing these.
 
     def _ci_get(self, key, default):
-        return (self.custom_info or {}).get(key, default)
+        ci = self.custom_info
+        return ci.get(key, default) if isinstance(ci, dict) else default
 
     def _ci_set(self, key, value, default):
-        ci = dict(self.custom_info or {})
+        ci = self.custom_info
+        ci = dict(ci) if isinstance(ci, dict) else ({} if ci is None else {"legacy_custom_info": ci})
         if value == default:
             ci.pop(key, None)
         else:
@@ -423,7 +426,7 @@ class Event(models.Model):
         if self.kind == "all_day":
             dt_changed = loaded is None or (self.startdate, self.enddate) != (loaded["startdate"], loaded["enddate"])
             d_changed = loaded is None or (self.start_date, self.end_date) != (loaded["start_date"], loaded["end_date"])
-            if not (self.start_date and (d_changed or not dt_changed)):
+            if not (self.start_date and (d_changed or not dt_changed or self.startdate is None)):
                 if self.startdate is None:
                     raise ValueError("An all-day event needs a start")
                 self.start_date = self.startdate.astimezone(tz).date()
@@ -447,7 +450,7 @@ class Event(models.Model):
 
         if self.recurrence_parent_id:
             self.rrule = ""
-        self.recurrence_end = rec.recurrence_end(self, tz) if self.rrule else None
+        self.recurrence_end = rec.recurrence_end(self, rec.event_zone(self)) if self.rrule else None
 
         if self.event_category_id is None:
             self.event_category = EventCategory.for_legacy(cal.owner_id, self.category or 0, category_cache)

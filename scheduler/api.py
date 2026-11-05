@@ -58,7 +58,9 @@ def get_events(request):
         calendars = calendars.filter(calendar__active=True)
     shown = calendars if request.GET.get("show_invisible") == "1" else calendars.filter(visible=True)
 
-    ans["data"]["calendars"] = [i.getinfo(cal=True) for i in calendars.order_by('calendar__name')]
+    seen = set()  # duplicate subscriber rows (old data) list the calendar once
+    ans["data"]["calendars"] = [i.getinfo(cal=True) for i in calendars.order_by('calendar__name', 'subscribe_type', 'id')
+                                if not (i.calendar_id in seen or seen.add(i.calendar_id))]
     ans["data"]["birthdays"] = [i.getinfo_zip() for i in user_.friends.filter(birthday__month=month)]
     if user_.birthday and user_.birthday.month == month:
         ans["data"]["birthdays"].append(user_.getinfo_zip())

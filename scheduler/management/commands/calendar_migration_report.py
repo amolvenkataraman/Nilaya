@@ -19,7 +19,7 @@ class Command(BaseCommand):
         parser.add_argument("--json", action="store_true", help="Print one JSON object instead of text")
 
     def handle(self, *args, **opts):
-        from scheduler.models import Calendar, CalendarMigrationLog, Event, EventCategory, Invite, Subscriber
+        from scheduler.models import Calendar, CalendarMigrationLog, Event, EventCategory, Invite, Subscriber, valid_colour
 
         ev = Event.objects
         r = {
@@ -48,6 +48,9 @@ class Command(BaseCommand):
             "calendars": Calendar.objects.count(),
             "calendars_missing_owner_row": Calendar.objects.exclude(
                 id__in=Subscriber.objects.filter(user_id=F("calendar__owner_id")).values("calendar_id")).count(),
+            "duplicate_subscriber_rows": sum(r["n"] - 1 for r in Subscriber.objects.values("calendar_id", "user_id")
+                                             .annotate(n=Count("id")).filter(n__gt=1)),
+            "non_hex_calendar_colours": sum(1 for c in Calendar.objects.values_list("colour", flat=True) if not valid_colour(c)),
             "non_owners_with_owner_type": Subscriber.objects.filter(subscribe_type=0).exclude(
                 user_id=F("calendar__owner_id")).count(),
             "sync_calendars": [{"id": c.id, "name": c.name, "type": c.calendar_type, "auto_sync": c.auto_sync,
@@ -60,7 +63,8 @@ class Command(BaseCommand):
             "migration_log": [{"step": l.step, "ran_on": l.ran_on.isoformat(), "counts": l.counts,
                                "fixes": [d for d in l.details if d.get("step") in (
                                    "duplicate_sync_id", "owner_row_created", "owner_row_fixed", "non_owner_demoted",
-                                   "repeat_skipped")]}
+                                   "repeat_skipped", "end_before_start", "calendar_colour", "subscriber_colour",
+                                   "duplicate_subscriber_rows")]}
                               for l in CalendarMigrationLog.objects.all()],
         }
         if opts["json"]:
@@ -76,7 +80,8 @@ class Command(BaseCommand):
         for k in ("events_without_category", "legacy_number_mismatch", "all_day_without_dates", "allday_flag_mismatch",
                   "deadlines_with_end", "recurring_series", "occurrence_overrides", "with_legacy_priority",
                   "with_legacy_completed", "duplicate_sync_ids_cleared", "duplicate_sync_ids_remaining", "categories",
-                  "calendars", "calendars_missing_owner_row", "non_owners_with_owner_type"):
+                  "calendars", "calendars_missing_owner_row", "non_owners_with_owner_type", "duplicate_subscriber_rows",
+                  "non_hex_calendar_colours"):
             w(f"  {k}: {r[k]}")
         w(f"Invites: {r['invites']}")
         w("Sync calendars:")
@@ -84,12 +89,21 @@ class Command(BaseCommand):
             w(f"  #{c['id']} {c['name']}: type {c['type']}, auto {c['auto_sync']}, window -{c['past_months']}/+{c['future_months']} "
               f"months, last {c['last_synced_at'] or 'never'}{', error: ' + c['last_sync_error'] if c['last_sync_error'] else ''}")
         for l in r["migration_log"]:
-            w(f"Migration {l['step']} ran {l['ran_on']}: {l['counts']}")
+            c = l["counts"]
+            w(f"Migration {l['step']} ran {l['ran_on']}")
+            w("  normalisations: " + ", ".join(f"{label}: {c.get(k, 0)}" for k, label in (
+                ("calendar_colours_fixed", "calendar colours fixed"), ("subscriber_colours_fixed", "subscriber colours fixed"),
+                ("duplicate_sync_ids_cleared", "duplicate sync ids cleared"), ("end_before_start_fixed", "ends before starts fixed"),
+                ("all_day_utc_midnight", "all-day events at UTC midnight"), ("repeat_converted", "repeats converted"),
+                ("repeat_skipped", "repeats left single"), ("owner_rows_created", "owner rows created"),
+                ("owner_rows_fixed", "owner rows fixed"), ("non_owners_demoted", "non-owners demoted to admin"),
+                ("duplicate_subscriber_rows", "duplicate subscriber rows (kept)"))))
+            w(f"  all counts: {c}")
             for d in l["fixes"]:
                 w(f"  fix: {d}")
         problems = sum(r[k] for k in ("events_without_category", "all_day_without_dates", "allday_flag_mismatch",
                                       "deadlines_with_end", "duplicate_sync_ids_remaining", "calendars_missing_owner_row",
-                                      "non_owners_with_owner_type", "legacy_number_mismatch"))
+                                      "non_owners_with_owner_type", "legacy_number_mismatch", "non_hex_calendar_colours"))
         w(self.style.SUCCESS("No inconsistencies found.") if not problems
           else self.style.WARNING(f"{problems} inconsistent rows (see the counts above)."))
 

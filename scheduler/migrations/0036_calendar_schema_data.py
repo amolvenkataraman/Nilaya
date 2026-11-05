@@ -16,12 +16,20 @@ CalendarMigrationLog (see `manage.py calendar_migration_report`):
   h. auto_sync_sm/sy/em/ey → sync_past_months/sync_future_months
   i. owner rows: missing owner Subscriber rows are created, the owner's row gets type 0,
      and anyone else with type 0 is demoted to admin (1)
+  j. colours: calendar/subscriber colours become #rrggbb ("#abc" → "#aabbcc", CSS names →
+     hex); unusable ones become #1a73e8 (calendars) or NULL = the calendar colour
+     (subscribers). The old values are listed in the log.
+Odd legacy shapes are normalised, the originals kept in custom_info: a timed event whose
+end is before its start gets end = start ("legacy_enddate"); an all-day event stored at
+exactly 00:00 UTC (not local midnight) keeps its UTC dates; repeat_every ≤ 0 or a
+repeat_end before the start stays a single event ("legacy_repeat").
 
 The reverse puts the old columns' values back (step 4's reverse re-adds the columns).
 The conversion helpers are plain functions so tests can call them directly.
 """
 
 import datetime as dt
+import re
 from zoneinfo import ZoneInfo
 
 from dateutil.rrule import rrulestr
@@ -35,7 +43,8 @@ UTC = dt.timezone.utc
 LEGACY = {0: ("Uncategorized", ""), 1: ("Meeting", "users"), 2: ("Focus Time", "target"),
           3: ("Break Time", "coffee"), 4: ("Study", "book"), 5: ("Work", "briefcase"), 6: ("Personal", "smile"),
           7: ("Tech Break", "laptop"), 8: ("Test / Exam", "alert"), 9: ("Lecture", "school"), 100: ("Other", "dots")}
-ADDED_KEYS = ("legacy_priority", "legacy_completed", "legacy_repeat", "legacy_allday_range", "legacy_sync_id")
+ADDED_KEYS = ("legacy_priority", "legacy_completed", "legacy_repeat", "legacy_allday_range", "legacy_sync_id",
+              "legacy_enddate")
 
 
 def _months(year, month):
@@ -83,8 +92,39 @@ def legacy_sync_window(past, future, today):
     return sm, sy, em + 1, ey
 
 
+DEFAULT_COLOUR = "#1a73e8"
+CSS_COLOURS = {"black": "#000000", "white": "#ffffff", "red": "#ff0000", "green": "#008000", "blue": "#0000ff",
+               "yellow": "#ffff00", "orange": "#ffa500", "purple": "#800080", "pink": "#ffc0cb", "gray": "#808080",
+               "grey": "#808080", "brown": "#a52a2a", "cyan": "#00ffff", "magenta": "#ff00ff", "navy": "#000080",
+               "teal": "#008080", "maroon": "#800000", "olive": "#808000", "lime": "#00ff00", "aqua": "#00ffff",
+               "fuchsia": "#ff00ff", "silver": "#c0c0c0", "indigo": "#4b0082", "violet": "#ee82ee", "gold": "#ffd700"}
+
+
+def normalize_colour(value, default):
+    """A legacy colour → "#rrggbb" (valid values are returned unchanged), else ``default``."""
+    v = (value or "").strip()
+    low = v.lower()
+    if re.fullmatch(r"#[0-9a-f]{6}", low):
+        return v
+    if re.fullmatch(r"#[0-9a-f]{3}", low):
+        return "#" + "".join(c * 2 for c in low[1:])
+    if re.fullmatch(r"[0-9a-f]{6}", low):
+        return "#" + low
+    return CSS_COLOURS.get(low, default)
+
+
+def _utc_midnight(d):
+    return d is not None and d.astimezone(UTC).time() == dt.time()
+
+
 def all_day_dates(startdate, enddate, tz):
-    """UTC datetimes of an old all-day event → (start_date, end_date exclusive) in tz."""
+    """UTC datetimes of an old all-day event → (start_date, end_date exclusive) in tz.
+
+    The old UI saved all-day events at local midnight. One stored at exactly 00:00 UTC that
+    isn't local midnight was meant as a UTC date (e.g. an import), so it keeps that date."""
+    if _utc_midnight(startdate) and startdate.astimezone(tz).time() != dt.time() and \
+            (enddate is None or _utc_midnight(enddate)):
+        tz = UTC
     start = startdate.astimezone(tz).date()
     end = None
     if enddate is not None:
@@ -95,13 +135,21 @@ def all_day_dates(startdate, enddate, tz):
     return start, end
 
 
+def _as_dict(value):
+    """custom_info as a dict; any other JSON value (list, string…) is kept under legacy_custom_info."""
+    if value is None:
+        return {}
+    return dict(value) if isinstance(value, dict) else {"legacy_custom_info": value}
+
+
 def _midnight(day, tz):
     return dt.datetime.combine(day, dt.time(), tzinfo=tz).astimezone(UTC)
 
 
-def repeat_to_rrule(every, until, tz):
-    """repeat_every (days) + repeat_end (date) → RRULE text, or None if unusable."""
-    if not every or every <= 0:
+def repeat_to_rrule(every, until, tz, start_day=None):
+    """repeat_every (days) + repeat_end (date) → RRULE text, or None if unusable
+    (no interval, or an end before the first day: it stays a single event)."""
+    if not every or every <= 0 or (until and start_day and until < start_day):
         return None
     rule = f"FREQ=DAILY;INTERVAL={int(every)}"
     if until:
@@ -134,7 +182,9 @@ def forwards(apps, schema_editor):
               "events_changed": 0, "all_day_dates_set": 0, "all_day_times_moved": 0, "deadlines_made_free": 0,
               "categories_created": 0, "events_categorised": 0, "visibility_public": 0, "legacy_priority_kept": 0,
               "legacy_completed_kept": 0, "repeat_converted": 0, "repeat_skipped": 0, "sync_windows_converted": 0,
-              "owner_rows_created": 0, "owner_rows_fixed": 0, "non_owners_demoted": 0}
+              "owner_rows_created": 0, "owner_rows_fixed": 0, "non_owners_demoted": 0,
+              "end_before_start_fixed": 0, "all_day_utc_midnight": 0, "calendar_colours_fixed": 0,
+              "subscriber_colours_fixed": 0, "duplicate_subscriber_rows": 0}
     details = []
 
     # a. duplicate sync ids
@@ -143,7 +193,7 @@ def forwards(apps, schema_editor):
     for d in dups:
         rows = list(Event.objects.filter(calendar_id=d["calendar_id"], sync_id=d["sync_id"]).order_by("startdate", "id"))
         for e in rows[1:]:
-            ci = dict(e.custom_info or {})
+            ci = _as_dict(e.custom_info)
             ci["legacy_sync_id"] = e.sync_id
             e.custom_info, e.sync_id = ci, None
             e.save(update_fields=["custom_info", "sync_id"])
@@ -168,14 +218,21 @@ def forwards(apps, schema_editor):
     batch = []
     for e in Event.objects.order_by("pk").iterator(chunk_size=BATCH):
         before = tuple(getattr(e, f if f != "event_category" else "event_category_id") for f in fields)
-        ci = dict(e.custom_info or {})
+        ci = _as_dict(e.custom_info)
         kind = e.kind = "all_day" if e.allday else ("deadline" if e.enddate is None else "event")
         e.allday = kind == "all_day"
+        if kind == "event" and e.enddate < e.startdate:
+            ci.setdefault("legacy_enddate", e.enddate.isoformat())
+            e.enddate = e.startdate
+            counts["end_before_start_fixed"] += 1
+            details.append({"step": "end_before_start", "event": str(e.id)})
         counts["kind"][kind] += 1
         if kind == "all_day":
             if e.start_date is None or e.end_date is None:
                 e.start_date, e.end_date = all_day_dates(e.startdate, e.enddate, tz)
                 counts["all_day_dates_set"] += 1
+                if _utc_midnight(e.startdate) and e.startdate.astimezone(tz).time() != dt.time():
+                    counts["all_day_utc_midnight"] += 1
             s, en = _midnight(e.start_date, tz), _midnight(e.end_date, tz)
             if (e.startdate, e.enddate) != (s, en):
                 ci.setdefault("legacy_allday_range", [e.startdate.isoformat(), e.enddate.isoformat() if e.enddate else None,
@@ -198,7 +255,8 @@ def forwards(apps, schema_editor):
         counts["legacy_priority_kept"] += "legacy_priority" in ci
         counts["legacy_completed_kept"] += "legacy_completed" in ci
         if e.repeat_every is not None and not e.rrule:
-            rule = repeat_to_rrule(e.repeat_every, e.repeat_end, tz)
+            first_day = e.start_date if kind == "all_day" else e.startdate.astimezone(tz).date()
+            rule = repeat_to_rrule(e.repeat_every, e.repeat_end, tz, first_day)
             ci["legacy_repeat"] = [e.repeat_every, e.repeat_end.isoformat() if e.repeat_end else None]
             if rule:
                 e.rrule = rule
@@ -208,7 +266,8 @@ def forwards(apps, schema_editor):
                 counts["repeat_converted"] += 1
             else:
                 counts["repeat_skipped"] += 1
-                details.append({"step": "repeat_skipped", "event": str(e.id), "repeat_every": e.repeat_every})
+                details.append({"step": "repeat_skipped", "event": str(e.id), "repeat_every": e.repeat_every,
+                                "repeat_end": e.repeat_end.isoformat() if e.repeat_end else None})
         e.custom_info = ci
         if tuple(getattr(e, f if f != "event_category" else "event_category_id") for f in fields) != before:
             batch.append(e)
@@ -258,6 +317,30 @@ def forwards(apps, schema_editor):
                 fix.append(s)
                 counts["non_owners_demoted"] += 1
     Subscriber.objects.bulk_update(fix, ["subscribe_type"], batch_size=BATCH)
+    counts["duplicate_subscriber_rows"] = sum(
+        r["n"] - 1 for r in Subscriber.objects.values("calendar_id", "user_id").annotate(n=Count("id")).filter(n__gt=1))
+    if counts["duplicate_subscriber_rows"]:  # kept (nothing deleted); the APIs list each calendar once
+        details.append({"step": "duplicate_subscriber_rows", "count": counts["duplicate_subscriber_rows"]})
+
+    # j. colours
+    cals = []
+    for c in Calendar.objects.only("id", "colour").iterator(chunk_size=BATCH):
+        new = normalize_colour(c.colour, DEFAULT_COLOUR)
+        if new != c.colour:
+            details.append({"step": "calendar_colour", "calendar": c.id, "old": c.colour, "new": new})
+            c.colour = new
+            cals.append(c)
+    Calendar.objects.bulk_update(cals, ["colour"], batch_size=BATCH)
+    counts["calendar_colours_fixed"] = len(cals)
+    subs_fix = []
+    for s in Subscriber.objects.exclude(colour__isnull=True).only("id", "colour").iterator(chunk_size=BATCH):
+        new = normalize_colour(s.colour, None)
+        if new != s.colour:
+            details.append({"step": "subscriber_colour", "subscriber": s.id, "old": s.colour, "new": new})
+            s.colour = new
+            subs_fix.append(s)
+    Subscriber.objects.bulk_update(subs_fix, ["colour"], batch_size=BATCH)
+    counts["subscriber_colours_fixed"] = len(subs_fix)
 
     Log.objects.create(step="0036_calendar_schema_data", counts=counts, details=details[:2000])
     if counts["events"] or Calendar.objects.exists():
@@ -275,7 +358,7 @@ def backwards(apps, schema_editor):
               "custom_info"]
     batch = []
     for e in Event.objects.order_by("pk").iterator(chunk_size=BATCH):
-        ci = dict(e.custom_info or {})
+        ci = _as_dict(e.custom_info)
         try:
             e.priority = int(ci.get("legacy_priority", 10))
         except (TypeError, ValueError):
@@ -290,11 +373,13 @@ def backwards(apps, schema_editor):
         if rng and e.start_date and [e.start_date.isoformat(), e.end_date.isoformat()] == rng[2:]:
             e.startdate = dt.datetime.fromisoformat(rng[0])
             e.enddate = dt.datetime.fromisoformat(rng[1]) if rng[1] else None
+        if ci.get("legacy_enddate") and e.enddate == e.startdate:
+            e.enddate = dt.datetime.fromisoformat(ci["legacy_enddate"])
         if ci.get("legacy_sync_id") and not e.sync_id:
             e.sync_id = ci["legacy_sync_id"]
         for k in ADDED_KEYS:
             ci.pop(k, None)
-        e.custom_info = ci
+        e.custom_info = ci["legacy_custom_info"] if list(ci) == ["legacy_custom_info"] else ci
         batch.append(e)
         if len(batch) >= BATCH:
             Event.objects.bulk_update(batch, fields)

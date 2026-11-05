@@ -1,0 +1,65 @@
+{
+ "kind": "calendar#events",
+ "items": [
+  {
+   "id": "g1",
+   "status": "confirmed",
+   "summary": "Gym",
+   "start": {
+    "dateTime": "2026-10-20T18:00:00-04:00",
+    "timeZone": "America/Toronto"
+   },
+   "end": {
+    "dateTime": "2026-10-20T19:00:00-04:00",
+    "timeZone": "America/Toronto"
+   },
+   "recurrence": [
+    "RRULE:FREQ=WEEKLY;BYDAY=TU;UNTIL=20261231T235959Z",
+    "EXDATE;TZID=America/Toronto:20261110T180000"
+   ]
+  },
+  {
+   "id": "g1_20261117T230000Z",
+   "status": "confirmed",
+   "summary": "Gym (late)",
+   "recurringEventId": "g1",
+   "originalStartTime": {
+    "dateTime": "2026-11-17T18:00:00-05:00",
+    "timeZone": "America/Toronto"
+   },
+   "start": {
+    "dateTime": "2026-11-17T20:00:00-05:00",
+    "timeZone": "America/Toronto"
+   },
+   "end": {
+    "dateTime": "2026-11-17T21:00:00-05:00",
+    "timeZone": "America/Toronto"
+   }
+  },
+  {
+   "id": "g1_20261124T230000Z",
+   "status": "cancelled",
+   "recurringEventId": "g1",
+   "originalStartTime": {
+    "dateTime": "2026-11-24T18:00:00-05:00",
+    "timeZone": "America/Toronto"
+   }
+  },
+  {
+   "id": "g2",
+   "status": "confirmed",
+   "summary": "Holiday",
+   "start": {
+    "date": "2026-12-25"
+   },
+   "end": {
+    "date": "2026-12-26"
+   },
+   "transparency": "transparent"
+  },
+  {
+   "id": "g3",
+   "status": "cancelled"
+  }
+ ]
+}

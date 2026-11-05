@@ -154,7 +154,8 @@ def _calendar_out(sub, detail=False, subscriber_count=None):
 
 
 def _sub(user, calendar_id, editor=False, owner=False):
-    sub = Subscriber.objects.select_related("calendar", "calendar__owner").filter(user=user, calendar_id=calendar_id).first()
+    sub = (Subscriber.objects.select_related("calendar", "calendar__owner").filter(user=user, calendar_id=calendar_id)
+           .order_by("subscribe_type", "id").first())
     if sub is None:
         raise HttpError(404, "Calendar not found")
     if owner and sub.role != "owner":
@@ -173,10 +174,11 @@ def icons(request):
 
 @router.get("/calendars", response=list[CalendarOut])
 def list_calendars(request, include_inactive: bool = False):
-    subs = Subscriber.objects.filter(user=request.user).select_related("calendar").order_by("calendar__name")
+    subs = Subscriber.objects.filter(user=request.user).select_related("calendar").order_by("calendar__name", "subscribe_type", "id")
     if not include_inactive:
         subs = subs.filter(calendar__active=True)
-    return [_calendar_out(s) for s in subs]
+    seen = set()  # old data can hold duplicate rows for one user and calendar: list it once
+    return [_calendar_out(s) for s in subs if not (s.calendar_id in seen or seen.add(s.calendar_id))]
 
 
 @router.post("/calendars", response={201: CalendarOut})
@@ -556,6 +558,7 @@ class EventOut(Schema):
     tags: list[str]
     rrule: Optional[str]
     recurrence_text: str                  # "Every week on Mon, Wed until Dec 31, 2026" ("" = doesn't repeat)
+    time_zone: str                        # the zone it repeats in (the event's own, else the calendar's)
     exdates: list[str]
     rdates: list[str]
     recurrence_end: Optional[datetime.datetime]
@@ -604,6 +607,7 @@ class EventIn(Schema):
     colour: Optional[str] = Field(None, pattern=HEX_OR_EMPTY)
     icon: Optional[str] = Field(None, pattern=ICON)
     tags: list[str] = []
+    time_zone: str = ""  # "" = the calendar's
     rrule: str = ""
     exdates: list[str] = []
     rdates: list[str] = []
@@ -633,6 +637,7 @@ class EventPatch(Schema):
     colour: Optional[str] = Field(None, pattern=HEX_OR_EMPTY)
     icon: Optional[str] = Field(None, pattern=ICON)
     tags: Optional[list[str]] = None
+    time_zone: Optional[str] = None
     rrule: Optional[str] = None
     exdates: Optional[list[str]] = None
     rdates: Optional[list[str]] = None
@@ -660,7 +665,8 @@ def _event_out(e, sub_colour=None, masked=False, detail=False, user=None):
         "meeting_url": e.meeting_url, "description": e.description, "status": e.status,
         "transparency": e.transparency, "visibility": e.visibility, "colour": e.colour, "icon": e.icon,
         "display_colour": e.display_colour(sub_colour), "tags": e.tags or [], "rrule": e.rrule or None,
-        "recurrence_text": rec.describe(e.rrule, e.calendar.tz) if e.rrule else "",
+        "recurrence_text": rec.describe(e.rrule, rec.event_zone(e)) if e.rrule else "",
+        "time_zone": e.time_zone or e.calendar.time_zone or settings.TIME_ZONE,
         "exdates": e.exdates or [], "rdates": e.rdates or [], "recurrence_end": e.recurrence_end,
         "completed": e.completed, "priority": e.priority, "created_on": e.created_on, "updated_on": e.updated_on,
         "created_by": str(e.created_by_id) if e.created_by_id else None, "masked": masked,
@@ -780,8 +786,12 @@ def _apply(e, data, user):
         if e.kind == "all_day" and e.end_date and e.start_date and e.end_date <= e.start_date:
             raise HttpError(400, "end_date is exclusive and must be after start_date")
 
+        if data.get("time_zone") is not None:
+            if data["time_zone"] and not rec.valid_zone(data["time_zone"]):
+                raise HttpError(400, "Unknown time zone")
+            e.time_zone = data["time_zone"]
         if "rrule" in data and data["rrule"] is not None and not e.recurrence_parent_id:
-            e.rrule = rec.normalize_rrule(data["rrule"], tz)
+            e.rrule = rec.normalize_rrule(data["rrule"], rec.event_zone(e))
         if data.get("exdates") is not None:
             e.exdates = rec.normalize_keys(data["exdates"], tz)
         if data.get("rdates") is not None:
@@ -910,7 +920,7 @@ def update_event(request, event_id: str, payload: EventPatch, scope: Optional[Sc
             _save(o)
             return _out_for(request.user, o, detail=True)
         # times sent for an occurrence move the series by the same offset
-        occ = rec.occurrence_at(e, original, e.calendar.tz) if original is not None else e
+        occ = rec.occurrence_at(e, original, rec.event_zone(e)) if original is not None else e
         if occ is None:
             raise HttpError(404, "No such occurrence")
         if scope == "following":

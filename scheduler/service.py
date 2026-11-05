@@ -58,7 +58,7 @@ def events_in_range(calendar_ids, start, end, *, include_cancelled=False, extra=
                 o.series_id, o.override_id = o.recurrence_parent_id, o.id
                 out.append(o)
         for s in series:
-            out.extend(rec.expand(s, start, end, s.calendar.tz, skip[s.id]))
+            out.extend(rec.expand(s, start, end, rec.event_zone(s), skip[s.id]))
         out.sort(key=_sort_key)
     return out[:limit]
 
@@ -98,7 +98,7 @@ def occurrence_view(series, original):
     if o is not None:
         o.series_id, o.override_id = series.id, o.id
         return o
-    return rec.occurrence_at(series, original, series.calendar.tz)
+    return rec.occurrence_at(series, original, rec.event_zone(series))
 
 
 # ---------------------------------------------------------------- series edits
@@ -128,7 +128,7 @@ def make_override(series, original):
     o = override_for(series, original)
     if o is not None:
         return o
-    occ = rec.occurrence_at(series, original, series.calendar.tz)
+    occ = rec.occurrence_at(series, original, rec.event_zone(series))
     if occ is None or rec.key(original) in (series.exdates or []):
         raise LookupError("No such occurrence")
     o = _clone(series, recurrence_parent=series, original_start=original, startdate=occ.startdate,
@@ -151,7 +151,7 @@ def cancel_occurrence(series, original):
 def split(series, original):
     """'This and following': end the series before ``original`` and start a new one there
     (Google's approach). Returns the new series, or the same one if ``original`` is its first."""
-    tz = series.calendar.tz
+    tz = rec.event_zone(series)
     if original <= series.startdate:
         return series
     occ = rec.occurrence_at(series, original, tz)

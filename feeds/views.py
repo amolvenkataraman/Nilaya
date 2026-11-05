@@ -67,10 +67,13 @@ def _calendar_feed(f, now):
             cancelled.setdefault(o.recurrence_parent_id, []).append(ical.rec.key(o.original_start))
     zones, bodies = {}, []
 
+    parents = {s.id: s for s in series}
+
     def add(e, **kw):
         s = subs[e.calendar_id]
-        name = e.calendar.time_zone or settings.TIME_ZONE
-        tz = e.calendar.tz
+        src = parents.get(e.recurrence_parent_id, e)  # an override uses its series' zone (RECURRENCE-ID)
+        name = src.time_zone or src.calendar.time_zone or settings.TIME_ZONE
+        tz = ical.rec.event_zone(src)
         if e.rrule or e.recurrence_parent_id:
             y = zones.setdefault(name, [tz, e.startdate.year, e.startdate.year])
             y[1] = min(y[1], e.startdate.year)

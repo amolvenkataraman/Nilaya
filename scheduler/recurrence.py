@@ -33,6 +33,11 @@ def zone(name=None):
         return ZoneInfo(settings.TIME_ZONE)
 
 
+def event_zone(ev):
+    """The zone a series repeats in: the event's own (kept from imports), else its calendar's."""
+    return zone(ev.time_zone) if getattr(ev, "time_zone", "") else ev.calendar.tz
+
+
 def valid_zone(name):
     try:
         ZoneInfo(name)
