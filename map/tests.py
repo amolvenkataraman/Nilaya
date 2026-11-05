@@ -182,3 +182,13 @@ class NominatimTests(PlacesTestCase):
             r = self.client.get("/map/nominatim/search/", {"q": "Waterloo"})
         self.assertEqual(r.status_code, 503)
         urlopen.assert_not_called()
+
+
+
+class GeocodeSearchTests(TestCase):
+    def test_v2_place_search_is_off_in_offline_mode(self):
+        from django.test import override_settings
+        u = ComptechUser.objects.create_user("geo", password="pw")
+        self.client.force_login(u)
+        with override_settings(ONLINE_MODE=False):
+            self.assertEqual(self.client.get("/api/v2/places/geocode?q=Toronto").status_code, 503)

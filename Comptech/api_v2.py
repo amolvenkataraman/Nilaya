@@ -39,6 +39,7 @@ api = NinjaAPI(
 
 api.add_router("/notifications/", "notifications.api.router")
 api.add_router("/me", "users.api_v2.router")
+api.add_router("/users/", "users.api_v2.people")
 api.add_router("/calendar/", "scheduler.api_v2.router")
 api.add_router("/photos/", "photos.api_v2.router")
 api.add_router("/places/", "map.api_v2.router")

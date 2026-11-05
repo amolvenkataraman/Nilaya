@@ -74,3 +74,20 @@ class InsightsMergeTests(TestCase):
         self.assertEqual(len(meeting), 1)
         self.assertEqual((meeting[0]["hours"], meeting[0]["events"], meeting[0]["id"], meeting[0]["colour"]),
                          (2, 2, my_meeting.id, "#123456"))
+
+
+
+class AvailabilityTests(TestCase):
+    def test_availability_only_shows_calendars_shared_as_busy(self):
+        me = ComptechUser.objects.create_user("eli", password="pw")
+        other = ComptechUser.objects.create_user("fin", password="pw", timezone="America/Toronto")
+        shared = Calendar.objects.create(name="Work", owner=other)
+        private = Calendar.objects.create(name="Private", owner=other)
+        Subscriber.objects.create(calendar=shared, user=other, subscribe_type=0, display_busy=2)
+        Subscriber.objects.create(calendar=private, user=other, subscribe_type=0, display_busy=0)
+        Event.objects.create(calendar=shared, name="Standup", startdate=at(5, 9), enddate=at(5, 10))
+        Event.objects.create(calendar=private, name="Doctor", startdate=at(5, 11), enddate=at(5, 12))
+        self.client.force_login(me)
+        busy = self.client.get("/api/v2/calendar/availability/fin?date=2026-11-05").json()["busy"]
+        self.assertEqual(len(busy), 1)
+        self.assertNotIn("name", busy[0])  # only times, never what the event is

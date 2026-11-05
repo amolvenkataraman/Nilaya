@@ -575,6 +575,12 @@ def photos_near(request, latitude: float = Query(..., ge=-90, le=90), longitude:
 
 # ---------- places ----------
 
+@router.get("/geocode", summary="Search addresses and places on OpenStreetMap (Nominatim); off when ONLINE_MODE is off")
+def geocode(request, q: str):
+    from .views import nominatim_search
+    return nominatim_search(request)  # the classic proxy: ONLINE_MODE check, proper User-Agent, 503 when off
+
+
 @router.get("", response=list[PlaceOut], summary="Places (optionally one group, a category, a search or a map box)")
 def list_places(request, group: Optional[int] = None, category: Optional[str] = None, q: str = "",
                 status: Optional[Status] = None, min_rating: Optional[int] = Query(None, ge=1, le=5),

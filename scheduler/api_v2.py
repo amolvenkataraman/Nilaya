@@ -1104,6 +1104,25 @@ def _user_tz(user):
     return pytz.timezone(user.timezone) if user.timezone in pytz.all_timezones_set else tz_.get_current_timezone()
 
 
+@router.get("/availability/{username}", summary="Someone's busy times on a day, only from calendars they share as busy (times only)")
+def availability(request, username: str, date: datetime.date):
+    import pytz
+    from django.db.models import Q
+    from users.models import ComptechUser
+    from . import service as svc_
+    user = get_object_or_404(ComptechUser, username=username, is_active=True)
+    tz = pytz.timezone(user.timezone) if user.timezone in pytz.all_timezones_set else pytz.timezone("America/Toronto")
+    day = tz.localize(datetime.datetime.combine(date, datetime.time()))
+    subs = Subscriber.objects.filter(user=user, calendar__active=True, display_busy__in=[1, 2])
+    some = [s.calendar_id for s in subs if s.display_busy == 1]  # only "busy" kinds of events
+    every = [s.calendar_id for s in subs if s.display_busy == 2]
+    busy_categories = [1, 2, 4, 5, 6, 7, 9]
+    evs = svc_.events_in_range(some + every, day, day + datetime.timedelta(days=1), related=("calendar",), extra=(
+        Q(transparency="busy", enddate__isnull=False)
+        & (Q(calendar__in=every) | Q(calendar__in=some, category__in=busy_categories))))
+    return {"username": user.username, "date": date, "busy": [{"start": e.startdate, "end": e.enddate} for e in evs]}
+
+
 @router.get("/agenda", response=list[AgendaItem], summary="Upcoming events, deadlines and due todos, merged")
 def agenda(request, days: int = 14, include_overdue: bool = True):
     from django.utils import timezone as tz_
