@@ -9,7 +9,7 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 | New Python packages `django-ninja` (V2 API) and `icalendar` (replaces `ics`, which ignored repeating events) | `pip install -r requirements.txt` (step 4); `pip uninstall ics` is optional |
 | Bootstrap 5.3.3 and Leaflet.markercluster 1.5.3 added to `vendor.lock`; old Bootstrap 5.0-beta and 5.1.3 removed | Run `fetch_vendor.sh`, then delete the old folders (step 5) |
 | New apps: `tasks`, `apikeys`, `feeds`, `analytics`, `habits`, `contacts` | Nothing extra; they come with migrations (step 6) |
-| Migrations: notifications 0003–0004, scheduler 0032–0038, tasks 0001, photos 0024–0027, map 0004, users 0005, apikeys 0001, feeds 0001, analytics 0001, habits and contacts 0001 | `migrate` (step 6) |
+| Migrations: notifications 0003–0004, scheduler 0032–0038, tasks 0001, photos 0024–0027, map 0004–0005, users 0005, apikeys 0001, feeds 0001, analytics 0001, habits and contacts 0001 | `migrate` (step 6) |
 | **Calendar schema overhaul** (scheduler 0034–0038) | Converts every event: kind, all-day dates, your categories (from the old numbers), sync windows, visibility; old priority/completed values are kept in each event's metadata; ownership inconsistencies fixed. Check with `calendar_migration_report` afterwards (step 6) |
 | **Materialized views now live in migrations** (photos 0025–0027) | 0025 drops your hand-made `photos_photo_location_cache` and recreates it (hidden photos left out, plus a unique index); 0026 adds `photos_photo_daily`; 0027 sets the plane cut-off to 2000 m. Runs as your DB user, which owns the view. Nothing manual any more |
 | `users 0005` removes the `dark_mode` column | None (dark mode is per device now) |
@@ -24,6 +24,7 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 - **Dark mode** is chosen per device from the user menu (the old per-account switch is gone).
 - **Calendar categories** are now named, per-owner categories made from the old numbers; repeating events from ICS/Google feeds keep their rules.
 - **Heatmaps** leave out photos taken at 2000 m and up (was over 1000 m).
+- **Places in the new interface** start with every group hidden; each person turns on the groups they want (like calendars). Owners can archive groups.
 - **Logging in as before**; new apps (Tasks, Habits, Contacts) and the new interface at `/app/` appear in the app launcher.
 
 ## Step by step
