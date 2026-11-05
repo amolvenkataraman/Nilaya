@@ -2,6 +2,8 @@
 
 My very own tech giant: a self-hosted personal and family platform for calendars, tasks, habits, contacts, photos, places and notifications, with a typed API you can build on.
 
+> **History:** from the 2020 school task scheduler to the November 2026 Claude Code overhaul, see [`docs/HISTORY.md`](docs/HISTORY.md).
+
 > **Status:** V1 is being cleaned up and kept running until its full rewrite (V2, "Memex") replaces it. It started as a recovered April 2024 backup carrying years of technical debt. Phase 1 (2026) fixed the critical bugs, gave every app one design system with dark mode, and added a V2 API, notifications, Tasks, Habits, Contacts, analytics and a new React interface. Run it only on a server you control.
 
 ## Rules
