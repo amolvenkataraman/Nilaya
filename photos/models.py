@@ -168,6 +168,10 @@ class Photo(models.Model):
         indexes = [
             # Specifically indexes the 'objects' key inside the JSON
             GinIndex(fields=['ai_index_info'], name='idx_objects_gin'),
+            # Timeline/album pages: newest first, keyset on (date_taken, id); also date-range counts
+            models.Index(fields=['date_taken', 'id'], name='photo_date_taken_idx'),
+            # Photos near a place: bounding-box query (latitude range, longitude checked in the index)
+            models.Index(fields=['latitude', 'longitude'], name='photo_lat_lng_idx'),
         ]
 
     def __str__(self):
@@ -747,13 +751,14 @@ PLANE_ALTITUDE_M = 2000
 MATVIEWS = ('photos_photo_location_cache', 'photos_photo_daily')
 
 
-def refresh_photo_matviews():
+def refresh_photo_matviews(views=MATVIEWS):
     """Refresh the photo materialized views (migrations 0025, 0026) after ingest or hiding.
-    CONCURRENTLY keeps them readable while refreshing. SQLite uses plain views: nothing to do."""
+    CONCURRENTLY keeps them readable while refreshing. SQLite uses plain views: nothing to do.
+    Each refresh re-reads the whole photo table, so pass only the views a change can affect."""
     if connection.vendor != 'postgresql':
         return
     with connection.cursor() as cursor:
-        for view in MATVIEWS:
+        for view in views:
             try:
                 cursor.execute(f'REFRESH MATERIALIZED VIEW CONCURRENTLY {view};')
             except Exception:  # first refresh after creation, or no unique index yet

@@ -689,7 +689,8 @@ def set_location(request, photo_id: uuid.UUID, payload: LocationIn):
             f.write(f"{p.id} --> ({payload.lat}, {payload.lng}) [{request.user.username}]\n")
     except OSError:
         pass
-    transaction.on_commit(refresh_photo_matviews)
+    # Only the heat-map view has locations; photos_photo_daily doesn't change (each refresh scans every photo)
+    transaction.on_commit(lambda: refresh_photo_matviews(("photos_photo_location_cache",)))
     return p
 
 

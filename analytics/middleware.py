@@ -1,3 +1,4 @@
+from django.db import connection, transaction
 from django.db.models import F
 from django.utils import timezone
 
@@ -24,8 +25,10 @@ class AnalyticsMiddleware:
 
     @staticmethod
     def count(request, response):
+        if response.status_code >= 400 or request.path.startswith(SKIP):  # before touching the session/user
+            return
         user = getattr(request, "user", None)
-        if user is None or not user.is_authenticated or request.path.startswith(SKIP) or response.status_code >= 400:
+        if user is None or not user.is_authenticated:
             return
         parts = request.path.strip("/").split("/")
         is_api = request.path.startswith("/api/v2/")
@@ -34,5 +37,12 @@ class AnalyticsMiddleware:
         is_page = not is_api and response.get("Content-Type", "").startswith("text/html")
         field = "page_views" if is_page else "api_calls"  # in-page JSON fetches count as API calls
         row = {"day": timezone.localdate(), "user_id": user.pk, "app": app}
-        if not Usage.objects.filter(**row).update(**{field: F(field) + 1}):
-            Usage.objects.get_or_create(**row, defaults={field: 1})
+        with transaction.atomic():
+            if connection.vendor == "postgresql":
+                # A usage counter isn't worth a WAL flush per request: commit without waiting for the
+                # disk (a crash can lose the last fraction of a second of counts, nothing else). It also
+                # keeps the row lock short when a page fires several API calls at once (same row).
+                with connection.cursor() as cursor:
+                    cursor.execute("SET LOCAL synchronous_commit TO OFF")
+            if not Usage.objects.filter(**row).update(**{field: F(field) + 1}):
+                Usage.objects.get_or_create(**row, defaults={field: 1})
