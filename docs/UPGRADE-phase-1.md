@@ -93,7 +93,7 @@ python manage.py fix_orientation              # fixes sideways photo/video thumb
 On your computer, in the repo:
 ```bash
 frontend/build.sh                     # builds into static_files/static/app/
-rsync -av static_files/static/app/ server:/opt/Comptech/static_files/static/app/
+rsync -av --delete static_files/static/app/ server:/opt/Comptech/static_files/static/app/
 ```
 On the server, run `make cs` again so it's copied into `/www/static/app/`.
 
