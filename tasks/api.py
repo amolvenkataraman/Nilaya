@@ -769,17 +769,23 @@ def quick_add(request, payload: QuickIn):
     return 201, _create(user, data, svc.labels_by_name(user, p["labels"]))
 
 
-@router.post("/from-event/{uuid:event_id}", response={201: TaskOut}, summary="Make a todo from a calendar event/deadline")
-def from_event(request, event_id: uuid.UUID, project_id: Optional[uuid.UUID] = None):
-    e = get_object_or_404(Event, id=event_id, calendar__users_subscribed__user=request.user)
-    existing = Todo.objects.filter(user=request.user, custom_info__event_id=str(e.id)).first()
+@router.post("/from-event/{event_id}", response={201: TaskOut},
+             summary="Make a todo from a calendar event/deadline (or one occurrence: <series id>:<start>)")
+def from_event(request, event_id: str, project_id: Optional[uuid.UUID] = None):
+    from scheduler import service as cal_svc
+    series, original = cal_svc.resolve(event_id, Event.objects.filter(calendar__users_subscribed__user=request.user))
+    e = cal_svc.occurrence_view(series, original) if series is not None and original is not None else series
+    if e is None:
+        raise HttpError(404, "Event not found")
+    ident = e.ident()
+    existing = Todo.objects.filter(user=request.user, custom_info__event_id=ident).first()
     if existing:
         return 201, _task(request.user, existing.id)
-    due = e.startdate if e.enddate is None else e.startdate
+    due = e.startdate
     data = {"title": e.name[:256], "description": e.description or "", "project_id": project_id, "due": due,
             "priority": e.priority, "reminders": [{"relative_to": "due", "offset": -86400, "at": None}]}
     t = _create(request.user, data)
-    t.custom_info = {**(t.custom_info or {}), "event_id": str(e.id), "calendar": e.calendar.name}
+    t.custom_info = {**(t.custom_info or {}), "event_id": ident, "calendar": e.calendar.name}
     t.save(update_fields=["custom_info"])
     return 201, _task(request.user, t.id)
 

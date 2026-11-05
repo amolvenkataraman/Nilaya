@@ -1,54 +1,31 @@
-from datetime import datetime
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
 from django.conf import settings as _settings
-ONLINE_MODE = _settings.ONLINE_MODE
-from scheduler.models import *
-from scheduler.sync import *
+from scheduler.models import Calendar
+from scheduler.sync import sync_calendar
 from notifications.service import notify, Priority
-from django.utils import timezone
-import datetime
 
 logger = get_task_logger(__name__)
 
 
 @shared_task
 def autosync_calendars():
-    if ONLINE_MODE:
-        c = Calendar.objects.filter(calendar_type__gt=0, auto_sync=True, active=True)
-        for cal in c:
-            print(f"Syncing {cal.name}...")
-            status = None
-            try:
-                tzoffset = datetime.datetime.now(pytz.timezone(timezone.get_current_timezone_name())).strftime('%z')
-
-                if cal.auto_sync_sy == -1 and cal.auto_sync_sm == -1:
-                    d = datetime.datetime.now()
-                    start_time = f"{d.year}-{d.month}-01T00:00:00{tzoffset}"
-                else:
-                    start_time = f"{cal.auto_sync_sy}-{cal.auto_sync_sm}-01T00:00:00{tzoffset}"
-
-                end_time = f"{cal.auto_sync_ey}-{cal.auto_sync_em}-01T00:00:00{tzoffset}"
-
-                if cal.calendar_type == 1: # ICalendar:
-                    status = sync_ical(cal, start_time, end_time) ## ACTUAL SYNC
-
-                elif cal.calendar_type == 2: # Public Google Calendar
-                    status = sync_google(cal, start_time, end_time, None) ## ACTUAL SYNC
-
-                elif cal.calendar_type == 50: # UWaterloo WCMS
-                    status = sync_uwaterloo(cal, start_time, end_time)
-
-                if status is False:
-                    raise RuntimeError("source unavailable")
-                print(f"{cal.name} has been synced!")
-
-            except Exception as ex:
-                print(f"An error ocurred syncing {cal.name}: {type(ex).__name__}")
-                notify(cal.owner, f"Couldn't sync {cal.name}",
-                       "The calendar's source didn't respond or returned an error. Its events weren't updated.",
-                       source="Calendar", url="/calendar/", priority=Priority.HIGH)
-    else:
+    """Sync every active auto-sync calendar over its window ([this month − past, + future months)).
+    ICS feeds use a conditional GET; each outcome is recorded on the calendar
+    (last_synced_at / last_sync_error). The owner is notified when a sync starts failing."""
+    if not _settings.ONLINE_MODE:
         print("Calendar sync task has been cancelled because the server is in offline mode.")
-
+        return
+    for cal in Calendar.objects.filter(calendar_type__gt=0, auto_sync=True, active=True).select_related("owner"):
+        print(f"Syncing {cal.name}...")
+        was_failing = bool(cal.last_sync_error)
+        status = sync_calendar(cal)
+        if status:
+            print(f"{cal.name} has been synced{' (not modified)' if status == 'not_modified' else ''}!")
+            continue
+        print(f"An error ocurred syncing {cal.name}")
+        if not was_failing:  # once per failure streak, not every run
+            notify(cal.owner, f"Couldn't sync {cal.name}",
+                   "The calendar's source didn't respond or returned an error. Its events weren't updated.",
+                   source="Calendar", url="/calendar/", priority=Priority.HIGH)

@@ -2,6 +2,9 @@
 
 - timed calendar events, N minutes before they start         (ReminderSettings.event_minutes)
 - calendar deadlines/assignments (events with no end)         (deadline_minutes)
+  An event's own reminders (EventReminder, e.g. 1 day and 1 hour before) replace the global
+  lead for it; a subscriber who muted a calendar (Subscriber.notify=False) gets none from it.
+  Repeating events remind per occurrence; cancelled events never remind.
 - todos with a due date and no reminders of their own         (todo_minutes)
 - an optional morning agenda                                  (daily_agenda, agenda_time)
 - optionally copy upcoming calendar deadlines into the Inbox  (deadlines_to_todos)
@@ -10,15 +13,17 @@ Each reminder is sent once (SentReminder key per item and occurrence).
 """
 
 import datetime
+from collections import defaultdict
 
 import pytz
 from django.db import IntegrityError
-from django.db.models import Count
+from django.db.models import Count, Max, Q
 from django.utils import timezone
 
 from notifications.models import ReminderSettings, SentReminder
 from notifications.service import Priority, notify
-from scheduler.models import Event, Subscriber, Todo
+from scheduler.models import Calendar, EventReminder, Subscriber, Todo
+from scheduler.service import events_in_range
 
 DEFAULTS = ReminderSettings()  # field defaults, for users who never opened the settings
 LOOKAHEAD = datetime.timedelta(days=2)
@@ -52,19 +57,33 @@ def _when(dt, user):
 
 def event_reminders(now, cache):
     sent = 0
-    events = (Event.objects.filter(startdate__gt=now, startdate__lte=now + LOOKAHEAD, allday=False, calendar__active=True)
-              .select_related("calendar"))
+    longest = EventReminder.objects.aggregate(m=Max("minutes_before"))["m"] or 0
+    horizon = now + max(LOOKAHEAD, datetime.timedelta(minutes=longest))
+    active = Calendar.objects.filter(active=True).values("id")
+    events = [e for e in events_in_range(active, now, horizon, related=("calendar",)) if e.startdate > now]
+    own = defaultdict(list)
+    for r in EventReminder.objects.filter(event_id__in={e.recurrence_parent_id or e.id for e in events}):
+        own[r.event_id].append(r.minutes_before)
     subs = {}
-    for s in Subscriber.objects.filter(calendar__in={e.calendar_id for e in events}, visible=True).select_related("user"):
+    for s in Subscriber.objects.filter(calendar__in={e.calendar_id for e in events}, visible=True,
+                                       notify=True).select_related("user"):
         subs.setdefault(s.calendar_id, []).append(s.user)
     for e in events:
-        deadline = e.enddate is None
+        leads_own = [m for m in own.get(e.recurrence_parent_id or e.id, []) if m]
+        if not leads_own and (e.kind == "all_day" or e.startdate > now + LOOKAHEAD):
+            continue  # all-day events only remind when they have their own reminders
+        deadline = e.kind == "deadline"
+        base = f"ev:{e.ident()}:{e.startdate.isoformat()}"
         for user in subs.get(e.calendar_id, []):
-            st = _settings(cache, user.id)
-            lead = st.deadline_minutes if deadline else st.event_minutes
-            if not lead or e.startdate - datetime.timedelta(minutes=lead) > now:
-                continue
-            if _once(user, f"ev:{e.id}:{e.startdate.isoformat()}"):
+            if leads_own:
+                due = [m for m in leads_own if e.startdate - datetime.timedelta(minutes=m) <= now]
+                keys = [f"{base}:{m}" for m in due]
+            else:
+                st = _settings(cache, user.id)
+                lead = st.deadline_minutes if deadline else st.event_minutes
+                keys = [base] if lead and e.startdate - datetime.timedelta(minutes=lead) <= now else []
+            # Mark every due lead as sent, but notify once (a late-created event doesn't get 3 at once).
+            if keys and sum(_once(user, k) for k in keys):
                 title = f"Due {_when(e.startdate, user)}: {e.name}" if deadline else f"{e.name} · {_when(e.startdate, user)}"
                 body = " · ".join(filter(None, [e.calendar.name, e.location]))
                 notify(user, title, body, source="Calendar", url="/calendar/",
@@ -100,8 +119,9 @@ def daily_agendas(now):
             continue
         day_end = start.replace(hour=23, minute=59)
         cals = Subscriber.objects.filter(user=user, visible=True, calendar__active=True).values("calendar_id")
-        events = list(Event.objects.filter(calendar_id__in=cals, startdate__gte=start.replace(hour=0, minute=0),
-                                           startdate__lte=day_end).order_by("startdate")[:20])
+        day_start = start.replace(hour=0, minute=0)
+        events = [e for e in events_in_range(cals, day_start, day_end, related=("calendar",))
+                  if e.startdate >= day_start][:20]
         due = Todo.objects.filter(user=user, completed=False, complete_by__lte=day_end)
         overdue = due.filter(complete_by__lt=now).count()
         lines = [f"{timezone.localtime(e.startdate, tz).strftime('%-I:%M %p') if not e.allday else 'All day'} · {e.name}"
@@ -123,14 +143,17 @@ def deadlines_to_todos(now):
     for st in ReminderSettings.objects.filter(deadlines_to_todos=True).select_related("user"):
         user = st.user
         cals = Subscriber.objects.filter(user=user, visible=True, calendar__active=True).values("calendar_id")
-        for e in Event.objects.filter(calendar_id__in=cals, enddate__isnull=True, allday=False,
-                                      startdate__gte=now, startdate__lte=now + datetime.timedelta(days=14)):
-            if Todo.objects.filter(user=user, custom_info__event_id=str(e.id)).exists() or not _once(user, f"d2t:{e.id}"):
+        for e in events_in_range(cals, now, now + datetime.timedelta(days=14), extra=Q(kind="deadline"),
+                                 related=("calendar",)):
+            if e.startdate < now:
+                continue
+            ident = e.ident()
+            if Todo.objects.filter(user=user, custom_info__event_id=ident).exists() or not _once(user, f"d2t:{ident}"):
                 continue
             inbox = ensure_inbox(user)
             t = Todo.objects.create(user=user, name=e.name[:256], description=e.description, complete_by=e.startdate,
                                     priority=e.priority, project=inbox, bucket=inbox.buckets.filter(is_done=False).first(),
-                                    custom_info={"event_id": str(e.id), "calendar": e.calendar.name})
+                                    custom_info={"event_id": ident, "calendar": e.calendar.name})
             Reminder.objects.create(todo=t, relative_to="due", offset=-86400, fire_at=e.startdate - datetime.timedelta(days=1))
             made += 1
     return made

@@ -1,10 +1,13 @@
 from django.http import HttpResponseBadRequest, JsonResponse
+from django.db import transaction
 from django.db.models import Count, Q
 from django.db.models.functions import ExtractDay
 from django.utils import timezone
 from scheduler.models import *
 from scheduler.sync import *
 from scheduler.inject import *
+from scheduler import service as svc
+from scheduler import recurrence as rec
 
 from django.conf import settings as _settings
 CALENDAR_VARS, ONLINE_MODE, TIME_ZONE = _settings.CALENDAR_VARS, _settings.ONLINE_MODE, _settings.TIME_ZONE
@@ -17,9 +20,7 @@ import json
 import pytz
 import bleach
 
-def overlapping(start, end):
-    """Events overlapping [start, end); assignments (no end) count at their start."""
-    return Q(startdate__lt=end) & (Q(enddate__gt=start) | Q(enddate__isnull=True, startdate__gte=start))
+overlapping = svc.overlapping  # Events overlapping [start, end); assignments (no end) count at their start.
 
 def month_bounds(year, month):
     tz = pytz.timezone(TIME_ZONE)
@@ -27,8 +28,17 @@ def month_bounds(year, month):
             tz.localize(datetime.datetime(year + month // 12, month % 12 + 1, 1)))
 
 def can_edit_calendar(user, calendar):
-    """True if the user is the owner (0) or an editor (1) of the calendar."""
-    return calendar.users_subscribed.filter(user=user, subscribe_type__in=[0, 1]).exists()
+    """True if the user owns the calendar (Calendar.owner) or is one of its admins."""
+    return calendar.can_edit(user)
+
+def _event_dicts(events, subs, user):
+    """Legacy event dicts; subs: {calendar_id: Subscriber} for colours and private masking."""
+    out = []
+    for e in events:
+        s = subs.get(e.calendar_id)
+        r = s.role if s is not None else ("owner" if user.is_authenticated and e.calendar.owner_id == user.id else None)
+        out.append(e.getinfo(sub_colour=s.colour if s else None, masked=svc.masked_for(e, user, r or "subscriber")))
+    return out
 
 @login_required_api
 def get_events(request):
@@ -43,7 +53,7 @@ def get_events(request):
     user_ = request.user
     albums = [i.album for i in user_.album_subscribed.all()]
 
-    calendars = user_.calendar_subscribed.all()
+    calendars = user_.calendar_subscribed.select_related('calendar')
     if request.GET.get("show_all") != "1":
         calendars = calendars.filter(calendar__active=True)
     shown = calendars if request.GET.get("show_invisible") == "1" else calendars.filter(visible=True)
@@ -53,9 +63,8 @@ def get_events(request):
     if user_.birthday and user_.birthday.month == month:
         ans["data"]["birthdays"].append(user_.getinfo_zip())
 
-    ans["data"]["events"] = [i.getinfo() for i in Event.objects.filter(
-        overlapping(month_start, month_end), calendar__in=[s.calendar_id for s in shown]
-    ).order_by('startdate', '-enddate', 'name').iterator()]
+    shown = {s.calendar_id: s for s in shown}
+    ans["data"]["events"] = _event_dicts(svc.events_in_range(list(shown), month_start, month_end), shown, user_)
 
     # Open todos, plus the ones completed this month.
     ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(
@@ -93,9 +102,9 @@ def sync_events(request):
 
         try:
             calendar = Calendar.objects.filter(id=req["calendar"])[0]
-            if calendar.owner != request.user:
+            if calendar.owner_id != request.user.id:
                 return error_response("You do not own this calendar", 401)
-        except IndexError:
+        except (IndexError, KeyError, ValueError):
             return error_response("Calendar does not exist")
 
         try: token = req['token']
@@ -106,16 +115,9 @@ def sync_events(request):
         start_time = f"{req['sy']}-{req['sm']}-01T00:00:00{tzoffset}"
         end_time = f"{req['ey']}-{req['em']}-01T00:00:00{tzoffset}"
 
-        if calendar.calendar_type == 1: # ICalendar:
-            status = sync_ical(calendar, start_time, end_time) ## ACTUAL SYNC
-
-        elif calendar.calendar_type == 2: # Public Google Calendar
-            status = sync_google(calendar, start_time, end_time, token) ## ACTUAL SYNC
-
-        elif calendar.calendar_type == 50: # UWaterloo WCMS
-            status = sync_uwaterloo(calendar, start_time, end_time)
-
-        else: return error_response("Calendar is a local calendar")
+        if calendar.calendar_type not in (1, 2, 50):
+            return error_response("Calendar is a local calendar")
+        status = sync_calendar(calendar, start_time, end_time, token, conditional=False)  # records the outcome
 
         if status: return success_response()
         return error_response("Calendar sync failed", 502)
@@ -137,10 +139,10 @@ def get_availability(request, username):
     some = [s.calendar_id for s in subs if s.display_busy == 1]  # only "busy" categories
     every = [s.calendar_id for s in subs if s.display_busy == 2]  # every event
     busy_categories = [1, 2, 4, 5, 6, 7, 9]
-    evs = Event.objects.filter(
-        Q(startdate__lt=day + datetime.timedelta(days=1), enddate__gt=day),  # overlaps the day
-        Q(calendar__in=every) | Q(calendar__in=some, category__in=busy_categories),
-    ).order_by('startdate')
+    # Free (transparent) and cancelled events never block; deadlines have no length.
+    evs = svc.events_in_range(some + every, day, day + datetime.timedelta(days=1), related=("calendar",), extra=(
+        Q(transparency="busy", enddate__isnull=False)
+        & (Q(calendar__in=every) | Q(calendar__in=some, category__in=busy_categories))))
     return success_response({"busy": [[e.startdate, e.enddate] for e in evs]})
 
 def get_calendar_events(request):
@@ -149,7 +151,8 @@ def get_calendar_events(request):
     c = Calendar.objects.filter(id=request.GET.get("calendar") or 0).first()
     if c is None:
         return error_response("Calendar does not exist", 404)
-    if not (c.public or (request.user.is_authenticated and c.users_subscribed.filter(user=request.user).exists())):
+    sub = c.users_subscribed.filter(user=request.user).first() if request.user.is_authenticated else None
+    if not (c.public or sub is not None):
         return error_response("Not authorized", 401)
     try:
         parts = [int(x) for x in (request.GET.get("time") or "").split("-")]
@@ -162,8 +165,8 @@ def get_calendar_events(request):
             raise ValueError
     except ValueError:
         return error_response("Malformed time")
-    events = Event.objects.filter(overlapping(start, end), calendar=c).order_by('startdate', '-enddate', 'name')
-    return JsonResponse({"events": [i.getinfo() for i in events]})
+    events = svc.events_in_range([c.id], start, end)
+    return JsonResponse({"events": _event_dicts(events, {c.id: sub} if sub else {}, request.user)})
 
 @login_required_api
 def calendar(request):
@@ -175,7 +178,7 @@ def calendar(request):
         sub = c_.users_subscribed.filter(user=request.user).first() if c_ else None
         if sub is None:
             return error_response("Not authorized", 401)
-        editor = sub.subscribe_type in (0, 1)
+        editor = c_.role_of(request.user, sub) in ("owner", "admin")
         if request.method == 'GET':
             return JsonResponse({**c_.getinfo(), **c_.get_subs(editor=editor)})
         if request.GET.get("command") == "active":
@@ -189,10 +192,12 @@ def calendar(request):
     if request.method == 'POST':
         try:
             b = json.loads(request.body.decode('utf8'))
-            c = Calendar.objects.create(name=bleach.clean(b['name']), colour=b['color'], owner=request.user)
-            Subscriber.objects.create(user=request.user, calendar=c, subscribe_type=0, colour=b['color'])
+            icon = svc.clean_icon(b.get('icon')) or ''
+            with transaction.atomic():
+                c = Calendar.objects.create(name=bleach.clean(b['name']), colour=b['color'], owner=request.user, icon=icon)
+                Subscriber.objects.create(user=request.user, calendar=c, subscribe_type=0, colour=b['color'])
             return success_response()
-        except (ValueError, KeyError):
+        except (ValueError, KeyError, TypeError):
             return error_response("Name and colour required")
     return error_response("Calendar ID not provided")
 
@@ -216,7 +221,7 @@ def create_edit_event(request):
 
     try:
         reqcal = Calendar.objects.filter(id=req["calendar"])[0]
-    except IndexError:
+    except (IndexError, KeyError, ValueError, TypeError):
         return error_response("Calendar does not exist")
 
     if not can_edit_calendar(request.user, reqcal):
@@ -225,20 +230,32 @@ def create_edit_event(request):
     try:
         if req["name"] == "": req["name"] = "Unnamed"
 
-        if req['command'] == 'add': e = Event()
+        if req['command'] == 'add':
+            e = Event(created_by=request.user)
         elif req['command'] == 'edit':
-            try:
-                e = Event.objects.filter(id=req['old_id'])[0]
-            except IndexError:
+            series, original = svc.resolve(req.get('old_id'))
+            if series is None:
                 return error_response("Event does not exist", 401)
             # Must also be able to edit the calendar the event currently lives in
-            if not can_edit_calendar(request.user, e.calendar):
+            if not can_edit_calendar(request.user, series.calendar):
                 return error_response("Not authorized", 401)
+            if original is not None:  # one occurrence of a series: edit just that one
+                try:
+                    e = svc.make_override(series, original)
+                except LookupError:
+                    return error_response("Event does not exist", 401)
+                reqcal = series.calendar  # an occurrence stays in its series' calendar
+            else:
+                e = series
         else:
             return error_response("Invalid command")
 
+        owner_changed = e.calendar_id is not None and e.calendar_id != reqcal.id and e.calendar.owner_id != reqcal.owner_id
         e.calendar = reqcal
-        e.category = req["category"]
+        legacy_cat = int(req["category"])
+        if e._state.adding or owner_changed or legacy_cat != e.category or e.event_category_id is None:
+            e.set_category(EventCategory.for_legacy(reqcal.owner_id, legacy_cat))
+            e.category = legacy_cat
         e.name = bleach.clean(req["name"])
         e.description = bleach.clean(req["description"])
         e.public = req["public"]
@@ -246,24 +263,40 @@ def create_edit_event(request):
 
         if "location" in req:
             e.location = bleach.clean(req["location"]) if req["location"] else req["location"]
+        # Newer optional keys (the old UI never sends them)
+        if req.get("status") in ("confirmed", "tentative", "cancelled"): e.status = req["status"]
+        if req.get("transparency") in ("busy", "free"): e.transparency = req["transparency"]
+        if req.get("visibility") in ("default", "public", "private"): e.visibility = req["visibility"]
+        if "tags" in req: e.tags = svc.clean_tags(req["tags"])
+        if "colour" in req: e.colour = svc.clean_colour(req["colour"])
+        if "icon" in req: e.icon = svc.clean_icon(req["icon"])
+        if "meeting_url" in req: e.meeting_url = svc.clean_url(req["meeting_url"])
+        if "rrule" in req and not e.recurrence_parent_id:
+            e.rrule = rec.normalize_rrule(req["rrule"], reqcal.tz)
 
         if req['type'] == "ade":
             e.startdate = req["start"]
             e.enddate = req["end"]
             e.allday = True
+            e.kind = "all_day"
+            e.start_date = e.end_date = None  # recomputed from the datetimes the old UI sends
         elif req['type'] == "assignment":
             e.startdate = req["start"]
             e.enddate = None
             e.allday = False
+            e.kind = "deadline"
         elif req['type'] == "event":
             e.startdate = req["start"]
             e.enddate = req["end"]
             e.allday = False
+            e.kind = "event"
 
         e.save()
 
         return success_response()
 
+    except ValueError as ex:
+        return error_response(str(ex) or "Invalid value")
     except Exception as ex:
         return server_error(ex)
 
@@ -275,50 +308,45 @@ def duplicate_event(request):
         return error_response("Malformed JSON. Can not decode.")
 
     try:
-        try:
-            e = Event.objects.filter(id=req["id"])[0]
-            try:
-                reqcal = e.calendar
-                try:
-                    if reqcal.users_subscribed.filter(user=request.user)[0].subscribe_type not in [0, 1]:
-                        return error_response("Not authorized", 401)
-                except IndexError: return error_response("Not authorized", 401)
-            except IndexError: return error_response("Calendar does not exist")
+        series, original = svc.resolve(req.get("id"))
+        if series is None:
+            return error_response("Event does not exist", 401)
+        if not can_edit_calendar(request.user, series.calendar):
+            return error_response("Not authorized", 401)
+        src = svc.occurrence_view(series, original) if original is not None else series
+        if src is None:
+            return error_response("Event does not exist", 401)
+        days = datetime.timedelta(days=int(req["days"]))
+        # A copy of one occurrence is a plain event; a copy of a series is a series.
+        e = svc._clone(src, startdate=src.startdate + days, enddate=src.enddate + days if src.enddate else None,
+                       start_date=src.start_date + days if src.start_date else None,
+                       end_date=src.end_date + days if src.end_date else None,
+                       rrule="" if original is not None else series.rrule, created_by=request.user)
+        e.calendar = series.calendar
+        e.save()
+        return success_response()
 
-            e.pk = None; e.id = None
-            e.save()
-            e.startdate = e.startdate + datetime.timedelta(days=int(req["days"]))
-            try: e.enddate = e.enddate + datetime.timedelta(days=int(req["days"]))
-            except: pass
-            e.save()
-            return success_response()
-
-        except IndexError: return error_response("Event does not exist", 401)
-
+    except (KeyError, ValueError, TypeError):
+        return error_response("Invalid request")
     except Exception as ex:
         return server_error(ex)
 
 @post_request_only
 @login_required_api
 def delete_event(request):
-        evs = Event.objects.filter(id=request.body.decode("utf-8"))
-        try:
-            ev = evs[0]
-            try:
-                if ev.calendar.users_subscribed.filter(user=request.user)[0].subscribe_type not in [0, 1]:
-                    return error_response("Not authorized", 401)
-            except IndexError:
-                return error_response("Not authorized", 401)
-            try:
-                ev.delete()
-                return success_response()
-            except Exception as ex:
-                return server_error(ex)
-
-        except IndexError:
-            return error_response("Invalid Event")
-
+    series, original = svc.resolve(request.body.decode("utf-8").strip())
+    if series is None:
+        return error_response("Invalid Event")
+    if not can_edit_calendar(request.user, series.calendar):
+        return error_response("Not authorized", 401)
+    try:
+        if original is not None:
+            svc.cancel_occurrence(series, original)  # just this occurrence
+        else:
+            series.delete()
         return success_response()
+    except Exception as ex:
+        return server_error(ex)
 
 @post_request_only
 @login_required_api
@@ -373,7 +401,7 @@ def todo(request, command):
 @login_required_api
 def subscribe(request):
     """GET: preview the calendar behind an invite code (or a public ?calendar=id).
-    POST: subscribe to it."""
+    POST: subscribe to it (with the invite's role; expiry and max uses are enforced)."""
     invite = None
     if request.GET.get('calendar'):
         calendar_ = Calendar.objects.filter(id=request.GET['calendar'], public=True).first()
@@ -383,8 +411,9 @@ def subscribe(request):
         invite = Invite.objects.filter(code=request.GET.get('code') or "").select_related('calendar__owner').first()
         if invite is None:
             return error_response("Invalid invite code")
-        if not invite.active:
-            return error_response("Invite code is not active")
+        problem = invite.problem()
+        if problem:
+            return error_response(problem)
         calendar_ = invite.calendar
     if request.user.calendar_subscribed.filter(calendar=calendar_).exists():
         return error_response("You are already subscribed to this calendar")
@@ -392,27 +421,45 @@ def subscribe(request):
     if request.method == 'GET':
         owner = calendar_.owner
         return success_response({**calendar_.getinfo(), "owner": {
-            "id": owner.id, "first_name": owner.first_name, "last_name": owner.last_name}})
+            "id": owner.id, "first_name": owner.first_name, "last_name": owner.last_name},
+            "role": "admin" if invite is not None and invite.role == 1 else "subscriber"})
 
-    Subscriber.objects.create(calendar=calendar_, user=request.user, colour=calendar_.colour)
+    if invite is not None:
+        _, err = svc.join(request.user, invite)
+        if err:
+            return error_response(err)
+    else:
+        Subscriber.objects.create(calendar=calendar_, user=request.user, colour=calendar_.colour)
     if calendar_.owner_id != request.user.id:
         notify(calendar_.owner, f"{request.user.get_full_name() or request.user.username} subscribed to {calendar_.name}",
                "Manage subscribers in the calendar's settings.", source="Calendar", url="/calendar/")
-    if invite is not None:
-        invite.uses += 1
-        invite.save(update_fields=["uses"])
     return success_response("Success")
 
 @post_request_only
 @login_required_api
 def unsubscribe(request):
-    sub = request.user.calendar_subscribed.filter(calendar_id=request.GET.get("calendar")).first()
+    sub = request.user.calendar_subscribed.select_related('calendar').filter(calendar_id=request.GET.get("calendar")).first()
     if sub is None:
         return error_response("Not subscribed to this calendar")
-    if sub.subscribe_type == 0:
+    if sub.calendar.owner_id == request.user.id:
         return error_response("Owners can't unsubscribe from their own calendar")
     sub.delete()
     return success_response()
+
+def _invite_limits(get, invite, is_owner):
+    """Optional ?expires_on=ISO|"" &max_uses=n|"" &role=admin|subscriber for invite create."""
+    if "expires_on" in get:
+        invite.expires_on = rec.parse_moment(get["expires_on"]) if get["expires_on"] else None
+    if "max_uses" in get:
+        invite.max_uses = int(get["max_uses"]) if get["max_uses"] else None
+        if invite.max_uses is not None and invite.max_uses < 1:
+            raise ValueError("max_uses must be at least 1")
+    if "role" in get:
+        if get["role"] not in ("admin", "subscriber"):
+            raise ValueError("role must be admin or subscriber")
+        if get["role"] == "admin" and not is_owner:
+            raise PermissionError
+        invite.role = 1 if get["role"] == "admin" else 2
 
 @post_request_only
 @login_required_api
@@ -440,7 +487,14 @@ def invite(request):
             return error_response("Not authorized", 401)
         if Invite.objects.filter(code=code).exists():
             return error_response("That invite code is already in use")
-        invite = Invite.objects.create(code=code, active=True, calendar=calendar)
+        invite = Invite(code=code[:8], active=True, calendar=calendar)
+        try:
+            _invite_limits(request.GET, invite, calendar.owner_id == request.user.id)
+        except PermissionError:
+            return error_response("Only the owner can create admin invites", 401)
+        except ValueError as ex:
+            return error_response(str(ex))
+        invite.save()
         return success_response(invite.getinfo())
 
     return error_response("Unknown option")
@@ -451,6 +505,9 @@ def get_block_status(request):
     if username == None: return error_response("No username provided")
     try:
         user = ComptechUser.objects.filter(username=username)[0]
-        calendars = [i.calendar for i in user.calendar_subscribed.filter(calendar__active=True)]
-        return JsonResponse({"status": "success", "data": [i.category for i in Event.objects.filter(calendar__in=calendars, startdate__lte=timezone.now(), enddate__gte=timezone.now())]})
+        calendars = list(user.calendar_subscribed.filter(calendar__active=True).values_list("calendar_id", flat=True))
+        now = timezone.now()
+        evs = svc.events_in_range(calendars, now, now + datetime.timedelta(seconds=1), related=("calendar",),
+                                  extra=Q(transparency="busy", enddate__isnull=False))
+        return JsonResponse({"status": "success", "data": [i.category for i in evs if i.startdate <= now]})
     except IndexError: return error_response("User does not exist")
