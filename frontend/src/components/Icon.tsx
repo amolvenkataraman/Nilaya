@@ -118,6 +118,9 @@ const P: Record<string, ReactElement> = {
 
 export type IconName = keyof typeof P
 
+/** The shapes of an icon (unknown names fall back to "info", as <Icon> does): lib/favicon.ts serialises them. */
+export const iconShapes = (name: string): ReactElement => P[name] ?? P.info
+
 export function Icon({ name, size = 16, className, title }: { name: IconName | string; size?: number | string; className?: string; title?: string }) {
   const s = typeof size === 'number' ? `${size / 16}rem` : size
   return (

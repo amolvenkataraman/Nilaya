@@ -13,6 +13,7 @@ import { logout, useGlobals, usePageTitle } from './Shell'
 import { useMe } from '../lib/queries'
 import { Boundary, NetworkBanner } from './resilience'
 import { cycleTheme, useTheme } from '../lib/theme'
+import { useAppFavicon } from '../lib/favicon'
 
 export interface AppShellProps {
   /** App id from components/nav.ts: picks the logo, title and the remembered sidebar state. */
@@ -52,6 +53,7 @@ export function AppLogo({ app, size = 1.5 }: { app: AppDef; size?: number }) {
 export function AppShell({ app: appId, title, pageTitle, topbar, sidebar, sidebarWidth, fullHeight, children }: AppShellProps) {
   const app = APPS.find((a) => a.id === appId) ?? APPS[0]
   usePageTitle(pageTitle ?? app.label)
+  useAppFavicon(app)
   const phone = useMediaQuery(PHONE)
   const [open, setOpen] = useState(() => readOpen(appId))
   const [drawer, setDrawer] = useState(false)

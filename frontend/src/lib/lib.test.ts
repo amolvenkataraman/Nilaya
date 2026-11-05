@@ -145,3 +145,14 @@ describe('contrast-aware colours', () => {
     expect(inkOn('#1e3a8a')).toBe('#ffffff')
   })
 })
+
+describe('favicon', () => {
+  it('serialises an app glyph onto its colour tile, once per app', async () => {
+    const { faviconSvg, faviconUrl } = await import('./favicon')
+    const svg = faviconSvg('calendar', '#0891b2')
+    expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8.5" fill="#0891b2"\/>/)
+    expect(svg).toContain('<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"></rect><path d="M3 9.5h18M8 3v3M16 3v3"></path>')
+    expect(faviconSvg('apps', '#000')).toContain('fill="currentColor" stroke="none"')
+    expect(faviconUrl('calendar', '#0891b2')).toBe('data:image/svg+xml,' + encodeURIComponent(svg))
+  })
+})
