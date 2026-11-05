@@ -44,6 +44,18 @@ UPLOADS_DIR = PHOTOS_ROOT + 'Uploads/'
 SERVE_FILES_WITH_DJANGO = False            # True only for local testing (no nginx)
 PHOTOS_INGEST_HARDLINK = False             # local testing: hardlink instead of copy on ingest
 
+# Absolute base URL, used for links in notifications pushed to phones/email.
+SITE_URL = 'https://app.example.com'
+
+# Email for notifications (optional). Leave EMAIL_HOST empty to disable email
+# delivery; the SMTP password goes in secrets (email_password.txt).
+EMAIL_HOST = ''
+EMAIL_PORT = 587
+EMAIL_HOST_USER = ''
+EMAIL_HOST_PASSWORD = _read_secret('email_password.txt', required=False)
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'Amol Superapp <noreply@example.com>'
+
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False # True in development, False in production
 
@@ -66,6 +78,7 @@ INSTALLED_APPS = [
 
     # Other Python libraries
     'channels',
+    'ninja',  # V2 API; listed so its docs use bundled (not CDN) assets
     'crispy_forms',
     'crispy_bootstrap4',
     'django_celery_beat',

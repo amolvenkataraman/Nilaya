@@ -18,6 +18,8 @@ from django.urls import include, path, re_path
 from django.conf.urls.static import static
 from django.conf import settings
 
+from Comptech.api_v2 import api as api_v2
+
 urlpatterns = [
     path("", include("mainsite.urls")),
     path("accounts/", include("users.urls")),
@@ -26,6 +28,9 @@ urlpatterns = [
     path("photos/", include("photos.urls")),
     path("map/", include("map.urls")),
     # path("social/", include("socialmedia.urls")),
+
+    path("notifications/", include("notifications.urls")),
+    path("api/v2/", api_v2.urls),
 
     path('admin/', admin.site.urls),
 ]

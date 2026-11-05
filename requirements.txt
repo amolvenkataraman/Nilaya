@@ -17,6 +17,7 @@ celery
 daphne
 psycopg
 django_celery_beat
+django-ninja     # V2 API (/api/v2/)
 django-import-export
 requests
 crispy-bootstrap4

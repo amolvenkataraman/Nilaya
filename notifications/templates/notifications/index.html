@@ -1,0 +1,223 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title %}Notifications{% endblock %}
+
+{% block page_styles %}
+<style>
+    .nt-page { max-width: 1120px; margin: 0 auto; padding: 24px max(16px, env(safe-area-inset-left, 0px)) 48px; display: grid; gap: 20px; }
+    .nt-page h1 { font-size: 1.5rem; font-weight: 650; margin: 0; }
+    .nt-grid { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 20px; align-items: start; }
+    @media (max-width: 900px) { .nt-grid { grid-template-columns: minmax(0, 1fr); } }
+    .nt-card { padding: 18px; display: grid; gap: 14px; }
+    .nt-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; }
+    .nt-card-head h2 { font-size: 1.05rem; font-weight: 650; margin: 0; }
+    .nt-label { font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--app-muted); font-weight: 600; }
+    .nt-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+    .nt-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 12px; padding: 12px 14px; border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); background: var(--app-surface); }
+    .nt-item.unread { border-left: 3px solid var(--app-accent); background: var(--app-accent-soft); }
+    .nt-item .t { font-weight: 600; color: var(--app-fg); text-decoration: none; }
+    a.nt-item-link:hover, .nt-item a.t:hover { text-decoration: underline; }
+    .nt-item .b { color: var(--app-muted); font-size: 0.9rem; white-space: pre-line; overflow-wrap: anywhere; }
+    .nt-item .m { color: var(--app-muted); font-size: 0.78rem; }
+    .nt-item .actions { grid-row: span 3; display: flex; flex-direction: column; gap: 4px; align-items: end; }
+    .prio { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; padding: 1px 6px; border-radius: 4px; }
+    .prio-15 { color: var(--app-warning); border: 1px solid var(--app-warning); }
+    .prio-20 { color: var(--app-danger); border: 1px solid var(--app-danger); }
+    .nt-empty { color: var(--app-muted); text-align: center; padding: 24px 8px; }
+    .ch { padding: 12px 14px; border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); display: grid; gap: 6px; }
+    .ch-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .ch-name { font-weight: 600; }
+    .ch-kind { color: var(--app-muted); font-size: 0.82rem; }
+    .ch-status { font-size: 0.8rem; color: var(--app-muted); overflow-wrap: anywhere; }
+    .ch-status.err { color: var(--app-danger); }
+    .ch-status.ok { color: var(--app-success); }
+    .ch-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+    #add-form { display: grid; gap: 10px; padding-top: 6px; border-top: 1px solid var(--app-border); }
+    .help { color: var(--app-muted); font-size: 0.82rem; }
+</style>
+{% endblock %}
+
+{% block page_body %}
+<div class="nt-page">
+    <h1>Notifications</h1>
+    <div class="nt-grid">
+        <section class="app-card nt-card" aria-labelledby="inbox-h">
+            <div class="nt-card-head">
+                <h2 id="inbox-h">Inbox</h2>
+                <div class="d-flex gap-2 flex-wrap">
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Filter">
+                        <input type="radio" class="btn-check" name="nt-filter" id="nt-all" value="all" checked>
+                        <label class="btn btn-outline-secondary" for="nt-all">All</label>
+                        <input type="radio" class="btn-check" name="nt-filter" id="nt-unread" value="unread">
+                        <label class="btn btn-outline-secondary" for="nt-unread">Unread</label>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary" id="nt-readall" type="button">Mark all read</button>
+                </div>
+            </div>
+            <ul class="nt-list" id="nt-list"><li class="nt-empty">Loading…</li></ul>
+            <button class="btn btn-sm btn-outline-secondary justify-self-center" id="nt-more" type="button" hidden>Load older</button>
+        </section>
+
+        <section class="app-card nt-card" aria-labelledby="ch-h">
+            <div class="nt-card-head">
+                <h2 id="ch-h">Delivery</h2>
+            </div>
+            <p class="help mb-0">Push notifications to your phone, email or chat. Each channel can skip low-priority messages.</p>
+            <div class="nt-list" id="ch-list"></div>
+
+            <form id="add-form" autocomplete="off">
+                <div class="nt-label">Add a channel</div>
+                <div class="row g-2">
+                    <div class="col-sm-6">
+                        <label class="form-label small mb-1" for="ch-kind">Type</label>
+                        <select class="form-select form-select-sm" id="ch-kind"></select>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small mb-1" for="ch-name">Name</label>
+                        <input class="form-control form-control-sm" id="ch-name" placeholder="e.g. My phone" maxlength="64" required>
+                    </div>
+                </div>
+                <div id="ch-fields" class="d-grid gap-2"></div>
+                <div>
+                    <label class="form-label small mb-1" for="ch-min">Send</label>
+                    <select class="form-select form-select-sm" id="ch-min">
+                        <option value="0">Everything</option>
+                        <option value="10">Normal and above</option>
+                        <option value="15">High and urgent only</option>
+                        <option value="20">Urgent only</option>
+                    </select>
+                </div>
+                <div class="text-danger small" id="ch-error" role="alert"></div>
+                <button class="btn btn-primary btn-sm" type="submit">Add channel</button>
+            </form>
+        </section>
+    </div>
+</div>
+
+<script>
+(function () {
+    const API = "/api/v2/notifications/";
+    const csrf = () => decodeURIComponent((document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1] || "");
+    const call = (url, opts = {}) => fetch(url, { ...opts, headers: { "Content-Type": "application/json", "X-CSRFToken": csrf(), ...(opts.headers || {}) } });
+    const el = (tag, cls, text) => { const n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; };
+    const PRIO = { 15: "High", 20: "Urgent" };
+    let oldest = null, types = [];
+
+    // ---------------- inbox
+    const list = document.getElementById("nt-list"), more = document.getElementById("nt-more");
+    const filter = () => document.querySelector('input[name="nt-filter"]:checked').value;
+
+    function row(n) {
+        const li = el("li", "nt-item" + (n.read ? "" : " unread"));
+        const title = el(n.url ? "a" : "div", "t", n.title);
+        if (n.url) title.href = n.url;
+        const actions = el("div", "actions");
+        if (PRIO[n.priority]) actions.append(el("span", `prio prio-${n.priority}`, PRIO[n.priority]));
+        const toggle = el("button", "btn btn-sm btn-link p-0", n.read ? "Mark unread" : "Mark read");
+        toggle.type = "button";
+        toggle.onclick = async () => { await call(`${API}${n.id}/read?read=${!n.read}`, { method: "POST" }); load(true); };
+        const del = el("button", "btn btn-sm btn-link p-0 text-danger", "Delete");
+        del.type = "button";
+        del.onclick = async () => { await call(`${API}${n.id}`, { method: "DELETE" }); li.remove(); };
+        actions.append(toggle, del);
+        li.append(title, actions);
+        if (n.body) li.append(el("div", "b", n.body));
+        li.append(el("div", "m", `${n.source} · ${window.notifTimeAgo ? notifTimeAgo(n.created_on) : new Date(n.created_on).toLocaleString()}`));
+        return li;
+    }
+
+    async function load(reset) {
+        if (reset) oldest = null;
+        const params = new URLSearchParams({ limit: 30, unread_only: filter() === "unread" });
+        if (oldest) params.set("before", oldest);
+        const data = await (await fetch(`${API}?${params}`)).json();
+        if (reset) list.replaceChildren();
+        data.items.forEach((n) => list.append(row(n)));
+        if (!list.children.length) list.append(el("li", "nt-empty", filter() === "unread" ? "No unread notifications." : "Nothing here yet."));
+        oldest = data.items.length ? data.items[data.items.length - 1].created_on : oldest;
+        more.hidden = data.items.length < 30;
+    }
+    document.querySelectorAll('input[name="nt-filter"]').forEach((r) => r.addEventListener("change", () => load(true)));
+    more.onclick = () => load(false);
+    document.getElementById("nt-readall").onclick = async () => { await call(API + "read-all", { method: "POST" }); load(true); };
+
+    // ---------------- channels
+    const chList = document.getElementById("ch-list");
+    const minLabel = (v) => ({ 0: "Everything", 10: "Normal and above", 15: "High and urgent", 20: "Urgent only" })[v] || `Priority ≥ ${v}`;
+
+    function channelRow(c) {
+        const box = el("div", "ch");
+        const top = el("div", "ch-top");
+        const names = el("div");
+        names.append(el("div", "ch-name", c.name), el("div", "ch-kind", `${(types.find((t) => t.kind === c.kind) || {}).label || c.kind} · ${minLabel(c.min_priority)}`));
+        const sw = el("div", "form-check form-switch m-0");
+        const input = el("input", "form-check-input");
+        input.type = "checkbox"; input.checked = c.enabled; input.title = "Enabled";
+        input.onchange = () => call(`${API}channels/${c.id}`, { method: "PATCH", body: JSON.stringify({ enabled: input.checked }) });
+        sw.append(input);
+        top.append(names, sw);
+        const status = el("div", "ch-status" + (c.last_error ? " err" : c.last_sent_at ? " ok" : ""),
+            c.last_error ? `Last attempt failed: ${c.last_error}` : c.last_sent_at ? `Last sent ${notifTimeAgo(c.last_sent_at)}` : "Not used yet");
+        const actions = el("div", "ch-actions");
+        const test = el("button", "btn btn-sm btn-outline-primary", "Send test");
+        test.type = "button";
+        test.onclick = async () => {
+            test.disabled = true; test.textContent = "Sending…";
+            const res = await (await call(`${API}channels/${c.id}/test`, { method: "POST" })).json();
+            status.className = "ch-status " + (res.ok ? "ok" : "err");
+            status.textContent = res.ok ? "Test sent just now" : `Test failed: ${res.error}`;
+            test.disabled = false; test.textContent = "Send test";
+        };
+        const del = el("button", "btn btn-sm btn-outline-danger", "Remove");
+        del.type = "button";
+        del.onclick = async () => { await call(`${API}channels/${c.id}`, { method: "DELETE" }); box.remove(); };
+        actions.append(test, del);
+        box.append(top, status, actions);
+        return box;
+    }
+
+    async function loadChannels() {
+        const chans = await (await fetch(API + "channels")).json();
+        chList.replaceChildren(...chans.map(channelRow));
+        if (!chans.length) chList.append(el("div", "nt-empty", "No channels yet: notifications only appear here and in the bell menu."));
+    }
+
+    // ---------------- add form
+    const kind = document.getElementById("ch-kind"), fields = document.getElementById("ch-fields"), err = document.getElementById("ch-error");
+    function renderFields() {
+        const t = types.find((x) => x.kind === kind.value);
+        fields.replaceChildren(...t.fields.map((f) => {
+            const wrap = el("div");
+            const label = el("label", "form-label small mb-1", f.label + (f.required ? "" : ""));
+            label.htmlFor = `cf-${f.key}`;
+            const input = el("input", "form-control form-control-sm");
+            input.id = `cf-${f.key}`; input.name = f.key; input.required = f.required;
+            input.type = f.secret ? "password" : (f.key === "address" ? "email" : "text");
+            wrap.append(label, input);
+            return wrap;
+        }));
+    }
+    kind.onchange = renderFields;
+    document.getElementById("add-form").onsubmit = async (e) => {
+        e.preventDefault();
+        err.textContent = "";
+        const config = {};
+        fields.querySelectorAll("input").forEach((i) => { config[i.name] = i.value; });
+        const res = await call(API + "channels", { method: "POST", body: JSON.stringify({
+            kind: kind.value, name: document.getElementById("ch-name").value, config,
+            min_priority: Number(document.getElementById("ch-min").value) }) });
+        if (!res.ok) { const d = await res.json(); err.textContent = d.detail ? (typeof d.detail === "string" ? d.detail : "Check the fields") : "Couldn't add the channel"; return; }
+        e.target.reset(); renderFields(); loadChannels();
+    };
+
+    (async () => {
+        types = await (await fetch(API + "channel-types")).json();
+        kind.replaceChildren(...types.map((t) => Object.assign(document.createElement("option"), { value: t.kind, textContent: t.label })));
+        renderFields();
+        load(true);
+        loadChannels();
+    })();
+})();
+</script>
+{% endblock %}

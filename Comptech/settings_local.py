@@ -44,3 +44,7 @@ MEDIA_ROOT = str(_DATA / "media")
 SERVE_FILES_WITH_DJANGO = True  # /private/ and /photo_cdn/ served by Django, same signed URLs
 PHOTOS_INGEST_HARDLINK = True  # ingest links files instead of copying (originals never modified)
 PHOTOS_AI_INDEX_ON_INGEST = False  # ultralytics/torch not installed locally
+SITE_URL = "http://127.0.0.1:8000"
+# Notification emails are written to files instead of being sent.
+EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+EMAIL_FILE_PATH = str(_DATA / "emails")
