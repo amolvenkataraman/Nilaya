@@ -1207,10 +1207,15 @@ def _period_stats(user, start, end, tz):
             ends.append(le.hour * 60 + le.minute)
             lengths.append((e.enddate - e.startdate).total_seconds() / 60)
         ec = e.event_category if e.event_category_id else None
-        c = cat.setdefault(e.event_category_id, {
-            "id": e.event_category_id, "label": ec.name if ec else "Uncategorized", "name": ec.name if ec else "Uncategorized",
+        # Categories belong to each calendar's owner: merge same-named ones (e.g. your "Meeting" and a
+        # shared calendar's "meeting") into one row, shown with your own category's id/colour/icon if you have one.
+        name = ec.name if ec else "Uncategorized"
+        c = cat.setdefault(name.strip().casefold(), {
+            "id": e.event_category_id, "label": name, "name": name,
             "colour": ec.colour if ec else "", "icon": ec.icon if ec else "",
             "legacy_id": ec.legacy_id if ec else 0, "hours": 0, "events": 0})
+        if ec and ec.owner_id == user.id and c["id"] != ec.id:
+            c.update(id=ec.id, label=ec.name, name=ec.name, colour=ec.colour, icon=ec.icon, legacy_id=ec.legacy_id)
         c["hours"] += h_total
         c["events"] += 1
         lid = ec.legacy_id if ec else e.category

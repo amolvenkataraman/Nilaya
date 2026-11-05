@@ -51,3 +51,26 @@ class CalendarApiTests(TestCase):
         Todo.objects.create(user=self.user, name="Essay", complete_by=soon, custom_info={"event_id": str(e.id)})
         kinds = {(i["kind"], i["has_todo"]) for i in self.client.get("/api/v2/calendar/agenda?days=3").json()}
         self.assertEqual(kinds, {("deadline", True), ("todo", False)})
+
+
+class InsightsMergeTests(TestCase):
+    def test_same_named_categories_from_different_owners_merge(self):
+        from .models import EventCategory
+        me = ComptechUser.objects.create_user("mia", password="pw", timezone="America/Toronto")
+        other = ComptechUser.objects.create_user("ola", password="pw")
+        mine = Calendar.objects.create(name="Mine", owner=me)
+        family = Calendar.objects.create(name="Family", owner=other)
+        Subscriber.objects.create(calendar=mine, user=me, subscribe_type=0)
+        Subscriber.objects.create(calendar=family, user=me, subscribe_type=2)
+        my_meeting = EventCategory.objects.create(owner=me, name="Meeting", colour="#123456")
+        their_meeting = EventCategory.objects.create(owner=other, name="meeting", colour="#abcdef")
+        for cal, cat, day in ((mine, my_meeting, 4), (family, their_meeting, 5)):
+            e = Event.objects.create(calendar=cal, name="Sync", startdate=at(day, 10), enddate=at(day, 11))
+            e.set_category(cat)
+            e.save()
+        self.client.force_login(me)
+        rows = self.client.get("/api/v2/calendar/insights?period=week&date=2026-11-04").json()["by_category"]
+        meeting = [r for r in rows if r["name"].lower() == "meeting"]
+        self.assertEqual(len(meeting), 1)
+        self.assertEqual((meeting[0]["hours"], meeting[0]["events"], meeting[0]["id"], meeting[0]["colour"]),
+                         (2, 2, my_meeting.id, "#123456"))
