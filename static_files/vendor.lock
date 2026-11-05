@@ -2,40 +2,6 @@
 # Format: <sha256>  <path from repo root>  <url>
 # To add or update a library: add/replace its line (download it once and take
 # `sha256sum`), update the template that references it, run the script.
-0c159070e198b7ed2a9162d6c9751f5914ff62803914d8512d60b1f5ffde4334  static_files/static/css/bootstrap/bootstrap.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.css
-e3d805fa8f258505afbeac3b356db7977fb86b812403b40d11e4358c6d332357  static_files/static/css/bootstrap/bootstrap.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.css.map
-0267260045096457f26914277f49eef5da5ec54ac6aee8579be4810332e518b6  static_files/static/css/bootstrap/bootstrap.min.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css
-907fdc5d5ea3bf6de43add9285f2af433d214c8dd60296fc48422a11f9539d6c  static_files/static/css/bootstrap/bootstrap.min.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.min.css.map
-d886506e663c4ab252c32b7804d02e12356683a580a4e8c3e3ddad2515393aac  static_files/static/css/bootstrap/bootstrap.rtl.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.rtl.css
-0132eaa9000e603be5b08f18e7149bdbbb4bf50b023bfc752308b288cc079c8c  static_files/static/css/bootstrap/bootstrap.rtl.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.rtl.css.map
-5b023b1d27287f33aa24ac8f77d5d5f2ca9688eba142a9656927bbd778894614  static_files/static/css/bootstrap/bootstrap.rtl.min.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.rtl.min.css
-a49724ef5c08080d3e5a28555e2d88611599ee6488e54a13aca2ed541354e8eb  static_files/static/css/bootstrap/bootstrap.rtl.min.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap.rtl.min.css.map
-1204a0d46ef4806ed2faafc3cd0b248f9437d4538b577b2ee4fb4699b5ab677e  static_files/static/css/bootstrap/bootstrap-grid.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-grid.css
-da45e1a557645a60c06dfa95e61ccb494ec6e0e5922ef6d8f883688535d4941a  static_files/static/css/bootstrap/bootstrap-grid.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-grid.css.map
-d179f6bff367c1cd030531368ac691a86db057f7f5b6556927417bcd4e72931c  static_files/static/css/bootstrap/bootstrap-grid.min.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-grid.min.css
-552b6fc736533af2201a7ef992d63e089727fc0d88d1b1c84a56cfd20b3a438d  static_files/static/css/bootstrap/bootstrap-grid.min.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-grid.min.css.map
-87e88e7dab1ba47c491f8158ded34615c436947d0ebad4eb4e239d25b6832562  static_files/static/css/bootstrap/bootstrap-grid.rtl.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-grid.rtl.css
-0b175e0a6b154a7c073cce941e3728f3829133ca9302427525f5c25e9aa8cde0  static_files/static/css/bootstrap/bootstrap-grid.rtl.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-grid.rtl.css.map
-449337a8a0ad87d8a5eee663c5ba640299e21385d8c339c1baa6b5e65b9e7320  static_files/static/css/bootstrap/bootstrap-grid.rtl.min.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-grid.rtl.min.css
-08b63c5e70e89151ed273089234f01afe157a3385253213a6336791224e5109e  static_files/static/css/bootstrap/bootstrap-grid.rtl.min.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-grid.rtl.min.css.map
-c64f038b1a4c5bfa9ba6b16422da9dfe3eb1544c301a6fde7b095fa1c7ee7b76  static_files/static/css/bootstrap/bootstrap-reboot.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-reboot.css
-ca52fbc6e7448004509aa6b97a39be1c40ee3b05e13714251695aaca3dbda4d8  static_files/static/css/bootstrap/bootstrap-reboot.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-reboot.css.map
-bf696c3f5beabde35fb6605d18b2a08f082e47bd7dd79636b8e18feac560ae7c  static_files/static/css/bootstrap/bootstrap-reboot.min.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-reboot.min.css
-d1562899b47ab4a37a0a56a78964cef85b1063e29f04fecf2f3791bf3483bd99  static_files/static/css/bootstrap/bootstrap-reboot.min.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-reboot.min.css.map
-840df8db57204a9473745b0227e6abad9f6b00a7c44519b6e6407ca5b99741be  static_files/static/css/bootstrap/bootstrap-reboot.rtl.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-reboot.rtl.css
-75e138f55cab6d309faa12203829de6a91c948b7c7b13fdf10490cf1aa91b841  static_files/static/css/bootstrap/bootstrap-reboot.rtl.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-reboot.rtl.css.map
-b7966fabdc1fc3205255af8434d01929ce79caef598df5cf3525d9830a64267b  static_files/static/css/bootstrap/bootstrap-reboot.rtl.min.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-reboot.rtl.min.css
-24547fb23fff0e6ecdd0ac60b8ba6f07e3ffa74aed5cac2dcbfd683d084711d4  static_files/static/css/bootstrap/bootstrap-reboot.rtl.min.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-reboot.rtl.min.css.map
-badb4e07c7f465c7835d6ccb8b1ad013682a6fe3ef285d7e8a264edda7f64703  static_files/static/css/bootstrap/bootstrap-utilities.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-utilities.css
-226516fde222a790451b53cd505c5f797dfd260ddb8ee4e0e0b40e6ae4cafc48  static_files/static/css/bootstrap/bootstrap-utilities.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-utilities.css.map
-8847cabcecce953161247ecd7fc350fe8c3fa558a3b8ddfeb0fc45182e9fbf66  static_files/static/css/bootstrap/bootstrap-utilities.min.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-utilities.min.css
-3e9d5719161cbc74f1ac8c6e7486b9070c50ca3302ba16c1f09ddecd4e9493f6  static_files/static/css/bootstrap/bootstrap-utilities.min.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-utilities.min.css.map
-b64a10e4311d9b3bfa048ebadf138c2714e453c1017de3a6cd1df7c388e15657  static_files/static/css/bootstrap/bootstrap-utilities.rtl.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-utilities.rtl.css
-59c8a4c53a85d527ca634af83b05bce4a0bd6dfe0bbde25dfa3cb56675d794b8  static_files/static/css/bootstrap/bootstrap-utilities.rtl.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-utilities.rtl.css.map
-dca91bab397aba16e6280916565113d81da3b06d03cc59290a22814d59b51fb8  static_files/static/css/bootstrap/bootstrap-utilities.rtl.min.css  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-utilities.rtl.min.css
-d8b74e710db7fef4df279a3c61a6d7c30ce2757d4012a66038f6159845215e7b  static_files/static/css/bootstrap/bootstrap-utilities.rtl.min.css.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/css/bootstrap-utilities.rtl.min.css.map
-886a0d1005f4d663e11473c81ea20b2b9d618372313df55223d2c571dffc5698  static_files/static/js/bootstrap/bootstrap.bundle.min.js  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js
-a2359d18ba672bbcc2d351d314a542a1a7c00c21cdf4467e99597a6a4bbe9788  static_files/static/js/bootstrap/bootstrap.bundle.min.js.map  https://cdn.jsdelivr.net/npm/bootstrap@5.0.0-beta1/dist/js/bootstrap.bundle.min.js.map
 09d67961fb055220b780225e50ebe7a1db86a318031f412e82bae5c08bb0f94e  static_files/static/js/popper/popper.js  https://cdn.jsdelivr.net/npm/@popperjs/core@2.6.0/dist/umd/popper.js
 f7f6a5894f1d19ddad6fa392b2ece2c5e578cbf7da4ea805b6885eb6985b6e3d  static_files/static/js/jquery/jquery.min.js  https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js
 426ae9259fa6709c2776d1819e57311087b2c11a3bb886d37dbec24eac4a2fc4  static_files/static/js/moment/moment.min.js.map  https://cdn.jsdelivr.net/npm/moment@2.29.1/min/moment.min.js.map
@@ -44,8 +10,6 @@ d6016d7fd70365f39f2a4f078a8a9b865aa7da51c1a1de7bc67d551ffa69d28a  static_files/s
 6d04df51fd654aed0de36d475762131e24a3a59ebfe5a4ba994365a232061968  static_files/static/js/croppie/croppie.min.js  https://cdn.jsdelivr.net/npm/croppie@2.6.4/croppie.min.js
 33ca3dbaa9c05513815a8dffd991d22091be6476da41da658c92cbbdda5e29c2  static_files/static/css/croppie/croppie.css  https://cdn.jsdelivr.net/npm/croppie@2.6.5/croppie.css
 f2e1a4b9a1d9df70cce4b946e548a430ff99b3bfc8eebcb1541d2414939b6a98  static_files/static/js/leaflet-heatmap/leaflet-heatmap.js  https://cdn.jsdelivr.net/npm/heatmap.js@2.0.5/plugins/leaflet-heatmap/leaflet-heatmap.js
-62f74b1cf824a89f03554c638e719594c309b4d8a627a758928c0516fa7890ab  static_files/static/vendor/bootstrap-5.1.3/bootstrap.min.css  https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css
-f5210fa3e7f0245a4c51eb7f280092c0ef99fdd28c45e17dab8cc5854fdf4fd3  static_files/static/vendor/bootstrap-5.1.3/bootstrap.bundle.min.js  https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js
 87364cc2b2a76a6684929e7d6b80b18a897794db38400caff1fcf1791c6925d2  static_files/static/vendor/chartjs-4.6.1/chart.umd.min.js  https://cdn.jsdelivr.net/npm/chart.js@4.6.1/dist/chart.umd.min.js
 52218edc58fb7eb16227b84c471c7fcd9e0192b6b3a87dbe0991396e61314649  static_files/static/vendor/leaflet-heat-0.2.0/leaflet-heat.min.js  https://cdn.jsdelivr.net/npm/leaflet.heat@0.2.0/dist/leaflet-heat.min.js
 cc6abb1fa901d6918a618e777993f78deafd8618d1bde1b51dc3527846e735ce  static_files/static/vendor/leaflet-gpx-1.7.0/gpx.min.js  https://cdnjs.cloudflare.com/ajax/libs/leaflet-gpx/1.7.0/gpx.min.js
@@ -54,3 +18,7 @@ cc6abb1fa901d6918a618e777993f78deafd8618d1bde1b51dc3527846e735ce  static_files/s
 73de4254959530e4d1d9bec586379184f96b4953dacf9cd5e5e2bdd7bfeceef7  static_files/static/js/moment/moment.min.js  https://cdn.jsdelivr.net/npm/moment@2.29.1/min/moment.min.js
 04f7caf4ce6fdf87365cfea9d1cc55cf599440bb2dd204cb9349a573b92ea1d0  static_files/static/css/leaflet/leaflet.css  https://cdn.jsdelivr.net/npm/leaflet@1.7.1/dist/leaflet.css
 ddcefe820e41d55e06a23b4d336c09112896f5f9f880855676e1a30fea800194  static_files/static/js/popper/popper.js.map  https://cdn.jsdelivr.net/npm/@popperjs/core@2.6.0/dist/umd/popper.js.map
+3c8f27e6009ccfd710a905e6dcf12d0ee3c6f2ac7da05b0572d3e0d12e736fc8  static_files/static/vendor/bootstrap-5.3.3/bootstrap.min.css  https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css
+0833b2e9c3a26c258476c46266e6877fc75218625162e0460be9a3a098a61c6c  static_files/static/vendor/bootstrap-5.3.3/bootstrap.bundle.min.js  https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js
+1e4e1d22972a3926f48598e0caf14e3fe7049835d428a344fed4f9e3665b3508  static_files/static/vendor/leaflet-markercluster-1.5.3/leaflet.markercluster.js  https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js
+614dea0a98ff3f4ead74f04918f6b1d1b9ba435c25b5fc23b21a394d1e3e4d87  static_files/static/vendor/leaflet-markercluster-1.5.3/MarkerCluster.css  https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css

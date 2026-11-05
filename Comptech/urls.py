@@ -18,6 +18,12 @@ from django.urls import include, path, re_path
 from django.conf.urls.static import static
 from django.conf import settings
 
+admin.site.site_header = admin.site.site_title = "AVNet Superapp admin"
+admin.site.index_title = "Administration"
+
+from Comptech.api_v2 import api as api_v2
+from Comptech import spa
+
 urlpatterns = [
     path("", include("mainsite.urls")),
     path("accounts/", include("users.urls")),
@@ -26,6 +32,16 @@ urlpatterns = [
     path("photos/", include("photos.urls")),
     path("map/", include("map.urls")),
     # path("social/", include("socialmedia.urls")),
+
+    path("tasks/", include("tasks.urls")),
+    path("settings/api-keys/", include("apikeys.urls")),
+    path("contacts/", include("contacts.urls")),
+    path("habits/", include("habits.urls")),
+    path("analytics/", include("analytics.urls")),
+    path("feeds/", include("feeds.urls")),
+    path("notifications/", include("notifications.urls")),
+    re_path(r"^app(?:/.*)?$", spa.index, name="spa"),  # new React UI (frontend/), client-side routes
+    path("api/v2/", api_v2.urls),
 
     path('admin/', admin.site.urls),
 ]

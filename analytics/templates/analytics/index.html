@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load static %}
+{% block page_title %}Usage{% endblock %}
+{% block page_styles %}<link rel="stylesheet" href="{% static 'analytics/analytics.css' %}">{% endblock %}
+{% block page_script %}<script src="{% static 'analytics/analytics.js' %}" defer></script>{% endblock %}
+{% block page_body %}
+<div class="an-page">
+    <header class="an-head">
+        <div>
+            <h1>Usage</h1>
+            <p class="app-muted">Page views and API calls (including in-page data loads) per person, per app, per day: which apps actually get used, to decide what V2 needs. Visible to staff only.</p>
+        </div>
+        <div class="btn-group" role="group" aria-label="Period">
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-days="7">7 days</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm active" data-days="30" aria-pressed="true">30 days</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-days="90">90 days</button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-days="365">Year</button>
+        </div>
+    </header>
+    <div class="an-kpis" id="an-kpis"></div>
+    <div class="an-grid">
+        <section class="app-card an-card"><h2>Page views per day</h2><div class="an-chart" id="an-days"></div></section>
+        <section class="app-card an-card"><h2>Page views by app</h2><div class="an-chart" id="an-apps"></div></section>
+    </div>
+    <section class="app-card an-card">
+        <h2>People × apps (page views · API calls)</h2>
+        <div class="an-table-wrap"><table class="an-table" id="an-matrix"></table></div>
+    </section>
+</div>
+{% endblock %}

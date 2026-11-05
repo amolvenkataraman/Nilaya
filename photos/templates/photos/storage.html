@@ -1,129 +1,128 @@
 {% extends "photos/photos_base.html" %}
+{% load static %}
 
 {% block page_title %} Storage {% endblock %}
 
+{% block page_styles %}
+{{ block.super }}
+<link href="{% static 'photo/insights.css' %}" rel="stylesheet" />
+{% endblock %}
+
 {% block page_body %}
-<div class="storage-container">
+<div class="ins-page">
     {% if admin_override %}
-    <div class="alert alert-warning d-flex align-items-center justify-content-between mb-4" role="alert" style="border-radius: var(--border-radius-sm); border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.08); color: #d97706; padding: 12px 20px;">
+    <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2 mb-0" role="alert">
         <div class="d-flex align-items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16" style="flex-shrink: 0; margin-right: 8px;">
-                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="flex-shrink-0" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
             </svg>
-            <span><strong>Admin Override Mode Active:</strong> Displaying data for all albums across the entire system.</span>
+            <span><strong>Admin override:</strong> showing data for all albums across the system.</span>
         </div>
-        <a href="{{ request.path }}" class="btn btn-sm btn-outline-warning" style="font-size: 0.8rem; font-weight: 600;">Exit Admin Mode</a>
+        <a href="{{ request.path }}" class="btn btn-sm btn-outline-warning">Exit admin mode</a>
     </div>
     {% endif %}
 
-    <div class="dashboard-title" style="margin-bottom: 24px;">💾 Library Storage</div>
+    <div class="ins-header">
+        <div>
+            <h1 class="ins-title">Library Storage
+            </h1>
+            <p class="ins-subtitle">Disk space used by optimized files and the originals kept alongside them.</p>
+        </div>
+    </div>
 
-    <!-- Storage Overview Cards -->
-    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
-        <div class="stats-card">
-            <span class="stats-card-label" style="color: #10b981;">Photos Storage</span>
-            <span class="stats-card-value">{{ overall.photo.tot_size_str }}</span>
-            <span class="stats-card-desc">
-                <strong>{{ overall.photo.opt_size_str }}</strong> optimized / 
-                <strong style="color: #34d399;">{{ overall.photo.overhead_str }}</strong> RAW ({{ overall.photo.count }} files)
+    <!-- Storage overview -->
+    <div class="ins-kpis ins-kpis-3">
+        <div class="ins-card ins-kpi">
+            <span class="ins-label"><i class="ins-swatch photo"></i>Photos storage</span>
+            <span class="ins-kpi-value">{{ overall.photo.tot_size_str }}</span>
+            <span class="ins-kpi-desc">
+                <strong>{{ overall.photo.opt_size_str }}</strong> optimized ·
+                <strong>{{ overall.photo.overhead_str }}</strong> RAW · {{ overall.photo.count }} files
             </span>
         </div>
-        <div class="stats-card">
-            <span class="stats-card-label" style="color: #3b82f6;">Videos Storage</span>
-            <span class="stats-card-value">{{ overall.video.tot_size_str }}</span>
-            <span class="stats-card-desc">
-                <strong>{{ overall.video.opt_size_str }}</strong> optimized / 
-                <strong style="color: #f59e0b;">{{ overall.video.overhead_str }}</strong> original ({{ overall.video.count }} files)
+        <div class="ins-card ins-kpi">
+            <span class="ins-label"><i class="ins-swatch video"></i>Videos storage</span>
+            <span class="ins-kpi-value">{{ overall.video.tot_size_str }}</span>
+            <span class="ins-kpi-desc">
+                <strong>{{ overall.video.opt_size_str }}</strong> optimized ·
+                <strong>{{ overall.video.overhead_str }}</strong> original · {{ overall.video.count }} files
             </span>
         </div>
-        <div class="stats-card">
-            <span class="stats-card-label" style="color: var(--accent);">Combined Library</span>
-            <span class="stats-card-value">{{ overall.all.tot_size_str }}</span>
-            <span class="stats-card-desc">
-                <strong>{{ overall.all.opt_size_str }}</strong> optimized / 
-                <strong style="color: #f59e0b;">{{ overall.all.overhead_str }}</strong> overhead ({{ overall.all.count }} files)
+        <div class="ins-card ins-kpi">
+            <span class="ins-label"><i class="ins-swatch all"></i>Combined library</span>
+            <span class="ins-kpi-value">{{ overall.all.tot_size_str }}</span>
+            <span class="ins-kpi-desc">
+                <strong>{{ overall.all.opt_size_str }}</strong> optimized ·
+                <strong>{{ overall.all.overhead_str }}</strong> overhead · {{ overall.all.count }} files
             </span>
         </div>
     </div>
 
-    <!-- Storage Legends Bar -->
-    <div style="display: flex; gap: 20px; align-items: center; margin-bottom: 30px; background: var(--bg-glass); border: 1px solid var(--border-glass); padding: 12px 16px; border-radius: var(--border-radius-sm); font-size: 0.85rem; font-weight: 500;">
-        <span style="font-weight: 700; color: var(--text-secondary); font-size: 0.75rem; text-transform: uppercase;">Legend:</span>
-        <div style="display: flex; align-items: center; gap: 6px;">
-            <div style="width: 12px; height: 12px; background: #10b981; border-radius: 3px;"></div>
-            <span>Photos (Optimized)</span>
+    <!-- Tabs + legend -->
+    <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+        <div class="ins-tabs" role="tablist">
+            <button type="button" class="ins-tab active" role="tab" data-target="#tab-album">By album</button>
+            <button type="button" class="ins-tab" role="tab" data-target="#tab-year">By year</button>
+            <button type="button" class="ins-tab" role="tab" data-target="#tab-month">By month</button>
         </div>
-        <div style="display: flex; align-items: center; gap: 6px;">
-            <div style="width: 12px; height: 12px; background: #34d399; border-radius: 3px;"></div>
-            <span>Photos RAW</span>
+        <div class="ins-legend p-0" aria-label="Usage bar legend">
+            <span class="ins-legend-item"><i class="ins-swatch photo"></i>Photos</span>
+            <span class="ins-legend-item"><i class="ins-swatch raw"></i>Photos RAW</span>
+            <span class="ins-legend-item"><i class="ins-swatch video"></i>Videos</span>
+            <span class="ins-legend-item"><i class="ins-swatch orig"></i>Video originals</span>
         </div>
-        <div style="display: flex; align-items: center; gap: 6px;">
-            <div style="width: 12px; height: 12px; background: #3b82f6; border-radius: 3px;"></div>
-            <span>Videos (Optimized)</span>
-        </div>
-        <div style="display: flex; align-items: center; gap: 6px;">
-            <div style="width: 12px; height: 12px; background: #f59e0b; border-radius: 3px;"></div>
-            <span>Videos Original Source</span>
-        </div>
-    </div>
-
-    <!-- Tabs for groupings -->
-    <div class="ct-tabs">
-        <button class="ct-tab-btn active" data-target="#tab-album">Group by Album</button>
-        <button class="ct-tab-btn" data-target="#tab-year">Group by Year</button>
-        <button class="ct-tab-btn" data-target="#tab-month">Group by Month</button>
     </div>
 
     <!-- Group by Album Pane -->
-    <div id="tab-album" class="storage-tab-pane">
-        <div class="ct-table-container">
-            <table class="ct-table">
+    <div id="tab-album" class="storage-tab-pane ins-card ins-card-flush">
+        <div class="ins-table-wrap">
+            <table class="ins-table">
                 <thead>
                     <tr>
-                        <th rowspan="2" style="vertical-align: middle;">Album Name</th>
-                        <th colspan="3" style="text-align: center; border-bottom: 2px solid #10b981; color: #10b981; padding-bottom: 4px;">Photos</th>
-                        <th colspan="4" style="text-align: center; border-bottom: 2px solid #3b82f6; color: #3b82f6; padding-bottom: 4px;">Videos</th>
-                        <th rowspan="2" style="text-align: right; vertical-align: middle;">Total Space</th>
-                        <th rowspan="2" style="width: 25%; vertical-align: middle;">Usage Breakdown</th>
+                        <th rowspan="2">Album</th>
+                        <th colspan="3" class="group photo"><span><i class="ins-swatch photo"></i>Photos</span></th>
+                        <th colspan="4" class="group video"><span><i class="ins-swatch video"></i>Videos</span></th>
+                        <th rowspan="2" class="num">Total space</th>
+                        <th rowspan="2">Usage breakdown</th>
                     </tr>
                     <tr>
-                        <th style="text-align: right;">Count</th>
-                        <th style="text-align: right;">Optimized</th>
-                        <th style="text-align: right;">RAW</th>
-                        <th style="text-align: right;">Count</th>
-                        <th style="text-align: right;">Duration</th>
-                        <th style="text-align: right;">Optimized</th>
-                        <th style="text-align: right;">Original</th>
+                        <th class="num">Count</th>
+                        <th class="num">Optimized</th>
+                        <th class="num">RAW</th>
+                        <th class="num">Count</th>
+                        <th class="num">Duration</th>
+                        <th class="num">Optimized</th>
+                        <th class="num">Original</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in album_storage %}
                     <tr class="storage-row">
-                        <td style="font-weight: 600;">{{ item.name }}</td>
+                        <td class="strong">{{ item.name }}</td>
                         <!-- Photos -->
-                        <td style="text-align: right;">{{ item.count_photo }}</td>
-                        <td style="text-align: right;">{{ item.opt_size_str_photo }}</td>
-                        <td style="text-align: right; color: #34d399;">{{ item.overhead_str_photo }}</td>
+                        <td class="num">{{ item.count_photo }}</td>
+                        <td class="num">{{ item.opt_size_str_photo }}</td>
+                        <td class="num muted">{{ item.overhead_str_photo }}</td>
                         <!-- Videos -->
-                        <td style="text-align: right;">{{ item.count_video }}</td>
-                        <td style="text-align: right;">{{ item.duration_video }}</td>
-                        <td style="text-align: right;">{{ item.opt_size_str_video }}</td>
-                        <td style="text-align: right; color: #f59e0b;">{{ item.overhead_str_video }}</td>
+                        <td class="num">{{ item.count_video }}</td>
+                        <td class="num">{{ item.duration_video }}</td>
+                        <td class="num">{{ item.opt_size_str_video }}</td>
+                        <td class="num muted">{{ item.overhead_str_video }}</td>
                         <!-- Combined Total -->
-                        <td style="text-align: right; font-weight: 600;">{{ item.tot_size_str_all }}</td>
-                        <!-- 4-part Progress Bar -->
+                        <td class="num strong">{{ item.tot_size_str_all }}</td>
+                        <!-- 4-part usage bar -->
                         <td>
-                            <div class="storage-bar-container" title="Photos: {{ item.opt_size_str_photo }} (RAW: {{ item.overhead_str_photo }}) / Videos: {{ item.opt_size_str_video }} (Original: {{ item.overhead_str_video }})">
-                                <div class="storage-bar-photo-opt" style="width: {{ item.pct_photo_opt }}%;" title="Photos Optimized ({{ item.pct_photo_opt|floatformat:1 }}%)"></div>
-                                <div class="storage-bar-photo-raw" style="width: {{ item.pct_photo_raw }}%;" title="Photos RAW ({{ item.pct_photo_raw|floatformat:1 }}%)"></div>
-                                <div class="storage-bar-video-opt" style="width: {{ item.pct_video_opt }}%;" title="Videos Optimized ({{ item.pct_video_opt|floatformat:1 }}%)"></div>
-                                <div class="storage-bar-video-orig" style="width: {{ item.pct_video_orig }}%;" title="Videos Original ({{ item.pct_video_orig|floatformat:1 }}%)"></div>
+                            <div class="ins-bar" title="Photos: {{ item.opt_size_str_photo }} (RAW: {{ item.overhead_str_photo }}) / Videos: {{ item.opt_size_str_video }} (Original: {{ item.overhead_str_video }})">
+                                <div class="photo" data-pct="{{ item.pct_photo_opt }}" title="Photos Optimized ({{ item.pct_photo_opt|floatformat:1 }}%)"></div>
+                                <div class="raw" data-pct="{{ item.pct_photo_raw }}" title="Photos RAW ({{ item.pct_photo_raw|floatformat:1 }}%)"></div>
+                                <div class="video" data-pct="{{ item.pct_video_opt }}" title="Videos Optimized ({{ item.pct_video_opt|floatformat:1 }}%)"></div>
+                                <div class="orig" data-pct="{{ item.pct_video_orig }}" title="Videos Original ({{ item.pct_video_orig|floatformat:1 }}%)"></div>
                             </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10" class="text-center text-muted">No albums found.</td>
+                        <td colspan="10" class="ins-empty">No albums found.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -132,55 +131,55 @@
     </div>
 
     <!-- Group by Year Pane -->
-    <div id="tab-year" class="storage-tab-pane" style="display: none;">
-        <div class="ct-table-container">
-            <table class="ct-table">
+    <div id="tab-year" class="storage-tab-pane ins-card ins-card-flush" hidden>
+        <div class="ins-table-wrap">
+            <table class="ins-table">
                 <thead>
                     <tr>
-                        <th rowspan="2" style="vertical-align: middle;">Year</th>
-                        <th colspan="3" style="text-align: center; border-bottom: 2px solid #10b981; color: #10b981; padding-bottom: 4px;">Photos</th>
-                        <th colspan="4" style="text-align: center; border-bottom: 2px solid #3b82f6; color: #3b82f6; padding-bottom: 4px;">Videos</th>
-                        <th rowspan="2" style="text-align: right; vertical-align: middle;">Total Space</th>
-                        <th rowspan="2" style="width: 25%; vertical-align: middle;">Usage Breakdown</th>
+                        <th rowspan="2">Year</th>
+                        <th colspan="3" class="group photo"><span><i class="ins-swatch photo"></i>Photos</span></th>
+                        <th colspan="4" class="group video"><span><i class="ins-swatch video"></i>Videos</span></th>
+                        <th rowspan="2" class="num">Total space</th>
+                        <th rowspan="2">Usage breakdown</th>
                     </tr>
                     <tr>
-                        <th style="text-align: right;">Count</th>
-                        <th style="text-align: right;">Optimized</th>
-                        <th style="text-align: right;">RAW</th>
-                        <th style="text-align: right;">Count</th>
-                        <th style="text-align: right;">Duration</th>
-                        <th style="text-align: right;">Optimized</th>
-                        <th style="text-align: right;">Original</th>
+                        <th class="num">Count</th>
+                        <th class="num">Optimized</th>
+                        <th class="num">RAW</th>
+                        <th class="num">Count</th>
+                        <th class="num">Duration</th>
+                        <th class="num">Optimized</th>
+                        <th class="num">Original</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in year_storage %}
                     <tr class="storage-row">
-                        <td style="font-weight: 600;">{{ item.year }}</td>
+                        <td class="strong">{{ item.year }}</td>
                         <!-- Photos -->
-                        <td style="text-align: right;">{{ item.count_photo }}</td>
-                        <td style="text-align: right;">{{ item.opt_size_str_photo }}</td>
-                        <td style="text-align: right; color: #34d399;">{{ item.overhead_str_photo }}</td>
+                        <td class="num">{{ item.count_photo }}</td>
+                        <td class="num">{{ item.opt_size_str_photo }}</td>
+                        <td class="num muted">{{ item.overhead_str_photo }}</td>
                         <!-- Videos -->
-                        <td style="text-align: right;">{{ item.count_video }}</td>
-                        <td style="text-align: right;">{{ item.duration_video }}</td>
-                        <td style="text-align: right;">{{ item.opt_size_str_video }}</td>
-                        <td style="text-align: right; color: #f59e0b;">{{ item.overhead_str_video }}</td>
+                        <td class="num">{{ item.count_video }}</td>
+                        <td class="num">{{ item.duration_video }}</td>
+                        <td class="num">{{ item.opt_size_str_video }}</td>
+                        <td class="num muted">{{ item.overhead_str_video }}</td>
                         <!-- Combined Total -->
-                        <td style="text-align: right; font-weight: 600;">{{ item.tot_size_str_all }}</td>
-                        <!-- 4-part Progress Bar -->
+                        <td class="num strong">{{ item.tot_size_str_all }}</td>
+                        <!-- 4-part usage bar -->
                         <td>
-                            <div class="storage-bar-container" title="Photos: {{ item.opt_size_str_photo }} (RAW: {{ item.overhead_str_photo }}) / Videos: {{ item.opt_size_str_video }} (Original: {{ item.overhead_str_video }})">
-                                <div class="storage-bar-photo-opt" style="width: {{ item.pct_photo_opt }}%;" title="Photos Optimized ({{ item.pct_photo_opt|floatformat:1 }}%)"></div>
-                                <div class="storage-bar-photo-raw" style="width: {{ item.pct_photo_raw }}%;" title="Photos RAW ({{ item.pct_photo_raw|floatformat:1 }}%)"></div>
-                                <div class="storage-bar-video-opt" style="width: {{ item.pct_video_opt }}%;" title="Videos Optimized ({{ item.pct_video_opt|floatformat:1 }}%)"></div>
-                                <div class="storage-bar-video-orig" style="width: {{ item.pct_video_orig }}%;" title="Videos Original ({{ item.pct_video_orig|floatformat:1 }}%)"></div>
+                            <div class="ins-bar" title="Photos: {{ item.opt_size_str_photo }} (RAW: {{ item.overhead_str_photo }}) / Videos: {{ item.opt_size_str_video }} (Original: {{ item.overhead_str_video }})">
+                                <div class="photo" data-pct="{{ item.pct_photo_opt }}" title="Photos Optimized ({{ item.pct_photo_opt|floatformat:1 }}%)"></div>
+                                <div class="raw" data-pct="{{ item.pct_photo_raw }}" title="Photos RAW ({{ item.pct_photo_raw|floatformat:1 }}%)"></div>
+                                <div class="video" data-pct="{{ item.pct_video_opt }}" title="Videos Optimized ({{ item.pct_video_opt|floatformat:1 }}%)"></div>
+                                <div class="orig" data-pct="{{ item.pct_video_orig }}" title="Videos Original ({{ item.pct_video_orig|floatformat:1 }}%)"></div>
                             </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10" class="text-center text-muted">No stats by year available.</td>
+                        <td colspan="10" class="ins-empty">No stats by year available.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -189,55 +188,55 @@
     </div>
 
     <!-- Group by Month Pane (goes back 5 years / 60 months) -->
-    <div id="tab-month" class="storage-tab-pane" style="display: none;">
-        <div class="ct-table-container">
-            <table class="ct-table">
+    <div id="tab-month" class="storage-tab-pane ins-card ins-card-flush" hidden>
+        <div class="ins-table-wrap">
+            <table class="ins-table">
                 <thead>
                     <tr>
-                        <th rowspan="2" style="vertical-align: middle;">Month</th>
-                        <th colspan="3" style="text-align: center; border-bottom: 2px solid #10b981; color: #10b981; padding-bottom: 4px;">Photos</th>
-                        <th colspan="4" style="text-align: center; border-bottom: 2px solid #3b82f6; color: #3b82f6; padding-bottom: 4px;">Videos</th>
-                        <th rowspan="2" style="text-align: right; vertical-align: middle;">Total Space</th>
-                        <th rowspan="2" style="width: 25%; vertical-align: middle;">Usage Breakdown</th>
+                        <th rowspan="2">Month</th>
+                        <th colspan="3" class="group photo"><span><i class="ins-swatch photo"></i>Photos</span></th>
+                        <th colspan="4" class="group video"><span><i class="ins-swatch video"></i>Videos</span></th>
+                        <th rowspan="2" class="num">Total space</th>
+                        <th rowspan="2">Usage breakdown</th>
                     </tr>
                     <tr>
-                        <th style="text-align: right;">Count</th>
-                        <th style="text-align: right;">Optimized</th>
-                        <th style="text-align: right;">RAW</th>
-                        <th style="text-align: right;">Count</th>
-                        <th style="text-align: right;">Duration</th>
-                        <th style="text-align: right;">Optimized</th>
-                        <th style="text-align: right;">Original</th>
+                        <th class="num">Count</th>
+                        <th class="num">Optimized</th>
+                        <th class="num">RAW</th>
+                        <th class="num">Count</th>
+                        <th class="num">Duration</th>
+                        <th class="num">Optimized</th>
+                        <th class="num">Original</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for item in month_storage %}
                     <tr class="storage-row">
-                        <td style="font-weight: 600;">{{ item.month }}</td>
+                        <td class="strong">{{ item.month }}</td>
                         <!-- Photos -->
-                        <td style="text-align: right;">{{ item.count_photo }}</td>
-                        <td style="text-align: right;">{{ item.opt_size_str_photo }}</td>
-                        <td style="text-align: right; color: #34d399;">{{ item.overhead_str_photo }}</td>
+                        <td class="num">{{ item.count_photo }}</td>
+                        <td class="num">{{ item.opt_size_str_photo }}</td>
+                        <td class="num muted">{{ item.overhead_str_photo }}</td>
                         <!-- Videos -->
-                        <td style="text-align: right;">{{ item.count_video }}</td>
-                        <td style="text-align: right;">{{ item.duration_video }}</td>
-                        <td style="text-align: right;">{{ item.opt_size_str_video }}</td>
-                        <td style="text-align: right; color: #f59e0b;">{{ item.overhead_str_video }}</td>
+                        <td class="num">{{ item.count_video }}</td>
+                        <td class="num">{{ item.duration_video }}</td>
+                        <td class="num">{{ item.opt_size_str_video }}</td>
+                        <td class="num muted">{{ item.overhead_str_video }}</td>
                         <!-- Combined Total -->
-                        <td style="text-align: right; font-weight: 600;">{{ item.tot_size_str_all }}</td>
-                        <!-- 4-part Progress Bar -->
+                        <td class="num strong">{{ item.tot_size_str_all }}</td>
+                        <!-- 4-part usage bar -->
                         <td>
-                            <div class="storage-bar-container" title="Photos: {{ item.opt_size_str_photo }} (RAW: {{ item.overhead_str_photo }}) / Videos: {{ item.opt_size_str_video }} (Original: {{ item.overhead_str_video }})">
-                                <div class="storage-bar-photo-opt" style="width: {{ item.pct_photo_opt }}%;" title="Photos Optimized ({{ item.pct_photo_opt|floatformat:1 }}%)"></div>
-                                <div class="storage-bar-photo-raw" style="width: {{ item.pct_photo_raw }}%;" title="Photos RAW ({{ item.pct_photo_raw|floatformat:1 }}%)"></div>
-                                <div class="storage-bar-video-opt" style="width: {{ item.pct_video_opt }}%;" title="Videos Optimized ({{ item.pct_video_opt|floatformat:1 }}%)"></div>
-                                <div class="storage-bar-video-orig" style="width: {{ item.pct_video_orig }}%;" title="Videos Original ({{ item.pct_video_orig|floatformat:1 }}%)"></div>
+                            <div class="ins-bar" title="Photos: {{ item.opt_size_str_photo }} (RAW: {{ item.overhead_str_photo }}) / Videos: {{ item.opt_size_str_video }} (Original: {{ item.overhead_str_video }})">
+                                <div class="photo" data-pct="{{ item.pct_photo_opt }}" title="Photos Optimized ({{ item.pct_photo_opt|floatformat:1 }}%)"></div>
+                                <div class="raw" data-pct="{{ item.pct_photo_raw }}" title="Photos RAW ({{ item.pct_photo_raw|floatformat:1 }}%)"></div>
+                                <div class="video" data-pct="{{ item.pct_video_opt }}" title="Videos Optimized ({{ item.pct_video_opt|floatformat:1 }}%)"></div>
+                                <div class="orig" data-pct="{{ item.pct_video_orig }}" title="Videos Original ({{ item.pct_video_orig|floatformat:1 }}%)"></div>
                             </div>
                         </td>
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="10" class="text-center text-muted">No stats by month available.</td>
+                        <td colspan="10" class="ins-empty">No stats by month available.</td>
                     </tr>
                     {% endfor %}
                 </tbody>
@@ -248,16 +247,5 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        // Tab switching
-        $('.ct-tab-btn').on('click', function() {
-            var target = $(this).data('target');
-            $('.ct-tab-btn').removeClass('active');
-            $(this).addClass('active');
-            $('.storage-tab-pane').hide();
-            $(target).show();
-        });
-    });
-</script>
+<script src="{% static 'photo/storage.js' %}"></script>
 {% endblock %}

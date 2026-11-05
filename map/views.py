@@ -1,5 +1,7 @@
 from decimal import Decimal
+from django.conf import settings
 from django.core.exceptions import ValidationError
+from django.middleware.csrf import get_token
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.contrib.auth.decorators import login_required
@@ -12,8 +14,14 @@ import urllib.parse
 
 @login_required
 def index(request):
-    """Main map view showing all locations and groups."""
-    return render(request, 'map/index.html')
+    """Main map view showing all locations and groups (data for the script goes through json_script)."""
+    config = {
+        "csrf": get_token(request),
+        "online": bool(getattr(settings, "ONLINE_MODE", True)),
+        "categories": [{"key": k, "label": v} for k, v in Location.CATEGORY_CHOICES],
+        "statuses": [{"key": k, "label": v} for k, v in Location.STATUS_CHOICES],
+    }
+    return render(request, 'map/index.html', {"map_config": config})
 
 
 @login_required_api
@@ -93,6 +101,7 @@ def locations(request):
             'address': loc.address,
             'rating': loc.rating,
             'notes': loc.notes,
+            'group_id': loc.group_id,  # pre-selects the group in the edit form
         } for loc in locations], safe=False)
         
     except LocationGroup.DoesNotExist:
@@ -169,9 +178,11 @@ def edit_location(request, location_id):
 @login_required_api
 def nominatim_search(request):
     """Server-side proxy for Nominatim geocoding to include proper User-Agent."""
-    query = request.GET.get('q', '')
+    query = request.GET.get('q', '').strip()[:200]
     if not query:
         return error_response("Query parameter 'q' is required", 400)
+    if not getattr(settings, "ONLINE_MODE", True):  # same switch as scheduler/notifications
+        return error_response("Place search is off on this server (offline mode)", 503)
 
     params = urllib.parse.urlencode({'format': 'json', 'q': query})
     url = f'https://nominatim.openstreetmap.org/search?{params}'

@@ -34,7 +34,6 @@ class ComptechUser(AbstractUser):
     birthday = models.DateField(null=True, blank=True)
     timezone = models.CharField(max_length=32, default='Canada/Eastern')
     profile_picture = models.ImageField(upload_to="users/profile_pictures", default='profile_picture.png')
-    dark_mode = models.BooleanField(default=False)
     friends = models.ManyToManyField("self", related_name='user_friends', blank=True)
     user_groups = models.ManyToManyField(UserGroup, blank=True)
     newuser = models.BooleanField(default=True)

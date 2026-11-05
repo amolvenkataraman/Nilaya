@@ -2,7 +2,7 @@ import os
 import shutil
 import random
 from collections import defaultdict
-from photos.models import Photo, Album
+from photos.models import Photo, Album, refresh_photo_matviews
 from django.db.models import Q
 from django.db import transaction
 
@@ -123,6 +123,8 @@ def move_photo_to_album(photos, target_album: Album):
             print(f"  Failed moving Photo ID {photo.id}: {e}")
 
     print(f"Successfully moved {success_count} photos.")
+    if success_count:
+        refresh_photo_matviews()  # both views are per library
     return True
 
 def remove_duplicates(year=None, month=None, mode='all', dry_run=False):
@@ -227,6 +229,8 @@ def remove_duplicates(year=None, month=None, mode='all', dry_run=False):
             valid_group = [p for p in group if Photo.objects.filter(id=p.id).exists()]
             process_duplicates(valid_group, f"Basename+Date {key}")
 
+    if not dry_run:
+        refresh_photo_matviews()  # deleted duplicates leave the per-day counts and the heat map
     print("\nDuplicate removal complete.")
 
 

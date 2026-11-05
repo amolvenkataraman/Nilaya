@@ -1,0 +1,11 @@
+{# One Bootstrap 5 floating form field: {% include "users/_field.html" with field=form.x autocomplete="..." %} #}
+<div class="form-floating">
+    <input type="{{ field.field.widget.input_type }}" name="{{ field.html_name }}" id="{{ field.id_for_label }}"
+           class="form-control{% if field.errors %} is-invalid{% endif %}" placeholder="{{ field.label }}"
+           {% if autocomplete %}autocomplete="{{ autocomplete }}"{% endif %}
+           {% if field.value and field.field.widget.input_type != "password" %}value="{{ field.value }}"{% endif %}
+           {% if field.field.required %}required{% endif %}{% if autofocus %} autofocus{% endif %}>
+    <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+    {% for error in field.errors %}<div class="invalid-feedback">{{ error }}</div>{% endfor %}
+    {% if field.help_text and show_help %}<div class="form-text">{{ field.help_text|safe }}</div>{% endif %}
+</div>

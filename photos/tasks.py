@@ -5,8 +5,17 @@ from django.conf import settings
 from photos.models import *
 from users.models import ComptechUser
 from photos.indeximg import photo_ingest_for_album
+from notifications.service import notify
 
 logger = get_task_logger(__name__)
+
+
+@shared_task(ignore_result=True)
+def refresh_photo_views(views):
+    """Coalesced refresh queued by photos.cache.schedule_matview_refresh."""
+    from photos.cache import run_scheduled_refresh
+    run_scheduled_refresh(views)
+
 
 @shared_task
 def ingest_all_photos(user_id=None):
@@ -22,11 +31,14 @@ def ingest_all_photos(user_id=None):
         albums = list(Album.objects.all())
 
     all_new_photos = []
+    per_user = {}  # who to tell: the user who started it, else each album's owner
     for album in albums:
         logger.info(f"Ingesting photos for album {album.name} (ID: {album.id})")
         task_user = user if user_id else album.owner
         new_photos = photo_ingest_for_album(album, task_user, False)
         all_new_photos.extend(new_photos)
+        if new_photos:
+            per_user.setdefault(task_user, []).append(f"{len(new_photos)} in {album.name}")
 
     logger.info("Refreshing photo location cache materialized view")
     refresh_photo_location_cache()
@@ -35,6 +47,14 @@ def ingest_all_photos(user_id=None):
         new_photo_ids = [str(p.id) for p in all_new_photos]
         logger.info(f"Triggering AI indexing for {len(new_photo_ids)} newly ingested photos")
         ai_index_photos.delay(new_photo_ids)
+
+    for who, parts in per_user.items():
+        total = sum(int(p.split(" ", 1)[0]) for p in parts)
+        notify(who, f"Ingest finished: {total} new photo{'s' if total != 1 else ''}", ", ".join(parts),
+               source="Photos", url="/photos/")
+    if user_id and not per_user:
+        notify(user, "Ingest finished: nothing new", "No new files were found in your Ingest folders.",
+               source="Photos", url="/photos/", priority=0)
 
     logger.info("Photo ingestion and location cache refresh complete.")
 

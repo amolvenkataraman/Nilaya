@@ -1,4 +1,4 @@
-django
+Django>=5.1,<6     # 5.1: DB connection pool; 6 not tested yet
 django-crispy-forms
 channels
 channels_redis
@@ -9,25 +9,28 @@ dateparser
 whitenoise
 Pillow
 bleach
-ics
+icalendar        # scheduler/sync.py: ICS import with RRULE/EXDATE/RECURRENCE-ID (replaces ics 0.7, which ignored RRULE)
 
 numpy
 opencv-python
 celery
 daphne
-psycopg
+psycopg[pool]
 django_celery_beat
+django-ninja>=1.3,<2  # V2 API (/api/v2/); 1.x API (throttling, Schema resolvers)
 django-import-export
 requests
 crispy-bootstrap4
 reverse_geocode
 PyExifTool
 
+tzdata           # zoneinfo data incl. legacy aliases like Canada/Eastern (TIME_ZONE), even without the OS tzdata-legacy package
 pytz             # used directly in scheduler/photos (no longer pulled in by Django)
-python-dateutil  # scheduler/sync.py
+python-dateutil  # scheduler: RRULE expansion (recurrence.py) and sync date parsing
 
 # AI indexing
 ultralytics      # photos/AI/objects.py (object detection)
 
 # Only needed by one-off tools in scripts/
 # gpxpy
+redis

@@ -6,87 +6,48 @@
 {% endblock %}
 
 {% block navbar %}
-<h4>{{ calendar.name }}</h4>
+<span class="navbar-page-title">{{ calendar.name }}</span>
 {% if request.user.is_authenticated and not subscribed %}
-<button type="button" class="btn btn-primary btn-sm public-subscribe-btn" style="height: 30px; font-size: 14px; margin-left: 30px;" title="Subscribe to this calendar">+ Subscribe</button>
+<button type="button" class="btn btn-primary btn-sm public-subscribe-btn ms-3" title="Subscribe to this calendar">Subscribe</button>
 {% endif %}
 {% endblock %}
 
 {% block page_styles %}
-<style>
-    .wrapper {
-        width: 90%;
-        height: 100%;
-        display: flex;
-        margin-left: 5%;
-        margin-right: 5%;
-        margin-top: 5%;
-        text-align: center;
-    }
-
-    .container-calendar, .table-calendar {
-        width: 100%;
-        height: 100%;
-    }
-
-    .table-calendar {
-        display: inline-table;
-        table-layout: fixed;
-        border-collapse: collapse;
-        overflow: scroll;
-        width: 100%;
-        height: 100%;
-        grid-auto-rows: 1fr;
-    }
-
-    .table-calendar td, .table-calendar th {
-        border: 1px solid #e2e2e2;
-    }
-
-    .table-calendar tr td:first-child .date-span, .table-calendar tr td:last-child .date-span {
-        color: red;
-    }
-
-    .table-calendar td { vertical-align: top; text-align: left; padding: 4px; }
-    .table-calendar td.selected { background: rgba(59, 130, 246, 0.08); }
-    .public-event {
-        font-size: 12px; line-height: 1.3; margin: 2px 0; padding: 1px 4px;
-        border-radius: 4px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-        border-left: 3px solid var(--event-colour, #3b82f6); background: rgba(127, 127, 127, 0.08);
-    }
-</style>
+<link href="{% static 'scheduler/public.css' %}" rel="stylesheet" />
 {% endblock %}
 
 {% block page_script %}
-
+<script src="{% static 'scheduler/public.js' %}" type="text/javascript" defer></script>
 {% endblock %}
 
 {% block page_body %}
-<div class="main-container">
+<div class="main-container" data-events-url="{% url 'get_calendar_events' %}" data-subscribe-url="{% url 'subscribe' %}">
     <div class="month-selector">
-        <div style="display: flex;">
-            <div style="display: flex;">
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="previous()">&lsaquo;</button>
-                <select class="form-control form-control-sm" id="month" onchange="jump()">
-                        <option value=0>Jan</option>
-                        <option value=1>Feb</option>
-                        <option value=2>Mar</option>
-                        <option value=3>Apr</option>
-                        <option value=4>May</option>
-                        <option value=5>Jun</option>
-                        <option value=6>Jul</option>
-                        <option value=7>Aug</option>
-                        <option value=8>Sep</option>
-                        <option value=9>Oct</option>
-                        <option value=10>Nov</option>
-                        <option value=11>Dec</option>
-                </select>
-                <select class="form-control form-control-sm" id="year" onchange="jump()"></select>
-                <button type="button" class="btn btn-outline-secondary btn-sm" onclick="next()">&rsaquo;</button>
-                <button type="button" class="btn btn-primary btn-sm" onclick="showCalendar(new Date().getMonth(), new Date().getFullYear())">Today</button>
-            </div>
-            <h3 id="monthAndYear"></h3>
+        <div class="month-nav">
+            <button type="button" class="btn btn-outline-secondary btn-sm icon-btn" data-action="prev" title="Previous month" aria-label="Previous month">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
+            </button>
+            <select class="form-select form-select-sm" id="month" aria-label="Month">
+                    <option value=0>Jan</option>
+                    <option value=1>Feb</option>
+                    <option value=2>Mar</option>
+                    <option value=3>Apr</option>
+                    <option value=4>May</option>
+                    <option value=5>Jun</option>
+                    <option value=6>Jul</option>
+                    <option value=7>Aug</option>
+                    <option value=8>Sep</option>
+                    <option value=9>Oct</option>
+                    <option value=10>Nov</option>
+                    <option value=11>Dec</option>
+            </select>
+            <select class="form-select form-select-sm" id="year" aria-label="Year"></select>
+            <button type="button" class="btn btn-outline-secondary btn-sm icon-btn" data-action="next" title="Next month" aria-label="Next month">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm" data-action="today">Today</button>
         </div>
+        <h1 id="monthAndYear"></h1>
     </div>
 
     <div class="c-container wrapper">
@@ -101,185 +62,4 @@
 
 {{ calendar.id|json_script:"calendar-id" }}
 {{ calendar.colour|json_script:"calendar-colour" }}
-<script>
-    const CALENDAR_ID = JSON.parse(document.getElementById('calendar-id').textContent);
-    const CALENDAR_COLOUR = JSON.parse(document.getElementById('calendar-colour').textContent);
-    const EVENTS_URL = "{% url 'get_calendar_events' %}";
-    const SUBSCRIBE_URL = "{% url 'subscribe' %}";
-
-    function csrfToken() {
-        const m = document.cookie.match(/(?:^|; )csrftoken=([^;]+)/);
-        return m ? decodeURIComponent(m[1]) : "";
-    }
-
-    // Fetch the month's events and place each one (as text, never HTML) on every day it covers.
-    function loadEvents(month, year) {
-        fetch(`${EVENTS_URL}?calendar=${CALENDAR_ID}&timespan=month&time=${year}-${month + 1}`)
-            .then((r) => r.json())
-            .then((res) => {
-                if (month !== currentMonth || year !== currentYear) return;  // user moved on
-                const lastDay = daysInMonth(month, year);
-                for (const ev of res.events || []) {
-                    const start = new Date(ev.startdate);
-                    const end = ev.enddate ? new Date(ev.enddate) : start;
-                    const label = ev.allday ? ev.name
-                        : `${start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} ${ev.name}`;
-                    // all-day/multi-day events end at midnight of the following day
-                    const endInclusive = new Date(end.getTime() - (ev.enddate && end > start ? 1 : 0));
-                    for (let d = 1; d <= lastDay; d++) {
-                        const dayStart = new Date(year, month, d), dayEnd = new Date(year, month, d + 1);
-                        if (start < dayEnd && endInclusive >= dayStart) {
-                            const box = document.querySelector(`.reg-events-${d}`);
-                            const div = document.createElement('div');
-                            div.className = 'public-event';
-                            div.style.setProperty('--event-colour', CALENDAR_COLOUR);
-                            div.textContent = label;
-                            div.title = [label, ev.location].filter(Boolean).join(' — ');
-                            box.appendChild(div);
-                        }
-                    }
-                }
-            });
-    }
-
-    const subscribeBtn = document.querySelector('.public-subscribe-btn');
-    if (subscribeBtn) {
-        subscribeBtn.onclick = () => {
-            subscribeBtn.disabled = true;
-            fetch(`${SUBSCRIBE_URL}?calendar=${CALENDAR_ID}`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken() } })
-                .then((r) => r.json())
-                .then((res) => {
-                    if (res.status === 'success') { subscribeBtn.textContent = 'Subscribed ✓'; }
-                    else { alert(res.data); subscribeBtn.disabled = false; }
-                });
-        };
-    }
-
-    function generate_year_range(start, end) {
-        var years = "";
-        for (var year = start; year <= end; year++) {
-                years += "<option value='" + year + "'>" + year + "</option>";
-        }
-        return years;
-    }
-    
-    var today = new Date();
-    var currentMonth = today.getMonth();
-    var currentYear = today.getFullYear();
-    var selectYear = document.getElementById("year");
-    var selectMonth = document.getElementById("month");
-    
-    
-    var createYear = generate_year_range(currentYear - 5, currentYear + 5);
-    
-    document.getElementById("year").innerHTML = createYear;
-    
-    var calendar = document.getElementById("calendar");
-    var lang = calendar.getAttribute('data-lang');
-    
-    var months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-    var days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    
-    var dayHeader = "<tr>";
-    for (day in days) {
-        dayHeader += "<th data-days='" + days[day] + "'>" + days[day] + "</th>";
-    }
-    dayHeader += "</tr>";
-    
-    document.getElementById("thead-month").innerHTML = dayHeader;
-    
-    
-    monthAndYear = document.getElementById("monthAndYear");
-    showCalendar(currentMonth, currentYear);
-    
-    
-    
-    function next() {
-        currentYear = (currentMonth === 11) ? currentYear + 1 : currentYear;
-        currentMonth = (currentMonth + 1) % 12;
-        showCalendar(currentMonth, currentYear);
-    }
-    
-    function previous() {
-        currentYear = (currentMonth === 0) ? currentYear - 1 : currentYear;
-        currentMonth = (currentMonth === 0) ? 11 : currentMonth - 1;
-        showCalendar(currentMonth, currentYear);
-    }
-    
-    function jump() {
-        currentYear = parseInt(selectYear.value);
-        currentMonth = parseInt(selectMonth.value);
-        showCalendar(currentMonth, currentYear);
-    }
-    
-    function showCalendar(month, year) {
-        currentMonth = month;
-        currentYear = year;
-        var firstDay = ( new Date( year, month ) ).getDay();
-    
-        tbl = document.getElementById("calendar-body");
-    
-        
-        tbl.innerHTML = "";
-    
-        
-        monthAndYear.innerHTML = months[month] + " " + year;
-        selectYear.value = year;
-        selectMonth.value = month;
-    
-        // creating all cells
-        var date = 1;
-        for (var i = 0; i < 6; i++) {
-            today = new Date();
-    
-            var row = document.createElement("tr");
-    
-            for (var j = 0; j < 7; j++) {
-                if (i === 0 && j < firstDay) {
-                    cell = document.createElement( "td" );
-                    cellText = document.createTextNode("");
-                    cell.appendChild(cellText);
-                    cell.className = `date-picker-dead`;
-                    row.appendChild(cell);
-                } else if (date > daysInMonth(month, year)) {
-                    if (row.innerHTML != "") {
-                        cell = document.createElement( "td" );
-                        cellText = document.createTextNode("");
-                        cell.appendChild(cellText);
-                        cell.className = `date-picker-dead`;
-                        row.appendChild(cell);
-                    }
-                } else {
-                    cell = document.createElement("td");
-                    cell.setAttribute("data-date", date);
-                    cell.setAttribute("data-month", month + 1);
-                    cell.setAttribute("data-year", year);
-                    cell.setAttribute("data-month_name", months[month]);
-                    cell.setAttribute("data-day", j);
-                    cell.className = `date-picker date-picker-${date}`;
-                    cell.innerHTML = `
-                        <div class='date-span'><span >${date}</span></div>
-                        <div class='day-events day-events-${date}'></div>
-                        <div class='reg-events reg-events-${date}'></div>
-                    `
-    
-                    if ( date === today.getDate() && year === today.getFullYear() && month === today.getMonth() ) {
-                        cell.className = `date-picker selected date-picker-${date}`;
-                    }
-                    row.appendChild(cell);
-                    date++;
-                }
-            }
-    
-            if (row.innerHTML != "") {
-                tbl.appendChild(row);
-            }
-        }
-        loadEvents(month, year);
-    }
-    
-    function daysInMonth(iMonth, iYear) {
-        return 32 - new Date(iYear, iMonth, 32).getDate();
-    }
-</script>
 {% endblock %}

@@ -13,6 +13,7 @@ google_api_key.txt
 uwaterloo_api_key.txt
 db_password.txt
 salt.txt
+photos_locate.json
 nohup.out
 celerybeat-schedule.db
 data.json
@@ -75,3 +76,15 @@ static_files/static/js/heatmap/heatmap.min.js
 static_files/static/js/moment/moment.min.js
 static_files/static/css/leaflet/leaflet.css
 static_files/static/js/popper/popper.js.map
+static_files/static/vendor/bootstrap-5.3.3/bootstrap.min.css
+static_files/static/vendor/bootstrap-5.3.3/bootstrap.bundle.min.js
+static_files/static/vendor/leaflet-markercluster-1.5.3/leaflet.markercluster.js
+static_files/static/vendor/leaflet-markercluster-1.5.3/MarkerCluster.css
+
+# New React UI (frontend/): dependencies and build output (built by frontend/build.sh)
+frontend/node_modules/
+static_files/static/app/
+
+# Location-entry audit log (written by the app)
+photo_gg_ent_log.txt
+*.tsbuildinfo

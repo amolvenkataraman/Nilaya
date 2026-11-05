@@ -1,49 +1,205 @@
-*::-webkit-scrollbar {
-  display: none;
+/* Home dashboard and app launcher. Colours come from css/theme.css (--app-* tokens). */
+
+.dash {
+  max-width: 67.5rem;
+  margin: 0 auto;
+  padding: 28px 24px 40px;
+  display: grid;
+  gap: 24px;
 }
 
-* {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-
-a, a:hover {
-  color: black;
-  text-decoration: none;
-}
-
-.greeting {
-  text-align: center;
-  width: 100%;
-  font-size: 40px;
-  font-weight: 500;
-  margin-top: 10px;
-}
-
-.recent-card {
-  height: 330px;
-}
-
-.event-name {
+.dash-section-title {
+  font-size: 0.8rem;
   font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--app-muted);
+  margin: 0 0 10px;
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
 }
+.dash-section-title a { text-transform: none; letter-spacing: 0; font-weight: 500; text-decoration: none; }
 
-.current-time {
-  font-size: 150px;
+/* ---------- Greeting + clock ---------- */
+.dash-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px 32px;
+  flex-wrap: wrap;
 }
+.dash-greeting { min-width: 0; flex: 1 1 320px; }
+.dash-greeting .date {
+  color: var(--app-muted);
+  font-size: 0.95rem;
+  margin-bottom: 4px;
+}
+.greeting {
+  font-size: 1.75rem;
+  font-weight: 650;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.clock {
+  display: flex;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: var(--app-fg);
+}
+.clock .hm { font-size: 2.75rem; font-weight: 300; letter-spacing: -0.02em; }
+.clock .sep { opacity: 0.55; padding: 0 1px; }
+.clock .second { font-size: 1.1rem; color: var(--app-muted); margin-left: 6px; min-width: 1.4em; }
 
+/* ---------- Search ---------- */
+.dash-search {
+  position: relative;
+}
+.dash-search svg {
+  position: absolute;
+  left: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--app-muted);
+  pointer-events: none;
+}
 #search-box {
-  width: 800px;
-  max-width: 80%;
-  margin-left: auto;
-  margin-right: auto;
+  height: 50px;
+  padding-left: 46px;
+  border-radius: var(--app-radius);
+  background: var(--app-surface);
+  border-color: var(--app-border);
+  box-shadow: var(--app-shadow);
+  font-size: 1rem;
 }
 
-.search {
+/* ---------- Event / todo lists ---------- */
+.dash-card { height: 100%; display: flex; flex-direction: column; overflow: hidden; }
+.dash-card-header {
+  display: flex;
+  justify-content: space-between;
   align-items: center;
+  gap: 12px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--app-border);
 }
+.dash-card-header h2 { font-size: 1rem; font-weight: 600; margin: 0; }
+.dash-card-header .sub { font-size: 0.8rem; color: var(--app-muted); }
+.dash-card-header a { font-size: 0.85rem; white-space: nowrap; text-decoration: none; }
 
-.event-name-container {
-  white-space: nowrap;
-  text-overflow: ellipsis;
+.dash-list { list-style: none; margin: 0; padding: 6px 0; }
+.dash-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 18px;
+  min-width: 0;
+}
+.dash-item + .dash-item { border-top: 1px solid var(--app-border); }
+.dash-item.empty { color: var(--app-muted); font-size: 0.9rem; padding: 18px; }
+
+.date-chip {
+  flex: 0 0 44px;
+  height: 44px;
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface-2);
+  display: grid;
+  place-content: center;
+  text-align: center;
+  line-height: 1.05;
+}
+.date-chip .dow { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; color: var(--app-muted); letter-spacing: 0.04em; }
+.date-chip .day { font-size: 1.05rem; font-weight: 650; }
+.date-chip.today { background: var(--app-accent-soft); }
+.date-chip.today .dow, .date-chip.today .day { color: var(--app-accent); }
+.date-chip.overdue .dow, .date-chip.overdue .day { color: var(--app-danger); }
+
+.dash-item-text { min-width: 0; flex: 1; }
+.event-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 550;
+  min-width: 0;
+}
+.event-name .label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.event-when { font-size: 0.82rem; color: var(--app-muted); }
+.event-when.overdue { color: var(--app-danger); }
+
+.cal-dot {
+  flex: 0 0 10px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--app-accent);
+}
+.todo-dot {
+  flex: 0 0 12px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  border: 2px solid var(--app-muted);
+}
+.todo-dot.overdue { border-color: var(--app-danger); }
+
+/* ---------- Launcher tiles (home + /apps/) ---------- */
+.tile-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(13rem, 1fr));
+  gap: 14px;
+}
+.app-tile {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px;
+  color: var(--app-fg);
+  text-decoration: none;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+  min-width: 0;
+}
+.app-tile:hover, .app-tile:focus-visible {
+  color: var(--app-fg);
+  border-color: var(--app-accent);
+  transform: translateY(-1px);
+}
+@media (prefers-reduced-motion: reduce) { .app-tile { transition: none; } .app-tile:hover { transform: none; } }
+.app-tile-icon {
+  flex: 0 0 2.75rem;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: var(--app-radius);
+  display: grid;
+  place-items: center;
+  background: var(--app-accent-soft);
+  color: var(--app-accent);
+}
+.app-tile-text { min-width: 0; }
+.app-tile-title { font-weight: 600; display: block; }
+.app-tile-sub { font-size: 0.82rem; color: var(--app-muted); display: block; }
+
+/* Larger tiles on the /apps/ launcher. */
+.tile-grid-lg { grid-template-columns: repeat(auto-fill, minmax(11.25rem, 1fr)); gap: 16px; }
+.tile-grid-lg .app-tile {
+  flex-direction: column;
+  text-align: center;
+  padding: 26px 16px 22px;
+  gap: 12px;
+}
+.tile-grid-lg .app-tile-icon { width: 64px; height: 64px; flex-basis: 64px; border-radius: 16px; }
+.tile-grid-lg .app-tile-icon svg { width: 30px; height: 30px; }
+
+.page-head h1 { font-size: 1.5rem; font-weight: 650; letter-spacing: -0.01em; margin: 0; }
+.page-head p { color: var(--app-muted); margin: 4px 0 0; }
+
+/* ---------- Phones ---------- */
+@media (max-width: 576px) {
+  .dash { padding: 20px 16px 32px; gap: 20px; }
+  .greeting { font-size: 1.35rem; }
+  .clock .hm { font-size: 2.1rem; }
+  .dash-header { align-items: flex-start; }
+  .tile-grid-lg { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 }

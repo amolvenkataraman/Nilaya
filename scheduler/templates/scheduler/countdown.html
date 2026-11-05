@@ -10,113 +10,38 @@ Countdown to {{ se }} of {{ event.name }}
 {% endblock %}
 
 {% block page_styles %}
-<style>
-    #title {
-        font-size: 400%;
-        margin-bottom: 0px;
-        color: #3498db;
-    }
-</style>
+<link href="{% static 'scheduler/countdown.css' %}" rel="stylesheet" />
+{% endblock %}
+
+{% block page_script %}
+<script src="{% static 'scheduler/countdown.js' %}" type="text/javascript" defer></script>
 {% endblock %}
 
 {% block page_body %}
-<center>
-    {% if se == "none" %}
-    <p id="title">Countdown to {{ event.name }}</p>
-    {% else %}
-    <p id="title">Countdown to {{ se }} of {{ event.name }}</p>
-    {% endif %}
-    <div class="clock col-auto">
-        <div class="container">
-            <div class="row justify-content-center countdown" style="font-size: 200px;">
-                <div class="col-auto day">
-                    00
-                </div>
-                <div class="col-auto">
-                    :
-                </div>
-                <div class="col-auto hour">
-                    00
-                </div>
-                <div class="col-auto">
-                    :
-                </div>
-                <div class="col-auto minute">
-                    00
-                </div>
-                <div class="col-auto">
-                    :
-                </div>
-                <div class="col-auto second">
-                    00
-                </div>
+<div class="countdown-page">
+    <div class="countdown-card app-card" data-target="{{ time.isoformat }}">
+        <div class="countdown-kicker">Countdown{% if se != "none" %} to {{ se }}{% endif %}</div>
+        <h1 id="title">{{ event.name }}</h1>
+        <div class="countdown" role="timer" aria-live="off">
+            <div class="countdown-unit">
+                <div class="countdown-value day">00</div>
+                <div class="countdown-label">Days</div>
             </div>
-            <div class="row justify-content-center" style="font-size: 30px; text-align: center;">
-                <div class="col-auto">
-                    DAYS
-                </div>
-                <div class="col-auto"></div>
-                <div class="col-auto">
-                    HOURS
-                </div>
-                <div class="col-auto"></div>
-                <div class="col-auto">
-                    MINUTES
-                </div>
-                <div class="col-auto"></div>
-                <div class="col-auto">
-                    SECONDS
-                </div>
+            <div class="countdown-unit">
+                <div class="countdown-value hour">00</div>
+                <div class="countdown-label">Hours</div>
             </div>
-            <!-- <div>
-                <div class="progress" style="height: 20px;">
-                    <div class="progress-bar" role="progressbar" style="width: 25%;" aria-valuenow="25" aria-valuemin="0" aria-valuemax="100"></div>
-                </div>
-            </div> -->
+            <div class="countdown-unit">
+                <div class="countdown-value minute">00</div>
+                <div class="countdown-label">Minutes</div>
+            </div>
+            <div class="countdown-unit">
+                <div class="countdown-value second">00</div>
+                <div class="countdown-label">Seconds</div>
+            </div>
         </div>
+        <div class="countdown-meta">{{ time }}</div>
     </div>
-    <div>
-        Event Info:
-        Name: {{ event.name }}
-    </div>
-    {{ time }}
-    <!--{{ event }}-->
-    <br>
-</center>
+</div>
 
-<script>
-    function updateTime() {
-        var countdownDate = new Date("{{ time.isoformat }}").getTime();
-        var timeNow = new Date().getTime();
-        var dist = countdownDate - timeNow;
-        if (dist < 0) {
-            if (Math.floor((dist % (1000 * 60)) / 1000) % 2 == 0) {
-                document.querySelector('.countdown').style.color = "red";
-            }
-            else {
-                document.querySelector('.countdown').style.color = "black";
-            }
-        }
-        else {
-            var days = Math.floor(dist / (1000 * 60 * 60 * 24)) + '';
-            var hours = Math.floor((dist % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)) + '';
-            var minutes = Math.floor((dist % (1000 * 60 * 60)) / (1000 * 60)) + '';
-            var seconds = Math.floor((dist % (1000 * 60)) / 1000) + '';
-
-            document.querySelector('.day').innerHTML = days;
-            document.querySelector('.hour').innerHTML = hours.padStart(2, "0");
-            document.querySelector('.minute').innerHTML = minutes.padStart(2, "0");
-            document.querySelector('.second').innerHTML = seconds.padStart(2, "0");
-        }
-
-        /* if (hours <= 2 || hours >= 22) {
-            console.log("fading")
-        } */
-
-        setTimeout(updateTime, 1000);
-    }
-
-    updateTime();
-
-</script>
 {% endblock %}

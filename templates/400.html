@@ -1,10 +1,27 @@
-{% extends "base.html" %}
-
-{% block page_title %} Error 400 {% endblock %}
-
-{% block page_body %}
-    <center><h1 style="font-size: 200px;">400</h1></center>
-    <center>It seems your browser has sent a bad or malformed request!</center>
-    <br>
-    <center><a href="{% url 'index' %}">Go back home</a></center>
-{% endblock %}
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bad request · AVNet Superapp</title>
+    <link rel="shortcut icon" href="{% static 'images/favicon.ico' %}">
+    <script src="{% static 'js/theme.js' %}"></script>
+    <link href="{% static 'vendor/bootstrap-5.3.3/bootstrap.min.css' %}" rel="stylesheet">
+    <link href="{% static 'css/theme.css' %}" rel="stylesheet">
+    <link href="{% static 'mainsite/errors.css' %}" rel="stylesheet">
+</head>
+<body>
+    <main class="auth-shell">
+        <div class="auth-card error-card app-card">
+            <div class="auth-brand"><span class="mark" aria-hidden="true">A</span><span>AVNet Superapp</span></div>
+            <div class="error-code">400</div>
+            <div>
+                <h1>Bad request</h1>
+                <p class="lead-text">Your browser sent a request the server couldn’t understand. Try again, or head back home.</p>
+            </div>
+            <a class="btn btn-primary" href="/">Go back home</a>
+        </div>
+    </main>
+</body>
+</html>

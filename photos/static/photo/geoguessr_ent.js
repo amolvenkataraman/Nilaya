@@ -6,7 +6,10 @@ const GeoguessrEnt = {
 
     init() {
         const defaultCenter = [43.6425662, -79.3870568];
-        this.photoId = window.PHOTO_ID || '';
+        // Photo id and CSRF token come from data-* attributes on the page container.
+        const page = document.querySelector('.geoguessr-ent-container');
+        this.photoId = page.dataset.photoId || '';
+        this.csrf = page.dataset.csrf || '';
 
         // Initialize Map
         this.Map = L.map('mapid').setView(defaultCenter, 10);
@@ -72,7 +75,7 @@ const GeoguessrEnt = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRFToken': window.CSRF_TOKEN || ''
+                    'X-CSRFToken': this.csrf
                 },
                 body: JSON.stringify({
                     photo: this.photoId,
@@ -98,7 +101,7 @@ const GeoguessrEnt = {
             this.Map.removeLayer(this.HeatmapLayer);
             this.HeatmapLayer = null;
             btn.classList.remove('active');
-            btn.textContent = '🔥 Load Heatmap';
+            btn.textContent = 'Load heatmap';
             if (this.HeatmapAbortController) {
                 this.HeatmapAbortController.abort();
                 this.HeatmapAbortController = null;
@@ -107,7 +110,7 @@ const GeoguessrEnt = {
         }
 
         btn.classList.add('active');
-        btn.textContent = '⏳ Loading...';
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm" aria-hidden="true"></span> Loading…';
 
         if (this.HeatmapAbortController) {
             this.HeatmapAbortController.abort();
@@ -141,13 +144,13 @@ const GeoguessrEnt = {
                 this.HeatmapLayer = new HeatmapOverlay(cfg).addTo(this.Map);
                 this.HeatmapLayer.setData({ max: 1, data: pj1 });
 
-                btn.textContent = '🔥 Hide Heatmap';
+                btn.textContent = 'Hide heatmap';
             })
             .catch(err => {
                 if (err.name === 'AbortError') return;
                 console.error('Error loading heatmap:', err);
                 btn.classList.remove('active');
-                btn.textContent = '🔥 Load Heatmap';
+                btn.textContent = 'Load heatmap';
                 this.HeatmapLayer = null;
             });
     }

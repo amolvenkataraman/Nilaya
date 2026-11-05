@@ -29,6 +29,10 @@ DATABASES = {
 
 # Redis → in-memory. Celery tasks run inline (no worker, no broker).
 CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
+# Plain static names locally (runserver serves from the apps; no collectstatic needed).
+STORAGES = {"default": {"BACKEND": "django.core.files.storage.FileSystemStorage"},
+            "staticfiles": {"BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage"}}
 CELERY_TASK_ALWAYS_EAGER = True
 CELERY_TASK_EAGER_PROPAGATES = True
 CELERY_BROKER_URL = "memory://"
@@ -44,3 +48,7 @@ MEDIA_ROOT = str(_DATA / "media")
 SERVE_FILES_WITH_DJANGO = True  # /private/ and /photo_cdn/ served by Django, same signed URLs
 PHOTOS_INGEST_HARDLINK = True  # ingest links files instead of copying (originals never modified)
 PHOTOS_AI_INDEX_ON_INGEST = False  # ultralytics/torch not installed locally
+SITE_URL = "http://127.0.0.1:8000"
+# Notification emails are written to files instead of being sent.
+EMAIL_BACKEND = "django.core.mail.backends.filebased.EmailBackend"
+EMAIL_FILE_PATH = str(_DATA / "emails")

@@ -1,59 +1,19 @@
 {% extends 'users/users_template.html' %}
-
-{% load static %}
-{% load crispy_forms_tags %}
-
-{% block styles %}
-<link href="{% static 'users/users.css' %}" rel="stylesheet">
-{% endblock %}
-
-{% block script %}
-
-{% endblock %}
-
-{% block background %}
-    <div class="background" style="background-image: url('');"></div>
-    <div class="background_info">
-        image.description | image.location
-    </div>
-{% endblock %}
+{% block title %}Sign in{% endblock %}
 
 {% block body %}
-<div id="box-body">
-    <form method="POST">
-        {% csrf_token %}
-        <fieldset class="form-group">
-            <h1>LOGIN</h1>
-            <br><br>
-            <div class="textb">
-                {{ form.username|as_crispy_field }}
-                <div class="placeholder">Username</div>
-            </div>
-            <div class="textb">
-                {{ form.password|as_crispy_field }}
-                <div class="placeholder">Password</div>
-                <!--<div class="show-password fas fa-eye-slash"></div>-->
-            </div>
-            {% if error %}
-                <div class="error-text">{{ error }}</div>
-                <br>
-            {% endif %}
-            {% if request.GET.next %}
-                <input type="hidden" name="next" value="{{ request.GET.next }}">
-            {% endif %}
-        </fieldset>
-
-        <div class="form-group">
-            <center><button class="btn btn-outline-info submit-btn" type="submit">Log In</button></center>
-        </div>
-    </form>
-    <br>
-    
-    <div class="register-link">
-        <!-- Provide link to register page -->
-        <center><small class="text-muted">Don't have an account? <a href="{% url 'register' %}">Register</a></small></center>
-    </div>
+<div>
+    <h1>Sign in</h1>
+    <p class="lead-text">Welcome back.</p>
 </div>
-
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% if error %}<div class="alert alert-danger py-2 mb-0" role="alert">{{ error }}</div>{% endif %}
+    {% include "users/_field.html" with field=form.username autocomplete="username" autofocus=True %}
+    {% include "users/_field.html" with field=form.password autocomplete="current-password" %}
+    {% if request.GET.next %}<input type="hidden" name="next" value="{{ request.GET.next }}">{% endif %}
+    <button class="btn btn-primary btn-lg w-100" type="submit">Sign in</button>
+</form>
 {% endblock %}
 
+{% block footer %}No account? <a href="{% url 'register' %}">Request access</a>{% endblock %}

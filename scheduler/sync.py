@@ -1,16 +1,182 @@
+"""Calendar import: ICS feeds (icalendar), public Google Calendars (API v3) and UWaterloo WCMS.
+
+ICS and Google share one ingest step (_ingest) that maps the source onto the event model:
+- a repeating event is one series row (rrule, exdates, rdates, time_zone), not flattened;
+- a changed occurrence (ICS RECURRENCE-ID, Google recurringEventId + originalStartTime) is an
+  override row; a cancelled occurrence becomes an EXDATE on its series;
+- sync_id is the UID (ICS) or event id (Google); overrides use "<uid>|<original start key>";
+- events that disappeared from the source are marked cancelled (custom_info
+  "removed_from_source"), never deleted, and come back if the source lists them again;
+  only overrides that disappeared are deleted (the occurrence goes back to the rule).
+"""
+
 from scheduler.models import *
 from Comptech.api import *
 
-from ics import Calendar as Cal
-
 from dateutil import parser
 import bleach
+import contextlib
+import copy
 import datetime
+import functools
+import ipaddress
+import icalendar
 import requests
 import pytz
 
+from django.db import transaction
+from django.utils import timezone
+from scheduler import recurrence as rec
+
 # Timeout (seconds) for all outbound sync requests
 SYNC_TIMEOUT = 30
+FEED_MAX_BYTES = 20 * 1024 * 1024  # a sync or preview reads at most this much of a feed
+PREVIEW_MAX_BYTES = FEED_MAX_BYTES
+SYNC_LOCK_SECONDS = 15 * 60  # longer than any sync; a crashed run's lock expires by itself
+
+
+def source_url(url):
+    """webcal:// (what calendar apps hand out) is plain HTTP(S); requests can't fetch the scheme itself."""
+    url = (url or "").strip()
+    low = url.lower()
+    if low.startswith("webcals://"):
+        return "https://" + url[10:]
+    if low.startswith("webcal://"):
+        return "https://" + url[9:]
+    return url
+
+
+class BlockedSource(requests.RequestException):
+    """A feed link that points at this server itself or a link-local address."""
+
+
+@functools.lru_cache(maxsize=1)
+def _own_addresses():
+    """This machine's own addresses (its LAN address too, where Django and friends may also listen):
+    what its hostname resolves to, plus the source address the kernel would pick for an outside
+    route (a UDP connect() sends nothing)."""
+    import socket
+    found = set()
+    for name in {socket.gethostname(), socket.getfqdn()}:
+        try:
+            found |= {info[4][0].split("%")[0] for info in socket.getaddrinfo(name, None)}
+        except OSError:
+            pass
+    for family, probe in ((socket.AF_INET, "192.0.2.1"), (socket.AF_INET6, "2001:db8::1")):
+        try:
+            with socket.socket(family, socket.SOCK_DGRAM) as sock:
+                sock.connect((probe, 9))
+                found.add(sock.getsockname()[0].split("%")[0])
+        except OSError:
+            pass
+    return frozenset(ipaddress.ip_address(a) for a in found)
+
+
+def _blocked_ip(address):
+    ip = ipaddress.ip_address(str(address).split("%")[0])
+    if getattr(ip, "ipv4_mapped", None):
+        ip = ip.ipv4_mapped
+    return (ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip.is_reserved
+            or ip in _own_addresses())
+
+
+def _check_host(url):
+    """Feeds may live on the LAN (Nextcloud and the like), but never on this machine (Django,
+    Redis, Postgres listen on localhost and maybe on its LAN address) or a link-local/metadata address."""
+    import socket
+    from urllib.parse import urlsplit
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise BlockedSource("Only http(s) links can be synced")
+    try:
+        infos = socket.getaddrinfo(parts.hostname, parts.port or (443 if parts.scheme == "https" else 80))
+    except socket.gaierror as ex:
+        raise requests.ConnectionError(f"Unknown host {parts.hostname}") from ex
+    for info in infos:
+        if _blocked_ip(info[4][0]):
+            raise BlockedSource("That link points at this server or a reserved address")
+
+
+def _check_peer(r):
+    """Re-check the address the response actually came from. The name is resolved again when
+    connecting, so a DNS answer that changes between _check_host and the request (DNS rebinding)
+    could reach this machine; the request has gone out by then, but its answer is never read.
+    (Through an HTTP proxy, the proxy is the peer.) Mocked responses (tests) have no socket."""
+    import urllib3
+    if not isinstance(getattr(r, "raw", None), urllib3.response.HTTPResponse):
+        return
+    sock = getattr(getattr(r.raw, "_connection", None), "sock", None)
+    if sock is None:  # a "Connection: close" answer: http.client let go of the connection, its reader still has the socket
+        try:
+            sock = r.raw._fp.fp.raw._sock
+        except AttributeError:
+            sock = None
+    if sock is None:
+        if r.raw.length_remaining:  # a body we can't vouch for
+            r.close()
+            raise BlockedSource("Couldn't verify where the feed came from")
+        return
+    if _blocked_ip(sock.getpeername()[0]):
+        r.close()
+        raise BlockedSource("That link points at this server or a reserved address")
+
+
+def fetch_feed(url, **kwargs):
+    """GET a user-supplied feed link: webcal → https, host checked on every redirect (at most 5) and
+    the connected address checked again before anything is read. Streams: read the body with read_body."""
+    url = source_url(url)
+    kwargs["stream"] = True
+    for _ in range(6):
+        _check_host(url)
+        r = requests.get(url, allow_redirects=False, **kwargs)
+        _check_peer(r)
+        if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("Location"):
+            from urllib.parse import urljoin
+            url = urljoin(url, r.headers["Location"])
+            r.close()
+            continue
+        return r
+    raise requests.TooManyRedirects("Too many redirects")
+
+
+class FeedTooLarge(requests.RequestException):
+    pass
+
+
+def read_body(r, limit=None):
+    """The (decompressed) body of a streamed response, at most ``limit`` (FEED_MAX_BYTES) bytes."""
+    limit = limit or FEED_MAX_BYTES
+    try:
+        body = r.raw.read(limit + 1, decode_content=True)
+    finally:
+        r.close()
+    if len(body) > limit:
+        raise FeedTooLarge(f"The feed is larger than {limit // (1024 * 1024)} MB")
+    return body
+
+
+@contextlib.contextmanager
+def cache_lock(key, seconds=SYNC_LOCK_SECONDS):
+    """Yields False when another run holds ``key``. Fails open (yields True) when the cache is down:
+    an overlapping sync is wasteful, not harmful."""
+    from django.core.cache import cache
+    try:
+        got = cache.add(key, 1, seconds)
+    except Exception:
+        got, key = True, None
+    try:
+        yield got
+    finally:
+        if got and key:
+            try:
+                cache.delete(key)
+            except Exception:
+                pass
+
+
+def _google_events_url(calendar_id):
+    from urllib.parse import quote
+    return f"https://www.googleapis.com/calendar/v3/calendars/{quote(calendar_id.strip(), safe='@.')}/events"
 
 # Synced descriptions are rendered as HTML by the calendar UI, so keep basic
 # formatting but strip scripts, event handlers and javascript: URLs.
@@ -30,95 +196,418 @@ def _clean_desc(value):
     return bleach.clean(value, tags=_DESC_TAGS, attributes=_DESC_ATTRS,
                         protocols=["http", "https", "mailto"], strip=True)
 
-def sync_ical(calendar, start, end, url=None):
+
+def _status(value):
+    v = (str(value) if value else "").lower()
+    return v if v in ("tentative", "cancelled") else "confirmed"
+
+
+# ---------------------------------------------------------------- the shared model mapping
+
+class Item(dict):
+    """One source event: uid, recurrence_id (aware UTC or None), status, name, description, location,
+    all_day, start/end (aware) or start_day/end_day (dates), tz (IANA name or ""), rrule, exdates, rdates
+    (aware moments), transparent."""
+    __getattr__ = dict.get
+
+
+# Windows zone names (Outlook/Exchange feeds) → IANA, from CLDR's windowsZones (territory "001").
+# icalendar ≥ 6 maps these itself; this keeps older versions and odd TZIDs from losing the zone.
+WINDOWS_ZONES = {
+    "Dateline Standard Time": "Etc/GMT+12", "Hawaiian Standard Time": "Pacific/Honolulu",
+    "Alaskan Standard Time": "America/Anchorage", "Pacific Standard Time": "America/Los_Angeles",
+    "US Mountain Standard Time": "America/Phoenix", "Mountain Standard Time": "America/Denver",
+    "Central America Standard Time": "America/Guatemala", "Central Standard Time": "America/Chicago",
+    "Canada Central Standard Time": "America/Regina", "Mexico Standard Time": "America/Mexico_City",
+    "Central Standard Time (Mexico)": "America/Mexico_City", "SA Pacific Standard Time": "America/Bogota",
+    "Eastern Standard Time": "America/New_York", "US Eastern Standard Time": "America/Indianapolis",
+    "Atlantic Standard Time": "America/Halifax", "Newfoundland Standard Time": "America/St_Johns",
+    "E. South America Standard Time": "America/Sao_Paulo", "Argentina Standard Time": "America/Buenos_Aires",
+    "SA Eastern Standard Time": "America/Cayenne", "Greenland Standard Time": "America/Godthab",
+    "UTC": "Etc/UTC", "Coordinated Universal Time": "Etc/UTC", "GMT Standard Time": "Europe/London",
+    "Greenwich Standard Time": "Atlantic/Reykjavik", "W. Europe Standard Time": "Europe/Berlin",
+    "Central Europe Standard Time": "Europe/Budapest", "Romance Standard Time": "Europe/Paris",
+    "Central European Standard Time": "Europe/Warsaw", "W. Central Africa Standard Time": "Africa/Lagos",
+    "GTB Standard Time": "Europe/Bucharest", "E. Europe Standard Time": "Europe/Chisinau",
+    "FLE Standard Time": "Europe/Kiev", "Israel Standard Time": "Asia/Jerusalem", "Egypt Standard Time": "Africa/Cairo",
+    "South Africa Standard Time": "Africa/Johannesburg", "Turkey Standard Time": "Europe/Istanbul",
+    "Russian Standard Time": "Europe/Moscow", "Arab Standard Time": "Asia/Riyadh", "E. Africa Standard Time": "Africa/Nairobi",
+    "Iran Standard Time": "Asia/Tehran", "Arabian Standard Time": "Asia/Dubai", "Pakistan Standard Time": "Asia/Karachi",
+    "India Standard Time": "Asia/Calcutta", "Sri Lanka Standard Time": "Asia/Colombo", "Nepal Standard Time": "Asia/Katmandu",
+    "Bangladesh Standard Time": "Asia/Dhaka", "SE Asia Standard Time": "Asia/Bangkok", "China Standard Time": "Asia/Shanghai",
+    "Singapore Standard Time": "Asia/Singapore", "Taipei Standard Time": "Asia/Taipei", "W. Australia Standard Time": "Australia/Perth",
+    "Tokyo Standard Time": "Asia/Tokyo", "Korea Standard Time": "Asia/Seoul", "Cen. Australia Standard Time": "Australia/Adelaide",
+    "AUS Central Standard Time": "Australia/Darwin", "E. Australia Standard Time": "Australia/Brisbane",
+    "AUS Eastern Standard Time": "Australia/Sydney", "Tasmania Standard Time": "Australia/Hobart",
+    "West Pacific Standard Time": "Pacific/Port_Moresby", "New Zealand Standard Time": "Pacific/Auckland",
+}
+
+
+def _zone_name(value):
+    """IANA name of a datetime's zone ("" for floating/unknown, "UTC" for Z times)."""
+    tzinfo = getattr(value, "tzinfo", None)
+    if tzinfo is None:
+        return ""
+    name = getattr(tzinfo, "key", None) or getattr(tzinfo, "zone", None) or str(tzinfo)
+    if name in ("UTC", "Z", "utc") or tzinfo is datetime.timezone.utc:
+        return "UTC"
+    if not rec.valid_zone(name):
+        name = WINDOWS_ZONES.get(name.strip().strip('"'), "")
+    return name if name and rec.valid_zone(name) else ""
+
+
+def _moment(value, tz):
+    """date / naive / aware → aware UTC (a date = local midnight, naive = local time in tz)."""
+    if isinstance(value, datetime.datetime):
+        return (value.replace(tzinfo=tz) if value.tzinfo is None else value).astimezone(datetime.timezone.utc)
+    return rec.local_midnight(value, tz)
+
+
+def _fill(e, it, tz_cal):
+    e.name = (_clean(it.name) or "Untitled")[:256]
+    e.description = _clean_desc(it.description)
+    e.location = (_clean(it.location) or None) and _clean(it.location)[:256]
+    e.status = it.status
+    e.transparency = "free" if it.transparent else "busy"
+    e.time_zone = "" if it.all_day else (it.tz or "")
+    if it.all_day:
+        e.kind, e.allday = "all_day", True
+        e.start_date = it.start_day
+        e.end_date = it.end_day if it.end_day and it.end_day > it.start_day else it.start_day + datetime.timedelta(days=1)
+        e.startdate = e.enddate = None  # derived from the dates on save
+    else:
+        e.kind, e.allday = ("event" if it.end is not None else "deadline"), False
+        e.start_date = e.end_date = None
+        e.startdate, e.enddate = it.start, it.end
+    ci = dict(e.custom_info or {})
+    ci.pop("removed_from_source", None)
+    ci.pop("unsupported_rrule", None)
+    if it.recurrence_id is None:
+        zone = rec.zone(e.time_zone) if e.time_zone else tz_cal
+        rule = ""
+        if it.rrule:
+            try:
+                rule = rec.normalize_rrule(it.rrule, zone)
+            except ValueError:
+                ci["unsupported_rrule"] = it.rrule[:500]  # kept as its first occurrence only
+        e.rrule = rule
+        e.exdates = sorted({rec.key(m) for m in it.exdates or []}) if rule else []
+        e.rdates = sorted({rec.key(m) for m in it.rdates or []}) if rule else []
+    e.custom_info = ci
+
+
+def _state(e):
+    """The stored values of an event, to tell whether a sync changed anything."""
+    if e.pk is None:
+        return None
+    return {f.attname: copy.deepcopy(getattr(e, f.attname)) for f in Event._meta.concrete_fields if f.attname != "updated_on"}
+
+
+def _save_if_changed(e, before):
+    """Write only events the source changed: most syncs change nothing, and saving every event each
+    time cost an UPDATE per event and a new updated_on (so the events ETag changed and browsers
+    never got a 304 after a sync)."""
+    # Each write in its own savepoint: one bad row (say, a UID too long for the column) is skipped by
+    # _ingest without aborting the transaction, which would silently drop the whole sync.
+    if before is None:
+        with transaction.atomic():
+            e.save()
+        return
+    e.normalize()
+    changed = [k for k, v in _state(e).items() if v != before[k]]
+    if changed:
+        with transaction.atomic():
+            e.save(update_fields=changed)
+
+
+def _in_window(it, lo, hi, tz_cal):
+    start = rec.local_midnight(it.start_day, tz_cal) if it.all_day else it.start
+    end = (rec.local_midnight(it.end_day or it.start_day + datetime.timedelta(days=1), tz_cal) if it.all_day
+           else (it.end or it.start))
+    return start >= lo and end <= hi
+
+
+def _ingest(calendar, items, lo, hi):
+    """Upsert items into the calendar. Returns counts."""
+    tz_cal = calendar.tz
+    now = timezone.now()
+    counts = {"saved": 0, "series": 0, "overrides": 0, "cancelled_occurrences": 0, "removed": 0, "skipped": 0}
+    existing = {e.sync_id: e for e in Event.objects.filter(calendar=calendar, sync_id__isnull=False)}
+    present = {it.uid if it.recurrence_id is None else f"{it.uid}|{rec.key(it.recurrence_id)}" for it in items}
+    seen_uids = {it.uid for it in items}
+    # Cancelled occurrences become EXDATEs of their series: merge them in before the series is
+    # compared and saved, so an unchanged feed doesn't rewrite the series twice per sync.
+    cancelled_keys = {}
+    for it in items:
+        if it.recurrence_id is not None and it.status == "cancelled":
+            cancelled_keys.setdefault(it.uid, set()).add(rec.key(it.recurrence_id))
+    series = {}
+    with transaction.atomic():
+        for it in (i for i in items if i.recurrence_id is None):
+            try:
+                e = existing.get(it.uid)
+                if it.status == "cancelled":  # a deleted event or series (Google may send no times)
+                    if e is not None and e.status != "cancelled":
+                        e.status = "cancelled"
+                        e.save(update_fields=["status"])
+                    continue
+                first = rec.local_midnight(it.start_day, tz_cal) if it.all_day else it.start
+                if (it.rrule and first >= hi) or (not it.rrule and not _in_window(it, lo, hi, tz_cal)):
+                    continue
+                e = e or Event(calendar=calendar, sync_id=it.uid)
+                before = _state(e)
+                e.calendar = calendar
+                _fill(e, it, tz_cal)
+                if e.rrule and it.uid in cancelled_keys:
+                    e.exdates = sorted(set(e.exdates) | cancelled_keys[it.uid])
+                _save_if_changed(e, before)
+                existing[it.uid] = e  # a UID listed twice updates this row instead of colliding with it
+                counts["saved"] += 1
+                if e.rrule:
+                    series[it.uid] = e
+                    counts["series"] += 1
+            except Exception as ex:
+                counts["skipped"] += 1
+                print(f"Skipped {it.uid!r}: {type(ex).__name__} {ex.args}")
+        cancelled = {}
+        for it in (i for i in items if i.recurrence_id is not None):
+            try:
+                k = rec.key(it.recurrence_id)
+                sid = f"{it.uid}|{k}"
+                parent = series.get(it.uid)
+                if parent is None:
+                    p = existing.get(it.uid)
+                    parent = p if p is not None and p.rrule else None
+                if parent is None:  # no series here: keep it as a single event
+                    if it.status == "cancelled" or not _in_window(it, lo, hi, tz_cal):
+                        continue
+                    e = existing.get(sid) or Event(calendar=calendar, sync_id=sid)
+                    before = _state(e)
+                    e.calendar = calendar
+                    _fill(e, Item(it, recurrence_id=None, rrule=""), tz_cal)
+                    _save_if_changed(e, before)
+                    existing[sid] = e
+                    counts["saved"] += 1
+                    continue
+                if it.status == "cancelled":
+                    cancelled.setdefault(parent.pk, (parent, set()))[1].add(k)
+                    Event.objects.filter(recurrence_parent=parent, original_start=it.recurrence_id).delete()
+                    present.discard(sid)
+                    continue
+                o = existing.get(sid) or Event.objects.filter(recurrence_parent=parent,
+                                                              original_start=it.recurrence_id).first() \
+                    or Event(calendar=calendar)
+                before = _state(o)
+                o.calendar, o.sync_id = calendar, sid
+                o.recurrence_parent, o.original_start = parent, it.recurrence_id
+                _fill(o, it, tz_cal)
+                o.event_category_id = o.event_category_id or parent.event_category_id
+                _save_if_changed(o, before)
+                existing[sid] = o
+                counts["overrides"] += 1
+            except Exception as ex:
+                counts["skipped"] += 1
+                print(f"Skipped an occurrence of {it.uid!r}: {type(ex).__name__} {ex.args}")
+        for parent, keys in cancelled.values():
+            merged = sorted(set(parent.exdates or []) | keys)
+            if merged != list(parent.exdates or []):
+                parent.exdates = merged
+                parent.save(update_fields=["exdates"])
+            counts["cancelled_occurrences"] += len(keys)
+
+        # Gone from the source: overrides revert to the rule; everything else is marked cancelled.
+        for sid, e in existing.items():
+            if sid in present:
+                continue
+            if e.recurrence_parent_id:
+                if sid.split("|", 1)[0] in seen_uids:
+                    e.delete()
+                    counts["removed"] += 1
+                continue
+            in_window = bool(e.rrule) or (lo <= e.startdate < hi)
+            if in_window and e.status != "cancelled":
+                e.status = "cancelled"
+                e.custom_info = {**(e.custom_info or {}), "removed_from_source": now.isoformat()}
+                e.save(update_fields=["status", "custom_info"])
+                counts["removed"] += 1
+    return counts
+
+
+# ---------------------------------------------------------------- ICS
+
+def _ics_dates(comp, prop, tz):
+    """EXDATE/RDATE values of a component (one or many lines) as aware UTC moments."""
+    raw = comp.get(prop)
+    if raw is None:
+        return []
+    out = []
+    for line in raw if isinstance(raw, list) else [raw]:
+        for v in getattr(line, "dts", []):
+            if isinstance(v.dt, (datetime.datetime, datetime.date)):
+                out.append(_moment(v.dt, tz))
+    return out
+
+
+def parse_ics(text, tz_cal):
+    """ICS text → Items (masters and RECURRENCE-ID overrides)."""
+    cal = icalendar.Calendar.from_ical(text)
+    items = []
+    for comp in cal.walk("VEVENT"):
+        uid = str(comp.get("UID") or "").strip()
+        if not uid or comp.get("DTSTART") is None:
+            continue
+        start = comp.decoded("DTSTART")
+        all_day = not isinstance(start, datetime.datetime)
+        tzname = "" if all_day else _zone_name(start)
+        tz = rec.zone(tzname) if tzname else tz_cal
+        if comp.get("DTEND") is not None:
+            end = comp.decoded("DTEND")
+        elif comp.get("DURATION") is not None:
+            end = start + comp.decoded("DURATION")
+        else:
+            end = start + datetime.timedelta(days=1) if all_day else start
+        rid = comp.get("RECURRENCE-ID")
+        rrule = comp.get("RRULE")
+        it = Item(uid=uid, status=_status(comp.get("STATUS")), name=str(comp.get("SUMMARY") or ""),
+                  description=str(comp.get("DESCRIPTION") or "") or None, location=str(comp.get("LOCATION") or "") or None,
+                  all_day=all_day, tz=tzname, transparent=str(comp.get("TRANSP") or "").upper() == "TRANSPARENT",
+                  recurrence_id=_moment(comp.decoded("RECURRENCE-ID"), tz) if rid is not None else None,
+                  rrule=rrule.to_ical().decode() if rrule is not None else "",
+                  exdates=_ics_dates(comp, "EXDATE", tz), rdates=_ics_dates(comp, "RDATE", tz))
+        if all_day:
+            it.update(start_day=start, end_day=end if not isinstance(end, datetime.datetime) else end.date())
+        else:
+            it.update(start=_moment(start, tz), end=_moment(end, tz))
+        items.append(it)
+    return items
+
+
+def sync_ical(calendar, start, end, url=None, conditional=False):
+    """Import an ICS feed. Returns True, False (fetch/parse failed) or "not_modified" (HTTP 304)."""
     if url == None: url = calendar.calendar_url
+    headers = {}
+    if conditional:
+        if calendar.sync_etag: headers["If-None-Match"] = calendar.sync_etag
+        if calendar.sync_last_modified: headers["If-Modified-Since"] = calendar.sync_last_modified
     try:
-        r = requests.get(url, timeout=SYNC_TIMEOUT)
+        r = fetch_feed(url, timeout=SYNC_TIMEOUT, headers=headers)
+        if r.status_code == 304:
+            r.close()
+            return "not_modified"
         r.raise_for_status()
-        cal = Cal(r.text)
+        items = parse_ics(read_body(r), calendar.tz)
     except Exception as ex:
         print(f"iCal fetch/parse failed for {calendar.name}: {type(ex).__name__} {ex.args}")
         return False
-    toronto = pytz.timezone('America/Toronto')
-    for i in cal.events:
-        try:
-            sd = i.begin.datetime
-            ed = i.end.datetime
-
-            is_all_day = i.all_day or (
-                sd.date() == ed.date() and
-                sd.time() == datetime.time(0, 0) and
-                ed.time() == datetime.time(0, 0)
-            )
-            if is_all_day:
-                sd = toronto.localize(datetime.datetime(sd.year, sd.month, sd.day, 0, 0))
-                ed = toronto.localize(datetime.datetime(ed.year, ed.month, ed.day, 0, 0))
-                if sd.date() == ed.date(): ed = ed + datetime.timedelta(days=1)
-
-            if (sd >= parser.parse(start) and ed <= parser.parse(end)):
-                if i.status != None and i.status.lower() == "cancelled":
-                    try:
-                        e = Event.objects.filter(calendar=calendar, sync_id=i.uid)[0]
-                        e.delete()
-                    except IndexError: pass
-                else:
-                    try:
-                        e = Event.objects.filter(calendar=calendar, sync_id=i.uid)[0]
-                    except IndexError:
-                        e = Event()
-
-                    e.name = _clean(i.name)
-                    e.calendar = calendar
-                    e.description = _clean_desc(i.description)
-                    e.allday = is_all_day
-                    e.sync_id = i.uid
-                    e.startdate = sd
-                    e.enddate = ed
-                    e.save()
-
-        except Exception as ex:
-            print(f"A(n) {type(ex).__name__} occurred. {ex.args}")
-
+    calendar.sync_etag = (r.headers.get("ETag") or "")[:256]
+    calendar.sync_last_modified = (r.headers.get("Last-Modified") or "")[:64]
+    calendar.last_ingest = _ingest(calendar, items, parser.parse(start), parser.parse(end))
+    print(f"{calendar.name}: {calendar.last_ingest}")
     return True
 
+
+# ---------------------------------------------------------------- Google
+
+def _google_time(t, tz_cal):
+    """A Google start/end/originalStartTime → (aware UTC or None, date or None, zone name)."""
+    if t is None:
+        return None, None, ""
+    if "date" in t and "dateTime" not in t:
+        return None, datetime.date.fromisoformat(t["date"]), ""
+    name = t.get("timeZone") or ""
+    name = name if rec.valid_zone(name) else ""
+    return rec.parse_moment(t["dateTime"]), None, name
+
+
+def _recurrence_lines(lines, tz):
+    """Google's recurrence[] (RFC 5545 lines) → (rrule, exdates, rdates)."""
+    rule, ex, rd = "", [], []
+    for line in lines or []:
+        name, _, value = line.partition(":")
+        prop, *params = name.split(";")
+        prop = prop.upper()
+        if prop == "RRULE":
+            rule = value
+            continue
+        if prop not in ("EXDATE", "RDATE"):
+            continue
+        p = dict(x.split("=", 1) for x in params if "=" in x)
+        ztz = rec.zone(p["TZID"]) if p.get("TZID") and rec.valid_zone(p["TZID"]) else tz
+        for v in value.split(","):
+            v = v.strip()
+            if not v or "/" in v:  # PERIOD values aren't supported
+                continue
+            if len(v) == 8:
+                m = rec.local_midnight(datetime.datetime.strptime(v, "%Y%m%d").date(), ztz)
+            elif v.endswith("Z"):
+                m = datetime.datetime.strptime(v, "%Y%m%dT%H%M%SZ").replace(tzinfo=datetime.timezone.utc)
+            else:
+                m = datetime.datetime.strptime(v, "%Y%m%dT%H%M%S").replace(tzinfo=ztz).astimezone(datetime.timezone.utc)
+            (ex if prop == "EXDATE" else rd).append(m)
+    return rule, ex, rd
+
+
+def parse_google(res_items, tz_cal):
+    """Google events.list items (singleEvents=false) → Items."""
+    items = []
+    for i in res_items:
+        status = _status(i.get("status"))
+        rec_id = i.get("recurringEventId")
+        uid = rec_id or i["id"]
+        s, s_day, s_tz = _google_time(i.get("start"), tz_cal)
+        e, e_day, _ = _google_time(i.get("end"), tz_cal)
+        original = None
+        if rec_id:
+            o, o_day, o_tz = _google_time(i.get("originalStartTime"), tz_cal)
+            original = o or (rec.local_midnight(o_day, tz_cal) if o_day else None)
+            if original is None:
+                continue
+        if s is None and s_day is None:
+            if status == "cancelled" and rec_id:  # cancelled instances may carry only originalStartTime
+                items.append(Item(uid=uid, recurrence_id=original, status="cancelled", all_day=False, start=original,
+                                  end=original))
+            elif status == "cancelled":
+                items.append(Item(uid=uid, recurrence_id=None, status="cancelled", all_day=False, start=None, end=None))
+            continue
+        tz = rec.zone(s_tz) if s_tz else tz_cal
+        rule, ex, rd = _recurrence_lines(i.get("recurrence"), tz)
+        it = Item(uid=uid, recurrence_id=original, status=status, name=i.get("summary") or "",
+                  description=i.get("description"), location=i.get("location"), all_day=s_day is not None,
+                  tz=s_tz, transparent=i.get("transparency") == "transparent", rrule=rule, exdates=ex, rdates=rd)
+        if s_day is not None:
+            it.update(start_day=s_day, end_day=e_day)
+        else:
+            it.update(start=s, end=e)
+        items.append(it)
+    return items
+
+
 def sync_google(calendar, start, end, token, url=None):
-    fields = str("items(kind,summary,start,end)")
-
+    """Import a Google Calendar over [start, end): masters come back with their recurrence and
+    changed/cancelled instances as exceptions (singleEvents=false), all pages, deleted ones included."""
     if url == None: url = calendar.calendar_url
-    r = requests.get(f"https://www.googleapis.com/calendar/v3/calendars/{url}/events?key={GOOGLE_API_KEY}&timeMin={start}&timeMax={end}&singleEvents=true&orderBy=startTime&showDeleted=true", headers= {'Authorization': f'Bearer {token}'} if token != None else None, timeout=SYNC_TIMEOUT)
-    res = r.json()
-
-    for i in res["items"]:
-        try:
-            e_ = Event.objects.filter(calendar=calendar, sync_id=i['id'])
-            if i['status'] == 'confirmed':
-                try: e = e_[0]
-                except IndexError: e = Event()
-
-                e.calendar = calendar
-                e.name = _clean(i['summary'])
-                try:
-                    e.description = _clean_desc(i['description'])
-                except KeyError: pass
-
-                e.sync_id = i['id']
-                try:
-                    e.startdate = i['start']['dateTime']
-                except KeyError:
-                    e.startdate = i['start']['date']
-                    e.allday = True
-                try:
-                    e.enddate = i['end']['dateTime']
-                except KeyError:
-                    e.enddate = i['end']['date']
-                    e.allday = True
-
-                e.save()
-            else: e_.delete()
-
-        except Exception as ex:
-            print(f"A(n) {type(ex).__name__} occurred. {ex.args}")
-
+    raw, page = [], None
+    try:
+        while True:
+            params = {"key": GOOGLE_API_KEY, "timeMin": start, "timeMax": end, "singleEvents": "false",
+                      "showDeleted": "true", "maxResults": 2500}
+            if page:
+                params["pageToken"] = page
+            r = requests.get(_google_events_url(url), params=params,
+                             headers={'Authorization': f'Bearer {token}'} if token != None else None,
+                             timeout=SYNC_TIMEOUT)
+            r.raise_for_status()
+            res = r.json()
+            raw += res.get("items", [])
+            page = res.get("nextPageToken")
+            if not page:
+                break
+        items = parse_google(raw, calendar.tz)
+    except Exception as ex:
+        print(f"Google fetch failed for {calendar.name}: {type(ex).__name__} {ex.args}")
+        return False
+    calendar.last_ingest = _ingest(calendar, items, parser.parse(start), parser.parse(end))
+    print(f"{calendar.name}: {calendar.last_ingest}")
     return True
 
 def sync_uwaterloo(calendar, start, end):
@@ -152,3 +641,94 @@ def sync_uwaterloo(calendar, start, end):
         return False
 
     return True
+
+
+def preview_source(calendar_type, url, tz):
+    """Fetch a source without saving anything: its name, how many events it has and the next few,
+    so people can check a link before creating a calendar from it. Raises ValueError with a
+    readable message when the source can't be read."""
+    now = timezone.now()
+    if calendar_type == 1:
+        # One message for every failure (blocked, unreachable, an HTTP error, too large, not ICS):
+        # telling them apart would map what answers where on the LAN.
+        generic = "Couldn't read an iCalendar (.ics) feed from that link."
+        try:
+            r = fetch_feed(url, timeout=SYNC_TIMEOUT)
+            r.raise_for_status()
+            body = read_body(r, PREVIEW_MAX_BYTES)
+        except requests.RequestException:
+            raise ValueError(generic)
+        try:
+            name = str(icalendar.Calendar.from_ical(body).get("X-WR-CALNAME") or "")
+            items = parse_ics(body, tz)
+        except Exception:
+            raise ValueError(generic)
+        def when(it):
+            return rec.local_midnight(it["start_day"], tz) if it.get("all_day") else it.get("start")
+        masters = [it for it in items if it.get("recurrence_id") is None and it.get("status") != "cancelled"]
+        upcoming = sorted((it for it in masters if it.get("rrule") or (when(it) and when(it) >= now)),
+                          key=lambda it: (not it.get("rrule") and when(it)) or now)[:5]
+        return {"name": name[:64], "events": len(masters), "series": sum(1 for it in masters if it.get("rrule")),
+                "upcoming": [{"name": it.get("name") or "(no title)", "start": when(it), "all_day": it.get("all_day", False),
+                              "repeats": bool(it.get("rrule"))} for it in upcoming]}
+    if calendar_type == 2:
+        try:
+            r = requests.get(_google_events_url(url), timeout=SYNC_TIMEOUT, params={
+                "key": GOOGLE_API_KEY, "timeMin": now.isoformat(), "singleEvents": "true", "orderBy": "startTime",
+                "maxResults": 5})
+            r.raise_for_status()
+            res = r.json()
+        except requests.RequestException as ex:
+            code = getattr(getattr(ex, "response", None), "status_code", None)
+            raise ValueError("Google says this calendar isn't public or doesn't exist." if code in (403, 404)
+                             else f"Couldn't reach Google Calendar ({type(ex).__name__}).")
+        upcoming = []
+        for e in res.get("items", []):
+            start, day, _ = _google_time(e.get("start"), tz)
+            upcoming.append({"name": e.get("summary") or "(no title)", "start": start or (rec.local_midnight(day, tz) if day else None),
+                             "all_day": day is not None, "repeats": bool(e.get("recurringEventId"))})
+        return {"name": (res.get("summary") or "")[:64], "events": None, "series": None, "upcoming": upcoming}
+    raise ValueError("Previews are available for iCalendar links and Google calendars.")
+
+
+def window_strings(cal, now=None):
+    """The calendar's sync window as the ISO strings the sync functions take."""
+    from scheduler.service import sync_window
+    a, b = sync_window(cal, now)
+    return a.isoformat(), b.isoformat()
+
+
+def sync_calendar(cal, start=None, end=None, token=None, conditional=True):
+    """Sync one calendar (its window by default) and record the outcome on it.
+    Returns True, False or "not_modified". Conditional GET (ETag / If-Modified-Since) is
+    used for ICS feeds, but only when the window hasn't moved since the last sync."""
+    with cache_lock(f"calendar:sync:{cal.pk}") as free:
+        if not free:
+            return "busy"  # another sync of this calendar is running
+        return _sync_calendar(cal, start, end, token, conditional)
+
+
+def _sync_calendar(cal, start, end, token, conditional):
+    if start is None or end is None:
+        start, end = window_strings(cal)
+    now = timezone.now()
+    same_month = cal.last_synced_at is not None and \
+        timezone.localtime(cal.last_synced_at, cal.tz).strftime("%Y%m") == timezone.localtime(now, cal.tz).strftime("%Y%m")
+    try:
+        if cal.calendar_type == 1:
+            status = sync_ical(cal, start, end, conditional=conditional and same_month and not cal.last_sync_error)
+        elif cal.calendar_type == 2:
+            status = sync_google(cal, start, end, token)
+        elif cal.calendar_type == 50:
+            status = sync_uwaterloo(cal, start, end)
+        else:
+            return False
+        error = "" if status else "The source didn't respond or returned an error."
+    except Exception as ex:
+        status, error = False, f"{type(ex).__name__}"
+    if status:
+        cal.last_synced_at = now
+    cal.last_sync_error = error
+    Calendar.objects.filter(pk=cal.pk).update(last_synced_at=cal.last_synced_at, last_sync_error=error,
+                                              sync_etag=cal.sync_etag, sync_last_modified=cal.sync_last_modified)
+    return status

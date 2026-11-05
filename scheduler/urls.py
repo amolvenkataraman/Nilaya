@@ -4,7 +4,7 @@ from . import views, api
 # URL patterns for calendar app
 urlpatterns = [
     path("", views.index, name='display_calendar'),
-    path("countdown/<slug:event_id>/<slug:time>/", views.countdown, name='countdown_to_event'),
+    path("countdown/<str:event_id>/<slug:time>/", views.countdown, name='countdown_to_event'),
     path("public/<slug:calendar_id>/", views.public_calendar, name='public_calendar'),
     path("availability/<slug:username>/", views.availability, name='availability_page'),
 

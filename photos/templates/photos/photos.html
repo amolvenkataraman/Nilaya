@@ -1,18 +1,26 @@
 {% extends "photos/photos_base.html" %}
 
-{% load static %}
+{% load static photos_hidden %}
 
 {% block page_title %} Photos {% endblock %}
 
 
+{% block page_styles %}
+{{ block.super }}
+<link href="{% static 'photo/photos-page.css' %}" rel="stylesheet" />
+{% endblock %}
+
 {% block extra_scripts %}
 <script id="photo-in-list" type="text/x-handlebars-template">
     {% verbatim %}
-    <div class="photo-item" style="flex: {{ aspect_ratio }} {{ aspect_ratio }} calc(180px * {{ aspect_ratio }}); height: 180px; background-color: {{ main_color }};" onclick="handle_photo_click(event, this)">
-        <img src="" data-src="{{ thumbnail }}" data-id="{{ id }}" data-url="{{ url }}" data-video="{{ video }}" class="list-img" style="width: 100%; height: 100%; object-fit: cover; display: block;">
+    <div class="photo-item" data-ar="{{ aspect_ratio }}" data-color="{{ main_color }}" data-hidden="{{ hidden }}" data-mine="{{ mine }}">
+        <img src="" alt="" data-src="{{ thumbnail }}" data-id="{{ id }}" data-url="{{ url }}" data-video="{{ video }}" class="list-img">
         <div class="photo-indicators">
+            {{#if hidden}}
+            <span class="indicator-badge badge-hidden" title="Hidden"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg></span>
+            {{/if}}
             {{#if is_cover}}
-            <span class="indicator-badge badge-cover" title="Album cover photo">★ COVER</span>
+            <span class="indicator-badge badge-cover" title="Album cover photo">COVER</span>
             {{/if}}
             {{#if has_raw}}
             <span class="indicator-badge badge-raw" title="RAW file present">RAW</span>
@@ -32,7 +40,7 @@
         <div class="video-duration-tag">{{ duration_text }}</div>
         {{/if}}
         {{/if}}
-        <div class="select-checkbox" onclick="event.stopPropagation(); toggle_selection(this.closest('.photo-item'))">
+        <div class="select-checkbox">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" class="check-icon"><polyline points="20 6 9 17 4 12"></polyline></svg>
         </div>
     </div>
@@ -84,7 +92,7 @@
             </div>
             {{#if lat}}
             <div class="location-actions">
-                <button onclick="load_map({{ lat }}, {{ lon }})" class="action-btn map-btn">
+                <button type="button" data-action="load-map" data-lat="{{ lat }}" data-lon="{{ lon }}" class="action-btn map-btn">
                     <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
                     View Map Preview
                 </button>
@@ -159,13 +167,13 @@
         <div class="sidebar-actions-section">
             {{#if video}}
             {{#if has_orig}}
-            <button onclick="delete_original_video('{{ id }}')" class="action-btn warning-btn" style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: #f59e0b; margin-bottom: 8px; width: 100%; display: flex; align-items: center; justify-content: center; gap: 6px; padding: 8px 12px; border-radius: 6px; font-weight: 600; font-size: 0.85rem;">
+            <button type="button" data-action="delete-original" data-id="{{ id }}" class="action-btn warning-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                 Delete Original Video
             </button>
             {{/if}}
             {{/if}}
-            <button onclick="del_photo('{{ id }}')" class="action-btn delete-btn">
+            <button type="button" data-action="delete-photo" data-id="{{ id }}" class="action-btn delete-btn">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
                 Delete Asset
             </button>
@@ -174,770 +182,374 @@
     {% endverbatim %}
 </script>
 
-<script>
-    const photo_in_list = Handlebars.compile(document.querySelector("#photo-in-list").innerHTML)
-    const photo_description = Handlebars.compile(document.querySelector("#photo-description").innerHTML)
-    let activeAlbumCoverPhotoId = "{% if album_obj %}{{ album_obj.cover_photo_id_resolved }}{% endif %}";
-
-    var currdate = new Date('{{ newest }}');
-    const forward = '{{ forward }}' === 'True';
-    var currimage;
-    var imgloaded = false;
-    var dates = [];
-    var nowloading = false;
-    origload = false;
-
-    function get_size_in_format(size) {
-        formats = ["KB", "MB", "GB", "TB"]
-
-        format = 0;
-        while (size > 1024 && format < 3) {
-            size /= 1024;
-            format++;
-        }
-
-        return [size.toFixed(2), formats[format]];
-    }
-
-    function get_duration_in_format(dur) {
-        if (dur > 3600) { return `${Math.floor(dur / 3600)}h ${Math.floor((dur % 3600) / 60)}m ${Math.floor((dur % 3600) % 60)}s` }
-        else if (dur > 60) { return `${Math.floor(dur / 60)}m ${Math.floor(dur % 60)}s` }
-        else { return `${Math.floor(dur)}s` }
-    }
-
-    function update_photo_details() {
-        const detailType = localStorage.getItem('photoDetailType') || 'time';
-        document.querySelectorAll('.detail-tag').forEach(tag => {
-            let val = "";
-            if (detailType === 'time') {
-                val = tag.dataset.time;
-            } else if (detailType === 'city') {
-                val = tag.dataset.city;
-            } else if (detailType === 'camera') {
-                val = tag.dataset.camera;
-            } else if (detailType === 'megapixels') {
-                val = tag.dataset.megapixels ? parseFloat(tag.dataset.megapixels).toFixed(2) + ' MP' : '';
-            } else if (detailType === 'size') {
-                val = tag.dataset.size;
-            } else if (detailType === 'blur') {
-                val = tag.dataset.blur ? parseFloat(tag.dataset.blur).toFixed(1) : '';
-            }
-            
-            if (detailType === 'none' || !val || val === 'null' || val === 'undefined') {
-                tag.style.setProperty('display', 'none', 'important');
-                tag.textContent = '';
-            } else {
-                tag.style.setProperty('display', 'block', 'important');
-                tag.textContent = val;
-            }
-        });
-    }
-
-    function view_image(e) {
-        imgloaded = true;
-        currimage = e;
-        document.getElementById("photo-display-area").style.visibility = "visible";
-        if (e.dataset.video == "true") {
-            vid = document.createElement("video");
-            src = document.createElement('source');
-
-            src.src = e.dataset.url;
-            src.type = "video/mp4"
-            vid.appendChild(src)
-            vid.classList.add("image-displayed");
-            vid.controls = true;
-            vid.loop = true;
-
-            document.getElementById("photo").innerHTML = "";
-            document.getElementById("photo").appendChild(vid);
-            vid.play()
-        } else {
-            img = document.createElement("img");
-            img.src = e.dataset.url;
-            img.classList.add("image-displayed");
-
-            document.getElementById("photo").innerHTML = "";
-            document.getElementById("photo").appendChild(img);
-        }
-
-        document.querySelector(".photo-info").innerHTML = "";
-
-        var r = new XMLHttpRequest()
-
-        {% if share_album %}
-        r.open("GET", `/photos/photo/${e.dataset.id}/info/?album={{ share_album }}`)
-        {% else %}
-        r.open("GET", `/photos/photo/${e.dataset.id}/info/`)
-        {% endif %}
-        r.onload = () => {
-            pres = JSON.parse(r.responseText)
-            try {
-                pres['date_taken'] = new Date(pres['date_taken']).toLocaleString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' });
-                tmp = get_size_in_format(pres["size"]);
-                pres["size"] = tmp[0];
-                pres["size_unit"] = tmp[1];
-                tmp = get_size_in_format(pres["size_total"]);
-                pres["size_total"] = tmp[0];
-                pres["st_unit"] = tmp[1];
-                tmp = get_size_in_format(pres["bitrate"] / 1024)
-                pres["bitrate"] = tmp[0];
-                pres["br_unit"] = tmp[1] + "/s";
-                pres["duration"] = get_duration_in_format(pres["length"])
-                document.querySelector(".photo-info").innerHTML = photo_description(pres);
-            }
-            catch { }
-        }
-        r.send();
-    }
-
-    let lastSelectedPhoto = null;
-
-    function toggle_selection(el) {
-        el.classList.toggle("selected");
-        if (el.classList.contains("selected")) {
-            lastSelectedPhoto = el;
-        } else if (lastSelectedPhoto === el) {
-            lastSelectedPhoto = null;
-        }
-        update_selection_bar();
-    }
-
-    function handle_photo_click(event, el) {
-        const img = el.querySelector('img');
-        const selectedCount = document.querySelectorAll('.photo-item.selected').length;
-        
-        if (event.shiftKey) {
-            if (lastSelectedPhoto && lastSelectedPhoto !== el) {
-                const allPhotos = Array.from(document.querySelectorAll('.photo-item'));
-                const startIdx = allPhotos.indexOf(lastSelectedPhoto);
-                const endIdx = allPhotos.indexOf(el);
-                if (startIdx !== -1 && endIdx !== -1) {
-                    const min = Math.min(startIdx, endIdx);
-                    const max = Math.max(startIdx, endIdx);
-                    for (let i = min; i <= max; i++) {
-                        allPhotos[i].classList.add("selected");
-                    }
-                    update_selection_bar();
-                    lastSelectedPhoto = el;
-                    return;
-                }
-            }
-            toggle_selection(el);
-        } else if (selectedCount > 0) {
-            toggle_selection(el);
-        } else {
-            view_image(img);
-        }
-    }
-
-    function update_selection_bar() {
-        const selected = document.querySelectorAll('.photo-item.selected');
-        const bar = document.getElementById('selection-action-bar');
-        const countEl = document.getElementById('selected-count-number');
-        
-        if (selected.length > 0) {
-            countEl.textContent = selected.length;
-            bar.classList.add('active');
-            
-            const setCoverBtn = document.getElementById('action-set-cover');
-            const setCoverDropdownLi = document.getElementById('dropdown-action-set-cover-li');
-            if (selected.length === 1) {
-                if (setCoverBtn) setCoverBtn.style.setProperty('display', 'inline-flex', 'important');
-                if (setCoverDropdownLi) setCoverDropdownLi.style.setProperty('display', 'block', 'important');
-            } else {
-                if (setCoverBtn) setCoverBtn.style.setProperty('display', 'none', 'important');
-                if (setCoverDropdownLi) setCoverDropdownLi.style.setProperty('display', 'none', 'important');
-            }
-        } else {
-            bar.classList.remove('active');
-        }
-    }
-
-    function clear_selection() {
-        document.querySelectorAll('.photo-item.selected').forEach(el => {
-            el.classList.remove('selected');
-        });
-        update_selection_bar();
-    }
-
-    var sidebarMap = null;
-    function load_map(lat, lng) {
-        if (sidebarMap !== null) {
-            try {
-                sidebarMap.remove();
-            } catch (e) {
-                console.error("Error removing map instance:", e);
-            }
-        }
-        document.getElementById('mapid').style.display = 'block';
-        document.getElementById('mapid').style.height = '180px';
-        
-        sidebarMap = L.map('mapid').setView([lat, lng], 12);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 28,
-            tileSize: 256,
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-        }).addTo(sidebarMap);
-        L.marker([lat, lng]).addTo(sidebarMap);
-    }
-
-    function close_image() {
-        imgloaded = false;
-        if (sidebarMap !== null) {
-            try {
-                sidebarMap.remove();
-            } catch (e) {}
-            sidebarMap = null;
-        }
-        document.getElementById("photo-display-area").style.visibility = "hidden";
-        document.getElementById("photo").innerHTML = "";
-    }
-
-    function prev_image() {
-        if (imgloaded) {
-            ni = currimage.parentElement.previousElementSibling;
-            if (ni != null) {
-                view_image(ni.querySelector('img'));
-            }
-        }
-    }
-
-    function next_image() {
-        if (imgloaded) {
-            ni = currimage.parentElement.nextElementSibling;
-            if (ni != null) {
-                view_image(ni.querySelector('img'));
-            }
-        }
-    }
-
-    function del_photo(p) {
-        var r = new XMLHttpRequest()
-        r.open("POST", `/photos/delete/${p}/`)
-        r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-        r.onload = () => { }
-        r.send();
-    }
-
-    function delete_original_video(id) {
-        if (!confirm("Are you sure you want to delete the original video source file?\n\nThis will free up disk space while retaining the optimized video in your library.")) {
-            return;
-        }
-
-        var r = new XMLHttpRequest();
-        r.open("POST", `/photos/delete-original/${id}/`);
-        r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-        r.onload = () => {
-            if (r.status === 200) {
-                alert("Original video source file deleted successfully.");
-                close_image();
-                location.reload();
-            } else {
-                alert("Failed to delete original video.");
-            }
-        };
-        r.onerror = () => {
-            alert("Network error occurred while deleting original video.");
-        };
-        r.send();
-    }
-
-
-    function get_photos_for_date(date, ndays = 0, nphotos = 0) {
-        if (nowloading) { return; }
-        nowloading = true;
-
-        var date1 = moment(date).format('YYYY-MM-DD')
-
-        if (dates.includes(date1)) { return; }
-        dates.push(date1);
-
-        var r = new XMLHttpRequest();
-        {% if bounds_b64 %}
-        bounds = `&bounds={{ bounds_b64 }}`
-        {% elif bounds %}
-        bounds = `&north={{ bounds.north }}&south={{ bounds.south }}&east={{ bounds.east }}&west={{ bounds.west }}`
-        {% else %}
-        bounds = ""
-        {% endif %}
-
-        if (ndays > 0) { addto = `&ndays=${ndays}`; }
-        else { addto = ""; }
-
-        if (nphotos > 0) { addto += `&nphotos=${nphotos}`; }
-
-        {% if cam_make %}
-        addto += `&camera_make={{ cam_make }}`
-        {% endif %}
-
-        {% if country %}
-        addto += `&country={{ country }}`
-        {% endif %}
-
-        {% if city %}
-        addto += `&city={{ city }}`
-        {% endif %}
-
-        {% if objects %}
-        addto += `&objects={{ objects }}`
-        {% endif %}
-
-        {% if min_blur %}
-        addto += `&min_blur={{ min_blur }}`
-        {% endif %}
-
-        {% if max_blur %}
-        addto += `&max_blur={{ max_blur }}`
-        {% endif %}
-
-        {% if share_album %}
-        addto += `&album={{ share_album }}`
-        {% endif %}
-
-        {% if similar_ref %}
-        addto += `&similar={{ similar_ref }}&tol={{ similar_tol }}`
-        {% endif %}
-
-        if ("{{ video }}" == "True") { addto += ((addto == "") ? "?" : "&") + "video=1" }
-
-        if (forward) { r.open("GET", `{% url 'get_photos_for_date' %}?date=${date1}&forward=1${bounds}${addto}`) }
-        else { r.open("GET", `{% url 'get_photos_for_date' %}?date=${date1}${bounds}${addto}`) }
-        r.onload = () => {
-            res = JSON.parse(r.responseText)
-            currdate = res['next']
-
-            for (i = 0; i < res["photos"].length; i++) {
-
-                console.log(res["photos"][i]["date"])
-
-                if (res["photos"][i]["photos"].length != 0) {
-                    const _d  = res["photos"][i]["date"];
-                    const _sz = get_size_in_format(res["photos"][i]["total_size"] || 0);
-                    document.querySelector(".photos").innerHTML += `
-                        <div class="day-header day-header-${_d}">
-                            <div class="date-section">
-                                <div class="calendar-icon">
-                                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
-                                </div>
-                                <div class="date-info">
-                                    <span class="date">${_d}</span>
-                                    <span class="day">${moment(_d).format('dddd')}</span>
-                                </div>
-                            </div>
-                            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:2px">
-                                <span class="photo-count-${_d}" style="font-size:.85em;opacity:.9">0 photos</span>
-                                <span class="day-size-${_d}" style="font-size:.75em;opacity:.55;font-variant-numeric:tabular-nums">${_sz[0]} ${_sz[1]}</span>
-                            </div>
-                            <div class="locations locations-${_d}">
-                            </div>
-                        </div>
-                        <div class="day-photos day-photos-${_d}"></div>`;
-
-
-                    const photoCount = document.querySelector(`.day-header .photo-count-${_d}`);
-                    if (photoCount) {
-                        photoCount.textContent = `${res["photos"][i]["photos"].length} photo${res["photos"][i]["photos"].length !== 1 ? 's' : ''}`;
-                    }
-
-                    // Add the first 5 locations, and add a (+n) badge if there are more
-                    const locations = document.querySelector(`.day-header .locations-${res["photos"][i]["date"]}`);
-                    if (locations) {
-                        locations.innerHTML = "";
-
-                        for (j = 0; j < Math.min(res["photos"][i]["cities"].length, 5); j++) {
-                            locations.innerHTML += `<span class="location-tag">${res["photos"][i]["cities"][j][0]}, ${res["photos"][i]["cities"][j][1]}</span>`;
-                        }
-                        if (res["photos"][i]["cities"].length > 5) {
-                            locations.innerHTML += `<span class="location-tag">+${res["photos"][i]["cities"].length - 5}</span>`;
-                        }
-                    }
-
-                    for (j = 0; j < res["photos"][i]["photos"].length; j++) {
-                        photo = res["photos"][i]["photos"][j];
-                        let formattedSize = "";
-                        if (photo['size']) {
-                            const sz = get_size_in_format(photo['size']);
-                            formattedSize = sz[0] + " " + sz[1];
-                        }
-                        let timeStr = photo['date_taken'] ? new Date(photo['date_taken']).toLocaleTimeString('en-US', { timeZone: 'America/New_York', hour: 'numeric', minute: '2-digit' }) : "";
-
-                        document.querySelector(`.day-photos-${res["photos"][i]["date"]}`).innerHTML += photo_in_list({
-                            "id": photo['id'],
-                            "url": `/photo_cdn/${photo['photo_hash']}/${photo['path']}`,
-                            "video": photo["video"],
-                            "thumbnail": `/private/${photo['thumbnail_hash']}/photo_cache/thumbnail/${photo['id']}.webp`,
-                            "thumbnail_width": photo['thumbnail_width'] || 200,
-                            "thumbnail_height": photo['thumbnail_height'] || 200,
-                            "aspect_ratio": photo['aspect_ratio'] || 1.0,
-                            "main_color": photo['main_color'] || '#f0f0f0',
-                            "duration_text": photo['duration_text'],
-                            "has_raw": photo['has_raw'],
-                            "has_orig": photo['has_orig'],
-                            "is_cover": (photo['id'] === activeAlbumCoverPhotoId),
-                            "time_taken": timeStr,
-                            "location_city": photo['location_city'] || "",
-                            "camera_model": photo['camera_model'] || "",
-                            "megapixels": photo['megapixels'] || "",
-                            "size": formattedSize
-                        });
-                    }
-                    document.querySelector(`.day-photos-${res["photos"][i]["date"]}`).innerHTML += `<div class="last-row-spacer"></div>`;
-
-                    // After adding all placeholders, load the actual images
-                    document.querySelectorAll(`.day-photos-${res["photos"][i]["date"]} img`).forEach(img => {
-                        img.src = img.dataset.src;
-                    });
-                }
-
-            }
-            update_photo_details();
-            nowloading = false;
-            origload = true;
-
-            if (currdate == null) {
-                console.log("No more photos")
-                document.querySelector(".photos").innerHTML += `
-                    <div class="day-header">
-                        <div style="display: flex; align-items: center; justify-content: center; gap: 8px;">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-                            <span style="font-weight: bold;">No more photos</span>
-                        </div>
-                    </div>`
-            }
-        }
-        r.send()
-    }
-
-    function ingest_photos() {
-        var r = new XMLHttpRequest();
-        r.open("POST", `{% url 'ingest_photos' %}`)
-        r.setRequestHeader("X-CSRFToken", csrfToken())
-        r.onload = () => {
-            res = JSON.parse(r.responseText);
-            if (res['status'] == 'success') {
-                alert("Ingest started. Please wait a while and refresh the page to see new photos.");
-            }
-            else {
-                alert(res['data']);
-            }
-        }
-        r.send();
-        document.querySelector('.main-content').innerHTML += `
-            <div style="position: absolute; left: calc(50% - 200px); top: calc(50% - 200px); width: 400px; height: 400px; z-index=1000; background-color: #ecf0f1; padding: 30px; border-radius: 15px; box-shadow: 10px 10px 10px rgba(0, 0, 0, 0.5);">
-                <span style="font-size: 1.5em; font-weight: bold;">Please Wait</span></br></br>
-                <span style="font-size: 1em;">Photos ingest is running. This page will automatically refresh once it is done</span><br>
-                <div class="spinner-container">
-                    <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>	
-                    </div>
-                </div>
-            </div>`
-    }
-
-    window.addEventListener('DOMContentLoaded', (event) => {
-        // Setup Show Detail setting
-        const showDetailSelect = document.getElementById('show-detail-select');
-        const detailType = localStorage.getItem('photoDetailType') || 'time';
-        if (showDetailSelect) {
-            showDetailSelect.value = detailType;
-            showDetailSelect.addEventListener('change', function () {
-                localStorage.setItem('photoDetailType', this.value);
-                update_photo_details();
-            });
-        }
-
-        {% if not no_photos %}
-        // similar mode uses more days per batch (results are sparse across time)
-        get_photos_for_date(currdate, {% if similar_ref %}30{% else %}10{% endif %}, 100)
-        {% endif %}
-
-        document.onkeydown = function (e) {
-            if (e.key == 'Escape') {
-                close_image();
-            }
-
-            else if (e.key == 'ArrowLeft') {
-                prev_image();
-            }
-
-            else if (e.key == 'ArrowRight') {
-                next_image();
-            }
-
-            else if (e.key == 'Delete') {
-                const selected = document.querySelectorAll(".photo-item.selected");
-                if (selected.length > 0) {
-                    if (confirm(`Are you sure you want to delete these ${selected.length} photos?`)) {
-                        selected.forEach(el => {
-                            const img = el.querySelector('img');
-                            del_photo(img.dataset.id);
-                            el.remove();
-                        });
-                        clear_selection();
-                    }
-                }
-            }
-        }
-
-        document.querySelector(".main-content").addEventListener('scroll', (event) => {
-            el = document.querySelector(".main-content");
-            if (el.scrollHeight - el.scrollTop - el.clientHeight < 2000 && !nowloading && origload) {
-                get_photos_for_date(currdate, {% if similar_ref %}30{% else %}10{% endif %}, 50)
-            }
-        })
-    })
-</script>
+<script src="{% static 'photo/photos-page.js' %}"></script>
 {% endblock %}
 
 {% block page_body %}
+{% with gq=request.GET %}
+<div id="photos-config" hidden
+    data-newest="{{ newest|default:'' }}"
+    data-forward="{{ forward }}"
+    data-video="{{ video }}"
+    data-no-photos="{% if no_photos %}1{% endif %}"
+    data-share-album="{{ share_album|default:'' }}"
+    data-cover-id="{% if album_obj %}{{ album_obj.cover_photo_id_resolved }}{% endif %}"
+    data-bounds-b64="{{ bounds_b64|default:'' }}"
+    data-bounds-north="{{ bounds.north }}" data-bounds-south="{{ bounds.south }}" data-bounds-east="{{ bounds.east }}" data-bounds-west="{{ bounds.west }}"
+    data-has-bounds="{% if bounds %}1{% endif %}"
+    data-q="{{ q|default:'' }}"
+    data-cam-make="{{ cam_make|default:'' }}"
+    data-cam-model="{{ cam_model|default:'' }}"
+    data-country="{{ country|default:'' }}"
+    data-city="{{ city|default:'' }}"
+    data-objects="{{ gq.objects|default:'' }}"
+    data-min-blur="{{ min_blur|default:'' }}"
+    data-max-blur="{{ max_blur|default:'' }}"
+    data-similar-ref="{{ similar_ref|default:'' }}"
+    data-similar-tol="{{ similar_tol|default:'' }}"
+    data-photos-for-date-url="{% url 'get_photos_for_date' %}"
+    data-list-albums-url="{% url 'list_my_albums' %}"
+    data-add-to-album-url="{% url 'add_photo_to_album' %}"
+    data-remove-from-album-url="{% url 'remove_photo_from_album' %}"
+    data-hide-url="/api/v2/photos/hide"
+    data-show-hidden="{% if request|show_hidden %}1{% endif %}"
+    {% if album_obj and is_owner %}data-owner="1"
+    data-set-cover-url="{% url 'set_album_cover' album_obj.id %}"
+    data-edit-album-url="{% url 'edit_share_album' album_obj.id %}"
+    data-subscribers-url="{% url 'manage_subscribers' album_obj.id %}"{% endif %}></div>
+{{ months|json_script:"ph-months" }}
+
 {% if album_obj %}
 <div class="album-banner">
     <div class="album-banner-info">
         <div class="album-banner-title">
-            <h2>📖 {{ album_obj.name }}</h2>
-            {% if album_obj.public %}
-            <span class="badge badge-public">🌍 Public</span>
-            {% else %}
-            <span class="badge badge-private">🔒 Private</span>
-            {% endif %}
-            {% if is_owner %}
-            <span class="badge badge-owner">Owner</span>
-            {% endif %}
+            <a class="album-banner-back" href="{% url 'my_albums_page' %}" aria-label="Back to albums">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </a>
+            <h2>{{ album_obj.name }}</h2>
+            <span class="badge">{% if album_obj.public %}Public{% else %}Private{% endif %}</span>
+            {% if is_owner %}<span class="badge">Owner</span>{% endif %}
         </div>
-        {% if album_obj.description %}
-        <p class="album-banner-desc">{{ album_obj.description }}</p>
-        {% endif %}
-        <p class="album-banner-owner">Created by <strong>@{{ album_obj.owner.username }}</strong></p>
+        <p class="album-banner-owner">{% if album_obj.description %}{{ album_obj.description }} · {% endif %}by @{{ album_obj.owner.username }}</p>
     </div>
     {% if is_owner %}
     <div class="album-banner-actions">
-        <button id="edit-album-btn" class="album-banner-btn" data-bs-toggle="modal" data-bs-target="#editAlbumModal">✏️ Edit Album</button>
-        <button id="share-album-btn" class="album-banner-btn btn-secondary" data-bs-toggle="modal" data-bs-target="#shareAlbumModal">🔗 Share Album</button>
+        <button id="edit-album-btn" type="button" class="btn btn-sm btn-outline-secondary" data-bs-toggle="modal" data-bs-target="#editAlbumModal">Edit</button>
+        <button id="share-album-btn" type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#shareAlbumModal">Share</button>
     </div>
     {% endif %}
 </div>
 {% endif %}
 
+<!-- Toolbar: search, date jump, filters, zoom, select. Swapped for the selection bar while selecting. -->
+<div class="ph-bar" id="ph-bar">
+    <div class="ph-bar-main">
+        <form class="ph-search" id="ph-search" role="search" method="get" action="{% url 'photos' %}" autocomplete="off">
+            <svg class="ph-search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="search" name="q" id="ph-search-input" value="{{ q|default:'' }}" placeholder="Search photos" aria-label="Search photos by place, camera or object" aria-controls="ph-search-pop">
+            {% if share_album %}<input type="hidden" name="album" value="{{ share_album }}">{% endif %}
+            <div class="ph-search-pop" id="ph-search-pop" hidden>
+                <div class="ph-pop-hint">Press Enter to search place, camera and object names</div>
+                <a class="ph-pop-link" href="{% url 'search_category' 'objects' %}">Browse objects</a>
+                <a class="ph-pop-link" href="{% url 'search_category' 'cameras' %}">Browse cameras</a>
+                <a class="ph-pop-link" href="{% url 'search_category' 'cities' %}">Browse cities</a>
+                <a class="ph-pop-link" href="{% url 'search_category' 'countries' %}">Browse countries</a>
+                <a class="ph-pop-link ph-pop-strong" href="{% url 'search_page' %}">Advanced search</a>
+            </div>
+        </form>
 
-<div class="stats-bar">
-    <div class="stats-item">
-        <div class="stats-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
-            </svg>
-        </div>
-        <div class="stats-text">
-            <span class="stats-count">{{ ntotal }}</span>
-            <span class="stats-label">Total</span>
-        </div>
-    </div>
-    <div class="stats-item">
-        <div class="stats-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"></rect>
-                <line x1="7" y1="2" x2="7" y2="22"></line>
-                <line x1="17" y1="2" x2="17" y2="22"></line>
-                <line x1="2" y1="12" x2="22" y2="12"></line>
-                <line x1="2" y1="7" x2="7" y2="7"></line>
-                <line x1="2" y1="17" x2="7" y2="17"></line>
-                <line x1="17" y1="17" x2="22" y2="17"></line>
-                <line x1="17" y1="7" x2="22" y2="7"></line>
-            </svg>
-        </div>
-        <div class="stats-text">
-            <span class="stats-count">{{ nphotos }}</span>
-            <span class="stats-label">Photos</span>
-        </div>
-    </div>
-    <div class="stats-item">
-        <div class="stats-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <polygon points="23 7 16 12 23 17 23 7"></polygon>
-                <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
-            </svg>
-        </div>
-        <div class="stats-text">
-            <span class="stats-count">{{ nvideos }}</span>
-            <span class="stats-label">Videos</span>
-        </div>
-    </div>
-    <div class="stats-item">
-        <div class="stats-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="10"></circle>
-                <polyline points="12 6 12 12 16 14"></polyline>
-            </svg>
-        </div>
-        <div class="stats-text">
-            <span class="stats-count">{{ drange }}</span>
-            <span class="stats-label">Time Range</span>
-        </div>
-    </div>
-    <div class="stats-item">
-        <div class="stats-icon">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"></path>
-                <circle cx="12" cy="9" r="3"></circle>
-            </svg>
-        </div>
-        <div class="stats-text">
-            <span class="stats-count">{{ countries }}</span>
-            <span class="stats-label">Countries</span>
-        </div>
-    </div>
-</div>
+        <div class="ph-bar-actions">
+            <div class="dropdown">
+                <button type="button" class="ph-tool" id="date-jump-btn" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-expanded="false" title="Go to date">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                    <span class="ph-tool-label">Go to date</span>
+                </button>
+                <form class="dropdown-menu dropdown-menu-end ph-pop" id="date-jump-form" aria-label="Go to date">
+                    <label class="ph-pop-title" for="jump-date">Go to date</label>
+                    <input type="date" class="filter-input" id="jump-date" value="{{ date_filter|default:'' }}" required>
+                    <div class="ph-pop-row">
+                        <button type="button" class="btn btn-sm btn-link" id="jump-today">Most recent</button>
+                        <button type="submit" class="btn btn-sm btn-primary">Go</button>
+                    </div>
+                </form>
+            </div>
 
-<div id="photo-display-area">
-    <div id="photo-area">
-        <button id="exit-btn" type="button" class="photo-btn btn btn-info" onclick="close_image()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                class="feather feather-x">
-                <line x1="18" y1="6" x2="6" y2="18"></line>
-                <line x1="6" y1="6" x2="18" y2="18"></line>
-            </svg>
+            <button type="button" class="ph-tool" id="filters-btn" data-bs-toggle="offcanvas" data-bs-target="#filters-drawer" aria-controls="filters-drawer" title="Filters">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"></line><line x1="7" y1="12" x2="17" y2="12"></line><line x1="10" y1="18" x2="14" y2="18"></line></svg>
+                <span class="ph-tool-label">Filters</span>
+                <span class="ph-badge" id="filters-count" hidden>0</span>
+            </button>
+
+            <div class="ph-zoom" role="group" aria-label="Thumbnail size">
+                <button type="button" class="ph-tool ph-tool-icon" id="zoom-out" aria-label="Smaller thumbnails">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+                <input type="range" id="zoom-range" min="80" max="400" step="20" value="180" aria-label="Thumbnail size">
+                <button type="button" class="ph-tool ph-tool-icon" id="zoom-in" aria-label="Larger thumbnails">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                </button>
+            </div>
+
+            <button type="button" class="ph-tool" id="select-mode-btn" aria-pressed="false" title="Select photos">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><polyline points="8 12.5 11 15.5 16 9.5"></polyline></svg>
+                <span class="ph-tool-label">Select</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Selection bar (replaces the toolbar row while selecting) -->
+    <div id="selection-action-bar" class="selection-action-bar" role="toolbar" aria-label="Selection">
+        <button id="action-clear-selection" type="button" class="ph-tool ph-tool-icon" aria-label="Cancel selection" title="Cancel selection">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
         </button>
-        <button id="previous-btn" type="button" class="photo-btn btn btn-info" onclick="prev_image()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                class="feather feather-chevron-left">
-                <polyline points="15 18 9 12 15 6"></polyline>
-            </svg>
-        </button>
-
-        <button id="next-btn" type="button" class="photo-btn btn btn-info" onclick="next_image()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
-                class="feather feather-chevron-right">
-                <polyline points="9 18 15 12 9 6"></polyline>
-            </svg>
-        </button>
-
-        <div id="photo">
-
+        <div class="selection-count"><span id="selected-count-number">0</span> selected</div>
+        <div class="selection-actions">
+            {% if album_obj and is_owner %}
+            <button id="action-set-cover" type="button" class="ph-tool" title="Set as album cover" hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                <span class="ph-tool-label">Set cover</span>
+            </button>
+            {% endif %}
+            <button id="action-hide" type="button" class="ph-tool" title="Hide from everyone (only you can reveal them)" hidden>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                <span class="ph-tool-label">Hide</span>
+            </button>
+            <button id="action-add-to-album" type="button" class="ph-tool" title="Add to album">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+                <span class="ph-tool-label">Add to album</span>
+            </button>
+            <button id="action-share" type="button" class="ph-tool" title="Copy links to the selected items">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+                <span class="ph-tool-label">Share</span>
+            </button>
+            <button id="action-download" type="button" class="ph-tool" title="Download">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                <span class="ph-tool-label">Download</span>
+            </button>
+            <button id="action-delete-selected" type="button" class="ph-tool ph-tool-danger" title="Delete">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                <span class="ph-tool-label">Delete</span>
+            </button>
         </div>
     </div>
 
-    <div class="photo-info">
-
+    <!-- Active filters as removable chips, plus one quiet summary line -->
+    <div class="ph-subbar">
+        <div class="active-filters-list" id="active-filters-list">
+            {% if q %}<span class="filter-tag" data-filter="q">“{{ q }}”<button type="button" class="remove-filter" aria-label="Remove search">&times;</button></span>{% endif %}
+            {% if video %}<span class="filter-tag" data-filter="video">Videos only<button type="button" class="remove-filter" aria-label="Remove filter">&times;</button></span>{% endif %}
+            {% if date_filter %}<span class="filter-tag" data-filter="date">From {{ date_filter }}<button type="button" class="remove-filter" aria-label="Remove filter">&times;</button></span>{% endif %}
+            {% if forward %}<span class="filter-tag" data-filter="forward">Oldest first<button type="button" class="remove-filter" aria-label="Remove filter">&times;</button></span>{% endif %}
+            {% if cam_make %}<span class="filter-tag" data-filter="camera_make">Camera: {{ cam_make }}<button type="button" class="remove-filter" aria-label="Remove filter">&times;</button></span>{% endif %}
+            {% if cam_model %}<span class="filter-tag" data-filter="camera_model">Model: {{ cam_model }}<button type="button" class="remove-filter" aria-label="Remove filter">&times;</button></span>{% endif %}
+            {% if country %}<span class="filter-tag" data-filter="country">{{ country }}<button type="button" class="remove-filter" aria-label="Remove filter">&times;</button></span>{% endif %}
+            {% if city %}<span class="filter-tag" data-filter="city">{{ city }}<button type="button" class="remove-filter" aria-label="Remove filter">&times;</button></span>{% endif %}
+            {% if gq.objects %}<span class="filter-tag" data-filter="objects">Objects: {{ gq.objects }}<button type="button" class="remove-filter" aria-label="Remove filter">&times;</button></span>{% endif %}
+            {% if min_blur or max_blur %}<span class="filter-tag" data-filter="min_blur,max_blur">Sharpness {{ min_blur|default:'0' }}–{{ max_blur|default:'∞' }}<button type="button" class="remove-filter" aria-label="Remove filter">&times;</button></span>{% endif %}
+            {% if bounds %}<span class="filter-tag" data-filter="bounds,north,south,east,west">Map area<button type="button" class="remove-filter" aria-label="Remove filter">&times;</button></span>{% endif %}
+        </div>
+        <button type="button" class="ph-link-btn js-clear-filters" id="chips-clear" hidden>Clear all</button>
     </div>
 </div>
 
 <div id="main-body">
-    <div class="photos">
+    {% if ntotal %}
+    <!-- Library summary: every stat the old header had, for the current filters. Collapsible (remembered). -->
+    <section class="ph-lib" id="ph-lib" aria-label="Library summary">
+        <button type="button" class="ph-lib-head" id="ph-lib-toggle" aria-expanded="true" aria-controls="ph-lib-stats">
+            <span class="ph-lib-title">{% if album_obj %}This album{% elif q or video or date_filter or cam_make or cam_model or country or city or gq.objects or min_blur or max_blur or bounds %}Matching filters{% else %}Library{% endif %}</span>
+            <span class="ph-lib-line"><span data-num="{{ ntotal }}">{{ ntotal }}</span> item{{ ntotal|pluralize }} · {% if first_date|date:"Y" == last_date|date:"Y" %}{{ first_date|date:"Y" }}{% else %}{{ first_date|date:"Y" }}–{{ last_date|date:"Y" }}{% endif %}</span>
+            <svg class="ph-lib-chev" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div class="ph-lib-stats" id="ph-lib-stats">
+            <div class="ph-stat"><span class="ph-stat-label">Total</span><span class="ph-stat-value" data-num="{{ ntotal }}">{{ ntotal }}</span></div>
+            <div class="ph-stat"><span class="ph-stat-label">Photos</span><span class="ph-stat-value" data-num="{{ nphotos }}">{{ nphotos }}</span></div>
+            <a class="ph-stat" href="?video=1" data-add-param="video" title="Show videos only"><span class="ph-stat-label">Videos</span><span class="ph-stat-value" data-num="{{ nvideos }}">{{ nvideos }}</span></a>
+            <div class="ph-stat ph-stat-wide" title="{{ first_date|date:'D, M j, Y' }} – {{ last_date|date:'D, M j, Y' }}"><span class="ph-stat-label">Time range</span><span class="ph-stat-value">{% if first_date|date:"Y" == last_date|date:"Y" %}{{ first_date|date:"Y" }}{% else %}{{ first_date|date:"Y" }}–{{ last_date|date:"Y" }}{% endif %}</span><span class="ph-stat-sub">{{ first_date|date:"M j" }} – {{ last_date|date:"M j" }}</span></div>
+            <a class="ph-stat" href="{% url 'search_category' 'countries' %}" title="Browse countries"><span class="ph-stat-label">Countries</span><span class="ph-stat-value" data-num="{{ countries }}">{{ countries }}</span></a>
+            <a class="ph-stat" href="{% url 'search_category' 'cities' %}" title="Browse cities"><span class="ph-stat-label">Cities</span><span class="ph-stat-value" data-num="{{ cities }}">{{ cities }}</span></a>
+            <a class="ph-stat" href="{% url 'search_category' 'cameras' %}" title="Browse cameras"><span class="ph-stat-label">Cameras</span><span class="ph-stat-value" data-num="{{ cameras }}">{{ cameras }}</span></a>
+            <a class="ph-stat" href="{% url 'photos_storage' %}" title="Storage breakdown"><span class="ph-stat-label">Size</span><span class="ph-stat-value" data-kb="{{ size_kb }}">–</span></a>
+            <a class="ph-lib-more" href="{% url 'photos_stats' %}">All stats
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </a>
+        </div>
+    </section>
+    {% endif %}
+    <div class="photos" id="photos-timeline">
         {% if no_photos %}
-        <div
-            style="display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 80px 20px; text-align: center;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"
-                style="color: #95a5a6; margin-bottom: 24px;">
-                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
-                <circle cx="8.5" cy="8.5" r="1.5"></circle>
-                <polyline points="21 15 16 10 5 21"></polyline>
-            </svg>
-            <h2 style="color: #2c3e50; margin-bottom: 12px; font-size: 24px; font-weight: 600;">No Photos Found</h2>
-            <p style="color: #7f8c8d; font-size: 16px; max-width: 500px; line-height: 1.6;">
-                No photos match your current search criteria. Try adjusting your filters or browse all photos.
-            </p>
+        <div class="photos-empty">
+            <p>No photos match these filters.</p>
+            <button type="button" class="btn btn-sm btn-outline-secondary js-clear-filters">Clear filters</button>
         </div>
         {% endif %}
     </div>
 </div>
 
-<!-- Floating Action Bar for Selected Photos -->
-<div id="selection-action-bar" class="selection-action-bar">
-    <div class="selection-count"><span id="selected-count-number">0</span> selected</div>
-    <div class="selection-actions">
-        <!-- Direct Quick Actions for larger viewports -->
-        <button id="action-add-to-album" class="action-bar-btn d-none d-md-inline-flex" title="Add to Album">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
-            Add to Album
-        </button>
-        <button id="action-delete-selected" class="action-bar-btn btn-danger d-none d-md-inline-flex" title="Delete Selected">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-            Delete
-        </button>
-        {% if album_obj and is_owner %}
-        <button id="action-set-cover" class="action-bar-btn btn-success d-none d-md-inline-flex" title="Set as Album Cover" style="display: none !important;">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-            Set Cover
-        </button>
-        {% endif %}
-        
-        <!-- 3-Dot Context Menu (always visible/collapsible on small screens) -->
-        <div class="dropdown">
-            <button class="action-bar-btn dropdown-toggle" type="button" id="selectionMenuButton" data-bs-toggle="dropdown" aria-expanded="false" title="Selection Commands">
-                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <circle cx="12" cy="5" r="2"></circle>
-                    <circle cx="12" cy="12" r="2"></circle>
-                    <circle cx="12" cy="19" r="2"></circle>
-                </svg>
-            </button>
-            <ul class="dropdown-menu dropdown-menu-end shadow glassmorphic-dropdown" aria-labelledby="selectionMenuButton">
-                {% if album_obj and is_owner %}
-                <li id="dropdown-action-set-cover-li" style="display: none !important;">
-                    <button class="dropdown-item d-flex align-items-center gap-2" id="dropdown-action-set-cover">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-warning"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
-                        Set as Album Cover
-                    </button>
-                </li>
-                {% endif %}
-                <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2" id="dropdown-action-add-to-album">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-primary"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
-                        Add to Album...
-                    </button>
-                </li>
-                <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2 text-danger" id="dropdown-action-delete">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-danger"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
-                        Delete Selected
-                    </button>
-                </li>
-                <li><hr class="dropdown-divider"></li>
-                <li>
-                    <button class="dropdown-item d-flex align-items-center gap-2" id="dropdown-action-clear">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-muted"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-                        Clear Selection
-                    </button>
-                </li>
-            </ul>
-        </div>
+<!-- Date scrubber (right edge): filled from #ph-months -->
+<div class="ph-scrubber" id="ph-scrubber" aria-label="Timeline" hidden>
+    <div class="ph-scrubber-track" id="ph-scrubber-track"></div>
+    <div class="ph-scrubber-thumb" id="ph-scrubber-thumb"></div>
+    <div class="ph-scrubber-bubble" id="ph-scrubber-bubble" hidden></div>
+</div>
 
-        <button id="action-clear-selection" class="action-bar-btn btn-secondary" title="Clear Selection">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
-            Clear
+<!-- Viewer: black stage; info panel opens on the right with (i) -->
+<div id="photo-display-area" class="photo-viewer" role="dialog" aria-modal="true" aria-label="Photo viewer">
+    <div id="photo-area">
+        <div class="pv-top">
+            <button id="exit-btn" type="button" class="photo-btn" aria-label="Close (Esc)" title="Close (Esc)">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+            <div class="pv-top-actions">
+                <button id="pv-hide" type="button" class="photo-btn" aria-label="Hide" title="Hide" hidden>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>
+                </button>
+                <a id="pv-download" class="photo-btn" href="#" download aria-label="Download" title="Download">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                </a>
+                <button id="info-btn" type="button" class="photo-btn" aria-label="Info (i)" title="Info (i)" aria-pressed="false" aria-controls="photo-info">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+                </button>
+            </div>
+        </div>
+        <button id="previous-btn" type="button" class="photo-btn" aria-label="Previous (Left arrow)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
         </button>
+        <button id="next-btn" type="button" class="photo-btn" aria-label="Next (Right arrow)">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"></polyline></svg>
+        </button>
+        <div id="photo"></div>
+    </div>
+
+    <aside class="photo-info-panel" id="photo-info" aria-label="Info">
+        <div class="photo-info-head">
+            <span>Info</span>
+            <button type="button" class="ph-tool ph-tool-icon" id="info-close" aria-label="Close info">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+            </button>
+        </div>
+        <div class="photo-info"></div>
+    </aside>
+</div>
+
+<!-- Filters drawer -->
+<div class="offcanvas offcanvas-end ph-drawer" tabindex="-1" id="filters-drawer" aria-labelledby="filters-drawer-title">
+    <div class="ph-drawer-head">
+        <h2 id="filters-drawer-title">Filters</h2>
+        <button type="button" class="ph-tool ph-tool-icon" data-bs-dismiss="offcanvas" aria-label="Close filters">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+    </div>
+
+    <div class="ph-drawer-body filter-controls">
+        <section class="ph-drawer-section">
+            <h3 class="filter-section-title">Media</h3>
+            <label class="filter-label filter-check">
+                <input type="checkbox" class="form-check-input" id="filter-video" {% if video %}checked{% endif %}>
+                <span>Videos only</span>
+            </label>
+            <div class="filter-group">
+                <label class="filter-label" for="show-detail-select">Label on thumbnails</label>
+                <select class="form-select form-select-sm filter-input" id="show-detail-select">
+                    <option value="none">None</option>
+                    <option value="time">Time taken</option>
+                    <option value="city">City</option>
+                    <option value="camera">Camera</option>
+                    <option value="megapixels">Megapixels</option>
+                    <option value="size">Size</option>
+                    <option value="blur">Blur score</option>
+                </select>
+            </div>
+        </section>
+
+        <section class="ph-drawer-section">
+            <h3 class="filter-section-title">Date</h3>
+            <div class="filter-group">
+                <label class="filter-label" for="filter-date">Start from</label>
+                <input type="date" class="filter-input" id="filter-date" value="{{ date_filter|default:'' }}">
+            </div>
+            <div class="ph-seg" role="radiogroup" aria-label="Order">
+                <label><input type="radio" name="direction" value="backward" {% if not forward %}checked{% endif %}><span>Newest first</span></label>
+                <label><input type="radio" name="direction" value="forward" {% if forward %}checked{% endif %}><span>Oldest first</span></label>
+            </div>
+        </section>
+
+        <section class="ph-drawer-section">
+            <h3 class="filter-section-title">Location &amp; equipment</h3>
+            <div class="filter-group">
+                <label class="filter-label" for="filter-camera-make">Camera make</label>
+                <input type="text" class="filter-input" id="filter-camera-make" placeholder="Canon, Apple…" value="{{ cam_make|default:'' }}">
+            </div>
+            <div class="filter-group">
+                <label class="filter-label" for="filter-country">Country</label>
+                <input type="text" class="filter-input" id="filter-country" placeholder="Exact name, e.g. France" value="{{ country|default:'' }}">
+            </div>
+            <div class="filter-group">
+                <label class="filter-label" for="filter-city">City</label>
+                <input type="text" class="filter-input" id="filter-city" placeholder="Exact name, e.g. Paris" value="{{ city|default:'' }}">
+            </div>
+        </section>
+
+        <section class="ph-drawer-section">
+            <h3 class="filter-section-title">Objects</h3>
+            <div class="filter-group">
+                <input type="text" class="filter-input" id="filter-objects" placeholder="cat, dog" aria-label="Objects" value="{{ gq.objects|default:'' }}">
+                <div class="filter-hint">Comma-separated object names</div>
+            </div>
+        </section>
+
+        <section class="ph-drawer-section">
+            <h3 class="filter-section-title">Sharpness</h3>
+            <div class="filter-range">
+                <input type="number" step="any" min="0" class="filter-input" id="filter-min-blur" placeholder="Min" aria-label="Minimum blur score" value="{{ min_blur|default:'' }}">
+                <span>to</span>
+                <input type="number" step="any" min="0" class="filter-input" id="filter-max-blur" placeholder="Max" aria-label="Maximum blur score" value="{{ max_blur|default:'' }}">
+            </div>
+            <div class="filter-hint">Blur score, 12 MP normalised: under 30 blurry, 30–80 soft, over 80 sharp. Photos only.</div>
+        </section>
+
+        <section class="ph-drawer-section">
+            <h3 class="filter-section-title">Sources</h3>
+            <div class="ph-sources">
+                {% for sub in request.user.album_subscribed.all %}
+                <div class="ph-source">
+                    <label class="filter-label filter-check" title="{{ sub.album.name }}">
+                        <input type="checkbox" class="form-check-input album-toggle-checkbox" id="album-{{ sub.album.id }}" {% if sub.visible %}checked{% endif %} data-album-id="{{ sub.album.id }}" data-visible="{{ sub.visible|yesno:'true,false' }}">
+                        <span>{{ sub.album.name }}</span>
+                    </label>
+                    <button type="button" class="ph-link-btn album-display-only" data-album-id="{{ sub.album.id }}">Only</button>
+                </div>
+                {% empty %}
+                <div class="filter-hint">No library folders yet.</div>
+                {% endfor %}
+            </div>
+        </section>
+    </div>
+
+    <div class="ph-drawer-foot">
+        <button type="button" class="btn btn-sm btn-link js-clear-filters">Clear all</button>
+        <button type="button" class="btn btn-sm btn-primary" id="apply-filters-btn">Apply</button>
     </div>
 </div>
 
 <!-- Add to Album Modal -->
 <div class="modal fade" id="addToAlbumModal" tabindex="-1" aria-labelledby="addToAlbumModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-dialog modal-dialog-centered modal-sm">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="addToAlbumModalLabel">Add to Album</h5>
+                <h5 class="modal-title" id="addToAlbumModalLabel">Add to album</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <div class="mb-3">
-                    <label for="select-album-dropdown" class="form-label">Select Shared Album</label>
-                    <select class="form-select" id="select-album-dropdown" required>
-                        <option value="">Select an album...</option>
-                    </select>
-                </div>
+                <label for="select-album-dropdown" class="form-label">Album</label>
+                <select class="form-select" id="select-album-dropdown" required>
+                    <option value="">Select an album…</option>
+                </select>
+                <a class="ph-modal-link" href="{% url 'my_albums_page' %}">Create a new album</a>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="submitAddToAlbumBtn">Add to Album</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-primary" id="submitAddToAlbumBtn">Add</button>
             </div>
         </div>
     </div>
@@ -949,13 +561,13 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="editAlbumModalLabel">Edit Album Details</h5>
+                <h5 class="modal-title" id="editAlbumModalLabel">Edit album</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
                 <form id="edit-album-form">
                     <div class="mb-3">
-                        <label for="edit-album-name" class="form-label">Album Name</label>
+                        <label for="edit-album-name" class="form-label">Name</label>
                         <input type="text" class="form-control" id="edit-album-name" required value="{{ album_obj.name }}">
                     </div>
                     <div class="mb-3">
@@ -964,13 +576,13 @@
                     </div>
                     <div class="form-check mb-2">
                         <input type="checkbox" class="form-check-input" id="edit-album-public" {% if album_obj.public %}checked{% endif %}>
-                        <label class="form-check-label" for="edit-album-public" style="user-select: none; cursor: pointer;">Make this album public</label>
+                        <label class="form-check-label edit-album-public-label" for="edit-album-public">Public album</label>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary" id="saveEditAlbumBtn">Save Changes</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-sm btn-primary" id="saveEditAlbumBtn">Save</button>
             </div>
         </div>
     </div>
@@ -981,531 +593,30 @@
     <div class="modal-dialog modal-dialog-centered">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title" id="shareAlbumModalLabel">🔗 Share Album: {{ album_obj.name }}</h5>
+                <h5 class="modal-title" id="shareAlbumModalLabel">Share “{{ album_obj.name }}”</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <!-- Add Subscriber Form -->
                 <form id="add-subscriber-form" class="mb-4">
-                    <h6>Add new subscriber</h6>
+                    <label class="form-label" for="new-sub-username">Add people</label>
                     <div class="input-group">
-                        <input type="text" class="form-control" id="new-sub-username" required placeholder="Enter username...">
-                        <select class="form-select" id="new-sub-role" style="max-width: 120px;">
+                        <input type="text" class="form-control" id="new-sub-username" required placeholder="Username">
+                        <select class="form-select" id="new-sub-role" aria-label="Role">
                             <option value="2">Viewer</option>
                             <option value="1">Editor</option>
                         </select>
                         <button type="button" class="btn btn-primary" id="addSubBtn">Add</button>
                     </div>
                 </form>
-
-                <!-- Current Subscribers List -->
-                <h6>Current Subscribers</h6>
-                <div class="list-group" id="subscribers-list-container" style="max-height: 200px; overflow-y: auto;">
-                    <div class="text-muted text-center py-3">Loading subscribers...</div>
-                </div>
+                <div class="form-label">People with access</div>
+                <div class="list-group" id="subscribers-list-container"></div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Done</button>
             </div>
         </div>
     </div>
 </div>
 {% endif %}
-{% endblock %}
-
-{% block right_sidebar %}
-<div class="filters-panel">
-    <h3 class="filters-title">Filters</h3>
-
-    <!-- Active Filters Display -->
-    <div class="active-filters" id="active-filters">
-        <div class="active-filters-header">Active Filters:</div>
-        <div class="active-filters-list" id="active-filters-list">
-            {% if video %}
-            <span class="filter-tag" data-filter="video">Video Only <button class="remove-filter"
-                    onclick="removeFilter('video')">&times;</button></span>
-            {% endif %}
-            {% if date_filter %}
-            <span class="filter-tag" data-filter="date">Date: {{ date_filter }} <button class="remove-filter"
-                    onclick="removeFilter('date')">&times;</button></span>
-            {% endif %}
-            {% if forward %}
-            <span class="filter-tag" data-filter="forward">Direction: Newer → <button class="remove-filter"
-                    onclick="removeFilter('forward')">&times;</button></span>
-            {% endif %}
-            {% if cam_make %}
-            <span class="filter-tag" data-filter="camera_make">Camera: {{ cam_make }} <button class="remove-filter"
-                    onclick="removeFilter('camera_make')">&times;</button></span>
-            {% endif %}
-            {% if cam_model %}
-            <span class="filter-tag" data-filter="camera_model">Model: {{ cam_model }} <button class="remove-filter"
-                    onclick="removeFilter('camera_model')">&times;</button></span>
-            {% endif %}
-            {% if country %}
-            <span class="filter-tag" data-filter="country">Country: {{ country }} <button class="remove-filter"
-                    onclick="removeFilter('country')">&times;</button></span>
-            {% endif %}
-            {% if city %}
-            <span class="filter-tag" data-filter="city">City: {{ city }} <button class="remove-filter"
-                    onclick="removeFilter('city')">&times;</button></span>
-            {% endif %}
-            {% if objects %}
-            <span class="filter-tag" data-filter="objects">Objects: {{ objects }} <button class="remove-filter"
-                    onclick="removeFilter('objects')">&times;</button></span>
-            {% endif %}
-            {% if not video and not date_filter and not forward and not cam_make and not country and not city and not objects and not min_blur and not max_blur %}
-            <span class="no-filters">No filters applied</span>
-            {% endif %}
-        </div>
-        {% if video or date_filter or forward or cam_make or country or city or objects or min_blur or max_blur %}
-        <button class="clear-all-btn" onclick="clearAllFilters()">Clear All</button>
-        {% endif %}
-    </div>
-
-    <!-- Filter Controls -->
-    <div class="filter-controls">
-        <div class="filter-group">
-            <label class="filter-label">
-                <input type="checkbox" id="filter-video" {% if video %}checked{% endif %}>
-                <span>Video Only</span>
-            </label>
-        </div>
-
-        <div class="filter-group">
-            <label class="filter-label" for="show-detail-select" style="margin-bottom: 6px;">Show Detail</label>
-            <select class="form-select form-select-sm filter-input" id="show-detail-select" style="background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-glass);">
-                <option value="none">None</option>
-                <option value="time">Time Taken</option>
-                <option value="city">City</option>
-                <option value="camera">Camera</option>
-                <option value="megapixels">Megapixels</option>
-                <option value="size">Size</option>
-                <option value="blur">Blur Score</option>
-            </select>
-        </div>
-
-        <div class="filter-section-divider"></div>
-        <div class="filter-section-title">Date Range</div>
-
-        <div class="filter-group">
-            <label class="filter-label">Start Date</label>
-            <input type="date" class="filter-input" id="filter-date" value="{{ newest|default:'' }}">
-            <div class="filter-hint">Starting point for browsing photos</div>
-        </div>
-
-        <div class="filter-group">
-            <label class="filter-label">Direction</label>
-            <div class="radio-group">
-                <label class="radio-label">
-                    <input type="radio" name="direction" value="backward" {% if not forward %}checked{% endif %}>
-                    <span>← Backward (Older)</span>
-                </label>
-                <label class="radio-label">
-                    <input type="radio" name="direction" value="forward" {% if forward %}checked{% endif %}>
-                    <span>Forward (Newer) →</span>
-                </label>
-            </div>
-        </div>
-
-        <div class="filter-section-divider"></div>
-        <div class="filter-section-title">Location & Equipment</div>
-
-        <div class="filter-group">
-            <label class="filter-label">Camera Make</label>
-            <input type="text" class="filter-input" id="filter-camera-make" placeholder="e.g., Canon, Nikon"
-                value="{{ cam_make|default:'' }}">
-        </div>
-
-        <div class="filter-group">
-            <label class="filter-label">Country</label>
-            <input type="text" class="filter-input" id="filter-country" placeholder="e.g., USA, France"
-                value="{{ country|default:'' }}">
-        </div>
-
-        <div class="filter-group">
-            <label class="filter-label">City</label>
-            <input type="text" class="filter-input" id="filter-city" placeholder="e.g., Paris, Tokyo"
-                value="{{ city|default:'' }}">
-        </div>
-
-        <div class="filter-group">
-            <label class="filter-label">Objects</label>
-            <input type="text" class="filter-input" id="filter-objects" placeholder="e.g., cat, dog"
-                value="{{ objects|default:'' }}">
-            <div class="filter-hint">Comma-separated object names</div>
-        </div>
-
-        <div class="filter-section-divider"></div>
-        <div class="filter-section-title">Quality & Sharpness</div>
-
-        <div class="filter-group">
-            <label class="filter-label">Blurriness Score (12MP Norm)</label>
-            <div style="display: flex; gap: 8px; align-items: center;">
-                <input type="number" step="any" min="0" class="filter-input" id="filter-min-blur" placeholder="Min (e.g. 30)"
-                    value="{{ min_blur|default:'' }}" style="flex: 1; min-width: 0; background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-glass); padding: 6px 10px; border-radius: var(--border-radius-sm);">
-                <span style="color: var(--text-secondary); font-size: 0.85rem;">to</span>
-                <input type="number" step="any" min="0" class="filter-input" id="filter-max-blur" placeholder="Max (e.g. 150)"
-                    value="{{ max_blur|default:'' }}" style="flex: 1; min-width: 0; background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-glass); padding: 6px 10px; border-radius: var(--border-radius-sm);">
-            </div>
-            <div class="filter-hint">Lower = blurrier. Guide: &lt;30 blurry, 30–80 soft, &gt;80 sharp. Only works for photos.</div>
-        </div>
-
-        <button class="apply-filters-btn" onclick="applyFilters()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
-                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="11" cy="11" r="8"></circle>
-                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-            </svg>
-            Search
-        </button>
-    </div>
-</div>
-
-<script>
-    function applyFilters() {
-        const params = new URLSearchParams(window.location.search);
-
-        // Keep album parameter if it exists
-        const album = params.get('album');
-        params.delete('album');
-
-        // Clear all filter params
-        params.delete('video');
-        params.delete('camera_make');
-        params.delete('camera_model');
-        params.delete('country');
-        params.delete('city');
-        params.delete('objects');
-        params.delete('min_blur');
-        params.delete('max_blur');
-        params.delete('date');
-        params.delete('forward');
-
-        // Re-add album if it existed
-        if (album) params.set('album', album);
-
-        // Add new filters
-        if (document.getElementById('filter-video').checked) {
-            params.set('video', '1');
-        }
-
-        const date = document.getElementById('filter-date').value.trim();
-        if (date) {
-            params.set('date', date);
-        }
-
-        const direction = document.querySelector('input[name="direction"]:checked').value;
-        if (direction === 'forward') {
-            params.set('forward', '1');
-        }
-
-        const cameraMake = document.getElementById('filter-camera-make').value.trim();
-        if (cameraMake) {
-            params.set('camera_make', cameraMake);
-        }
-
-        const country = document.getElementById('filter-country').value.trim();
-        if (country) {
-            params.set('country', country);
-        }
-
-        const city = document.getElementById('filter-city').value.trim();
-        if (city) {
-            params.set('city', city);
-        }
-
-        const objects = document.getElementById('filter-objects').value.trim();
-        if (objects) {
-            params.set('objects', objects);
-        }
-
-        const minBlur = document.getElementById('filter-min-blur').value.trim();
-        if (minBlur) {
-            params.set('min_blur', minBlur);
-        }
-
-        const maxBlur = document.getElementById('filter-max-blur').value.trim();
-        if (maxBlur) {
-            params.set('max_blur', maxBlur);
-        }
-
-        // Reload with new parameters
-        window.location.search = params.toString();
-    }
-
-    function removeFilter(filterName) {
-        const params = new URLSearchParams(window.location.search);
-        params.delete(filterName);
-        window.location.search = params.toString();
-    }
-
-    function removeBlurFilter() {
-        const params = new URLSearchParams(window.location.search);
-        params.delete('min_blur');
-        params.delete('max_blur');
-        window.location.search = params.toString();
-    }
-
-    function clearAllFilters() {
-        const params = new URLSearchParams(window.location.search);
-        const album = params.get('album');
-
-        // Clear all params except album
-        const newParams = new URLSearchParams();
-        if (album) newParams.set('album', album);
-
-        window.location.search = newParams.toString();
-    }
-
-    // Allow Enter key to trigger search
-    document.addEventListener('DOMContentLoaded', function () {
-        const inputs = document.querySelectorAll('.filter-input');
-        inputs.forEach(input => {
-            input.addEventListener('keypress', function (e) {
-                if (e.key === 'Enter') {
-                    applyFilters();
-                }
-            });
-        });
-
-        // Add to Album Action logic
-        const selectAlbumModal = new bootstrap.Modal(document.getElementById('addToAlbumModal'));
-
-        document.getElementById('action-add-to-album').addEventListener('click', () => {
-            const dropdown = document.getElementById('select-album-dropdown');
-            dropdown.innerHTML = '<option value="">Loading albums...</option>';
-            
-            const r = new XMLHttpRequest();
-            r.open("GET", "{% url 'list_my_albums' %}");
-            r.onload = () => {
-                const res = JSON.parse(r.responseText)['albums'];
-                dropdown.innerHTML = '<option value="">Select an album...</option>';
-                res.forEach(album => {
-                    dropdown.innerHTML += `<option value="${album.id}">${escapeHtml(album.name)}</option>`;
-                });
-                selectAlbumModal.show();
-            };
-            r.send();
-        });
-
-        document.getElementById('submitAddToAlbumBtn').addEventListener('click', () => {
-            const albumId = document.getElementById('select-album-dropdown').value;
-            if (!albumId) {
-                alert('Please select an album');
-                return;
-            }
-
-            const selectedIds = Array.from(document.querySelectorAll('.photo-item.selected img')).map(img => img.dataset.id);
-            
-            const pr = new XMLHttpRequest();
-            pr.open("POST", "{% url 'add_photo_to_album' %}");
-            pr.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-            pr.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-            pr.onload = () => {
-                const pres = JSON.parse(pr.responseText);
-                if (pres.status === 'success') {
-                    alert('Photos added to album successfully.');
-                    selectAlbumModal.hide();
-                    clear_selection();
-                    location.reload();
-                } else {
-                    alert('Error adding photos to album: ' + (pres.data || pres.message || 'unknown error'));
-                }
-            };
-            pr.send(JSON.stringify({
-                "share_album_id": albumId,
-                "photo_id": selectedIds
-            }));
-        });
-
-        // Delete Selected Action logic
-        document.getElementById('action-delete-selected').addEventListener('click', () => {
-            const selectedItems = Array.from(document.querySelectorAll('.photo-item.selected'));
-            if (selectedItems.length === 0) return;
-
-            if (!confirm(`Are you sure you want to delete these ${selectedItems.length} photos? This cannot be undone.`)) {
-                return;
-            }
-
-            let completed = 0;
-            selectedItems.forEach(el => {
-                const img = el.querySelector('img');
-                const photoId = img.dataset.id;
-                
-                const r = new XMLHttpRequest();
-                r.open("POST", `/photos/delete/${photoId}/`);
-                r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-                r.onload = () => {
-                    el.remove();
-                    completed++;
-                    if (completed === selectedItems.length) {
-                        clear_selection();
-                        alert('Photos deleted successfully.');
-                        location.reload();
-                    }
-                };
-                r.send();
-            });
-        });
-
-        // Clear Selection logic
-        document.getElementById('action-clear-selection').addEventListener('click', clear_selection);
-
-        // Dropdown Actions mapping
-        document.getElementById('dropdown-action-add-to-album').addEventListener('click', () => {
-            document.getElementById('action-add-to-album').click();
-        });
-        document.getElementById('dropdown-action-delete').addEventListener('click', () => {
-            document.getElementById('action-delete-selected').click();
-        });
-        document.getElementById('dropdown-action-clear').addEventListener('click', clear_selection);
-
-        {% if album_obj and is_owner %}
-        const setCoverFunc = () => {
-            const selectedImg = document.querySelector('.photo-item.selected img');
-            if (!selectedImg) return;
-            const photoId = selectedImg.dataset.id;
-
-            const r = new XMLHttpRequest();
-            r.open("POST", "{% url 'set_album_cover' album_obj.id %}");
-            r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-            r.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-            r.onload = () => {
-                const res = JSON.parse(r.responseText);
-                if (res.status === 'success') {
-                    alert('Album cover updated successfully.');
-                    location.reload();
-                } else {
-                    alert('Error updating cover: ' + (res.message || 'unknown error'));
-                }
-            };
-            r.send(JSON.stringify({ cover_photo_id: photoId }));
-        };
-
-        const setCoverBtn = document.getElementById('action-set-cover');
-        if (setCoverBtn) setCoverBtn.addEventListener('click', setCoverFunc);
-
-        const dropdownSetCoverBtn = document.getElementById('dropdown-action-set-cover');
-        if (dropdownSetCoverBtn) dropdownSetCoverBtn.addEventListener('click', setCoverFunc);
-        {% endif %}
-        document.getElementById('dropdown-action-clear').addEventListener('click', clear_selection);
-
-        // Edit/Share modals logic for loaded album context
-        {% if album_obj and is_owner %}
-        document.getElementById('saveEditAlbumBtn').addEventListener('click', () => {
-            const name = document.getElementById('edit-album-name').value.trim();
-            const desc = document.getElementById('edit-album-desc').value.trim();
-            const publicStatus = document.getElementById('edit-album-public').checked;
-
-            if (!name) {
-                alert('Album name is required');
-                return;
-            }
-
-            const r = new XMLHttpRequest();
-            r.open("POST", "{% url 'edit_share_album' album_obj.id|default:'00000000-0000-0000-0000-000000000000' %}");
-            r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-            r.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-            r.onload = () => {
-                const res = JSON.parse(r.responseText);
-                if (res.status === 'success') {
-                    location.reload();
-                } else {
-                    alert('Error editing album: ' + (res.message || 'unknown error'));
-                }
-            };
-            r.send(JSON.stringify({
-                name: name,
-                description: desc,
-                public: publicStatus
-            }));
-        });
-
-        const shareModal = document.getElementById('shareAlbumModal');
-        shareModal.addEventListener('show.bs.modal', loadSubscribers);
-
-        function loadSubscribers() {
-            const container = document.getElementById('subscribers-list-container');
-            container.innerHTML = '<div class="text-muted text-center py-3">Loading subscribers...</div>';
-
-            const r = new XMLHttpRequest();
-            r.open("GET", "{% url 'manage_subscribers' album_obj.id|default:'00000000-0000-0000-0000-000000000000' %}");
-            r.onload = () => {
-                const res = JSON.parse(r.responseText);
-                if (res.status === 'success') {
-                    container.innerHTML = '';
-                    if (res.subscribers.length === 0) {
-                        container.innerHTML = '<div class="text-muted text-center py-3">Not shared with anyone yet.</div>';
-                        return;
-                    }
-                    res.subscribers.forEach(sub => {
-                        const role = sub.subscribe_type === 1 ? 'Editor' : 'Viewer';
-                        container.innerHTML += `
-                            <div class="list-group-item d-flex justify-content-between align-items-center">
-                                <div>
-                                    <strong>@${escapeHtml(sub.username)}</strong>
-                                    <span class="badge bg-secondary ms-2">${role}</span>
-                                </div>
-                                <button class="btn btn-sm btn-outline-danger" onclick="removeSubscriber(${sub.id})">Remove</button>
-                            </div>
-                        `;
-                    });
-                } else {
-                    container.innerHTML = '<div class="text-danger text-center py-3">Failed to load subscribers.</div>';
-                }
-            };
-            r.send();
-        }
-
-        window.removeSubscriber = function(subId) {
-            if (!confirm('Are you sure you want to remove this subscriber?')) return;
-            const r = new XMLHttpRequest();
-            r.open("POST", "{% url 'manage_subscribers' album_obj.id|default:'00000000-0000-0000-0000-000000000000' %}");
-            r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-            r.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-            r.onload = () => {
-                const res = JSON.parse(r.responseText);
-                if (res.status === 'success') {
-                    loadSubscribers();
-                } else {
-                    alert('Error removing subscriber: ' + (res.message || 'unknown error'));
-                }
-            };
-            r.send(JSON.stringify({
-                action: 'remove',
-                subscriber_id: subId
-            }));
-        }
-
-        document.getElementById('addSubBtn').addEventListener('click', () => {
-            const username = document.getElementById('new-sub-username').value.trim();
-            const role = parseInt(document.getElementById('new-sub-role').value, 10);
-
-            if (!username) {
-                alert('Username is required');
-                return;
-            }
-
-            const r = new XMLHttpRequest();
-            r.open("POST", "{% url 'manage_subscribers' album_obj.id|default:'00000000-0000-0000-0000-000000000000' %}");
-            r.setRequestHeader("X-CSRFToken", "{{ csrf_token }}");
-            r.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-            r.onload = () => {
-                const res = JSON.parse(r.responseText);
-                if (res.status === 'success') {
-                    document.getElementById('new-sub-username').value = '';
-                    loadSubscribers();
-                } else {
-                    alert('Error adding subscriber: ' + (res.message || 'unknown error'));
-                }
-            };
-            r.send(JSON.stringify({
-                action: 'add',
-                username: username,
-                subscribe_type: role
-            }));
-        });
-        {% endif %}
-    });
-</script>
+{% endwith %}
 {% endblock %}

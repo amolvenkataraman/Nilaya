@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title %}Notifications{% endblock %}
+
+{% block page_styles %}
+<link href="{% static 'notifications/notifications.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block page_script %}
+<script src="{% static 'notifications/notifications-page.js' %}" defer></script>
+{% endblock %}
+
+{% block page_body %}
+<div class="nt-page">
+    <h1>Notifications</h1>
+    <div class="nt-grid">
+        <section class="app-card nt-card" aria-labelledby="inbox-h">
+            <div class="nt-card-head">
+                <h2 id="inbox-h">Inbox</h2>
+                <div class="d-flex gap-2 flex-wrap">
+                    <div class="btn-group btn-group-sm" role="group" aria-label="Filter">
+                        <input type="radio" class="btn-check" name="nt-filter" id="nt-all" value="all" checked>
+                        <label class="btn btn-outline-secondary" for="nt-all">All</label>
+                        <input type="radio" class="btn-check" name="nt-filter" id="nt-unread" value="unread">
+                        <label class="btn btn-outline-secondary" for="nt-unread">Unread</label>
+                    </div>
+                    <button class="btn btn-sm btn-outline-primary" id="nt-readall" type="button">Mark all read</button>
+                </div>
+            </div>
+            <ul class="nt-list" id="nt-list"><li class="nt-empty">Loading…</li></ul>
+            <button class="btn btn-sm btn-outline-secondary nt-more" id="nt-more" type="button" hidden>Load older</button>
+        </section>
+
+        <div class="nt-col">
+        <section class="app-card nt-card" id="rm-card" aria-labelledby="rm-h">
+            <div class="nt-card-head">
+                <h2 id="rm-h">Automatic reminders</h2>
+                <span class="rm-status" id="rm-status" role="status" aria-live="polite"></span>
+            </div>
+            <p class="help mb-0">Sent to this inbox and your delivery channels.</p>
+            <div class="rm-rows">
+                <div class="rm-row">
+                    <label class="rm-text" for="rm-event"><span class="rm-title">Events</span><span class="help">Before timed calendar events start</span></label>
+                    <div class="rm-ctl"><select class="form-select form-select-sm" id="rm-event" data-field="event_minutes" disabled></select></div>
+                </div>
+                <div class="rm-row">
+                    <label class="rm-text" for="rm-deadline"><span class="rm-title">Deadlines</span><span class="help">Before calendar deadlines and assignments are due</span></label>
+                    <div class="rm-ctl"><select class="form-select form-select-sm" id="rm-deadline" data-field="deadline_minutes" disabled></select></div>
+                </div>
+                <div class="rm-row">
+                    <label class="rm-text" for="rm-todo"><span class="rm-title">Todos</span><span class="help">Before todos are due, unless they have their own reminders</span></label>
+                    <div class="rm-ctl"><select class="form-select form-select-sm" id="rm-todo" data-field="todo_minutes" disabled></select></div>
+                </div>
+                <div class="rm-row">
+                    <label class="rm-text" for="rm-agenda"><span class="rm-title">Morning agenda</span><span class="help">A summary of your day</span></label>
+                    <div class="rm-ctl">
+                        <input type="time" class="form-control form-control-sm" id="rm-agenda-time" aria-label="Agenda time" step="60" disabled>
+                        <div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="rm-agenda" disabled></div>
+                    </div>
+                </div>
+                <div class="rm-row">
+                    <label class="rm-text" for="rm-todos"><span class="rm-title">Deadlines to todos</span><span class="help">Copy upcoming calendar deadlines into your Tasks Inbox</span></label>
+                    <div class="rm-ctl"><div class="form-check form-switch m-0"><input class="form-check-input" type="checkbox" role="switch" id="rm-todos" disabled></div></div>
+                </div>
+            </div>
+        </section>
+
+        <section class="app-card nt-card" aria-labelledby="ch-h">
+            <div class="nt-card-head">
+                <h2 id="ch-h">Delivery</h2>
+            </div>
+            <p class="help mb-0">Push notifications to your phone, email or chat. Each channel can skip low-priority messages.</p>
+            <div class="nt-list" id="ch-list"></div>
+
+            <form id="add-form" autocomplete="off">
+                <div class="nt-label">Add a channel</div>
+                <div class="row g-2">
+                    <div class="col-sm-6">
+                        <label class="form-label small mb-1" for="ch-kind">Type</label>
+                        <select class="form-select form-select-sm" id="ch-kind"></select>
+                    </div>
+                    <div class="col-sm-6">
+                        <label class="form-label small mb-1" for="ch-name">Name</label>
+                        <input class="form-control form-control-sm" id="ch-name" placeholder="e.g. My phone" maxlength="64" required>
+                    </div>
+                </div>
+                <div id="ch-fields" class="d-grid gap-2"></div>
+                <div>
+                    <label class="form-label small mb-1" for="ch-min">Send</label>
+                    <select class="form-select form-select-sm" id="ch-min">
+                        <option value="0">Everything</option>
+                        <option value="10">Normal and above</option>
+                        <option value="15">High and urgent only</option>
+                        <option value="20">Urgent only</option>
+                    </select>
+                </div>
+                <div class="text-danger small" id="ch-error" role="alert"></div>
+                <button class="btn btn-primary btn-sm" type="submit">Add channel</button>
+            </form>
+        </section>
+        </div>
+    </div>
+</div>
+{% endblock %}

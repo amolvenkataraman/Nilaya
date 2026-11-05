@@ -1,6 +1,6 @@
-# Comptech — Technical Documentation
+# AVNet Superapp (V1) — Technical Documentation
 
-This directory contains technical documentation for the Comptech platform.
+This directory contains technical documentation for the AVNet Superapp (V1) platform.
 
 ## Contents
 

@@ -7,7 +7,9 @@ const Geoguessr = {
 
     init() {
         const defaultCenter = [43.6425662, -79.3870568];
-        this.actualLatLng = [window.ACTUAL_LAT || 0, window.ACTUAL_LON || 0];
+        // The photo's real location comes from json_script tags in geoguessr.html.
+        const coord = (id) => JSON.parse(document.getElementById(id).textContent) || 0;
+        this.actualLatLng = [coord('geoguessr-lat'), coord('geoguessr-lon')];
 
         // Initialize Map
         this.Map = L.map('mapid').setView(defaultCenter, 10);
@@ -39,14 +41,14 @@ const Geoguessr = {
 
         // Custom DivIcons
         const guessIcon = L.divIcon({
-            html: '<div style="font-size: 26px; filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.5)); transform: translate(-3px, -10px);">📍</div>',
+            html: '<svg class="gg-pin gg-pin-guess" xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 16 16" aria-label="Your guess"><path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10m0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6"/></svg>',
             className: 'custom-div-icon',
             iconSize: [30, 30],
-            iconAnchor: [15, 15]
+            iconAnchor: [15, 29]
         });
 
         const actualIcon = L.divIcon({
-            html: '<div style="font-size: 26px; filter: drop-shadow(1px 1px 2px rgba(0,0,0,0.5));">🎯</div>',
+            html: '<svg class="gg-pin gg-pin-actual" xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" viewBox="0 0 16 16" aria-label="Actual location"><circle cx="8" cy="8" r="7" fill="#fff"/><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14m0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16"/><path d="M8 13A5 5 0 1 1 8 3a5 5 0 0 1 0 10m0 1A6 6 0 1 0 8 2a6 6 0 0 0 0 12"/><path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6m0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8"/><path d="M9.5 8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0"/></svg>',
             className: 'custom-div-icon',
             iconSize: [30, 30],
             iconAnchor: [15, 15]
@@ -58,7 +60,7 @@ const Geoguessr = {
 
         // Draw connecting line
         this.DistanceLine = L.polyline([latlng, this.actualLatLng], {
-            color: 'red',
+            color: getComputedStyle(document.documentElement).getPropertyValue('--app-danger').trim() || '#c0392b',
             weight: 3,
             dashArray: '5, 10',
             opacity: 0.8

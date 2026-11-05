@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block page_title %}Contacts{% endblock %}
+
+{% block page_styles %}
+<link href="{% static 'contacts/contacts.css' %}" rel="stylesheet">
+{% endblock %}
+
+{% block page_script %}
+<script type="module" src="{% static 'contacts/contacts.js' %}"></script>
+{% endblock %}
+
+{% block left_sidebar %}
+<nav class="ct-side" aria-label="Contact lists">
+    <button type="button" class="btn btn-primary btn-sm ct-side-new" id="ct-side-new">New contact</button>
+    <ul class="ct-nav" id="ct-smart">
+        <li class="ct-skel-line"></li><li class="ct-skel-line"></li><li class="ct-skel-line"></li><li class="ct-skel-line"></li><li class="ct-skel-line"></li>
+    </ul>
+    <section class="ct-side-sec" aria-labelledby="ct-groups-h">
+        <h2 class="ct-side-head" id="ct-groups-h">Groups</h2>
+        <ul class="ct-nav ct-nav-sm" id="ct-groups"></ul>
+    </section>
+    <section class="ct-side-sec" aria-labelledby="ct-tags-h">
+        <h2 class="ct-side-head" id="ct-tags-h">Tags</h2>
+        <ul class="ct-nav ct-nav-sm" id="ct-tags"></ul>
+    </section>
+</nav>
+{% endblock %}
+
+{% block left_sidebar_footer %}
+<div class="ct-side-foot">
+    <button type="button" class="ct-foot-btn" id="ct-import-btn">Import</button>
+    <button type="button" class="ct-foot-btn" id="ct-dupes-btn">Merge duplicates</button>
+    <button type="button" class="ct-foot-btn" id="ct-settings-btn">Reminders</button>
+</div>
+{% endblock %}
+
+{% block page_body %}
+{{ boot|json_script:"ct-boot" }}
+<div class="ct-app" id="ct-app" data-pane="list">
+    <section class="ct-list-pane" aria-label="Contacts">
+        <header class="ct-list-head">
+            <div class="ct-title-row">
+                <h1 class="ct-title" id="ct-title">Contacts</h1>
+                <span class="ct-count" id="ct-count"></span>
+                <div class="ct-grow"></div>
+                <button type="button" class="ct-icon-btn" id="ct-new" title="New contact (N)" aria-label="New contact"></button>
+                <div class="dropdown">
+                    <button type="button" class="ct-icon-btn" id="ct-menu-btn" data-bs-toggle="dropdown" aria-expanded="false" title="More" aria-label="More actions"></button>
+                    <ul class="dropdown-menu dropdown-menu-end ct-menu" aria-labelledby="ct-menu-btn">
+                        <li><button class="dropdown-item" type="button" data-action="import">Import…</button></li>
+                        <li><button class="dropdown-item" type="button" data-action="export-vcf">Export all as vCard</button></li>
+                        <li><button class="dropdown-item" type="button" data-action="export-csv">Export all as CSV</button></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><button class="dropdown-item" type="button" data-action="dupes">Merge duplicates…</button></li>
+                        <li><button class="dropdown-item" type="button" data-action="settings">Reminder settings…</button></li>
+                    </ul>
+                </div>
+            </div>
+            <label class="ct-search">
+                <span class="visually-hidden">Search contacts</span>
+                <input type="search" id="ct-q" placeholder="Search name, email, company, tag, handle" autocomplete="off" spellcheck="false" maxlength="100">
+                <kbd>/</kbd>
+            </label>
+        </header>
+        <div class="ct-bulk" id="ct-bulk" hidden></div>
+        <div class="ct-list" id="ct-list" role="listbox" aria-label="Contacts" tabindex="-1">
+            <div class="ct-skel-row"></div><div class="ct-skel-row"></div><div class="ct-skel-row"></div><div class="ct-skel-row"></div><div class="ct-skel-row"></div><div class="ct-skel-row"></div>
+        </div>
+    </section>
+    <section class="ct-detail-pane" id="ct-detail" aria-label="Contact details" tabindex="-1">
+        <div class="ct-detail-skel"><div class="ct-skel-circle"></div><div class="ct-skel-line w-50"></div><div class="ct-skel-line w-25"></div></div>
+    </section>
+</div>
+<dialog class="ct-dialog" id="ct-dialog" aria-labelledby="ct-dialog-title"></dialog>
+{% endblock %}

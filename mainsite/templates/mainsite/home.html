@@ -5,225 +5,120 @@
 
 {% block page_styles %}
 <link href="{% static 'mainsite/styles.css' %}" rel="stylesheet" media="all"/>
-
-{% if request.user.dark_mode %}
-<style>
-    body, .card {
-        background-color: var(--bs-dark);
-    }
-
-    .card {
-        border-color: var(--bs-light);
-    }
-
-    .greeting, .clock, .card-title, .card-text {
-        color: var(--bs-white);
-    }
-
-    .event-name-container {
-        background-color: var(--bs-dark)!important;
-    }
-
-    input {
-        background-color: var(--bs-dark)!important;
-    }
-</style>
-{% else %}
-<style>
-
-</style>
-{% endif %}
-
-<style>
-</style>
-
 {% endblock %}
 
 {% block page_script %}
 <script src="{% static 'js/moment/moment.min.js' %}" type="text/javascript"></script>
 {{ request.user.first_name|json_script:"first-name" }}
 
-<script>
-    var data = null;
-
-    function setGreeting() {
-        const name = JSON.parse(document.getElementById('first-name').textContent);
-        const h = new Date().getHours();  // 0-23
-        let s = h < 12 ? `Good Morning, ${name}` : h < 15 ? `Good Afternoon, ${name}`
-              : h < 21 ? `Good Evening, ${name}` : `Good Night, ${name}`;
-
-        if (data != null) {
-            const now = new Date(), DAY = 1000 * 60 * 60 * 24;
-            for (const event of data["events"]) {  // next event starting within 24 h
-                const until = new Date(event['startdate']) - now;
-                if (until >= 0 && until < DAY) {
-                    s = `${event['name']} is ${moment(new Date(event['startdate'])).fromNow()}!`;
-                    break;
-                }
-            }
-            for (const todo of data["todos"]) {  // overdue, or due within 2 days
-                if (!todo["complete_by"]) continue;
-                const due = new Date(todo["complete_by"]);
-                if (due <= now) { s = `${todo['name']} is overdue! (${moment(due).fromNow()})`; break; }
-                if (due - now <= 2 * DAY) { s = `${todo['name']} must be completed ${moment(due).fromNow()}!`; break; }
-            }
-        }
-        document.querySelector('.greeting-greeting').textContent = s;  // names are user data: text only
-    }
-
-    function startTime() {
-        var today = new Date();
-        var h = today.getHours();
-        var m = today.getMinutes();
-        var s = today.getSeconds();
-
-        if (s == 0) {
-            populateEvents();
-        }
-
-        h = checkTime(h);
-        m = checkTime(m);
-        s = checkTime(s);
-        document.querySelector('.hour').innerHTML = h
-        document.querySelector('.minute').innerHTML = m
-        document.querySelector('.second').innerHTML = s
-
-        var months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
-        var days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
-
-        document.querySelector('.date').innerHTML = days[today.getDay()] + ", " + today.getDate() + " " + months[today.getMonth()] + " " + today.getFullYear();
-
-        var t = setTimeout(startTime, 500);
-    }
-
-    function checkTime(i) {
-        if (i < 10) {i = "0" + i};
-        return i;
-    }
-
-    function populateEvents() {
-        r = new XMLHttpRequest()
-        r.open("GET", `{% url 'get_recent_events' %}`)
-        r.onload = () => {
-            if (r.status == 200) {
-                data = JSON.parse(r.responseText)["data"]
-                setGreeting();
-
-                // Build list items as DOM nodes: names are user data, never HTML.
-                const item = (name, colour, when) => {
-                    const li = document.createElement('li');
-                    li.className = 'list-group-item event-name-container';
-                    if (colour) li.style.color = colour;
-                    const span = document.createElement('span');
-                    span.className = 'event-name';
-                    span.textContent = name;
-                    li.append(span, ` - ${when}`);
-                    return li;
-                };
-                const events = document.querySelector('.recent-events');
-                const todos = document.querySelector('.recent-todos');
-                events.replaceChildren();
-                todos.replaceChildren();
-                for (const ev of data["events"]) {
-                    let when = moment(new Date(ev["startdate"])).calendar();
-                    if (ev["allday"] == true) when = when.split(" at")[0];
-                    events.append(item(ev["name"], ev["colour"], when));
-                }
-                for (const td of data["todos"]) {
-                    const when = td["complete_by"] ? moment(new Date(td["complete_by"])).calendar() : "no deadline";
-                    todos.append(item(td["name"], td["colour"], when));
-                }
-            }
-        }
-        r.send()
-    }
-
-    function search(e) {
-        if(e.keyCode === 13){
-            window.location.href = `https://google.com/search?q=${encodeURIComponent(document.querySelector('#search-box').value)}`
-        }  
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-        setGreeting();
-
-        startTime();
-
-        document.querySelector('#search-box').focus();
-
-        populateEvents();
-    });
-</script>
+<script src="{% static 'mainsite/home.js' %}" type="text/javascript"></script>
 {% endblock %}
 
 {% block page_body %}
-    <div class="greeting"><span class="greeting-greeting">Hello There, {{ request.user.first_name }}</span></div>
+<div class="dash" data-recent-url="{% url 'get_recent_events' %}">
+    <header class="dash-header">
+        <div class="dash-greeting">
+            <div class="date">Loading...</div>
+            <h1 class="greeting"><span class="greeting-greeting">Hello There, {{ request.user.first_name }}</span></h1>
+        </div>
+        <div class="clock" aria-label="Current time">
+            <span class="hm"><span class="hour">00</span><span class="sep">:</span><span class="minute">00</span></span>
+            <span class="second">00</span>
+        </div>
+    </header>
 
-    <div class="clock col-auto">
-        <div class="container">
-            <div class="row justify-content-center current-time">
-                <div class="col-auto hour">
-                    00
+    <div class="dash-search">
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16" aria-hidden="true">
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+        </svg>
+        <input type="search" class="form-control" id="search-box" placeholder="Search DuckDuckGo" aria-label="Search DuckDuckGo">
+    </div>
+
+    <div class="row g-3">
+        <div class="col-12 col-lg-6">
+            <section class="app-card dash-card">
+                <div class="dash-card-header">
+                    <div>
+                        <h2>Next 7 days</h2>
+                        <div class="sub">Calendar events</div>
+                    </div>
+                    <a href="{% url 'display_calendar' %}">Open calendar</a>
                 </div>
-                <div class="col-auto">
-                    :
+                <ul class="dash-list recent-events">
+                    <li class="dash-item empty">Loading...</li>
+                </ul>
+            </section>
+        </div>
+        <div class="col-12 col-lg-6">
+            <section class="app-card dash-card">
+                <div class="dash-card-header">
+                    <div>
+                        <h2>Todos</h2>
+                        <div class="sub">Open, soonest due first</div>
+                    </div>
+                    <a href="{% url 'tasks' %}">Open tasks</a>
                 </div>
-                <div class="col-auto minute">
-                    00
-                </div>
-                <div class="col-auto">
-                    :
-                </div>
-                <div class="col-auto second">
-                    00
-                </div>
-            </div>
-            <div class="row" style="font-size: 20px; text-align: center;">
-                <div class="col-sm-auto date" style="display: block; margin-left: auto; margin-right: auto;">
-                    Loading...
-                </div>
-            </div>
+                <ul class="dash-list recent-todos">
+                    <li class="dash-item empty">Loading...</li>
+                </ul>
+            </section>
         </div>
     </div>
-    <br>
 
-    <div class="search">
-        <input type="text" class="form-control" id="search-box" placeholder="Type here to search" aria-describedby="Search Text" onKeydown="search(event);">
-    </div>
-    <br>
-
-    <div class="container">
-        <div class="row">
-            <div class="col-sm">
-                <a class="card recent-card" href="{% url 'display_calendar' %}">
-                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Recent Events</h5>
-                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Calendar events in the next week</p>
-                    <div class="card-body">
-                        <ul class="list-group list-group-flush recent-events">
-                            
-                        </ul>
-                    </div>
-                </a>
-            </div>
-            <div class="col-sm">
-                <a class="card recent-card" href="{% url 'display_calendar' %}">
-                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Upcoming Todos</h5>
-                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Todos with upcoming due dates</p>
-                    <div class="card-body">
-                        <ul class="list-group list-group-flush recent-todos">
-                            
-                        </ul>
-                    </div>
-                </a>
-            </div>
-            <div class="col-sm">
-                <div class="card recent-card">
-                    <h3 class="card-title" style="margin: 10px; margin-left: 30px;">Admin</h5>
-                    <p class="card-text" style="margin-left: 30px; margin-right: 30px;">Server admin stuff</p>
-                    <div class="card-body">
-                    </div>
-                </div>
-            </div>
+    <section>
+        <h2 class="dash-section-title"><span>Apps</span><a href="{% url 'apps' %}">All apps</a></h2>
+        <div class="tile-grid">
+            <a class="app-card app-tile" href="{% url 'display_calendar' %}">
+                <span class="app-tile-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-calendar-week" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M11 6.5a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm-3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm-5 3a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1zm3 0a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5h-1a.5.5 0 0 1-.5-.5v-1z"/>
+                        <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+                    </svg>
+                </span>
+                <span class="app-tile-text"><span class="app-tile-title">Calendar</span><span class="app-tile-sub">Events, deadlines and insights</span></span>
+            </a>
+            <a href="{% url 'tasks' %}" class="app-card app-tile">
+                <span class="app-tile-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-check2-square" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 14.5A1.5 1.5 0 0 1 1.5 13V3A1.5 1.5 0 0 1 3 1.5h8a.5.5 0 0 1 0 1H3a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5V8a.5.5 0 0 1 1 0v5a1.5 1.5 0 0 1-1.5 1.5z"/><path d="m8.354 10.354 7-7a.5.5 0 0 0-.708-.708L8 9.293 5.354 6.646a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0"/></svg></span>
+                <span class="app-tile-text"><span class="app-tile-title">Tasks</span><span class="app-tile-sub">Projects, boards and todos</span></span>
+            </a>
+            <a href="{% url 'habits' %}" class="app-card app-tile">
+                <span class="app-tile-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2.5A.5.5 0 0 1 2.5 2h11a.5.5 0 0 1 .5.5v11a.5.5 0 0 1-.5.5h-11a.5.5 0 0 1-.5-.5zM3 3v10h10V3z"/><path d="M5 11V8h1.5v3zm2.75 0V6h1.5v5zM10.5 11V5H12v6z"/></svg></span>
+                <span class="app-tile-text"><span class="app-tile-title">Habits</span><span class="app-tile-sub">Streaks and daily check-ins</span></span>
+            </a>
+            <a href="{% url 'contacts' %}" class="app-card app-tile">
+                <span class="app-tile-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M5 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2zm0 1h8a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1"/><path d="M9 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m-3 3.5c0-1 1-2 3-2s3 1 3 2V12H6zM1.5 4a.5.5 0 0 0 0 1H3V4zm0 3a.5.5 0 0 0 0 1H3V7zm0 3a.5.5 0 0 0 0 1H3v-1z"/></svg></span>
+                <span class="app-tile-text"><span class="app-tile-title">Contacts</span><span class="app-tile-sub">People, birthdays, keeping in touch</span></span>
+            </a>
+            <a class="app-card app-tile" href="{% url 'photos' %}">
+                <span class="app-tile-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-image" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M6.002 5.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0z"/>
+                        <path d="M2.002 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2h-12zm12 1a1 1 0 0 1 1 1v6.5l-3.777-1.947a.5.5 0 0 0-.577.093l-3.71 3.71-2.66-1.772a.5.5 0 0 0-.63.062L1.002 12V3a1 1 0 0 1 1-1h12z"/>
+                    </svg>
+                </span>
+                <span class="app-tile-text"><span class="app-tile-title">Photos</span><span class="app-tile-sub">Library and albums</span></span>
+            </a>
+            <a class="app-card app-tile" href="{% url 'map' %}">
+                <span class="app-tile-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-geo-alt" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M12.166 8.94c-.524 1.062-1.234 2.12-1.96 3.07A31.493 31.493 0 0 1 8 14.58a31.481 31.481 0 0 1-2.206-2.57c-.726-.95-1.436-2.008-1.96-3.07C3.304 7.867 3 6.862 3 6a5 5 0 0 1 10 0c0 .862-.305 1.867-.834 2.94zM8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10z"/>
+                        <path d="M8 8a2 2 0 1 1 0-4 2 2 0 0 1 0 4zm0 1a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                    </svg>
+                </span>
+                <span class="app-tile-text"><span class="app-tile-title">Places</span><span class="app-tile-sub">Map of saved locations</span></span>
+            </a>
+            {% if request.user.is_staff %}
+            <a class="app-card app-tile" href="{% url 'admin:index' %}">
+                <span class="app-tile-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-terminal" viewBox="0 0 16 16" aria-hidden="true">
+                        <path d="M6 9a.5.5 0 0 1 .5-.5h3a.5.5 0 0 1 0 1h-3A.5.5 0 0 1 6 9zM3.854 4.146a.5.5 0 1 0-.708.708L4.793 6.5 3.146 8.146a.5.5 0 1 0 .708.708l2-2a.5.5 0 0 0 0-.708l-2-2z"/>
+                        <path d="M2 1a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V3a2 2 0 0 0-2-2H2zm12 1a1 1 0 0 1 1 1v10a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h12z"/>
+                    </svg>
+                </span>
+                <span class="app-tile-text"><span class="app-tile-title">Admin</span><span class="app-tile-sub">Server administration</span></span>
+            </a>
+            {% endif %}
         </div>
-    </div>
+    </section>
+</div>
 {% endblock %}

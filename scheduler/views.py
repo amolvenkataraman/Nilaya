@@ -18,25 +18,27 @@ def index(request):
     return render(request, 'scheduler/calendar.html', {"vars": CALENDAR_VARS, "today": datetime.date.today(), "left_sidebar": True, "right_sidebar": True})
 
 def countdown(request, event_id, time="start"):
-    try:
-        event_ = Event.objects.filter(id=event_id)[0]
-        if event_.public == False and event_.calendar.public == False:
-            try:
-                if event_.calendar.users_subscribed.filter(user=request.user)[0].subscribe_type not in [0, 1]:
-                    return error_response("Not authorized", 401)
-            except IndexError: return error_response("Not authorized", 401)
-
-        name = event_.name
-        if time == "start": event_time = event_.startdate
-        elif time == "end": event_time = event_.enddate
-        else: raise Http404()
-
-        if event_time == None: raise Http404()
-        if event_.enddate == None: time = "none"
-
-        return render(request, 'scheduler/countdown.html', {"event": event_.getinfo(), "time": event_time, "se": time})
-    except IndexError:
+    from . import service as svc
+    series, original = svc.resolve(event_id)
+    if series is None:
         raise Http404()
+    event_ = svc.occurrence_view(series, original) if original is not None else series
+    if event_ is None:
+        raise Http404()
+    role = series.calendar.role_of(request.user)
+    if not event_.public and not series.calendar.public:
+        if role not in ("owner", "admin"):
+            return error_response("Not authorized", 401)
+    masked = svc.masked_for(event_, request.user, role)  # a private event on a public calendar: "Busy"
+
+    if time == "start": event_time = event_.startdate
+    elif time == "end": event_time = event_.enddate
+    else: raise Http404()
+
+    if event_time == None: raise Http404()
+    if event_.enddate == None: time = "none"
+
+    return render(request, 'scheduler/countdown.html', {"event": event_.getinfo(masked=masked), "time": event_time, "se": time})
 
 def public_calendar(request, calendar_id):
     try: cal = Calendar.objects.filter(id=calendar_id)[0]
@@ -57,10 +59,14 @@ def availability(request, username):
     except IndexError: raise Http404()
 
 def get_recent(user_):
+    from . import service as svc
     ans = {"data": {}}
 
-    calendars = [i.calendar for i in user_.calendar_subscribed.filter(calendar__active=True, visible=True)]
-    ans["data"]["events"] = list([i.getinfo() for i in Event.objects.filter(calendar__in=calendars, startdate__gte=timezone.now(), startdate__lte=timezone.now() + datetime.timedelta(days=7)).order_by('startdate')[:5]])
+    subs = {s.calendar_id: s for s in user_.calendar_subscribed.filter(calendar__active=True, visible=True)}
+    now = timezone.now()
+    events = [e for e in svc.events_in_range(list(subs), now, now + datetime.timedelta(days=7)) if e.startdate >= now][:5]
+    ans["data"]["events"] = [e.getinfo(sub_colour=subs[e.calendar_id].colour,
+                                       masked=svc.masked_for(e, user_, subs[e.calendar_id].role)) for e in events]
     ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(user=user_, completed=False).order_by('complete_by')[:5]]
 
     return ans

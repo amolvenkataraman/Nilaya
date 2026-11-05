@@ -1,0 +1,3 @@
+/* 400/403/404/500 pages (templates/4xx.html, 500.html): the big status code above the message. */
+.error-card { text-align: center; justify-items: center; }
+.error-code { font-size: 4rem; font-weight: 700; line-height: 1; letter-spacing: -0.03em; color: var(--app-accent); font-variant-numeric: tabular-nums; }

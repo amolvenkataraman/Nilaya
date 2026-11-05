@@ -3,180 +3,182 @@
 
 {% block page_title %} Statistics {% endblock %}
 
+{% block page_styles %}
+{{ block.super }}
+<link href="{% static 'photo/insights.css' %}" rel="stylesheet" />
+{% endblock %}
+
 {% block page_body %}
-<div class="stats-container">
+<div class="ins-page">
     {% if admin_override %}
-    <div class="alert alert-warning d-flex align-items-center justify-content-between mb-4" role="alert" style="border-radius: var(--border-radius-sm); border: 1px solid rgba(245, 158, 11, 0.3); background: rgba(245, 158, 11, 0.08); color: #d97706; padding: 12px 20px;">
+    <div class="alert alert-warning d-flex align-items-center justify-content-between flex-wrap gap-2 mb-0" role="alert">
         <div class="d-flex align-items-center gap-2">
-            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-exclamation-triangle-fill" viewBox="0 0 16 16" style="flex-shrink: 0; margin-right: 8px;">
-                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="flex-shrink-0" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5m.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2"/>
             </svg>
-            <span><strong>Admin Override Mode Active:</strong> Displaying data for all albums across the entire system.</span>
+            <span><strong>Admin override:</strong> showing data for all albums across the system.</span>
         </div>
-        <a href="{{ request.path }}" class="btn btn-sm btn-outline-warning" style="font-size: 0.8rem; font-weight: 600;">Exit Admin Mode</a>
+        <a href="{{ request.path }}" class="btn btn-sm btn-outline-warning">Exit admin mode</a>
     </div>
     {% endif %}
 
-    <div class="dashboard-title">📈 Media Statistics</div>
-
-    <!-- Stats Grid -->
-    <div class="stats-grid">
-        <div class="stats-card">
-            <span class="stats-card-label">Total Items</span>
-            <span class="stats-card-value">{{ total_count }}</span>
-            <span class="stats-card-desc">Combined media files</span>
-        </div>
-        <div class="stats-card">
-            <span class="stats-card-label">Photos</span>
-            <span class="stats-card-value">{{ photo_count }}</span>
-            <span class="stats-card-desc">Image files</span>
-        </div>
-        <div class="stats-card">
-            <span class="stats-card-label">Videos</span>
-            <span class="stats-card-value">{{ video_count }}</span>
-            <span class="stats-card-desc">{{ video_pct }}% of library</span>
-        </div>
-        <div class="stats-card">
-            <span class="stats-card-label">Average Quality</span>
-            <span class="stats-card-value">{{ avg_mp }} <span style="font-size: 1.1rem; font-weight: 500;">MP</span></span>
-            <span class="stats-card-desc">For captured images</span>
+    <div class="ins-header">
+        <div>
+            <h1 class="ins-title">Media Statistics
+            </h1>
+            <p class="ins-subtitle">Totals and capture activity for your library.</p>
         </div>
     </div>
 
-    <!-- Upload History Chart (Full Width) -->
-    <div class="charts-grid" style="grid-template-columns: 1fr;">
-        <div class="chart-card">
-            <div class="chart-card-title d-flex justify-content-between align-items-center" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Upload History</span>
-                <div style="display: flex; gap: 8px;">
-                    <select class="form-select form-select-sm" id="chartTypeSelect" style="width: auto; font-size: 0.85rem; padding: 4px 8px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-glass);">
-                        <option value="all">All Media</option>
-                        <option value="photo">Photos Only</option>
-                        <option value="video">Videos Only</option>
-                        <option value="video_duration">Video Duration (Mins)</option>
-                    </select>
-                    <select class="form-select form-select-sm" id="chartRangeSelect" style="width: auto; font-size: 0.85rem; padding: 4px 8px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-glass);">
-                        <option value="12m">Past 12 Months</option>
-                        <option value="24m">Past 24 Months</option>
-                        <option value="5y">Past 5 Years (Monthly)</option>
-                        <option value="10y">Past 10 Years (Yearly)</option>
-                        <option value="all">All Years (Yearly)</option>
-                    </select>
-                </div>
-            </div>
-            <div style="position: relative; height: 300px; width: 100%;">
-                <canvas id="monthChart"></canvas>
-            </div>
+    <!-- KPI tiles -->
+    <div class="ins-kpis">
+        <div class="ins-card ins-kpi">
+            <span class="ins-label">Total items</span>
+            <span class="ins-kpi-value">{{ total_count }}</span>
+            <span class="ins-kpi-desc">Combined media files</span>
+        </div>
+        <div class="ins-card ins-kpi">
+            <span class="ins-label">Photos</span>
+            <span class="ins-kpi-value">{{ photo_count }}</span>
+            <span class="ins-kpi-desc">Image files</span>
+        </div>
+        <div class="ins-card ins-kpi">
+            <span class="ins-label">Videos</span>
+            <span class="ins-kpi-value">{{ video_count }}</span>
+            <span class="ins-kpi-desc">{{ video_pct }}% of library</span>
+        </div>
+        <div class="ins-card ins-kpi">
+            <span class="ins-label">Average quality</span>
+            <span class="ins-kpi-value">{{ avg_mp }} <span class="ins-kpi-unit">MP</span></span>
+            <span class="ins-kpi-desc">For captured images</span>
         </div>
     </div>
 
-    <!-- Activity Charts Grid (Hourly, Daily, Monthly Side-by-Side) -->
-    <div class="activity-charts-grid">
-        <!-- Hourly Activity -->
-        <div class="chart-card">
-            <div class="chart-card-title d-flex justify-content-between align-items-center" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Hourly Activity</span>
-                <select class="form-select form-select-sm" id="hourTypeSelect" style="width: auto; font-size: 0.85rem; padding: 4px 8px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-glass);">
+    <!-- Upload history (full width) -->
+    <div class="ins-card">
+        <div class="ins-card-head">
+            <h2 class="ins-card-title">Upload History</h2>
+            <div class="ins-controls">
+                <select class="form-select form-select-sm" id="chartTypeSelect" aria-label="Upload history media type">
                     <option value="all">All Media</option>
                     <option value="photo">Photos Only</option>
                     <option value="video">Videos Only</option>
+                    <option value="video_duration">Video Duration (Mins)</option>
+                </select>
+                <select class="form-select form-select-sm" id="chartRangeSelect" aria-label="Upload history range">
+                    <option value="12m">Past 12 Months</option>
+                    <option value="24m">Past 24 Months</option>
+                    <option value="5y">Past 5 Years (Monthly)</option>
+                    <option value="10y">Past 10 Years (Yearly)</option>
+                    <option value="all">All Years (Yearly)</option>
                 </select>
             </div>
-            <div style="position: relative; height: 300px; width: 100%;">
+        </div>
+        <div class="ins-chart">
+            <canvas id="monthChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Activity charts (hour of day, day of month, month of year) -->
+    <div class="ins-grid-3">
+        <div class="ins-card">
+            <div class="ins-card-head">
+                <h2 class="ins-card-title">Hourly Activity</h2>
+                <select class="form-select form-select-sm" id="hourTypeSelect" aria-label="Hourly Activity media type">
+                        <option value="all">All Media</option>
+                        <option value="photo">Photos Only</option>
+                        <option value="video">Videos Only</option>
+                </select>
+            </div>
+            <div class="ins-chart ins-chart-sm">
                 <canvas id="hourChart"></canvas>
             </div>
         </div>
 
-        <!-- Daily Activity (Day of Month) -->
-        <div class="chart-card">
-            <div class="chart-card-title d-flex justify-content-between align-items-center" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Daily Activity</span>
-                <select class="form-select form-select-sm" id="dayTypeSelect" style="width: auto; font-size: 0.85rem; padding: 4px 8px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-glass);">
-                    <option value="all">All Media</option>
-                    <option value="photo">Photos Only</option>
-                    <option value="video">Videos Only</option>
+        <div class="ins-card">
+            <div class="ins-card-head">
+                <h2 class="ins-card-title">Daily Activity</h2>
+                <select class="form-select form-select-sm" id="dayTypeSelect" aria-label="Daily Activity media type">
+                        <option value="all">All Media</option>
+                        <option value="photo">Photos Only</option>
+                        <option value="video">Videos Only</option>
                 </select>
             </div>
-            <div style="position: relative; height: 300px; width: 100%;">
+            <div class="ins-chart ins-chart-sm">
                 <canvas id="dayChart"></canvas>
             </div>
         </div>
 
-        <!-- Monthly Activity (Month of Year) -->
-        <div class="chart-card">
-            <div class="chart-card-title d-flex justify-content-between align-items-center" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>Monthly Activity</span>
-                <select class="form-select form-select-sm" id="monthTypeSelect" style="width: auto; font-size: 0.85rem; padding: 4px 8px; border-radius: var(--border-radius-sm); border: 1px solid var(--border-glass);">
-                    <option value="all">All Media</option>
-                    <option value="photo">Photos Only</option>
-                    <option value="video">Videos Only</option>
+        <div class="ins-card">
+            <div class="ins-card-head">
+                <h2 class="ins-card-title">Monthly Activity</h2>
+                <select class="form-select form-select-sm" id="monthTypeSelect" aria-label="Monthly Activity media type">
+                        <option value="all">All Media</option>
+                        <option value="photo">Photos Only</option>
+                        <option value="video">Videos Only</option>
                 </select>
             </div>
-            <div style="position: relative; height: 300px; width: 100%;">
+            <div class="ins-chart ins-chart-sm">
                 <canvas id="monthOfYearChart"></canvas>
             </div>
         </div>
     </div>
 
-    <!-- Lower Section Grid -->
-    <div class="charts-grid" style="grid-template-columns: 1fr 1fr;">
-        <!-- Recent Stats -->
-        <div class="chart-card">
-            <div class="chart-card-title">Recent Activity</div>
-            <div class="photo-description">
-                <div class="metadata-row">
-                    <span class="metadata-label">Past 7 Days</span>
-                    <span class="metadata-value">
-                        {{ taken_week }} items
-                        <span style="font-size: 0.8rem; font-weight: 700; margin-left: 8px; color: {% if week_color == 'green' %}#10b981{% elif week_color == 'red' %}#ef4444{% else %}var(--text-secondary){% endif %};">
-                            ({{ week_pct }}%)
-                        </span>
+    <div class="ins-grid-2">
+        <!-- Recent activity -->
+        <div class="ins-card">
+            <div class="ins-card-head">
+                <h2 class="ins-card-title">Recent Activity</h2>
+                <span class="ins-label">vs. prior period</span>
+            </div>
+            <div class="ins-rows">
+                <div class="ins-row">
+                    <span class="ins-row-label">Past 7 Days</span>
+                    <span class="ins-row-value">
+                        {{ taken_week }} <span class="sub">items</span>
+                        <span class="ins-delta{% if week_color == 'green' %} up{% elif week_color == 'red' %} down{% endif %}" title="Change vs. the previous period">{% if week_color == 'green' %}<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 12a.5.5 0 0 0 .5-.5V5.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 1 0 .708.708L7.5 5.707V11.5a.5.5 0 0 0 .5.5"/></svg>{% elif week_color == 'red' %}<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 4a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5A.5.5 0 0 1 8 4"/></svg>{% endif %}{{ week_pct }}%</span>
                     </span>
                 </div>
-                <div class="metadata-row">
-                    <span class="metadata-label">Past 30 Days</span>
-                    <span class="metadata-value">
-                        {{ taken_month }} items
-                        <span style="font-size: 0.8rem; font-weight: 700; margin-left: 8px; color: {% if month_color == 'green' %}#10b981{% elif month_color == 'red' %}#ef4444{% else %}var(--text-secondary){% endif %};">
-                            ({{ month_pct }}%)
-                        </span>
+                <div class="ins-row">
+                    <span class="ins-row-label">Past 30 Days</span>
+                    <span class="ins-row-value">
+                        {{ taken_month }} <span class="sub">items</span>
+                        <span class="ins-delta{% if month_color == 'green' %} up{% elif month_color == 'red' %} down{% endif %}" title="Change vs. the previous period">{% if month_color == 'green' %}<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 12a.5.5 0 0 0 .5-.5V5.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 1 0 .708.708L7.5 5.707V11.5a.5.5 0 0 0 .5.5"/></svg>{% elif month_color == 'red' %}<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 4a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5A.5.5 0 0 1 8 4"/></svg>{% endif %}{{ month_pct }}%</span>
                     </span>
                 </div>
-                <div class="metadata-row">
-                    <span class="metadata-label">Year-to-Date (YTD)</span>
-                    <span class="metadata-value">
-                        {{ taken_ytd }} items
-                        <span style="font-size: 0.8rem; font-weight: 700; margin-left: 8px; color: {% if ytd_color == 'green' %}#10b981{% elif ytd_color == 'red' %}#ef4444{% else %}var(--text-secondary){% endif %};">
-                            ({{ ytd_pct }}%)
-                        </span>
+                <div class="ins-row">
+                    <span class="ins-row-label">Year-to-Date (YTD)</span>
+                    <span class="ins-row-value">
+                        {{ taken_ytd }} <span class="sub">items</span>
+                        <span class="ins-delta{% if ytd_color == 'green' %} up{% elif ytd_color == 'red' %} down{% endif %}" title="Change vs. the previous period">{% if ytd_color == 'green' %}<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 12a.5.5 0 0 0 .5-.5V5.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 1 0 .708.708L7.5 5.707V11.5a.5.5 0 0 0 .5.5"/></svg>{% elif ytd_color == 'red' %}<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 4a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5A.5.5 0 0 1 8 4"/></svg>{% endif %}{{ ytd_pct }}%</span>
                     </span>
                 </div>
-                <div class="metadata-row">
-                    <span class="metadata-label">Past 365 Days</span>
-                    <span class="metadata-value">
-                        {{ taken_year }} items
-                        <span style="font-size: 0.8rem; font-weight: 700; margin-left: 8px; color: {% if year_color == 'green' %}#10b981{% elif year_color == 'red' %}#ef4444{% else %}var(--text-secondary){% endif %};">
-                            ({{ year_pct }}%)
-                        </span>
+                <div class="ins-row">
+                    <span class="ins-row-label">Past 365 Days</span>
+                    <span class="ins-row-value">
+                        {{ taken_year }} <span class="sub">items</span>
+                        <span class="ins-delta{% if year_color == 'green' %} up{% elif year_color == 'red' %} down{% endif %}" title="Change vs. the previous period">{% if year_color == 'green' %}<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 12a.5.5 0 0 0 .5-.5V5.707l2.146 2.147a.5.5 0 0 0 .708-.708l-3-3a.5.5 0 0 0-.708 0l-3 3a.5.5 0 1 0 .708.708L7.5 5.707V11.5a.5.5 0 0 0 .5.5"/></svg>{% elif year_color == 'red' %}<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M8 4a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5A.5.5 0 0 1 8 4"/></svg>{% endif %}{{ year_pct }}%</span>
                     </span>
                 </div>
             </div>
         </div>
 
-        <!-- Top Cameras -->
-        <div class="chart-card">
-            <div class="chart-card-title">Top Equipment</div>
+        <!-- Top cameras -->
+        <div class="ins-card">
+            <div class="ins-card-head">
+                <h2 class="ins-card-title">Top Equipment</h2>
+            </div>
             {% if cameras %}
-            <div class="photo-description">
+            <div class="ins-rows">
                 {% for cam in cameras %}
-                <div class="metadata-row">
-                    <span class="metadata-label" style="font-weight: 600;">{{ cam.camera_make|default:"Unknown" }}</span>
-                    <span class="metadata-value">{{ cam.camera_model|default:"—" }} ({{ cam.count }} captures)</span>
+                <div class="ins-row">
+                    <span class="ins-row-label strong">{{ cam.camera_make|default:"Unknown" }}</span>
+                    <span class="ins-row-value">{{ cam.camera_model|default:"—" }} <span class="sub">· {{ cam.count }} captures</span></span>
                 </div>
                 {% endfor %}
             </div>
             {% else %}
-            <div class="text-muted text-center" style="padding-top: 40px;">No camera metadata available.</div>
+            <div class="ins-empty">No camera metadata available.</div>
             {% endif %}
         </div>
     </div>
@@ -184,326 +186,47 @@
 {% endblock %}
 
 {% block extra_scripts %}
-<!-- Load Chart.js from CDN -->
+<!-- Chart data (JSON, read by photo/stats.js) -->
+{{ months_12_labels|json_script:"st-months_12_labels" }}
+{{ months_12_data_all|json_script:"st-months_12_data_all" }}
+{{ months_12_data_photo|json_script:"st-months_12_data_photo" }}
+{{ months_12_data_video|json_script:"st-months_12_data_video" }}
+{{ months_12_data_video_duration|json_script:"st-months_12_data_video_duration" }}
+{{ months_24_labels|json_script:"st-months_24_labels" }}
+{{ months_24_data_all|json_script:"st-months_24_data_all" }}
+{{ months_24_data_photo|json_script:"st-months_24_data_photo" }}
+{{ months_24_data_video|json_script:"st-months_24_data_video" }}
+{{ months_24_data_video_duration|json_script:"st-months_24_data_video_duration" }}
+{{ months_60_labels|json_script:"st-months_60_labels" }}
+{{ months_60_data_all|json_script:"st-months_60_data_all" }}
+{{ months_60_data_photo|json_script:"st-months_60_data_photo" }}
+{{ months_60_data_video|json_script:"st-months_60_data_video" }}
+{{ months_60_data_video_duration|json_script:"st-months_60_data_video_duration" }}
+{{ years_10_labels|json_script:"st-years_10_labels" }}
+{{ years_10_data_all|json_script:"st-years_10_data_all" }}
+{{ years_10_data_photo|json_script:"st-years_10_data_photo" }}
+{{ years_10_data_video|json_script:"st-years_10_data_video" }}
+{{ years_10_data_video_duration|json_script:"st-years_10_data_video_duration" }}
+{{ all_years_labels|json_script:"st-all_years_labels" }}
+{{ all_years_data_all|json_script:"st-all_years_data_all" }}
+{{ all_years_data_photo|json_script:"st-all_years_data_photo" }}
+{{ all_years_data_video|json_script:"st-all_years_data_video" }}
+{{ all_years_data_video_duration|json_script:"st-all_years_data_video_duration" }}
+{{ hours_labels|json_script:"st-hours_labels" }}
+{{ hours_data_all|json_script:"st-hours_data_all" }}
+{{ hours_data_photo|json_script:"st-hours_data_photo" }}
+{{ hours_data_video|json_script:"st-hours_data_video" }}
+{{ hours_data_video_duration|json_script:"st-hours_data_video_duration" }}
+{{ days_labels|json_script:"st-days_labels" }}
+{{ days_data_all|json_script:"st-days_data_all" }}
+{{ days_data_photo|json_script:"st-days_data_photo" }}
+{{ days_data_video|json_script:"st-days_data_video" }}
+{{ days_data_video_duration|json_script:"st-days_data_video_duration" }}
+{{ months_year_labels|json_script:"st-months_year_labels" }}
+{{ months_year_data_all|json_script:"st-months_year_data_all" }}
+{{ months_year_data_photo|json_script:"st-months_year_data_photo" }}
+{{ months_year_data_video|json_script:"st-months_year_data_video" }}
+{{ months_year_data_video_duration|json_script:"st-months_year_data_video_duration" }}
 <script src="{% static 'vendor/chartjs-4.6.1/chart.umd.min.js' %}"></script>
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const isDarkMode = {% if request.user.dark_mode %}true{% else %}false{% endif %};
-        const textColor = isDarkMode ? '#94a3b8' : '#64748b';
-        const gridColor = isDarkMode ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)';
-
-        // Datasets definition for dynamic chart ranges and media types
-        const datasets = {
-            '12m': {
-                labels: {{ months_12_labels|safe }},
-                all: {{ months_12_data_all|safe }},
-                photo: {{ months_12_data_photo|safe }},
-                video: {{ months_12_data_video|safe }},
-                video_duration: {{ months_12_data_video_duration|safe }}
-            },
-            '24m': {
-                labels: {{ months_24_labels|safe }},
-                all: {{ months_24_data_all|safe }},
-                photo: {{ months_24_data_photo|safe }},
-                video: {{ months_24_data_video|safe }},
-                video_duration: {{ months_24_data_video_duration|safe }}
-            },
-            '5y': {
-                labels: {{ months_60_labels|safe }},
-                all: {{ months_60_data_all|safe }},
-                photo: {{ months_60_data_photo|safe }},
-                video: {{ months_60_data_video|safe }},
-                video_duration: {{ months_60_data_video_duration|safe }}
-            },
-            '10y': {
-                labels: {{ years_10_labels|safe }},
-                all: {{ years_10_data_all|safe }},
-                photo: {{ years_10_data_photo|safe }},
-                video: {{ years_10_data_video|safe }},
-                video_duration: {{ years_10_data_video_duration|safe }}
-            },
-            'all': {
-                labels: {{ all_years_labels|safe }},
-                all: {{ all_years_data_all|safe }},
-                photo: {{ all_years_data_photo|safe }},
-                video: {{ all_years_data_video|safe }},
-                video_duration: {{ all_years_data_video_duration|safe }}
-            }
-        };
-
-        const hourlyDataset = {
-            labels: {{ hours_labels|safe }},
-            all: {{ hours_data_all|safe }},
-            photo: {{ hours_data_photo|safe }},
-            video: {{ hours_data_video|safe }},
-            video_duration: {{ hours_data_video_duration|safe }}
-        };
-
-        const dailyDataset = {
-            labels: {{ days_labels|safe }},
-            all: {{ days_data_all|safe }},
-            photo: {{ days_data_photo|safe }},
-            video: {{ days_data_video|safe }},
-            video_duration: {{ days_data_video_duration|safe }}
-        };
-
-        const monthlyDataset = {
-            labels: {{ months_year_labels|safe }},
-            all: {{ months_year_data_all|safe }},
-            photo: {{ months_year_data_photo|safe }},
-            video: {{ months_year_data_video|safe }},
-            video_duration: {{ months_year_data_video_duration|safe }}
-        };
-
-        // 1. History Chart
-        const monthCtx = document.getElementById('monthChart').getContext('2d');
-        const historyChart = new Chart(monthCtx, {
-            type: 'bar',
-            data: {
-                labels: datasets['12m'].labels,
-                datasets: [{
-                    label: 'Items Uploaded',
-                    data: datasets['12m'].all,
-                    backgroundColor: 'rgba(37, 99, 235, 0.75)',
-                    borderColor: 'rgb(37, 99, 235)',
-                    borderWidth: 1,
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: textColor }
-                    },
-                    y: {
-                        grid: { color: gridColor },
-                        ticks: { color: textColor, precision: 0 }
-                    }
-                }
-            }
-        });
-
-        // Toggle History Chart range/media type dynamically
-        function updateHistoryChart() {
-            const range = document.getElementById('chartRangeSelect').value;
-            const mediaType = document.getElementById('chartTypeSelect').value;
-            const dataObj = datasets[range];
-            
-            historyChart.data.labels = dataObj.labels;
-            historyChart.data.datasets[0].data = dataObj[mediaType];
-            
-            // Adjust colors depending on selection
-            if (mediaType === 'photo') {
-                historyChart.data.datasets[0].backgroundColor = 'rgba(16, 185, 129, 0.75)'; // Green for photos
-                historyChart.data.datasets[0].borderColor = 'rgb(16, 185, 129)';
-                historyChart.data.datasets[0].label = 'Items Uploaded';
-            } else if (mediaType === 'video') {
-                historyChart.data.datasets[0].backgroundColor = 'rgba(245, 158, 11, 0.75)'; // Orange/Yellow for videos
-                historyChart.data.datasets[0].borderColor = 'rgb(245, 158, 11)';
-                historyChart.data.datasets[0].label = 'Items Uploaded';
-            } else if (mediaType === 'video_duration') {
-                historyChart.data.datasets[0].backgroundColor = 'rgba(168, 85, 247, 0.75)'; // Purple for duration
-                historyChart.data.datasets[0].borderColor = 'rgb(168, 85, 247)';
-                historyChart.data.datasets[0].label = 'Minutes';
-            } else {
-                historyChart.data.datasets[0].backgroundColor = 'rgba(37, 99, 235, 0.75)'; // Blue for all
-                historyChart.data.datasets[0].borderColor = 'rgb(37, 99, 235)';
-                historyChart.data.datasets[0].label = 'Items Uploaded';
-            }
-            
-            historyChart.update();
-        }
-
-        document.getElementById('chartRangeSelect').addEventListener('change', updateHistoryChart);
-        document.getElementById('chartTypeSelect').addEventListener('change', updateHistoryChart);
-
-        // 2. Hourly Activity Chart
-        const hourCtx = document.getElementById('hourChart').getContext('2d');
-        const hourChart = new Chart(hourCtx, {
-            type: 'line',
-            data: {
-                labels: hourlyDataset.labels,
-                datasets: [{
-                    label: 'Captures',
-                    data: hourlyDataset.all,
-                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                    borderColor: 'rgb(37, 99, 235)',
-                    borderWidth: 2,
-                    tension: 0.3,
-                    fill: true
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: textColor }
-                    },
-                    y: {
-                        grid: { color: gridColor },
-                        ticks: { color: textColor, precision: 0 }
-                    }
-                }
-            }
-        });
-
-        // Toggle Hourly Activity media type dynamically
-        document.getElementById('hourTypeSelect').addEventListener('change', function() {
-            const mediaType = this.value;
-            hourChart.data.datasets[0].data = hourlyDataset[mediaType];
-            
-            // Adjust colors depending on selection
-            if (mediaType === 'photo') {
-                hourChart.data.datasets[0].backgroundColor = 'rgba(16, 185, 129, 0.1)';
-                hourChart.data.datasets[0].borderColor = 'rgb(16, 185, 129)';
-                hourChart.data.datasets[0].label = 'Captures';
-            } else if (mediaType === 'video') {
-                hourChart.data.datasets[0].backgroundColor = 'rgba(245, 158, 11, 0.1)';
-                hourChart.data.datasets[0].borderColor = 'rgb(245, 158, 11)';
-                hourChart.data.datasets[0].label = 'Captures';
-            } else if (mediaType === 'video_duration') {
-                hourChart.data.datasets[0].backgroundColor = 'rgba(168, 85, 247, 0.1)';
-                hourChart.data.datasets[0].borderColor = 'rgb(168, 85, 247)';
-                hourChart.data.datasets[0].label = 'Minutes';
-            } else {
-                hourChart.data.datasets[0].backgroundColor = 'rgba(59, 130, 246, 0.1)';
-                hourChart.data.datasets[0].borderColor = 'rgb(37, 99, 235)';
-                hourChart.data.datasets[0].label = 'Captures';
-            }
-            
-            hourChart.update();
-        });
-
-        // 3. Daily Activity Chart (Bar Chart)
-        const dayCtx = document.getElementById('dayChart').getContext('2d');
-        const dayChart = new Chart(dayCtx, {
-            type: 'bar',
-            data: {
-                labels: dailyDataset.labels,
-                datasets: [{
-                    label: 'Captures',
-                    data: dailyDataset.all,
-                    backgroundColor: 'rgba(37, 99, 235, 0.75)',
-                    borderColor: 'rgb(37, 99, 235)',
-                    borderWidth: 1,
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: textColor }
-                    },
-                    y: {
-                        grid: { color: gridColor },
-                        ticks: { color: textColor, precision: 0 }
-                    }
-                }
-            }
-        });
-
-        // Toggle Daily Activity media type dynamically
-        document.getElementById('dayTypeSelect').addEventListener('change', function() {
-            const mediaType = this.value;
-            dayChart.data.datasets[0].data = dailyDataset[mediaType];
-            
-            if (mediaType === 'photo') {
-                dayChart.data.datasets[0].backgroundColor = 'rgba(16, 185, 129, 0.75)';
-                dayChart.data.datasets[0].borderColor = 'rgb(16, 185, 129)';
-                dayChart.data.datasets[0].label = 'Captures';
-            } else if (mediaType === 'video') {
-                dayChart.data.datasets[0].backgroundColor = 'rgba(245, 158, 11, 0.75)';
-                dayChart.data.datasets[0].borderColor = 'rgb(245, 158, 11)';
-                dayChart.data.datasets[0].label = 'Captures';
-            } else if (mediaType === 'video_duration') {
-                dayChart.data.datasets[0].backgroundColor = 'rgba(168, 85, 247, 0.75)';
-                dayChart.data.datasets[0].borderColor = 'rgb(168, 85, 247)';
-                dayChart.data.datasets[0].label = 'Minutes';
-            } else {
-                dayChart.data.datasets[0].backgroundColor = 'rgba(37, 99, 235, 0.75)';
-                dayChart.data.datasets[0].borderColor = 'rgb(37, 99, 235)';
-                dayChart.data.datasets[0].label = 'Captures';
-            }
-            
-            dayChart.update();
-        });
-
-        // 4. Monthly Activity Chart (Bar Chart)
-        const monthOfYearCtx = document.getElementById('monthOfYearChart').getContext('2d');
-        const monthOfYearChart = new Chart(monthOfYearCtx, {
-            type: 'bar',
-            data: {
-                labels: monthlyDataset.labels,
-                datasets: [{
-                    label: 'Captures',
-                    data: monthlyDataset.all,
-                    backgroundColor: 'rgba(37, 99, 235, 0.75)',
-                    borderColor: 'rgb(37, 99, 235)',
-                    borderWidth: 1,
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false }
-                },
-                scales: {
-                    x: {
-                        grid: { display: false },
-                        ticks: { color: textColor }
-                    },
-                    y: {
-                        grid: { color: gridColor },
-                        ticks: { color: textColor, precision: 0 }
-                    }
-                }
-            }
-        });
-
-        // Toggle Monthly Activity media type dynamically
-        document.getElementById('monthTypeSelect').addEventListener('change', function() {
-            const mediaType = this.value;
-            monthOfYearChart.data.datasets[0].data = monthlyDataset[mediaType];
-            
-            if (mediaType === 'photo') {
-                monthOfYearChart.data.datasets[0].backgroundColor = 'rgba(16, 185, 129, 0.75)';
-                monthOfYearChart.data.datasets[0].borderColor = 'rgb(16, 185, 129)';
-                monthOfYearChart.data.datasets[0].label = 'Captures';
-            } else if (mediaType === 'video') {
-                monthOfYearChart.data.datasets[0].backgroundColor = 'rgba(245, 158, 11, 0.75)';
-                monthOfYearChart.data.datasets[0].borderColor = 'rgb(245, 158, 11)';
-                monthOfYearChart.data.datasets[0].label = 'Captures';
-            } else if (mediaType === 'video_duration') {
-                monthOfYearChart.data.datasets[0].backgroundColor = 'rgba(168, 85, 247, 0.75)';
-                monthOfYearChart.data.datasets[0].borderColor = 'rgb(168, 85, 247)';
-                monthOfYearChart.data.datasets[0].label = 'Minutes';
-            } else {
-                monthOfYearChart.data.datasets[0].backgroundColor = 'rgba(37, 99, 235, 0.75)';
-                monthOfYearChart.data.datasets[0].borderColor = 'rgb(37, 99, 235)';
-                monthOfYearChart.data.datasets[0].label = 'Captures';
-            }
-            
-            monthOfYearChart.update();
-        });
-    });
-</script>
+<script src="{% static 'photo/stats.js' %}"></script>
 {% endblock %}

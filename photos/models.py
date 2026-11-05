@@ -157,6 +157,7 @@ class Photo(models.Model):
     metadata = models.JSONField(default=dict, null=True, blank=True)
     ai_index_info = models.JSONField(default=dict, null=True, blank=True)
     file_not_available = models.BooleanField(default=False)
+    hidden = models.BooleanField(default=False, db_index=True, help_text="Hidden from everyone; the owner sees it only in show-hidden mode")
 
     # Duplicate detection — stored as flat columns for fast DB-level lookups
     md5_hash = models.CharField(max_length=32, null=True, blank=True, help_text="MD5 of the file bytes — exact duplicate detection")
@@ -167,6 +168,10 @@ class Photo(models.Model):
         indexes = [
             # Specifically indexes the 'objects' key inside the JSON
             GinIndex(fields=['ai_index_info'], name='idx_objects_gin'),
+            # Timeline/album pages: newest first, keyset on (date_taken, id); also date-range counts
+            models.Index(fields=['date_taken', 'id'], name='photo_date_taken_idx'),
+            # Photos near a place: bounding-box query (latitude range, longitude checked in the index)
+            models.Index(fields=['latitude', 'longitude'], name='photo_lat_lng_idx'),
         ]
 
     def __str__(self):
@@ -330,6 +335,17 @@ class Photo(models.Model):
                 self.save()
         except: pass
 
+    def set_location(self, lat, lng):
+        """Entered coordinates (None clears them), with the city/country that go with them. A 0
+        coordinate is broken GPS (BROKEN_GPS), not a place: the city/country are cleared too."""
+        self.latitude, self.longitude = lat, lng
+        if not lat or not lng:
+            self.location_city = self.location_country = None
+            self.save(update_fields=["latitude", "longitude", "location_city", "location_country"])
+        else:
+            self.save(update_fields=["latitude", "longitude"])
+            self.refresh_city_data()  # offline reverse geocoding: city/country
+
     def refresh_gps_data(self):
         try:
             gpsdata = gpsphoto.getGPSData(self.album.location + self.filepath)
@@ -427,8 +443,11 @@ class Photo(models.Model):
         f = self.get_filepath()
         try:
             img = Image.open(f)
-            self.width = img.size[0]
-            self.height = img.size[1]
+            self.width, self.height = img.size
+            # EXIF orientations 5-8 mean the camera stored the image rotated 90 degrees:
+            # record the size as displayed (the thumbnail is already exif_transpose'd).
+            if (img.getexif() or {}).get(0x0112, 1) in (5, 6, 7, 8):
+                self.width, self.height = self.height, self.width
             self.calculate_megapixels()
 
             try:
@@ -629,8 +648,11 @@ def generate_video_thumbnail(video_path, output_path, video_id):
 
     # Open video file
     cap = cv2.VideoCapture(video_path)
-    
+
     if not cap.isOpened(): raise FileNotFoundError
+    # Newer OpenCV builds rotate frames automatically; turn that off so the explicit
+    # rotation below is applied exactly once on every version (else: sideways thumbnails).
+    cap.set(cv2.CAP_PROP_ORIENTATION_AUTO, 0)
 
     # Read the first frame
     ret, frame = cap.read()
@@ -656,7 +678,7 @@ def generate_video_thumbnail(video_path, output_path, video_id):
     elif rotation == 270:
         frame = cv2.rotate(frame, cv2.ROTATE_90_COUNTERCLOCKWISE)
 
-    width, height, _ = frame.shape
+    height, width = frame.shape[:2]  # numpy shape is (rows, cols, channels)
 
     img = Image.fromarray(frame)
 
@@ -717,10 +739,52 @@ class PhotoLocationCache(models.Model):
         db_table = 'photos_photo_location_cache'
         unique_together = ['album_id', 'lat', 'lng', 'on_plane', 'dt_year', 'cnt']
 
-def refresh_photo_location_cache():
-    # Postgres: a materialized view (photos/sql/photo_location_cache.sql) that needs
-    # refreshing. SQLite (local testing): a plain view (migration 0022), always current.
+class PhotoDaily(models.Model):
+    """Per library album and local day: counts, sizes, video length (hidden photos left out).
+    A materialized view on Postgres (migration 0026), a plain view on SQLite."""
+    id = models.CharField(max_length=40, primary_key=True)
+    album_id = models.IntegerField()
+    day = models.DateField()
+    photos = models.IntegerField()
+    videos = models.IntegerField()
+    size_kb = models.BigIntegerField()
+    size_total_kb = models.BigIntegerField()
+    length_s = models.BigIntegerField()
+
+    class Meta:
+        managed = False
+        db_table = 'photos_photo_daily'
+
+
+# Photos taken at or above this altitude (metres) count as "on a plane": left out of heatmaps and place lists.
+PLANE_ALTITUDE_M = 2000
+
+# A coordinate of exactly 0 is broken GPS (some phones write the right latitude with longitude 0.0,
+# which lands in southern France), not a photo on the equator or meridian: treated as no location.
+BROKEN_GPS = models.Q(latitude=0) | models.Q(longitude=0)
+
+MATVIEWS = ('photos_photo_location_cache', 'photos_photo_daily')
+
+
+def refresh_photo_matviews(views=MATVIEWS):
+    """Refresh the photo materialized views (migrations 0025, 0026) after ingest or hiding.
+    CONCURRENTLY keeps them readable while refreshing. SQLite uses plain views: nothing to do.
+    Each refresh re-reads the whole photo table, so pass only the views a change can affect.
+    For changes made in a request, use photos.cache.schedule_matview_refresh (coalesced, in Celery)."""
+    from .cache import bump
+    bump()  # cached photo stats are stale too
     if connection.vendor != 'postgresql':
         return
+    import contextlib
+    from django.db import transaction
     with connection.cursor() as cursor:
-        cursor.execute('REFRESH MATERIALIZED VIEW photos_photo_location_cache;')
+        for view in views:
+            try:
+                # Inside a transaction (tests, atomic requests) a failed attempt must not abort it: savepoint.
+                with transaction.atomic() if connection.in_atomic_block else contextlib.nullcontext():
+                    cursor.execute(f'REFRESH MATERIALIZED VIEW CONCURRENTLY {view};')
+            except Exception:  # first refresh after creation, or no unique index yet
+                cursor.execute(f'REFRESH MATERIALIZED VIEW {view};')
+
+
+refresh_photo_location_cache = refresh_photo_matviews  # old name, still used by ingest code

@@ -9,9 +9,21 @@ class LocationGroup(models.Model):
     description = models.TextField(blank=True)
     owner = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='location_groups')
     is_public = models.BooleanField(default=False)
+    archived = models.BooleanField(default=False)  # owner: hide everywhere (like a disabled calendar)
 
     def __str__(self):
         return self.name
+
+
+class GroupPreference(models.Model):
+    """Per person: whether a group's places are shown on their map. Hidden by default, so a map with
+    thousands of places only loads the groups someone turned on (like calendar visibility)."""
+    user = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='place_group_prefs')
+    group = models.ForeignKey(LocationGroup, on_delete=models.CASCADE, related_name='preferences')
+    visible = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = [('user', 'group')]
 
 
 class Location(models.Model):
@@ -66,6 +78,15 @@ class Location(models.Model):
         blank=True
     )
     notes = models.TextField(blank=True)
+
+    STATUS_CHOICES = [
+        ('saved', 'Saved'),
+        ('want_to_go', 'Want to go'),
+        ('visited', 'Visited'),
+    ]
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='saved')
+    visited_on = models.DateField(null=True, blank=True)
+    updated_on = models.DateTimeField(auto_now=True)
 
     def __str__(self):
         return self.name

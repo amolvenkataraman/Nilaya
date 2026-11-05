@@ -1,0 +1,66 @@
+/* Notifications page: inbox groups, delivery channel rows. Settings rows come from settings.css. */
+.notif-page .set-section-head h1 { font-size: var(--fs-lg); }
+
+/* Inbox */
+.inbox-group:first-child .inbox-day { border-radius: var(--r) var(--r) 0 0; }
+.chan-switch { display: inline-flex; }
+.inbox-group + .inbox-group { border-top: var(--hairline); }
+.inbox-day {
+  position: sticky; top: var(--topbar-h); z-index: 1; padding: 0.5rem 1rem 0.375rem; font-size: var(--fs-xs); font-weight: 600;
+  color: var(--app-muted); background: color-mix(in srgb, var(--app-surface) 94%, transparent); backdrop-filter: blur(6px);
+}
+.inbox-row { display: flex; align-items: flex-start; gap: 0.125rem; padding: 0 0.375rem; border-radius: var(--r-sm); margin: 0 0.25rem; }
+.inbox-row:hover { background: var(--hover); }
+.inbox-row .notif { flex: 1; min-width: 0; padding-left: 0.5rem; }
+.inbox-row .notif:hover { background: transparent; }
+.inbox-row:last-child { margin-bottom: 0.375rem; }
+.inbox-del { opacity: 0; margin-top: 0.5rem; flex: none; }
+.inbox-row:hover .inbox-del, .inbox-row:focus-within .inbox-del { opacity: 1; }
+.inbox-row .notif-act { margin-top: 0; }
+@media (hover: none) { .inbox-del { opacity: 1; } }
+.inbox-more { display: flex; justify-content: center; padding: 0.75rem; border-top: var(--hairline); }
+.inbox-empty { padding: 2.5rem 1rem; }
+
+/* Channels */
+.chan-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.75rem 0.75rem 0.75rem 1rem; }
+.chan-row + .chan-row { border-top: var(--hairline); }
+.chan-icon { width: 2rem; height: 2rem; border-radius: var(--r-sm); display: grid; place-items: center; flex: none; background: var(--app-surface-2); color: var(--app-muted); border: var(--hairline); }
+.chan-main { flex: 1; min-width: 0; display: grid; gap: 0.125rem; }
+.chan-title { display: flex; align-items: center; gap: 0.5rem; font-size: var(--fs-sm); font-weight: 600; min-width: 0; }
+.chan-dest { font-size: var(--fs-xs); color: var(--app-muted); font-family: var(--app-font-mono); }
+.chan-meta { display: flex; align-items: center; flex-wrap: wrap; row-gap: 0.125rem; column-gap: 0.75rem; font-size: var(--fs-xs); color: var(--app-muted); min-width: 0; }
+.chan-error { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--app-danger); min-width: 0; }
+.chan-error svg { flex: none; }
+.chan-actions { display: flex; align-items: center; gap: 0.5rem; flex: none; }
+.chan-prio { width: auto; height: 1.75rem; font-size: var(--fs-xs); }
+.chan-row.off .chan-main { opacity: 0.6; }
+
+@media (max-width: 760px) {
+  .chan-row { flex-wrap: wrap; align-items: flex-start; }
+  .chan-main { flex-basis: calc(100% - 2.75rem); }
+  .chan-actions { width: 100%; padding-left: 2.75rem; }
+  .chan-prio { flex: 1; }
+  .chan-meta > span:first-child { white-space: nowrap; }
+  .chan-error .truncate { white-space: normal; overflow-wrap: anywhere; }
+  .chan-error { align-items: flex-start; }
+  .chan-error svg { margin-top: 0.1875rem; }
+  .inbox-day { top: var(--topbar-h); }
+}
+
+/* Inbox toolbar + rows (row design shared with the bell, components/NotificationBell.tsx) */
+.inbox-tools { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 0.75rem; }
+.inbox-source { width: auto; min-width: 9rem; }
+.inbox-search { display: flex; align-items: center; gap: 0.375rem; height: 2rem; padding: 0 0.625rem; flex: 1; min-width: 12rem; border-radius: var(--r-sm); background: var(--app-surface); border: var(--hairline); color: var(--app-muted); }
+.inbox-search:focus-within { border-color: var(--app-accent); color: var(--app-fg); }
+.inbox-search input { flex: 1; min-width: 0; border: 0; outline: none; background: none; font-size: var(--fs-sm); }
+.inbox-row { display: block; padding: 0; margin: 0 0.25rem; }
+.inbox-row .notif { padding-left: 0.75rem; }
+.inbox-keys { margin-top: 0.5rem; }
+@media (max-width: 760px) { .inbox-keys { display: none; } .inbox-search { flex-basis: 100%; } }
+.inbox-row:hover { background: none; }
+.inbox-row .notif:hover, .inbox-row .notif.selected { background: var(--hover); }
+.chan-list { display: grid; gap: 0.5rem; }
+.chan-list .chan-row { background: var(--app-surface); border: var(--hairline); border-radius: var(--r); box-shadow: var(--card-shadow); }
+.chan-list .chan-row + .chan-row { border-top: var(--hairline); }
+.chan-ok { display: inline-flex; align-items: center; gap: 0.25rem; color: var(--app-success); }
+.chan-meta .chip { height: 1.125rem; }

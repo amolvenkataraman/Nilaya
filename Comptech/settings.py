@@ -36,6 +36,16 @@ SECRET_KEY = _read_secret('secret.txt')
 DB_PASSWORD = _read_secret('db_password.txt', required=False)  # unused with SQLite
 SALT = _read_secret('salt.txt')
 
+# Location-entry tool spots (photos/api_presets.py): personal coordinates stay out of the repo, in an
+# untracked JSON file next to the secrets: {"presets": [{label, lat, lng}], "focus": [{label, lat, lng, zoom}]}
+try:
+    import json as _json
+    _spots = _json.loads(_read_secret('photos_locate.json', required=False) or '{}')
+except ValueError:
+    _spots = {}
+PHOTOS_LOCATE_PRESETS = _spots.get('presets', [])
+PHOTOS_LOCATE_FOCUS = _spots.get('focus', [])
+
 # ---- Filesystem layout (server defaults; settings_local.py overrides all of these)
 PHOTOS_ROOT = '/mnt/data/Photos/'          # albums live under here; nginx /photo_cdn/ aliases it
 PRIVATE_ROOT = '/www/private/'             # nginx /private/ aliases it (thumbnail cache, ...)
@@ -43,6 +53,18 @@ THUMBNAIL_DIR = PRIVATE_ROOT + 'photo_cache/thumbnail/'
 UPLOADS_DIR = PHOTOS_ROOT + 'Uploads/'
 SERVE_FILES_WITH_DJANGO = False            # True only for local testing (no nginx)
 PHOTOS_INGEST_HARDLINK = False             # local testing: hardlink instead of copy on ingest
+
+# Absolute base URL, used for links in notifications pushed to phones/email.
+SITE_URL = 'https://app.example.com'
+
+# Email for notifications (optional). Leave EMAIL_HOST empty to disable email
+# delivery; the SMTP password goes in secrets (email_password.txt).
+EMAIL_HOST = ''
+EMAIL_PORT = 587
+EMAIL_HOST_USER = ''
+EMAIL_HOST_PASSWORD = _read_secret('email_password.txt', required=False)
+EMAIL_USE_TLS = True
+DEFAULT_FROM_EMAIL = 'AVNet Superapp <noreply@example.com>'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False # True in development, False in production
@@ -63,9 +85,11 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.postgres',  # GIN index (postgres.E005 on Django 6 without it); harmless on SQLite
 
     # Other Python libraries
     'channels',
+    'ninja',  # V2 API; listed so its docs use bundled (not CDN) assets
     'crispy_forms',
     'crispy_bootstrap4',
     'django_celery_beat',
@@ -75,6 +99,12 @@ INSTALLED_APPS = [
     'mainsite',
     'static_files',
     'notifications',
+    'tasks',
+    'apikeys',
+    'contacts',
+    'habits',
+    'analytics',
+    'feeds',
 
     # Main functionality apps
     'scheduler',
@@ -83,6 +113,8 @@ INSTALLED_APPS = [
 ]
 
 MIDDLEWARE = [
+    'django.middleware.gzip.GZipMiddleware',  # compress JSON/HTML; nginx only gzips static files. BREACH: Django masks CSRF tokens per request
+    'django.middleware.http.ConditionalGetMiddleware',  # ETag/If-None-Match: unchanged GETs become tiny 304s
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -90,6 +122,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'analytics.middleware.AnalyticsMiddleware',  # usage per person, app and day (analytics/models.py)
 ]
 
 # Other sites can't frame us (clickjacking); our own pages can (the calendar shows
@@ -123,12 +156,28 @@ ASGI_APPLICATION = 'Comptech.asgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'Comptech',
+        'ENGINE': 'django.db.backends.postgresql',  # psycopg 3
+        # Override only for rehearsals on a copy (docs/UPGRADE-phase-1.md); production uses "Comptech".
+        'NAME': os.environ.get('COMPTECH_DB_NAME', 'Comptech'),
         'USER': 'postgres',
         'PASSWORD': DB_PASSWORD,
         'HOST': '127.0.0.1',
         'PORT': '5432',
+        # A pool of open connections (psycopg 3, Django 5.1) instead of a new connection plus
+        # authentication on every request. Small: Daphne runs sync views on few threads, and each
+        # Celery worker process gets its own pool. COMPTECH_DB_POOL=0 turns it off.
+        'OPTIONS': {'pool': {'min_size': 1, 'max_size': 8, 'timeout': 10}} if os.environ.get('COMPTECH_DB_POOL', '1') != '0' else {},
+    },
+}
+
+# Shared cache in the Redis the app already uses (Celery broker, channels): one copy for Daphne and
+# the Celery workers, so an ingest in a worker can invalidate cached photo stats. Database 2.
+CACHES = {
+    'default': {
+        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+        'LOCATION': 'redis://localhost:6379/2',
+        'KEY_PREFIX': 'comptech',
+        'TIMEOUT': 300,
     },
 }
 
@@ -189,6 +238,12 @@ USE_TZ = True
 
 STATIC_ROOT = '/www/static'
 STATIC_URL = '/static/'
+# Hashed names (Comptech/storage.py): nginx serves /static/ with `expires max`, so without them
+# browsers kept old CSS/JS after an upgrade. Templates must use {% static %} (they all do).
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'Comptech.storage.LenientManifestStorage'},
+}
 
 
 # Tell Crispyforms (the form styling app) to use Bootstrap 4
@@ -219,6 +274,17 @@ CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 
 CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
+# Written into the beat database on every beat start: change intervals here, not in the admin
+# (admin edits to these entries are reset to these values on the next start).
+CELERY_BEAT_SCHEDULE = {
+    'task-reminders': {'task': 'tasks.tasks.send_due_reminders', 'schedule': 60.0},
+    'auto-reminders': {'task': 'tasks.tasks.send_auto_reminders', 'schedule': 60.0},
+    'habit-reminders': {'task': 'habits.tasks.send_habit_reminders', 'schedule': 60.0},
+    'contact-reminders': {'task': 'contacts.tasks.send_contact_reminders', 'schedule': crontab(minute=0, hour=8)},
+    'cleanup-notifications': {'task': 'notifications.tasks.cleanup_expired_notifications', 'schedule': 6 * 3600.0},
+    # Every calendar with "Sync automatically" on (ICS feeds use conditional GETs: cheap when unchanged).
+    'calendar-autosync': {'task': 'scheduler.tasks.autosync_calendars', 'schedule': 30 * 60.0},
+}
 
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'

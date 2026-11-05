@@ -1,15 +1,19 @@
 from django.shortcuts import render, redirect
-from django.db.models import Q, Count, Sum
+from django.db.models import Q, Count, Sum, Min, Max
+from django.db.models.functions import TruncMonth
 from django.http import HttpResponse, JsonResponse, FileResponse
 from django.contrib.auth.decorators import login_required
 from django.utils import timezone
 from django.conf import settings
+from django.db import connection
 from django.core.exceptions import ValidationError
 from wsgiref.util import FileWrapper
 from .models import *
 from .indeximg import photo_ingest_for_album
 from .tasks import ingest_all_photos
+from notifications.service import notify
 from .AI.objects import NAME_TO_ID_MAPPING
+from .hidden import can_control, visible, show_hidden
 from scheduler.models import *
 from django.conf import settings as _settings
 BASE_DIR, TIME_ZONE = _settings.BASE_DIR, _settings.TIME_ZONE
@@ -21,6 +25,10 @@ import dateparser
 import pytz
 import json
 import base64
+from collections import Counter
+from django.db import transaction
+from . import cache as photo_cache
+from .models import Album, BROKEN_GPS
 
 def get_bounds_from_request(request):
     bounds_b64 = request.GET.get('bounds')
@@ -80,8 +88,12 @@ def _get_base_photo_pool(request):
     is_owner = False
 
     if request.GET.get('album'):
-        album_qs = ShareAlbum.objects.filter(id=request.GET.get('album'))
-        if not album_qs.exists():
+        try:
+            album_qs = ShareAlbum.objects.filter(id=request.GET.get('album'))
+            missing = not album_qs.exists()
+        except ValidationError:  # not a UUID
+            missing = True
+        if missing:
             return None, None, False, error_response("Album does not exist", 404)
         album_obj = album_qs[0]
         is_owner = request.user.is_authenticated and (
@@ -105,7 +117,7 @@ def _get_base_photo_pool(request):
         albums = [s.album for s in album_subs]
         qs = Photo.objects.filter(album__in=albums)
 
-    return qs, album_obj, is_owner, None
+    return visible(qs, request), album_obj, is_owner, None
 
 
 def _apply_standard_filters(qs, request):
@@ -116,6 +128,16 @@ def _apply_standard_filters(qs, request):
     to be spread into a template context with **ctx.
     """
     ctx = {}
+
+    # free-text search box: place, camera or a detected object name
+    q = (request.GET.get("q") or "").strip()
+    if q:
+        match = (Q(location_city__icontains=q) | Q(location_country__icontains=q)
+                 | Q(camera_make__icontains=q) | Q(camera_model__icontains=q))
+        if q.lower() in NAME_TO_ID_MAPPING and connection.vendor == "postgresql":  # JSON contains: Postgres only
+            match |= Q(ai_index_info__objects__contains=[NAME_TO_ID_MAPPING[q.lower()]])
+        qs = qs.filter(match)
+    ctx["q"] = q
 
     # video
     if request.GET.get("video") == "1":
@@ -155,7 +177,8 @@ def _apply_standard_filters(qs, request):
             for o in raw_list if o.strip() in NAME_TO_ID_MAPPING
         ]
         if object_ids:
-            qs = qs.filter(ai_index_info__objects__contains=object_ids)
+            from .browse import with_objects
+            qs = with_objects(qs, object_ids)  # works on SQLite too (no JSON containment lookup there)
         else:
             qs = qs.none()
         ctx["objects"] = ",".join(str(i) for i in object_ids) if object_ids else None
@@ -240,6 +263,8 @@ def photos(request):
         date_filter = datetime.datetime.strftime(newest, "%Y-%m-%d")
 
     ntotal = qs.count()
+    cities = cameras = size_kb = 0
+    first_date = last_date = None
     if ntotal == 0:
         nphotos = nvideos = fyear = lyear = countries = 0
         no_photos = True
@@ -250,16 +275,33 @@ def photos(request):
         lyear = qs.reverse()[0].date_taken.year
         countries = qs.filter(
             Q(location_country__isnull=False) &
-            Q(Q(altitude__isnull=True) | Q(altitude__lte=1000))
+            Q(Q(altitude__isnull=True) | Q(altitude__lt=PLANE_ALTITUDE_M))
         ).values_list('location_country').distinct().count()
+        # Library summary strip: distinct places / cameras, storage and the exact date span.
+        cities = qs.filter(location_city__isnull=False, location_country__isnull=False) \
+            .values_list('location_city', 'location_country').distinct().count()
+        cameras = qs.filter(camera_make__isnull=False, camera_model__isnull=False) \
+            .values_list('camera_make', 'camera_model').distinct().count()
+        agg = qs.aggregate(kb=Sum('size_total'), first=Min('date_taken'), last=Max('date_taken'))
+        size_kb = agg['kb'] or 0
+        local = lambda dt: timezone.localtime(dt).date() if dt and timezone.is_aware(dt) else (dt.date() if dt else None)  # noqa: E731
+        first_date, last_date = local(agg['first']), local(agg['last'])
         no_photos = False
+
+    # Items per month, newest first, for the date scrubber.
+    months = [
+        [m.strftime("%Y-%m"), n] for m, n in
+        qs.annotate(m=TruncMonth('date_taken')).values_list('m').annotate(n=Count('id')).order_by('-m')
+        if m is not None
+    ]
 
     return render(request, 'photos/photos.html', {
         'newest':       datetime.datetime.strftime(newest, "%Y-%m-%d") if newest else None,
         'date_filter':  date_filter,
         'forward':      request.GET.get('forward') == '1',
         'left_sidebar': True,
-        'right_sidebar': True,
+        'right_sidebar': False,
+        'months':       months,
         'share_album':  album_obj.id if album_obj else None,
         'album_obj':    album_obj,
         'is_owner':     is_owner,
@@ -268,16 +310,45 @@ def photos(request):
         'nvideos':      nvideos,
         'drange':       f"{lyear}-{fyear}" if fyear and lyear else "N/A",
         'countries':    countries,
+        'cities':       cities,
+        'cameras':      cameras,
+        'size_kb':      size_kb,
+        'first_date':   first_date,
+        'last_date':    last_date,
         'no_photos':    no_photos,
         'active_page':  'photos',
         **fctx,   # video, cam_make, cam_model, country, city, objects, bounds, bounds_b64, similar_*
     })
 
 
+def _share_album_info(album, request):
+    """ShareAlbum.getinfo(), but counts, size, dates and cover only use photos this request may see."""
+    info = album.getinfo()
+    all_qs = Photo.objects.filter(photo_in_sharealbum__sharealbum=album)
+    qs = visible(all_qs, request)
+    if qs.count() == all_qs.count():
+        return info
+    agg = qs.aggregate(kb=Sum('size_total'), oldest=Min('date_taken'), newest=Max('date_taken'))
+    cover = album.cover_photo if album.cover_photo and qs.filter(id=album.cover_photo_id).exists() else qs.order_by('-date_taken').first()
+    kb = agg['kb'] or 0
+    mb = kb / 1024.0
+    info.update({
+        "photo_count": qs.filter(video=False).count(),
+        "video_count": qs.filter(video=True).count(),
+        "space_used_kb": kb,
+        "space_used": f"{mb / 1048576:.2f} TB" if mb >= 1048576 else f"{mb / 1024:.2f} GB" if mb >= 1024 else f"{mb:.1f} MB",
+        "cover_photo_id": str(cover.id) if cover else None,
+        "cover_photo_hash": cover.thumbnail_hash if cover else None,
+        "oldest_date": agg['oldest'].isoformat() if agg['oldest'] else "",
+        "newest_date": agg['newest'].isoformat() if agg['newest'] else "",
+    })
+    return info
+
+
 @login_required
 def my_albums_page(request):
     ses = ShareAlbum_Subscriber.objects.filter(user=request.user)
-    sa = [s.album.getinfo() for s in ses]
+    sa = [_share_album_info(s.album, request) for s in ses]
 
     return render(request, 'photos/albums.html', {
         "albums": sa,
@@ -304,7 +375,7 @@ def map(request):
             return error_response("Not authorized", 401)
         albums = [f_album]
 
-    photos = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False)
+    photos = visible(Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False), request)
 
     if date != None:
         try:
@@ -324,7 +395,7 @@ def map(request):
         if alt == "NIL":
             qry = Q(altitude=None)
         else:
-            qry = Q(altitude__lte=alt) | Q(altitude=None)
+            qry = Q(altitude__lt=alt) | Q(altitude=None)  # "max altitude" excludes the limit itself
 
         photos = photos.filter(qry)
 
@@ -332,7 +403,10 @@ def map(request):
     if vals:
         return JsonResponse({ 'coords': [[i.latitude, i.longitude] for i in photos] })
     else:
-        return render(request, 'photos/map.html', { 'coords': [[i.latitude, i.longitude] for i in photos] })
+        return render(request, 'photos/map.html', {
+            'coords': [[i.latitude, i.longitude, 1] for i in photos],
+            "left_sidebar": True, "right_sidebar": False, "active_page": "map",
+        })
 
 @login_required
 def map_new(request):
@@ -366,14 +440,17 @@ def map_new(request):
     if vals:
         return JsonResponse({ "coords": [[float(i['lat']), float(i['lng']), i['total_cnt']] for i in locs] })
     else:
-        return render(request, 'photos/map.html', { "coords": [[float(i['lat']), float(i['lng']), i['total_cnt']] for i in locs], "new_format": True })
+        return render(request, 'photos/map.html', {
+            "coords": [[float(i['lat']), float(i['lng']), i['total_cnt']] for i in locs],
+            "left_sidebar": True, "right_sidebar": False, "active_page": "map",
+        })
 
 @login_required
 def geoguessr(request):
     album_subs = request.user.album_subscribed.filter(visible=True)
     albums = [i.album for i in album_subs]
 
-    photo = Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False).exclude(latitude=0, longitude=0).order_by("?").first()
+    photo = visible(Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False), request).exclude(BROKEN_GPS).order_by("?").first()
     if photo is None:
         return error_response("No geotagged photos available", 404)
 
@@ -393,9 +470,9 @@ def geoguessr_ent(request):
             oq = oq & Q(date_taken__month=request.GET.get('month'))
 
         if request.GET.get('zero'):
-            photo = Photo.objects.filter(oq & Q(album__in=albums) & (Q(latitude=0) & Q(longitude=0))).order_by('-date_taken').first()
+            photo = visible(Photo.objects.filter(oq & Q(album__in=albums) & BROKEN_GPS), request).order_by('-date_taken').first()
         else:
-            photo = Photo.objects.filter(oq & Q(album__in=albums) & (Q(latitude__isnull=True) | Q(longitude__isnull=True))).order_by("?").first()
+            photo = visible(Photo.objects.filter(oq & Q(album__in=albums) & (Q(latitude__isnull=True) | Q(longitude__isnull=True))), request).order_by("?").first()
 
         if photo is None:
             return error_response("No photos without a location", 404)
@@ -411,14 +488,13 @@ def geoguessr_ent(request):
         except Photo.DoesNotExist:
             return error_response("Photo does not exist", 404)
 
-        album_subs = request.user.album_subscribed.all()
+        # Changing a photo's location is an edit: library owners/editors only (viewers could write before).
+        album_subs = request.user.album_subscribed.filter(subscribe_type__in=[0, 1])
         albums = [i.album for i in album_subs]
 
         if p.album in albums:
-            p.latitude = b['lat']
-            p.longitude = b['lng']
-            p.refresh_city_data()
-            p.save()
+            p.set_location(b['lat'], b['lng'])  # clears city/country for null or broken (0) coordinates
+            transaction.on_commit(lambda: photo_cache.schedule_matview_refresh(("photos_photo_location_cache",)))
             print(f"Saved location ({b['lat']}, {b['lng']}) for photo {b['photo']}")
             with open(os.path.join(BASE_DIR, "photo_gg_ent_log.txt"), "a") as f:
                 f.write(f"{b['photo']} --> ({b['lat']}, {b['lng']}) [{request.user.username}]\n")
@@ -431,9 +507,11 @@ def day(request, year, month, day):
     albums = [i.album for i in album_subs]
 
     date_str = f"{year}-{month}-{day}"
+    the_date = datetime.datetime.strptime(date_str, "%Y-%m-%d").date()
     context = {
         'title': f"Photos from {date_str}",
-        'photos': [i.getinfo_zip() for i in Photo.objects.filter(album__in=albums, date_taken__date=datetime.datetime.strptime(date_str, "%Y-%m-%d").date()).order_by('date_taken')]
+        'date': the_date,
+        'photos': [i.getinfo_zip() for i in visible(Photo.objects.filter(album__in=albums, date_taken__date=the_date), request).order_by('date_taken')]
     }
     return render(request, 'photos/day.html', context)
 
@@ -450,7 +528,7 @@ def event(request, event_id):
         if e.enddate == None: return error_response("Event is not bounded on the end time.")
         context = {
             'title': f"Photos from Event: {e.name}",
-            'photos': [i.getinfo_zip() for i in Photo.objects.filter(album__in=albums, date_taken__gte=e.startdate, date_taken__lte=e.enddate).order_by('date_taken')]
+            'photos': [i.getinfo_zip() for i in visible(Photo.objects.filter(album__in=albums, date_taken__gte=e.startdate, date_taken__lte=e.enddate), request).order_by('date_taken')]
         }
         return render(request, 'photos/day.html', context)
     except IndexError: return error_response("Invalid event")
@@ -461,7 +539,7 @@ def view_photo(request, photo_id):
     albums = [i.album for i in album_subs]
 
     try:
-        p = Photo.objects.filter(id=photo_id)[0]
+        p = visible(Photo.objects.filter(id=photo_id), request)[0]
         if p.album in albums or request.user.is_superuser:
             return render(request, 'photos/view_photo.html', { 'video': p.video, 'p_id': p.id, 'img_path': f"/photo_cdn/{p.photo_hash}/{p.get_path()}" })
         else:
@@ -492,6 +570,8 @@ def get_photos_for_date(request):
 
     # Apply all static filters once before the date loop
     qs, _fctx = _apply_standard_filters(qs, request)
+    uid = request.user.id if request.user.is_authenticated else None
+    owned = set(Album.objects.filter(owner_id=uid).values_list('id', flat=True)) if uid else set()  # may hide/unhide
 
     numdays   = int(request.GET.get("ndays"))   if request.GET.get("ndays")   else None
     numphotos = int(request.GET.get("nphotos")) if request.GET.get("nphotos") else None
@@ -524,7 +604,8 @@ def get_photos_for_date(request):
 
         ans.append({
             'date':       datetime.datetime.strftime(dt, "%Y-%m-%d"),
-            'photos':     [p.getinfo_zip() for p in day_qs],
+            'photos':     [{**p.getinfo_zip(), 'hidden': p.hidden, 'mine': p.owner_id == uid or p.album_id in owned}
+                           for p in day_qs],
             'cities':     [list(c) for c in citcount],
             'total_size': total_size,
         })
@@ -558,11 +639,11 @@ def get_photo(request, photo_id, ret_type):
                     or album[0].owner == request.user \
                     or request.user.is_superuser
                 ):
-                sp = ShareAlbum_Photo.objects.filter(photo__id=photo_id, sharealbum=album[0])
+                sp = visible(ShareAlbum_Photo.objects.filter(photo__id=photo_id, sharealbum=album[0]), request, prefix="photo__")
                 try:
                     photo = sp[0].photo
-                except IndexError:
-                    return error_response("Invalid photo")
+                except (IndexError, ValueError, ValidationError):
+                    return error_response("Photo does not exist", 404)
             else:
                 return error_response("Not authorized", 401)
         else:
@@ -575,16 +656,17 @@ def get_photo(request, photo_id, ret_type):
         albums = [i.album for i in album_subs]
 
         try:
-            photo = Photo.objects.filter(id=photo_id)[0]
+            photo = visible(Photo.objects.filter(id=photo_id), request)[0]
         except (IndexError, ValueError, ValidationError):
-            return error_response("Invalid photo")
+            return error_response("Photo does not exist", 404)
 
         if photo.album not in albums and not request.user.is_superuser:
             return error_response("Not authorized", 401)
 
 
     if ret_type == "info":
-        return JsonResponse(photo.getinfo())
+        mine = can_control(photo, request.user)  # may hide/unhide
+        return JsonResponse({**photo.getinfo(), "hidden": photo.hidden, "mine": mine})
     elif ret_type == "thumbnail":
         if photo.video:
             import cv2
@@ -628,13 +710,15 @@ def ingest_photos(request):
 @post_request_only
 @login_required_api
 def del_photo_req(request, photo_id):
-    album_subs = request.user.album_subscribed.all()
+    # Deleting removes files from disk: library owners/editors only, never viewers.
+    album_subs = request.user.album_subscribed.filter(subscribe_type__in=[0, 1])
     albums = [i.album for i in album_subs]
 
     try:
         p = Photo.objects.filter(id=photo_id)[0]
         if p.album in albums or request.user.is_superuser:
             delete_photo(p)
+            transaction.on_commit(photo_cache.schedule_matview_refresh)  # per-day counts and the heat map
             return success_response()
         else:
             return error_response("Not authorized", 401)
@@ -645,7 +729,7 @@ def del_photo_req(request, photo_id):
 @post_request_only
 @login_required_api
 def delete_photo_original(request, photo_id):
-    album_subs = request.user.album_subscribed.all()
+    album_subs = request.user.album_subscribed.filter(subscribe_type__in=[0, 1])  # owners/editors only
     albums = [i.album for i in album_subs]
 
     try:
@@ -675,6 +759,7 @@ def delete_photo_original(request, photo_id):
             p.orig_filepath = None
             p.update_file_sizes()
             p.save()
+            transaction.on_commit(photo_cache.schedule_matview_refresh)  # sizes per day; the original's own row is gone
 
         return JsonResponse({
             "status": "success",
@@ -692,11 +777,11 @@ def delete_photo_original(request, photo_id):
 def list_my_albums(request):
     if request.GET.get('all') == '1':
         ses = ShareAlbum_Subscriber.objects.filter(user=request.user)
-        sa = [s.album.getinfo() for s in ses]
+        sa = [_share_album_info(s.album, request) for s in ses]
 
     else:
         sas = ShareAlbum.objects.filter(owner=request.user)
-        sa = [album.getinfo() for album in sas]
+        sa = [_share_album_info(album, request) for album in sas]
     return JsonResponse({ "albums": sa })
 
 @post_request_only
@@ -726,10 +811,11 @@ def add_photo_to_album(request):
     if not has_album_write_access:
         return error_response("Not authorized to modify this album", 401)
 
+    added = []
     for pid in photo_id:
         try:
-            p = Photo.objects.get(id=pid)
-        except Photo.DoesNotExist:
+            p = visible(Photo.objects.filter(id=pid), request).get()
+        except (Photo.DoesNotExist, ValueError, ValidationError):
             continue
         
         # Check read access to photo p (owner, subscriber to physical album, or superuser)
@@ -743,8 +829,10 @@ def add_photo_to_album(request):
             if not ShareAlbum_Photo.objects.filter(sharealbum=sa, photo=p).exists():
                 sap = ShareAlbum_Photo(sharealbum=sa, photo=p)
                 sap.save()
+                added.append(str(p.id))
 
-    return success_response()
+    # Only the newly added ids, so an Undo removes exactly what this call added.
+    return success_response({"added": added})
 
 @post_request_only
 @login_required_api
@@ -842,7 +930,7 @@ def set_album_cover(request, album_id):
         return error_response("cover_photo_id is required", 400)
         
     try:
-        photo = Photo.objects.get(id=cover_photo_id)
+        photo = visible(Photo.objects.filter(id=cover_photo_id), request).get()
         if not ShareAlbum_Photo.objects.filter(sharealbum=album, photo=photo).exists():
             return error_response("Photo is not part of this album", 400)
     except Photo.DoesNotExist:
@@ -902,6 +990,9 @@ def manage_subscribers(request, album_id):
                 
             sub = ShareAlbum_Subscriber(album=album, user=target_user, subscribe_type=sub_type)
             sub.save()
+            notify(target_user, f"{request.user.get_full_name() or request.user.username} shared \"{album.name}\" with you",
+                   f"You can {'edit' if sub_type == 1 else 'view'} this album.", source="Photos",
+                   url=f"/photos/?album={album.id}")
             return success_response()
             
         elif action == "remove":
@@ -962,7 +1053,7 @@ def stats_page(request):
         albums = [i.album for i in album_subs]
 
     # Base queryset for photos in visible albums
-    qs = Photo.objects.filter(album__in=albums)
+    qs = visible(Photo.objects.filter(album__in=albums), request)
 
     total_count = qs.count()
     video_count = qs.filter(video=True).count()
@@ -1273,7 +1364,7 @@ def storage_page(request):
         albums = albums_list
 
     # Base queryset for photos in visible/admin albums
-    qs = Photo.objects.filter(album__in=albums)
+    qs = visible(Photo.objects.filter(album__in=albums), request)
 
     # Overall totals
     bd = get_storage_breakdown(qs)
@@ -1310,7 +1401,7 @@ def storage_page(request):
     # Group by Album
     album_storage = []
     for album in albums_list:
-        album_qs = Photo.objects.filter(album=album)
+        album_qs = visible(Photo.objects.filter(album=album), request)
         bd_album = get_storage_breakdown(album_qs)
         tot = bd_album['all']['tot']
         opt_photo = bd_album['photo']['opt']
@@ -1543,7 +1634,7 @@ def superlatives_page(request, category='biggest-files'):
         album_subs = request.user.album_subscribed.filter(visible=True)
         albums = [sub.album for sub in album_subs]
 
-    album_qs = Photo.objects.filter(album__in=albums)
+    album_qs = visible(Photo.objects.filter(album__in=albums), request)
 
     # Exclude standalone Photo entries whose filepath is already linked as an orig_filepath or raw_filepath of another primary photo
     orig_paths = set(album_qs.exclude(orig_filepath__isnull=True).exclude(orig_filepath='').values_list('orig_filepath', flat=True)) | \
@@ -1797,7 +1888,7 @@ def search_category(request, category):
 
     album_subs = request.user.album_subscribed.filter(visible=True)
     albums = [i.album for i in album_subs]
-    user_photos = Photo.objects.filter(album__in=albums)
+    user_photos = visible(Photo.objects.filter(album__in=albums), request)
 
     items = []
     category_name = ""
@@ -1812,7 +1903,7 @@ def search_category(request, category):
                         SELECT elem::int AS object_id, COUNT(*) AS count
                         FROM photos_photo,
                              jsonb_array_elements_text(COALESCE(ai_index_info->'objects', '[]'::jsonb)) AS elem
-                        WHERE album_id = ANY(%s)
+                        WHERE album_id = ANY(%s) AND NOT hidden
                         GROUP BY object_id
                     """, [album_ids])
                 else:  # SQLite (local testing)
@@ -1820,10 +1911,17 @@ def search_category(request, category):
                     cursor.execute(f"""
                         SELECT CAST(j.value AS INTEGER) AS object_id, COUNT(*) AS count
                         FROM photos_photo, json_each(photos_photo.ai_index_info, '$.objects') AS j
-                        WHERE album_id IN ({marks})
+                        WHERE album_id IN ({marks}) AND NOT hidden
                         GROUP BY object_id
                     """, album_ids)  # noqa: S608 - placeholders only
                 rows = cursor.fetchall()
+            if show_hidden(request):  # the owner's own hidden photos (few), counted in Python
+                extra = Counter()
+                for info in user_photos.filter(hidden=True).values_list('ai_index_info', flat=True):
+                    extra.update(int(o) for o in set((info or {}).get('objects') or []))
+                merged = Counter(dict(rows))
+                merged.update(extra)
+                rows = list(merged.items())
 
             for object_id, count in rows:
                 names = ID_TO_NAME_MAPPING.get(object_id, [])
@@ -1869,7 +1967,7 @@ def search_category(request, category):
     elif category == "countries":
         category_name = "Countries"
         counts = (
-            user_photos.exclude(altitude__gte=1000)
+            user_photos.exclude(altitude__gte=PLANE_ALTITUDE_M)
             .exclude(location_country__isnull=True)
             .exclude(location_country="")
             .values("location_country")
@@ -1886,7 +1984,7 @@ def search_category(request, category):
     elif category == "cities":
         category_name = "Cities"
         counts = (
-            user_photos.exclude(altitude__gte=1000)
+            user_photos.exclude(altitude__gte=PLANE_ALTITUDE_M)
             .exclude(location_city__isnull=True)
             .exclude(location_city="")
             .values("location_city", "location_country")

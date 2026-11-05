@@ -1,6 +1,6 @@
 from django.http import HttpResponse, FileResponse, JsonResponse
 from django.shortcuts import render, redirect, Http404
-from django.contrib.auth import login, logout
+from django.contrib.auth import login, logout, update_session_auth_hash
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.contrib.auth.decorators import login_required
 from django.contrib.auth.views import redirect_to_login
@@ -49,18 +49,15 @@ def login_view(request):
 
 @login_required
 def password_change_view(request):
-    error = ""
     if request.method == 'POST':
         form = PasswordChangeForm(user=request.user, data=request.POST)
         if form.is_valid():
-            form.save()
+            user = form.save()
+            update_session_auth_hash(request, user)  # changing the password must not log this device out
             return redirect('index')
-        else:
-            error = "Please correct the errors in the form."
     else:
         form = PasswordChangeForm(user=request.user)
-
-    return render(request, 'users/reset_password.html', {'form': form, 'error': error})
+    return render(request, 'users/reset_password.html', {'form': form})
 
 # Render the user profile view
 def profile_view(request, user=None):
@@ -158,15 +155,3 @@ def get_user_info(request):
     else:
         return JsonResponse({"error": "Not logged in"})
 
-@login_required
-def toggle_dark_mode(request):
-    if request.method != 'POST':
-        return error_response("Method not allowed", 405)
-    user_ = request.user
-    if user_.dark_mode == True:
-        user_.dark_mode = False
-    else:
-        user_.dark_mode = True
-    user_.save()
-
-    return HttpResponse("DONE")
