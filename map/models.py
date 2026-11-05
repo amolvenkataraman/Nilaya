@@ -67,6 +67,15 @@ class Location(models.Model):
     )
     notes = models.TextField(blank=True)
 
+    STATUS_CHOICES = [
+        ('saved', 'Saved'),
+        ('want_to_go', 'Want to go'),
+        ('visited', 'Visited'),
+    ]
+    status = models.CharField(max_length=12, choices=STATUS_CHOICES, default='saved')
+    visited_on = models.DateField(null=True, blank=True)
+    updated_on = models.DateTimeField(auto_now=True)
+
     def __str__(self):
         return self.name
 
