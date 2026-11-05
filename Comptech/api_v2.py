@@ -17,12 +17,22 @@ from ninja.throttling import AuthRateThrottle
 
 from apikeys.auth import BearerKey, HeaderKey
 
+class PerPrincipalThrottle(AuthRateThrottle):
+    """600 requests/minute per API key or signed-in user, keyed by primary key (not a display string)."""
+
+    def get_cache_key(self, request):
+        auth = getattr(request, "auth", None)
+        if auth is None:
+            return super().get_cache_key(request)
+        return self.cache_format % {"scope": self.scope, "ident": f"{auth.__class__.__name__}:{auth.pk}"}
+
+
 api = NinjaAPI(
     title="AVNet Superapp API",
     version="2.0",
     urls_namespace="api-v2",
     auth=[BearerKey(), HeaderKey(), django_auth],
-    throttle=[AuthRateThrottle("600/m")],
+    throttle=[PerPrincipalThrottle("600/m")],
     docs_url="/docs",
     docs_decorator=login_required,
 )
