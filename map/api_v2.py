@@ -27,6 +27,7 @@ from ninja.errors import HttpError
 from ninja.files import UploadedFile
 
 from photos.api_v2 import PhotoOut, library
+from photos.models import BROKEN_GPS
 
 from .models import Location, LocationGroup
 
@@ -231,7 +232,7 @@ def _photos_near(user, lat, lon, r=PHOTO_RADIUS_M):
     dlat = r / 111_320
     dlon = r / (111_320 * max(math.cos(math.radians(lat)), 0.01))
     rows = library(user).filter(latitude__range=(lat - dlat, lat + dlat),
-                                longitude__range=(lon - dlon, lon + dlon)) \
+                                longitude__range=(lon - dlon, lon + dlon)).exclude(BROKEN_GPS) \
         .values_list("id", "latitude", "longitude", "date_taken")
     return [(pid, when) for pid, la, lo, when in rows if _dist_m(lat, lon, la, lo) <= r]
 
@@ -243,7 +244,7 @@ def _photo_cells(user):
     cells = cache.get(key)
     if cells is None:
         rows = (library(user).filter(latitude__isnull=False, longitude__isnull=False)
-                .exclude(latitude=0, longitude=0)
+                .exclude(BROKEN_GPS)  # a 0 coordinate is broken GPS, not a visit to the equator/meridian
                 .annotate(cy=Round(F("latitude") * CELL), cx=Round(F("longitude") * CELL),
                           day=TruncDate("date_taken"))
                 .values("cy", "cx", "day", "location_city", "location_country")
@@ -624,6 +625,8 @@ class PinOut(Schema):
     category: str
     status: str
     rating: Optional[int]
+    address: Optional[str]  # list rows show it
+    visited_on: Optional[datetime.date]
 
 
 @router.get("/pins", response=list[PinOut], summary="Map pins: like the list (same filters) with only the fields a map needs")
