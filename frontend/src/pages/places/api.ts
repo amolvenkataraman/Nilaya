@@ -17,6 +17,14 @@ export const STATUSES: { key: PlaceStatus; label: string; icon: string }[] = [
   { key: 'visited', label: 'Visited', icon: 'check' },
 ]
 
+/** Category glyphs (Icon names; GET /places/categories has no icon field). The classic map's set, redrawn
+ *  in the app's icon style. Unlisted keys ("other", anything new) get a plain dot on the map. */
+const CATEGORY_ICON: Record<string, string> = {
+  house: 'home', business: 'briefcase', school: 'book', university: 'school', restaurant: 'utensils', shop: 'tag',
+  mall: 'cart', parking: 'car', religious: 'landmark', hospital: 'stethoscope', transit: 'train', park: 'tree', nature: 'leaf',
+}
+export const categoryIcon = (key: string): string | undefined => CATEGORY_ICON[key]
+
 export interface PlaceFilter { group?: number; category?: string; status?: PlaceStatus; q?: string }
 
 /** A group with my per-person map visibility (hidden by default) and the owner's archive flag. */

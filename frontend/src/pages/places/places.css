@@ -59,7 +59,21 @@
 .pm-pop a.btn:hover { text-decoration: none; }
 .leaflet-tooltip { background: var(--app-surface); color: var(--app-fg); border: 0; box-shadow: var(--pop-shadow); font: 500 var(--fs-xs) var(--app-font); padding: 0.1875rem 0.5rem; }
 .leaflet-tooltip-top::before { border-top-color: var(--app-surface); }
-.pm-marker { cursor: pointer; }
+/* Place pins (Google Maps style): a teardrop in the status colour (same tokens as the list dots) with the
+   category glyph in white; visited adds a small check badge, so status isn't told by colour alone. */
+.pm-pin-icon { background: none; border: 0; border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%; }
+.pm-pin-icon:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 1px; }
+.pm-pin { position: relative; width: 28px; height: 36px; --pin: var(--app-accent); filter: drop-shadow(0 1px 1.5px rgba(0,0,0,.35)); transition: transform .12s ease; transform-origin: 50% 100%; }
+.pm-pin.st-want_to_go { --pin: var(--app-warning); }
+.pm-pin.st-visited { --pin: var(--app-success); }
+.pm-pin-shape { display: block; width: 28px; height: 36px; fill: var(--pin); stroke: #fff; stroke-width: 1.5; }
+.pm-pin-glyph { position: absolute; top: 6px; left: 7px; width: 14px; height: 14px; display: flex; color: #fff; pointer-events: none; }
+.pm-pin-glyph svg, .pm-pin-badge svg { width: 100%; height: 100%; display: block; }
+.pm-pin-badge { position: absolute; top: -2px; right: -3px; width: 11px; height: 11px; padding: 1.5px; box-sizing: border-box; border-radius: 50%;
+  background: #fff; color: var(--pin); box-shadow: 0 0 0 1px var(--pin); pointer-events: none; }
+.pm-pin-icon:hover .pm-pin { transform: scale(1.08); }
+.pm-pin.is-selected, .pm-pin-icon:hover .pm-pin.is-selected { transform: scale(1.15); filter: drop-shadow(0 2px 3px rgba(0,0,0,.45)); }
+@media (prefers-reduced-motion: reduce) { .pm-pin { transition: none; } }
 /* Dark theme: invert the light OSM tiles into a calm dark basemap. */
 [data-bs-theme='dark'] .pm-map .leaflet-tile-pane { filter: brightness(0.72) contrast(1.12) saturate(0.85); } /* same dimming as the classic map; heat untouched */
 
@@ -96,6 +110,11 @@
 .pm-legend { position: absolute; left: 0.75rem; bottom: 0.75rem; z-index: 500; list-style: none; margin: 0; padding: 0.375rem 0.625rem; display: flex; flex-wrap: wrap; gap: 0.25rem 0.75rem;
   background: color-mix(in srgb, var(--app-surface) 92%, transparent); border-radius: var(--r); box-shadow: var(--pop-shadow); font-size: var(--fs-xs); color: var(--app-fg); max-width: calc(100% - 6rem); }
 .pm-legend li { display: inline-flex; align-items: center; gap: 0.375rem; }
+.pm-pin-key { position: relative; display: inline-block; width: 0.6875rem; height: 0.875rem; flex: none; --pin: var(--app-accent); }
+.pm-pin-key.st-want_to_go { --pin: var(--app-warning); }
+.pm-pin-key.st-visited { --pin: var(--app-success); margin-right: 0.1875rem; }
+.pm-pin-key > svg { display: block; width: 100%; height: 100%; fill: var(--pin); stroke: #fff; stroke-width: 2; overflow: visible; filter: drop-shadow(0 0 0.5px rgba(0,0,0,.5)); }
+.pm-pin-key .pm-pin-badge { top: -2px; right: -4px; width: 7px; height: 7px; padding: 0.5px; }
 .pm-dot { width: 0.625rem; height: 0.625rem; border-radius: 50%; border: 1.5px solid #fff; box-shadow: 0 0 0 1px var(--app-border); }
 .pm-dot.ghost { background: transparent; border: 1.5px dashed var(--app-accent); box-shadow: none; }
 .pm-dot.cluster { width: auto; height: 1rem; min-width: 1rem; padding: 0 0.25rem; border-radius: 999px; background: var(--app-fg); color: var(--app-bg); font-size: 0.625rem; display: inline-grid; place-items: center; border: 0; }

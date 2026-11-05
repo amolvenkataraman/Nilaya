@@ -1,9 +1,12 @@
-// Leaflet map of places. Markers are circle markers (no image assets); popups are built from DOM
-// text nodes, never HTML strings, so place names and notes are always plain text.
+// Leaflet map of places. Places are teardrop pins (status colour, category glyph, visited badge) drawn as
+// divIcons whose HTML is built only from constants; popups and tooltips are built from DOM text nodes,
+// never HTML strings, so place names and notes are always plain text.
 import { useEffect, useRef, useState } from 'react'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import type { Pin as Place, Suggestion } from './api'
+import { categoryIcon, STATUSES, type Pin as Place, type Suggestion } from './api'
+import { iconMarkup } from '../../lib/favicon'
+import { Icon } from '../../components/Icon'
 import { HeatLayer, type HeatPoint } from '../photos/heat'
 
 interface Props {
@@ -40,6 +43,38 @@ function statusColour(status?: string): string {
 }
 const CLUSTER_PX = 44
 
+/** Teardrop outline on a 28x36 box (the classic map's shape); the tip is at (14, 35). */
+export const PIN_PATH = 'M14 1C6.8 1 1 6.7 1 13.7 1 23.2 14 35 14 35s13-11.8 13-21.3C27 6.7 21.2 1 14 1z'
+const glyph = (inner: string) =>
+  `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${inner}</svg>`
+const DOT = '<circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/>'
+const safeStatus = (s?: string) => (s === 'visited' || s === 'want_to_go' ? s : 'saved')
+const statusLabel = (s?: string) => STATUSES.find((x) => x.key === safeStatus(s))!.label
+
+/** One divIcon per (category, status, selected), built once: the HTML is constants only (Icon path data and
+ *  fixed class names; unknown categories get a dot), so no place text ever reaches innerHTML. */
+const pinIcons = new Map<string, L.DivIcon>()
+function pinIcon(category: string, status: string | undefined, selected: boolean): L.DivIcon {
+  const st = safeStatus(status)
+  const name = categoryIcon(category)
+  const key = `${name ?? ''}|${st}|${selected ? 1 : 0}`
+  let icon = pinIcons.get(key)
+  if (!icon) {
+    const badge = st === 'visited' ? `<span class="pm-pin-badge">${glyph(iconMarkup('check'))}</span>` : ''
+    icon = L.divIcon({
+      className: 'pm-pin-icon',
+      html: `<div class="pm-pin st-${st}${selected ? ' is-selected' : ''}"><svg class="pm-pin-shape" viewBox="0 0 28 36" aria-hidden="true" focusable="false"><path d="${PIN_PATH}"/></svg>`
+        + `<span class="pm-pin-glyph">${glyph(name ? iconMarkup(name) : DOT)}</span>${badge}</div>`,
+      iconSize: [28, 36],
+      iconAnchor: [14, 35],
+      tooltipAnchor: [0, -30],
+      popupAnchor: [0, -32],
+    })
+    pinIcons.set(key, icon)
+  }
+  return icon
+}
+
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: string): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag)
   e.className = cls
@@ -52,7 +87,7 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
   const box = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
-  const markers = useRef(new Map<string, L.CircleMarker>())
+  const markers = useRef(new Map<string, L.Marker>())
   const fitted = useRef(false)
   // Latest callbacks for Leaflet handlers created once.
   const cb = useRef({ onSelect, onEdit, onAddAt, categoryLabel, canEdit, onSuggestion, onBounds, addMode })
@@ -61,10 +96,14 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
   const heatLayer = useRef<HeatLayer | null>(null)
   const ghosts = useRef<L.LayerGroup | null>(null)
   const [zoomTick, setZoomTick] = useState(0)
+  // The selected place's popup waits for a fly to end: the fly's moveend redraws every pin (closing popups).
+  const pendingPopup = useRef<string | null>(null)
+  const flying = useRef(false)
 
   useEffect(() => {
     if (!box.current) return
-    // Canvas renderer: thousands of circle markers stay smooth (no DOM node per marker).
+    // Canvas renderer for the vector layers (suggestions, your location); pins are cheap divIcons, and big
+    // sets are culled to the view and clustered below, so the DOM stays small.
     const m = L.map(box.current, { zoomControl: false, worldCopyJump: true, preferCanvas: true }).setView([20, 0], 2)
     L.control.zoom({ position: 'bottomright' }).addTo(m)
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -73,7 +112,15 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
     }).addTo(m)
     layer.current = L.layerGroup().addTo(m)
     ghosts.current = L.layerGroup().addTo(m)
-    m.on('moveend', () => setZoomTick((t) => t + 1)) // zoom or pan: re-cluster what's in view
+    // Zoom or pan: re-cluster what's in view. Zero-length moves (a focused pin's or popup's auto-pan that had
+    // nothing to do still fires moveend) are skipped, so a redraw can't feed itself.
+    let seen = ''
+    m.on('moveend', () => {
+      const c = m.getCenter()
+      const sz = m.getSize()
+      const view = `${m.getZoom()}:${c.lat.toFixed(7)}:${c.lng.toFixed(7)}:${sz.x}x${sz.y}` // size: a resize widens the culled view
+      if (view !== seen) (seen = view), setZoomTick((t) => t + 1)
+    })
     const report = () => {
       const b = m.getBounds()
       cb.current.onBounds?.({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() })
@@ -105,6 +152,11 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
     const m = map.current
     const g = layer.current
     if (!m || !g) return
+    // Pins are rebuilt below (selecting, panning, a popup's auto-pan and a focused pin's auto-pan all redraw):
+    // hand focus, and the selected place's open popup, to the replacement pins.
+    let focusedId: string | undefined
+    markers.current.forEach((mk, id) => { if (mk.getElement() === document.activeElement) focusedId = id })
+    const reopen = !!selected && !!markers.current.get(selected)?.isPopupOpen()
     g.clearLayers()
     markers.current.clear()
     const zoom = m.getZoom()
@@ -137,16 +189,34 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
         continue
       }
       for (const p of group) {
-        const mk = L.circleMarker([p.latitude, p.longitude], {
-          radius: 7, color: '#fff', weight: 2, fillColor: statusColour(p.status), fillOpacity: 1, className: 'pm-marker',
+        const on = p.id === selected
+        // Marker options set title as a DOM property (not HTML); with keyboard: true the pin is a focusable role=button.
+        const mk = L.marker([p.latitude, p.longitude], {
+          icon: pinIcon(p.category, p.status, on), title: `${p.name} (${statusLabel(p.status)})`, alt: p.name,
+          keyboard: true, riseOnHover: true, zIndexOffset: on ? 1000 : 0,
+          // No pan on focus: focus is handed to the rebuilt pin after each redraw, and a pan there would fight the
+          // popup's auto-pan (each move redraws). Pins outside the view are culled or flown to on select anyway.
+          autoPanOnFocus: false,
         })
         // Leaflet treats string content as HTML, so tooltips and popups always get DOM nodes.
-        mk.once('mouseover', () => mk.bindTooltip(el('span', '', p.name), { direction: 'top', offset: [0, -8] }).openTooltip())
-        mk.bindPopup(() => popup(p), { className: 'pm-popup', offset: [0, -4], autoPanPadding: [24, 24] })
+        mk.once('mouseover', () => mk.bindTooltip(el('span', '', p.name), { direction: 'top' }).openTooltip())
+        mk.bindPopup(() => popup(p), { className: 'pm-popup', autoPanPadding: [24, 24] })
         mk.on('click', () => cb.current.onSelect(p.id))
+        mk.on('keydown', (e: L.LeafletKeyboardEvent) => {
+          if (e.originalEvent.key !== 'Enter' && e.originalEvent.key !== ' ') return
+          e.originalEvent.preventDefault()
+          if (p.id === selected) mk.openPopup()
+          else cb.current.onSelect(p.id)
+        })
         mk.addTo(g)
         markers.current.set(p.id, mk)
       }
+    }
+    if (focusedId) markers.current.get(focusedId)?.getElement()?.focus({ preventScroll: true })
+    if (reopen) markers.current.get(selected!)?.openPopup()
+    else if (pendingPopup.current && !flying.current) {
+      markers.current.get(pendingPopup.current)?.openPopup()
+      pendingPopup.current = null
     }
     if (!fitted.current && places.length) {
       fitted.current = true
@@ -232,20 +302,23 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
     }
   }, [suggestions])
 
-  // Highlight and fly to the selected place.
+  // Fly to the selected place and open its popup (the redraw above already gave it the selected pin).
   useEffect(() => {
     const m = map.current
     if (!m) return
-    markers.current.forEach((mk, id) => {
-      const on = id === selected
-      mk.setStyle({ radius: on ? 10 : 7, weight: on ? 3 : 2 })
-      if (on) mk.bringToFront()
-    })
+    pendingPopup.current = null
     const mk = selected ? markers.current.get(selected) : null
-    if (mk) {
-      const ll = mk.getLatLng()
-      if (!m.getBounds().pad(-0.15).contains(ll) || m.getZoom() < 13) m.flyTo(ll, Math.max(m.getZoom(), 15), { duration: 0.6 })
-      setTimeout(() => mk.openPopup(), m.getBounds().contains(ll) ? 0 : 650)
+    if (!selected || !mk) return
+    const ll = mk.getLatLng()
+    if (!m.getBounds().pad(-0.15).contains(ll) || m.getZoom() < 13) {
+      // Opened by the redraw after the fly (see above), on the pin that redraw creates.
+      pendingPopup.current = selected
+      flying.current = true
+      m.once('moveend', () => { flying.current = false })
+      m.flyTo(ll, Math.max(m.getZoom(), 15), { duration: 0.6 })
+    } else {
+      const t = setTimeout(() => markers.current.get(selected)?.openPopup(), 0)
+      return () => clearTimeout(t)
     }
   }, [selected, places])
 
@@ -281,9 +354,15 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
     <>
       <div ref={box} className="pm-map" role="region" aria-label="Map of places" />
       <ul className="pm-legend" aria-label="Map legend">
-        <li><span className="pm-dot" style={{ background: 'var(--app-accent)' }} />Saved</li>
-        <li><span className="pm-dot" style={{ background: 'var(--app-warning)' }} />Want to go</li>
-        <li><span className="pm-dot" style={{ background: 'var(--app-success)' }} />Visited</li>
+        {STATUSES.map((s) => (
+          <li key={s.key}>
+            <span className={'pm-pin-key st-' + s.key} aria-hidden="true">
+              <svg viewBox="0 0 28 36"><path d={PIN_PATH} /></svg>
+              {s.key === 'visited' && <span className="pm-pin-badge"><Icon name="check" size={7} /></span>}
+            </span>
+            {s.label}
+          </li>
+        ))}
         {suggestions && suggestions.length > 0 && <li><span className="pm-dot ghost" />Suggested</li>}
         <li><span className="pm-dot cluster">3</span>Group</li>
         {userPos && <li><span className="pm-dot" style={{ background: '#2563eb' }} />You</li>}

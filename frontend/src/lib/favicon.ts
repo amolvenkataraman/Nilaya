@@ -20,6 +20,9 @@ function markup(node: ReactNode): string {
   }).join('')
 }
 
+/** An icon's inner SVG markup (constant path data only), e.g. for Leaflet divIcon pins. */
+export const iconMarkup = (name: string): string => markup(iconShapes(name))
+
 /** 32-unit tile, ~28% corner radius like .app-logo; the 24-unit glyph scaled to 22 with a heavier stroke so
  *  it stays legible at 16 px. currentColor (the "apps" dots) resolves to white through `color`. */
 export function faviconSvg(icon: string, hue: string): string {

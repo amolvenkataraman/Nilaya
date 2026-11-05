@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon'
 import { Confirm, Dialog, ErrorBox, Menu, MenuItem, SkeletonRows, Switch, useDebounced, useHotkey } from '../../components/ui'
 import type { PlaceCategory, PlaceGroup } from '../../lib/types'
 import {
-  STATUSES, VISIBLE_KEY, importPlaces, useDeleteGroup, useDeletePlace, useGroupVisibility, usePlaceCategories, usePlaceGroups, useSaveGroup, useSavePlace,
+  STATUSES, VISIBLE_KEY, categoryIcon, importPlaces, useDeleteGroup, useDeletePlace, useGroupVisibility, usePlaceCategories, usePlaceGroups, useSaveGroup, useSavePlace,
   useShowOnlyGroup, useSuggestions, useVisiblePlaces, distanceM, fetchVisiblePins, placeQuery, usePlace, useVisibleTextMatches, type Group, type Pin, type ImportResult, type Place, type PlaceInput, type PlaceStatus, type Suggestion,
 } from './api'
 import { PlaceDetail, PlaceRow, StatsTab, SuggestedTab, SuggestionDetail, photosInBox, type Tab } from './PlacePanel'
@@ -233,7 +233,7 @@ export default function PlacesPage() {
       </SideSection>
       <SideSection title="Categories">
         {(cats.data ?? []).map((c) => ({ c, n: count((p) => p.category === c.key) })).sort((a, b) => b.n - a.n).map(({ c, n }) => (
-          <SideItem key={c.key} icon="tag" label={c.label} count={n || undefined} active={category === c.key} onClick={() => setParam('category', category === c.key ? null : c.key)} />
+          <SideItem key={c.key} icon={categoryIcon(c.key) ?? 'map-pin'} label={c.label} count={n || undefined} active={category === c.key} onClick={() => setParam('category', category === c.key ? null : c.key)} />
         ))}
       </SideSection>
     </>

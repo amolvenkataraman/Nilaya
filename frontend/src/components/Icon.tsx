@@ -104,6 +104,7 @@ const P: Record<string, ReactElement> = {
   baby: <><circle cx="12" cy="12" r="8.5" /><path d="M9 10h.01M15 10h.01M9.5 14.5a3 3 0 0 0 5 0M10 3.6C10 5 11 6 12 6s1.5-.8 1.5-1.5" /></>,
   plane: <path d="M10.5 13.5 4 11l1.5-1.5 6.5 1 4-4c1-1 3-1.5 3.5-1s0 2.5-1 3.5l-4 4 1 6.5L14 21l-2.5-6.5-3 3V20L7 21.5 5.5 18.5 2.5 17 4 15.5h2.5l3-3" />,
   car: <><path d="M5 16V11l2-5h10l2 5v5M3.5 11h17v5h-17z" /><circle cx="7.5" cy="16.5" r="1.5" /><circle cx="16.5" cy="16.5" r="1.5" /></>,
+  landmark: <><path d="M12 3.5 20.5 8.5h-17L12 3.5ZM3.5 20.5h17M5 17.5h14M6.5 17.5v-6M10 17.5v-6M14 17.5v-6M17.5 17.5v-6" /></>,
   train: <><rect x="5" y="3" width="14" height="14" rx="3" /><path d="M5 11h14M8.5 21l2-4M15.5 21l-2-4M9 14h.01M15 14h.01" /></>,
   'map-pin': <><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21Z" /><circle cx="12" cy="9.5" r="2.5" /></>,
   globe: <><circle cx="12" cy="12" r="8.5" /><path d="M3.5 12h17M12 3.5c2.5 2.5 3.5 5.5 3.5 8.5s-1 6-3.5 8.5c-2.5-2.5-3.5-5.5-3.5-8.5s1-6 3.5-8.5Z" /></>,
@@ -118,7 +119,8 @@ const P: Record<string, ReactElement> = {
 
 export type IconName = keyof typeof P
 
-/** The shapes of an icon (unknown names fall back to "info", as <Icon> does): lib/favicon.ts serialises them. */
+/** The shapes of an icon (unknown names fall back to "info", as <Icon> does): lib/favicon.ts serialises them
+ *  (favicons, Places map pins). */
 export const iconShapes = (name: string): ReactElement => P[name] ?? P.info
 
 export function Icon({ name, size = 16, className, title }: { name: IconName | string; size?: number | string; className?: string; title?: string }) {
