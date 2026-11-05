@@ -43,6 +43,32 @@ class PhotosApiTests(TestCase):
         self.assertEqual(len(seen), len(set(seen)))
         self.assertEqual(len(seen), 3 + len(burst))
 
+    def test_details_browse_and_filters(self):
+        p = self.photos[0]
+        p.camera_make, p.camera_model, p.location_city, p.location_country = "Google", "Pixel 9", "Toronto", "Canada"
+        p.fnumber, p.isospeed, p.size, p.size_total, p.ai_index_info = "f/1.7", "100", 2048, 4096, {"objects": [0, 5]}
+        p.save()
+        self.client.force_login(self.user)
+        d = self.client.get(f"/api/v2/photos/{p.id}/details").json()
+        self.assertEqual((d["camera_model"], d["fnumber"], d["city"]), ("Pixel 9", "f/1.7", "Toronto"))
+        self.assertEqual(sorted(o["name"] for o in d["objects"]), ["Car", "Person"])
+        cams = self.client.get("/api/v2/photos/browse/cameras").json()
+        self.assertEqual(cams[0]["display"], "Pixel 9 (Google)")
+        objs = {o["display"]: o["count"] for o in self.client.get("/api/v2/photos/browse/objects").json()}
+        self.assertEqual(objs["Person"], 1)
+        ids = lambda q: [x["id"] for x in self.client.get(f"/api/v2/photos/timeline?{q}").json()["items"]]
+        self.assertEqual(ids("camera=Pixel 9"), [str(p.id)])
+        self.assertEqual(ids("objects=car"), [str(p.id)])
+
+    def test_stats_and_storage(self):
+        Photo.objects.filter(id=self.photos[1].id).update(video=True, size=1000, size_total=1500, length=30)
+        self.client.force_login(self.user)
+        s = self.client.get("/api/v2/photos/stats").json()
+        self.assertEqual((s["totals"]["photos"], s["totals"]["videos"]), (2, 1))
+        self.assertEqual(sum(s["by_hour"]), 3)
+        st = self.client.get("/api/v2/photos/storage").json()
+        self.assertEqual((st["video"]["count"], st["video"]["total_kb"], st["video"]["length_s"]), (1, 1500, 30))
+
     def test_counts_per_day(self):
         self.client.force_login(self.user)
         day = timezone.localdate().isoformat()

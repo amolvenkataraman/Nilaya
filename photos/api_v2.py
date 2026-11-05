@@ -16,6 +16,7 @@ from ninja import Router, Schema
 from ninja import Field
 from ninja.errors import HttpError
 
+from . import browse
 from . import hidden as hidden_mode
 from .models import Album_Subscriber, Photo, ShareAlbum
 
@@ -137,8 +138,13 @@ def _page(qs, before, limit, before_id=None):
 
 @router.get("/timeline", response=PageOut, summary="Newest first; pass next_before to get the next page")
 def timeline(request, before: Optional[datetime.datetime] = None, limit: int = 120,
-             video: Optional[bool] = None, country: str = "", city: str = "", before_id: Optional[uuid.UUID] = None):
+             video: Optional[bool] = None, country: str = "", city: str = "", before_id: Optional[uuid.UUID] = None,
+             camera: str = "", objects: str = ""):
     qs = library(request.user, request)
+    if camera:
+        qs = qs.filter(camera_model=camera)
+    if objects:
+        qs = browse.with_objects(qs, browse.object_ids(objects.split(",")))
     if video is not None:
         qs = qs.filter(video=video)
     if country:
@@ -222,6 +228,147 @@ def album_photos(request, album_id: uuid.UUID, before: Optional[datetime.datetim
         Q(owner=request.user) | Q(sharealbum_users_subscribed__user=request.user) | Q(public=True)).distinct(),
         id=album_id)
     return _page(hidden_mode.visible(Photo.objects.filter(photo_in_sharealbum__sharealbum=album), request), before, limit, before_id)
+
+
+class ObjectOut(Schema):
+    id: int
+    name: str
+
+
+class PhotoDetailOut(PhotoOut):
+    filename: str
+    library: str
+    mimetype: Optional[str]
+    size_kb: Optional[int]
+    size_total_kb: Optional[int]
+    megapixels: Optional[float]
+    camera_make: Optional[str]
+    camera_model: Optional[str]
+    exposure: Optional[str]
+    fnumber: Optional[str]
+    isospeed: Optional[str]
+    shutterspeed: Optional[str]
+    aperture: Optional[str]
+    flash: Optional[str]
+    focallength: Optional[str]
+    altitude: Optional[float]
+    framerate: Optional[int]
+    bitrate: Optional[int]
+    main_color: Optional[str]
+    has_raw: bool
+    has_orig: bool
+    blur: Optional[float]
+    objects: list[ObjectOut]
+    hidden: bool
+    mine: bool
+
+    @staticmethod
+    def resolve_filename(o): return o.filepath.rsplit("/", 1)[-1]
+    @staticmethod
+    def resolve_library(o): return o.album.name
+    @staticmethod
+    def resolve_size_kb(o): return o.size
+    @staticmethod
+    def resolve_size_total_kb(o): return o.size_total
+    @staticmethod
+    def resolve_megapixels(o): return o.megapixels if o.megapixels is not None else o.calculate_megapixels()
+    @staticmethod
+    def resolve_has_raw(o): return bool(o.raw_filepath)
+    @staticmethod
+    def resolve_has_orig(o): return bool(o.orig_filepath)
+    @staticmethod
+    def resolve_blur(o):
+        info = o.ai_index_info or {}
+        return round(info["blur_score"], 1) if info.get("blur_score") is not None else None
+    @staticmethod
+    def resolve_objects(o):
+        ids = sorted(set((o.ai_index_info or {}).get("objects") or []))
+        return [{"id": i, "name": browse.object_label(i)} for i in ids]
+    @staticmethod
+    def resolve_mine(o, context): return o.owner_id == context["request"].user.id
+
+
+@router.get("/browse/{category}", summary="Cities, countries, cameras or objects with counts (for search pages)")
+def browse_category(request, category: str):
+    if category not in ("cities", "countries", "cameras", "objects"):
+        raise HttpError(404, "Unknown category")
+    return browse.browse_items(library(request.user, request), category)
+
+
+def _local_now(request):
+    import pytz
+    tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
+    return tz, timezone.localtime(timezone.now(), tz)
+
+
+@router.get("/stats", summary="Library statistics (counts, activity, when you take photos, equipment, places)")
+def stats(request):
+    from django.db.models import Avg
+    from django.db.models.functions import ExtractHour, ExtractIsoWeekDay, TruncMonth
+    qs = library(request.user, request)
+    tz, now = _local_now(request)
+    agg = qs.aggregate(total=Count("id"), videos=Count("id", filter=Q(video=True)), mp=Avg("megapixels", filter=Q(video=False)),
+                       first=Min("date_taken"), last=Max("date_taken"))
+    periods = {}
+    for key, days in (("week", 7), ("month", 30), ("year", 365)):
+        cur = qs.filter(date_taken__gte=now - datetime.timedelta(days=days)).count()
+        prev = qs.filter(date_taken__gte=now - datetime.timedelta(days=2 * days), date_taken__lt=now - datetime.timedelta(days=days)).count()
+        periods[key] = {"count": cur, "previous": prev}
+    ytd_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+    periods["ytd"] = {"count": qs.filter(date_taken__gte=ytd_start).count(),
+                      "previous": qs.filter(date_taken__gte=ytd_start.replace(year=now.year - 1),
+                                            date_taken__lt=now.replace(year=now.year - 1)).count()}
+    dated = qs.exclude(date_taken__isnull=True)
+    hours = dict(dated.annotate(h=ExtractHour("date_taken", tzinfo=tz)).values_list("h").annotate(n=Count("id")))
+    weekdays = dict(dated.annotate(d=ExtractIsoWeekDay("date_taken", tzinfo=tz)).values_list("d").annotate(n=Count("id")))
+    months = [{"month": r["m"].strftime("%Y-%m"), "photos": r["photos"], "videos": r["videos"]} for r in
+              dated.annotate(m=TruncMonth("date_taken", tzinfo=tz)).values("m")
+              .annotate(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True))).order_by("m")]
+    cams = (qs.exclude(camera_model__isnull=True).exclude(camera_model="").values("camera_make", "camera_model")
+            .annotate(n=Count("id")).order_by("-n")[:10])
+    top = lambda field: [{"name": r[field], "count": r["n"]} for r in qs.exclude(**{f"{field}__isnull": True})
+                         .exclude(**{field: ""}).values(field).annotate(n=Count("id")).order_by("-n")[:10]]
+    return {
+        "totals": {"total": agg["total"], "photos": agg["total"] - agg["videos"], "videos": agg["videos"],
+                   "avg_megapixels": round(agg["mp"], 1) if agg["mp"] else None,
+                   "first": agg["first"], "last": agg["last"]},
+        "periods": periods,
+        "by_hour": [hours.get(h, 0) for h in range(24)],
+        "by_weekday": [weekdays.get(d, 0) for d in range(1, 8)],  # Monday first
+        "by_month": months,
+        "cameras": [{"make": c["camera_make"], "model": c["camera_model"], "count": c["n"]} for c in cams],
+        "countries": top("location_country"), "cities": top("location_city"),
+    }
+
+
+@router.get("/storage", summary="Storage used: optimized vs total (originals/RAW), by type, year, library and camera")
+def storage(request):
+    from django.db.models.functions import ExtractYear
+    qs = library(request.user, request)
+    part = lambda q: q.aggregate(count=Count("id"), optimized_kb=Sum("size"), total_kb=Sum("size_total"), length_s=Sum("length"))
+    def block(q):
+        a = part(q)
+        a = {k: (v or 0) for k, v in a.items()}
+        a["overhead_kb"] = a["total_kb"] - a["optimized_kb"]
+        return a
+    group = lambda field, n=12: [{"name": r[field] if r[field] is not None else "Unknown", "count": r["count"],
+                                  "total_kb": r["total"] or 0, "optimized_kb": r["opt"] or 0}
+                                 for r in qs.values(field).annotate(count=Count("id"), total=Sum("size_total"), opt=Sum("size"))
+                                 .order_by("-total")[:n]]
+    years = [{"year": r["y"], "count": r["count"], "total_kb": r["total"] or 0} for r in
+             qs.exclude(date_taken__isnull=True).annotate(y=ExtractYear("date_taken")).values("y")
+             .annotate(count=Count("id"), total=Sum("size_total")).order_by("y")]
+    largest = list(qs.select_related("album").order_by("-size_total")[:12])
+    return {"all": block(qs), "photo": block(qs.filter(video=False)), "video": block(qs.filter(video=True)),
+            "by_year": years, "by_library": group("album__name"), "by_camera": group("camera_model"),
+            "by_type": group("mimetype"),
+            "largest": [{"id": str(p.id), "thumb_url": PhotoOut.resolve_thumb_url(p), "size_kb": p.size_total or 0,
+                         "video": p.video, "date_taken": p.date_taken} for p in largest]}
+
+
+@router.get("/{uuid:photo_id}/details", response=PhotoDetailOut, summary="Everything known about one photo (info panel)")
+def photo_details(request, photo_id: uuid.UUID):
+    return get_object_or_404(library(request.user, request).select_related("album"), id=photo_id)
 
 
 @router.get("/{uuid:photo_id}", response=PhotoOut)

@@ -174,7 +174,8 @@ def _apply_standard_filters(qs, request):
             for o in raw_list if o.strip() in NAME_TO_ID_MAPPING
         ]
         if object_ids:
-            qs = qs.filter(ai_index_info__objects__contains=object_ids)
+            from .browse import with_objects
+            qs = with_objects(qs, object_ids)  # works on SQLite too (no JSON containment lookup there)
         else:
             qs = qs.none()
         ctx["objects"] = ",".join(str(i) for i in object_ids) if object_ids else None
