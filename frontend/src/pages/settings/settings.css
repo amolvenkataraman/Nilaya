@@ -1,0 +1,47 @@
+/* Settings-style layout shared by Settings and Notifications: titled sections of hairline rows. */
+.set-page { max-width: 52rem; }
+.set-section { display: grid; gap: 0.625rem; margin-bottom: 1.75rem; }
+.set-section-head { display: flex; align-items: flex-end; gap: var(--sp-3); }
+.set-section-head h2 { font-size: var(--fs); font-weight: 600; }
+.set-section-head p { font-size: var(--fs-sm); color: var(--app-muted); margin-top: 0.125rem; }
+.set-card { background: var(--app-surface); border: var(--hairline); border-radius: var(--r); box-shadow: var(--card-shadow); min-width: 0; }
+.set-row {
+  display: grid; grid-template-columns: minmax(10rem, 15rem) minmax(0, 1fr); align-items: center; gap: var(--sp-4);
+  padding: 0.75rem 1rem; min-height: 3.25rem;
+}
+.set-row + .set-row { border-top: var(--hairline); }
+.set-row.top { align-items: start; }
+.set-label { display: grid; gap: 0.125rem; font-size: var(--fs-sm); font-weight: 500; }
+.set-label small { font-size: var(--fs-xs); color: var(--app-muted); font-weight: 400; }
+.set-control { display: flex; align-items: center; gap: var(--sp-2); min-width: 0; justify-content: flex-end; }
+.set-control.fill { justify-content: stretch; }
+.set-control.fill > * { flex: 1; }
+.set-control .select, .set-control .input[type='time'] { width: auto; min-width: 12rem; }
+.set-value { font-size: var(--fs-sm); color: var(--app-muted); overflow-wrap: anywhere; text-align: right; }
+.set-foot { display: flex; align-items: center; gap: var(--sp-2); padding: 0.625rem 1rem; border-top: var(--hairline); background: var(--app-bg); border-radius: 0 0 var(--r) var(--r); }
+.set-status { font-size: var(--fs-xs); color: var(--app-muted); display: inline-flex; align-items: center; gap: 0.25rem; }
+.set-status.ok { color: var(--app-success); }
+.set-status.err { color: var(--app-danger); }
+.set-link { display: flex; align-items: center; gap: 0.625rem; padding: 0.75rem 1rem; color: var(--app-fg); font-size: var(--fs-sm); }
+.set-link + .set-link { border-top: var(--hairline); }
+.set-link:hover { background: var(--hover); text-decoration: none; }
+.set-link:first-child { border-radius: var(--r) var(--r) 0 0; }
+.set-link:last-child { border-radius: 0 0 var(--r) var(--r); }
+.set-link svg { color: var(--app-muted); flex: none; }
+.set-link .end { margin-left: auto; color: var(--app-muted); }
+.profile-head { display: flex; align-items: center; gap: 0.875rem; padding: 1rem; border-bottom: var(--hairline); }
+.profile-head .name { font-size: var(--fs-md); font-weight: 600; }
+.shortcut-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr)); }
+.shortcut { display: flex; align-items: center; justify-content: space-between; gap: var(--sp-2); padding: 0.625rem 1rem; font-size: var(--fs-sm); border-top: var(--hairline); margin-top: -1px; }
+.shortcut .keys { display: inline-flex; gap: 0.25rem; }
+
+@media (max-width: 760px) {
+  .set-section-head { flex-wrap: wrap; align-items: flex-start; }
+  .set-section-head > .grow { flex-basis: 100%; }
+  .set-row { grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
+  .set-control { justify-content: flex-start; }
+  .set-control .select, .set-control .input[type='time'] { width: 100%; min-width: 0; }
+  .set-value { text-align: left; }
+  .set-row.inline { grid-template-columns: minmax(0, 1fr) auto; }
+  .set-row.inline .set-control { justify-content: flex-end; }
+}

@@ -1,0 +1,17 @@
+// Start the dashboard's requests while its code chunk is still downloading, so data and code
+// arrive together. Keys and params match the hooks in lib/queries.ts exactly.
+import type { QueryClient } from '@tanstack/react-query'
+import { get } from './api'
+import { dayKey } from './dates'
+import { DASH_AGENDA_DAYS, DASH_TODAY_PARAMS, fetchOverview, keys } from './queries'
+
+export function prefetchDashboard(qc: QueryClient) {
+  const p = (queryKey: readonly unknown[], fn: () => Promise<unknown>) => qc.prefetchQuery({ queryKey, queryFn: fn })
+  p(keys.me, () => get('me'))
+  p(keys.overview, () => fetchOverview(qc)) // also seeds projects, labels and views
+  p([...keys.agenda(DASH_AGENDA_DAYS), false], () => get('calendar/agenda', { days: DASH_AGENDA_DAYS }))
+  p(keys.taskList(DASH_TODAY_PARAMS), () => get('tasks/', DASH_TODAY_PARAMS))
+  const today = dayKey(new Date())
+  p(keys.insights('week', today), () => get('calendar/insights', { period: 'week', date: today }))
+  p(keys.notifCount, () => get('notifications/unread-count'))
+}
