@@ -120,3 +120,5 @@ class TaskApiTests(TestCase):
         self.assertEqual(self.client.get(f"/api/v2/tasks/{b['id']}").json()["relations"][0]["kind"], "blocked_by")
         r = self.client.patch(f"/api/v2/tasks/{a['id']}", {"parent_id": b["id"]}, content_type="application/json")
         self.assertEqual(r.status_code, 400)
+        listed = {t["id"]: t["relation_count"] for t in self.client.get("/api/v2/tasks/?done=false").json()["items"]}
+        self.assertEqual((listed[a["id"]], listed[b["id"]]), (1, 1))

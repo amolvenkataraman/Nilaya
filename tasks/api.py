@@ -186,6 +186,7 @@ class TaskOut(Schema):
     subtasks: int = 0
     subtasks_done: int = 0
     comments: int = 0
+    relation_count: int = 0
     event_id: Optional[str]
     owner: UserBrief
     created_on: datetime.datetime
@@ -221,6 +222,8 @@ class TaskOut(Schema):
     def resolve_subtasks_done(o): return getattr(o, "n_sub_done", 0)
     @staticmethod
     def resolve_comments(o): return getattr(o, "n_comments", 0)
+    @staticmethod
+    def resolve_relation_count(o): return getattr(o, "n_relations", 0)
     @staticmethod
     def resolve_event_id(o): return (o.custom_info or {}).get("event_id")
     @staticmethod
@@ -356,7 +359,8 @@ def _tasks_qs(user):
             .prefetch_related("labels", "assignees", "reminders")
             .annotate(n_sub=Count("todo", distinct=True),
                       n_sub_done=Count("todo", filter=Q(todo__completed=True), distinct=True),
-                      n_comments=Count("comments", distinct=True)))
+                      n_comments=Count("comments", distinct=True),
+                      n_relations=Count("relations", distinct=True)))
 
 
 def _task(user, task_id, edit=False):
