@@ -204,7 +204,8 @@ a.agenda-item:hover { text-decoration: none; }
 }
 .ins-bars { display: grid; gap: 0.5rem; }
 .ins-bar-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; row-gap: 0.25rem; font-size: var(--fs-sm); }
-.ins-bar-label { display: flex; align-items: center; gap: 0.375rem; }
+.ins-bar-label { display: flex; align-items: center; gap: 0.375rem; min-width: 0; padding-right: 0.5rem; }  /* the name truncates with … before the hours */
+.ins-bar-label .dot { flex: none; }
 .ins-bar-value { color: var(--app-muted); font-size: var(--fs-xs); }
 .ins-bar-svg { grid-column: 1 / -1; display: block; }
 .ins-heat { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.375rem; }

@@ -93,9 +93,9 @@ function Bars({ rows }: { rows: { label: string; value: number; colour?: string;
     <div className="ins-bars" ref={ref}>
       {rows.map((r) => (
         <div key={r.label} className="ins-bar-row" title={r.tip}>
-          <span className="ins-bar-label truncate">
+          <span className="ins-bar-label">
             {r.colour && <span className="dot" style={{ background: r.colour }} />}
-            {r.label}
+            <span className="truncate">{r.label}</span>
           </span>
           <span className="ins-bar-value tabular">{hours(r.value)}</span>
           {w > 0 && (
