@@ -178,6 +178,20 @@ def summary(request):
             "cities": top("location_city"), "per_year": per_year}
 
 
+@router.get("/counts", response=dict[str, int], summary="Photos per local day in [start, end] (dates, max 400 days)")
+def counts(request, start: datetime.date, end: datetime.date):
+    import pytz
+    from django.db.models.functions import TruncDate
+    if end < start or (end - start).days > 400:
+        raise HttpError(400, "Pick a range of up to 400 days")
+    tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
+    lo = tz.localize(datetime.datetime.combine(start, datetime.time())) if hasattr(tz, "localize") else datetime.datetime.combine(start, datetime.time(), tzinfo=tz)
+    hi = lo + datetime.timedelta(days=(end - start).days + 1)
+    rows = (library(request.user, request).filter(date_taken__gte=lo, date_taken__lt=hi)
+            .annotate(day=TruncDate("date_taken", tzinfo=tz)).values("day").annotate(n=Count("id")))
+    return {r["day"].isoformat(): r["n"] for r in rows}
+
+
 @router.get("/libraries", response=list[LibraryOut], summary="Library albums (camera folders) you can see")
 def libraries(request):
     subs = (Album_Subscriber.objects.filter(user=request.user).select_related("album")

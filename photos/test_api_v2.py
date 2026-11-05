@@ -43,6 +43,12 @@ class PhotosApiTests(TestCase):
         self.assertEqual(len(seen), len(set(seen)))
         self.assertEqual(len(seen), 3 + len(burst))
 
+    def test_counts_per_day(self):
+        self.client.force_login(self.user)
+        day = timezone.localdate().isoformat()
+        r = self.client.get("/api/v2/photos/counts", {"start": day, "end": day}).json()
+        self.assertEqual(sum(r.values()), sum(1 for p in self.photos if timezone.localdate(p.date_taken).isoformat() == day))
+
     def test_other_users_cannot_see_the_library(self):
         self.client.force_login(self.stranger)
         self.assertEqual(self.client.get(f"/api/v2/photos/{self.photos[0].id}").status_code, 404)
