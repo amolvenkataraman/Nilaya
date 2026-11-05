@@ -795,7 +795,9 @@ def quick_add(request, payload: QuickIn):
 @router.post("/from-event/{event_id}", response={201: TaskOut},
              summary="Make a todo from a calendar event/deadline (or one occurrence: <series id>:<start>)")
 def from_event(request, event_id: str, project_id: Optional[uuid.UUID] = None):
+    from apikeys.auth import require_also
     from scheduler import service as cal_svc
+    require_also(request, "calendar")  # copies an event's title and details
     series, original = cal_svc.resolve(event_id, Event.objects.filter(calendar__users_subscribed__user=request.user))
     e = cal_svc.occurrence_view(series, original) if series is not None and original is not None else series
     if e is None:

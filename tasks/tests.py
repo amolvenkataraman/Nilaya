@@ -49,6 +49,15 @@ class TaskApiTests(TestCase):
             self.client.force_login(user)
         return self.client.post(f"/api/v2/tasks/{path}", body or {}, content_type="application/json")
 
+    def test_creator_loses_edit_rights_when_made_read_only(self):
+        from .models import ProjectMember
+        p = self.post("projects", {"name": "Shared"}).json()
+        ProjectMember.objects.create(project_id=p["id"], user=self.other, role=ProjectMember.Role.WRITE)
+        t = self.post("", {"title": "Mine", "project_id": p["id"]}, user=self.other).json()
+        ProjectMember.objects.filter(project_id=p["id"], user=self.other).update(role=ProjectMember.Role.READ)
+        r = self.client.patch(f"/api/v2/tasks/{t['id']}", {"title": "Changed"}, content_type="application/json")
+        self.assertIn(r.status_code, (403, 404))
+
     def test_orphan_todos_land_in_the_inbox(self):
         Todo.objects.create(user=self.owner, name="From the calendar")
         inbox = self.client.get("/api/v2/tasks/overview").json()["inbox_id"]

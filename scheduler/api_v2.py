@@ -490,7 +490,8 @@ def update_invite(request, calendar_id: int, invite_id: int, payload: InvitePatc
     if days:
         from django.utils import timezone
         data["expires_on"] = timezone.now() + datetime.timedelta(days=days)
-    if (data.get("role") == "admin" or i.role == 1) and me.role != "owner" and "role" in data:
+    # Admin invites grant admin: only the owner may change them in any way (or make one).
+    if (data.get("role") == "admin" or i.role == 1) and me.role != "owner":
         raise HttpError(403, "Only the owner can change admin invites")
     for k, v in data.items():
         setattr(i, k, (1 if v == "admin" else 2) if k == "role" else v)
@@ -500,8 +501,11 @@ def update_invite(request, calendar_id: int, invite_id: int, payload: InvitePatc
 
 @router.delete("/calendars/{int:calendar_id}/invites/{int:invite_id}", response={204: None})
 def delete_invite(request, calendar_id: int, invite_id: int):
-    _sub(request.user, calendar_id, editor=True)
-    get_object_or_404(Invite, id=invite_id, calendar_id=calendar_id).delete()
+    me = _sub(request.user, calendar_id, editor=True)
+    i = get_object_or_404(Invite, id=invite_id, calendar_id=calendar_id)
+    if i.role == 1 and me.role != "owner":
+        raise HttpError(403, "Only the owner can delete admin invites")
+    i.delete()
     return 204, None
 
 
@@ -1264,6 +1268,7 @@ def _split_hours(start, end, tz, rs, re_):
 def _period_stats(user, start, end, tz):
     cals = Subscriber.objects.filter(user=user, visible=True, calendar__active=True).select_related("calendar")
     colours = {s.calendar_id: (s.colour or s.calendar.colour, s.calendar.name) for s in cals}
+    roles = {s.calendar_id: s.role for s in cals}
     events = svc.events_in_range(list(colours), start, end, related=("calendar", "event_category"))
     days = (end - start).days
     per_day = [0.0] * days
@@ -1315,7 +1320,7 @@ def _period_stats(user, start, end, tz):
         k = cal.setdefault(e.calendar_id, {"id": e.calendar_id, "name": name, "colour": colour, "hours": 0, "events": 0})
         k["hours"] += h_total
         k["events"] += 1
-        if e.location:
+        if e.location and not svc.masked_for(e, user, roles.get(e.calendar_id)):  # others' private events: times only
             loc[e.location] = loc.get(e.location, 0) + 1
 
     def median_clock(values):

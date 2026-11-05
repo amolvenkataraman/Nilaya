@@ -29,8 +29,18 @@ def _authenticate(request, token):
     now = timezone.now()
     if key.last_used_on is None or now - key.last_used_on > datetime.timedelta(minutes=1):
         ip = request.META.get("REMOTE_ADDR")
+        if ip in ("127.0.0.1", "::1"):  # behind nginx: its X-Real-IP is the client
+            ip = request.META.get("HTTP_X_REAL_IP") or ip
         ApiKey.objects.filter(pk=key.pk).update(last_used_on=now, last_used_ip=ip)
     return key
+
+
+def require_also(request, app, write=False):
+    """For endpoints that hand out another app's data (e.g. photo links from Places): an API key
+    also needs that app's access. Signed-in browsers are unaffected."""
+    key = getattr(request, "auth", None)
+    if isinstance(key, ApiKey) and not key.allows(app, write):
+        raise HttpError(403, f"This API key also needs {app}:{'write' if write else 'read'} access")
 
 
 class BearerKey(HttpBearer):

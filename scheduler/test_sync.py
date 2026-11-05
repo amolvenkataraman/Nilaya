@@ -32,6 +32,9 @@ class SyncTests(TestCase):
         self.cal = Calendar.objects.create(name="Feed", owner=self.user, calendar_type=1, calendar_url="https://x/f.ics")
         Subscriber.objects.create(calendar=self.cal, user=self.user, subscribe_type=0)
         self.client.force_login(self.user)
+        self.guard = mock.patch("scheduler.sync._check_host")  # test hosts like "x" don't resolve
+        self.guard.start()
+        self.addCleanup(self.guard.stop)
 
     def local(self, start, end):
         r = self.client.get("/api/v2/calendar/events", {"start": start.isoformat(), "end": end.isoformat()})
@@ -103,6 +106,14 @@ class SyncTests(TestCase):
         self.assertTrue(Event.objects.filter(calendar_id=cal["id"], sync_id="single-1@example.org").exists())
         self.assertEqual(self.client.post(f"/api/v2/calendar/calendars/{cal['id']}/sync", {"start": "2026-12-01", "end": "2026-11-01"},
                                           content_type="application/json").status_code, 400)
+
+    def test_feed_links_cannot_point_at_this_server(self):
+        self.guard.stop()
+        from .sync import BlockedSource, _check_host
+        for url in ("http://127.0.0.1:8000/admin/", "http://[::1]/", "http://169.254.169.254/latest/", "ftp://example.org/"):
+            with self.assertRaises(BlockedSource, msg=url):
+                _check_host(url)
+        _check_host("http://192.168.1.20/cal.ics")  # the LAN is allowed (e.g. Nextcloud)
 
     def test_ics_not_modified_skips_the_import(self):
         with mock.patch("scheduler.sync.requests.get", return_value=response(b"", status=304)):

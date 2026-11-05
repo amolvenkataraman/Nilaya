@@ -42,10 +42,10 @@ def visible_tasks(user):
 
 
 def can_edit_task(user, todo):
-    if todo.user_id == user.id:
-        return True
+    """Your own loose tasks; in a project, only while you can edit there (a creator who was made
+    read-only or removed keeps no edit rights on what they created)."""
     if todo.project_id is None:
-        return False
+        return todo.user_id == user.id
     role = project_role(user, todo.project)
     return role is not None and role >= ProjectMember.Role.WRITE
 

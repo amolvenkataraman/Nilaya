@@ -28,6 +28,7 @@ from ninja.files import UploadedFile
 
 from photos.api_v2 import PhotoOut, library
 from photos.models import BROKEN_GPS
+from apikeys.auth import require_also
 
 from .models import Location, LocationGroup
 
@@ -328,8 +329,10 @@ def only_group(request, group_id: int):
 
 @router.post("/groups", response={201: GroupOut})
 def create_group(request, payload: GroupIn):
+    from .models import GroupPreference
     g = LocationGroup.objects.create(owner=request.user, **payload.dict())
-    return 201, {**payload.dict(), "id": g.id, "mine": True, "count": 0}
+    GroupPreference.objects.create(user=request.user, group=g, visible=True)  # a new group shows on its creator's map
+    return 201, {**payload.dict(), "id": g.id, "mine": True, "count": 0, "visible": True}
 
 
 @router.patch("/groups/{int:group_id}", response=GroupOut)
@@ -605,6 +608,7 @@ def stats(request):
 @router.get("/photos-near", response=PlacePhotosOut, summary=f"Your photos within {PHOTO_RADIUS_M} m of a point")
 def photos_near(request, latitude: float = Query(..., ge=-90, le=90), longitude: float = Query(..., ge=-180, le=180),
                 limit: int = Query(24, ge=1, le=100)):
+    require_also(request, "photos")  # returns photo links
     return _photos_payload(request.user, latitude, longitude, limit)
 
 
@@ -699,6 +703,7 @@ def _photos_payload(user, lat, lon, limit):
 @router.get("/{uuid:place_id}/photos", response=PlacePhotosOut,
             summary=f"Your photos within {PHOTO_RADIUS_M} m of a place, newest first, and visits (distinct days)")
 def place_photos(request, place_id: uuid.UUID, limit: int = Query(24, ge=1, le=100)):
+    require_also(request, "photos")  # returns photo links
     place = get_object_or_404(Location, id=place_id, group__in=_visible_groups(request.user))
     return _photos_payload(request.user, float(place.latitude), float(place.longitude), limit)
 

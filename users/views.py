@@ -48,7 +48,6 @@ def login_view(request):
     return render(request, 'users/login.html', {'form': form, 'error': error}, status=status)
 
 @login_required
-@login_required
 def password_change_view(request):
     if request.method == 'POST':
         form = PasswordChangeForm(user=request.user, data=request.POST)

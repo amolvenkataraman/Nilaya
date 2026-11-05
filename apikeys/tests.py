@@ -27,6 +27,13 @@ class ApiKeyTests(TestCase):
             headers = {"HTTP_AUTHORIZATION": f"Bearer {token}"} if header == "bearer" else {"HTTP_X_API_KEY": token}
         return getattr(self.client, method)(path, body or None, content_type="application/json", **headers)
 
+    def test_cross_app_data_needs_that_apps_scope_too(self):
+        self.client.force_login(self.user)
+        r = self.client.post("/api/v2/keys/", {"name": "Map", "scopes": ["places:read"]}, content_type="application/json")
+        self.client.logout()
+        near = self.call("get", "/api/v2/places/photos-near?latitude=43.4&longitude=-80.5", r.json()["token"])
+        self.assertEqual(near.status_code, 403)  # photo links need photos:read
+
     def test_token_is_shown_once_and_stored_hashed(self):
         key = ApiKey.objects.get()
         self.assertTrue(self.token.startswith("avn_"))

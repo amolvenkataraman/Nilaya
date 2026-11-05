@@ -164,10 +164,19 @@ def recurrence_end(ev, tz):
     rule = _rule(ev, tz)
     last = None
     if "UNTIL" in p or "COUNT" in p:
+        capped = False
         for i, d in enumerate(rule):
             last = d
             if i >= MAX_COUNT:
+                capped = True
                 break
+        if capped:
+            # A very long series (e.g. daily for 20 years): don't stop it at the cap. UNTIL bounds it
+            # (a slightly late end only widens range queries); a huge COUNT is treated as open-ended.
+            if "UNTIL" not in p:
+                return None
+            from dateutil.rrule import rrulestr as _rs
+            last = max(last, _rs(ev.rrule, dtstart=_dtstart(ev, tz))._until or last)
         if last is None:
             last = _dtstart(ev, tz)
     else:

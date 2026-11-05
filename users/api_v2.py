@@ -82,7 +82,12 @@ def set_picture(request, payload: PictureIn):
 
     try:
         img = Image.open(io.BytesIO(base64.b64decode(payload.data_url.split(",", 1)[1], validate=True)))
+        if img.width * img.height > 40_000_000:  # checked before decoding: a small file can expand hugely
+            raise HttpError(400, "That image is too large (over 40 megapixels)")
+        img.draft("RGB", (2048, 2048))  # JPEG: decode at a reduced size straight away
         img.load()
+    except HttpError:
+        raise
     except Exception as exc:
         raise HttpError(400, "That isn't a readable image") from exc
     img = img.convert("RGB")
@@ -90,8 +95,14 @@ def set_picture(request, payload: PictureIn):
     os.makedirs(os.path.join(settings.MEDIA_ROOT, "users", "profile_pictures"), exist_ok=True)
     name = f"users/profile_pictures/{random_characters()}.jpg"
     img.save(os.path.join(settings.MEDIA_ROOT, name), "JPEG", quality=90)
+    old = request.user.profile_picture.name
     request.user.profile_picture = name
     request.user.save(update_fields=["profile_picture"])
+    if old and old.startswith("users/profile_pictures/") and old != name:  # never the shared default
+        try:
+            os.remove(os.path.join(settings.MEDIA_ROOT, old))
+        except OSError:
+            pass
     return request.user
 
 

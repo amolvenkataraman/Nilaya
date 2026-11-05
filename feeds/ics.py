@@ -4,8 +4,8 @@ import datetime
 
 
 def esc(text):
-    return (str(text or "").replace("\\", "\\\\").replace(";", "\;").replace(",", "\\,")
-            .replace("\r\n", "\\n").replace("\n", "\\n"))
+    return (str(text or "").replace("\\", "\\\\").replace(";", "\\;").replace(",", "\\,")
+            .replace("\r\n", "\\n").replace("\r", "\\n").replace("\n", "\\n"))
 
 
 def fold(line):

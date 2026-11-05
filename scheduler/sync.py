@@ -41,6 +41,43 @@ def source_url(url):
     return url
 
 
+class BlockedSource(requests.RequestException):
+    """A feed link that points at this server itself or a link-local address."""
+
+
+def _check_host(url):
+    """Feeds may live on the LAN (Nextcloud and the like), but never on this machine (Django,
+    Redis, Postgres listen on localhost) or a link-local/metadata address."""
+    import ipaddress
+    import socket
+    from urllib.parse import urlsplit
+    parts = urlsplit(url)
+    if parts.scheme not in ("http", "https") or not parts.hostname:
+        raise BlockedSource("Only http(s) links can be synced")
+    try:
+        infos = socket.getaddrinfo(parts.hostname, parts.port or (443 if parts.scheme == "https" else 80))
+    except socket.gaierror as ex:
+        raise requests.ConnectionError(f"Unknown host {parts.hostname}") from ex
+    for info in infos:
+        ip = ipaddress.ip_address(info[4][0].split("%")[0])
+        if ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip.is_reserved:
+            raise BlockedSource("That link points at this server or a reserved address")
+
+
+def fetch_feed(url, **kwargs):
+    """GET a user-supplied feed link: webcal → https, host checked on every redirect (at most 5)."""
+    url = source_url(url)
+    for _ in range(6):
+        _check_host(url)
+        r = requests.get(url, allow_redirects=False, **kwargs)
+        if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("Location"):
+            from urllib.parse import urljoin
+            url = urljoin(url, r.headers["Location"])
+            continue
+        return r
+    raise requests.TooManyRedirects("Too many redirects")
+
+
 def _google_events_url(calendar_id):
     from urllib.parse import quote
     return f"https://www.googleapis.com/calendar/v3/calendars/{quote(calendar_id.strip(), safe='@.')}/events"
@@ -323,7 +360,7 @@ def sync_ical(calendar, start, end, url=None, conditional=False):
         if calendar.sync_etag: headers["If-None-Match"] = calendar.sync_etag
         if calendar.sync_last_modified: headers["If-Modified-Since"] = calendar.sync_last_modified
     try:
-        r = requests.get(source_url(url), timeout=SYNC_TIMEOUT, headers=headers)
+        r = fetch_feed(url, timeout=SYNC_TIMEOUT, headers=headers)
         if r.status_code == 304:
             return "not_modified"
         r.raise_for_status()
@@ -482,11 +519,13 @@ def preview_source(calendar_type, url, tz):
     now = timezone.now()
     if calendar_type == 1:
         try:
-            r = requests.get(source_url(url), timeout=SYNC_TIMEOUT, stream=True)
+            r = fetch_feed(url, timeout=SYNC_TIMEOUT, stream=True)
             r.raise_for_status()
             body = r.raw.read(PREVIEW_MAX_BYTES + 1, decode_content=True)
-        except requests.RequestException as ex:
-            raise ValueError(f"Couldn't download the feed ({type(ex).__name__}).")
+        except BlockedSource as ex:
+            raise ValueError(str(ex) + ".")
+        except requests.RequestException:
+            raise ValueError("Couldn't download the feed.")  # no detail: not a port scanner
         if len(body) > PREVIEW_MAX_BYTES:
             raise ValueError("The feed is too large to preview.")
         try:

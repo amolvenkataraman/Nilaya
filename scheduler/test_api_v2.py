@@ -35,6 +35,16 @@ class CalendarApiTests(TestCase):
         self.assertEqual(names(calendar=self.cal.id), ["Old plan"])
         self.assertEqual(names(include_inactive="true"), ["Old plan"])
 
+    def test_only_the_owner_can_touch_admin_invites(self):
+        from .models import Invite
+        admin = ComptechUser.objects.create_user("ada", password="pw")
+        Subscriber.objects.create(calendar=self.cal, user=admin, subscribe_type=1)
+        inv = Invite.objects.create(calendar=self.cal, code="ADMINCODE1", role=1)
+        self.client.force_login(admin)
+        url = f"/api/v2/calendar/calendars/{self.cal.id}/invites/{inv.id}"
+        self.assertEqual(self.client.patch(url, {"max_uses": None}, content_type="application/json").status_code, 403)
+        self.assertEqual(self.client.delete(url).status_code, 403)
+
     def test_subscribers_are_read_only_and_bad_ranges_rejected(self):
         body = {"calendar_id": self.shared.id, "name": "x", "start": at(5, 9).isoformat()}
         self.assertEqual(self.client.post("/api/v2/calendar/events", body, content_type="application/json").status_code, 403)
