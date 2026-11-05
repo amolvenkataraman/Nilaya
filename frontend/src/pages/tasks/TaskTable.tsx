@@ -1,6 +1,10 @@
 // Table layout for tasks: every field as a column, sortable by clicking a header, columns can be
 // shown or hidden (remembered on this device). Rows can be multi-selected (checkbox, Shift, Ctrl/Cmd).
+// Only rows near the viewport are rendered. Headers with a server sort (title, due, priority, created,
+// updated) sort the whole list; the others sort the loaded rows.
 import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Sort } from '../../lib/qs'
+import { useWindowed } from './virtual'
 import { Icon } from '../../components/Icon'
 import { Menu, MenuItem } from '../../components/ui'
 import { Ring, TaskCheck, dueTone, fmtMinutes } from '../../components/TaskRow'
@@ -11,10 +15,14 @@ import { labelStyle } from './Labels'
 
 type Col = { key: string; label: string; get: (t: Task) => string | number; render?: (t: Task) => React.ReactNode }
 const COLS_KEY = 'app.tasks.tableCols'
+/** Columns the server can sort by (its direction: due and title ascending, the rest newest/highest first). */
+const SERVER_SORT: Record<string, [Sort, 1 | -1]> = { title: ['title', 1], due: ['due', 1], priority: ['priority', -1], created: ['created', -1], updated: ['updated', -1] }
 
-export function TaskTable({ tasks, labels, pathOf, onOpen, onToggle, selected, sel }: {
-  tasks: Task[]; labels?: Label[]; pathOf: Map<string, string>; onOpen: (t: Task) => void; onToggle: (t: Task) => void; selected: string | null
+export function TaskTable({ tasks, total, more, labels, pathOf, onOpen, onToggle, selected, sel, sort: serverSort, onSort }: {
+  tasks: Task[]; total?: number; more?: boolean; labels?: Label[]; pathOf: Map<string, string>; onOpen: (t: Task) => void; onToggle: (t: Task) => void; selected: string | null
   sel?: Selection
+  /** The list's (server) sort, and a setter (null = the list's default). */
+  sort?: Sort; onSort?: (s: Sort | null) => void
 }) {
   const labelName = useMemo(() => new Map((labels ?? []).map((l) => [l.id, l])), [labels])
   const cols: Col[] = [
@@ -68,17 +76,28 @@ export function TaskTable({ tasks, labels, pathOf, onOpen, onToggle, selected, s
     sel?.clear()
     onOpen(t)
   }
-  const head = (key: string, label: string) => (
-    <th key={key} scope="col">
-      <button className="tt-sort" onClick={() => setSort((s) => (s?.key === key ? (s.dir === 1 ? { key, dir: -1 } : null) : { key, dir: 1 }))} aria-sort={sort?.key === key ? (sort.dir === 1 ? 'ascending' : 'descending') : 'none'}>
-        {label}{sort?.key === key && <Icon name={sort.dir === 1 ? 'arrowUp' : 'arrowDown'} size={11} />}
-      </button>
-    </th>
-  )
+  const head = (key: string, label: string) => {
+    const server = onSort ? SERVER_SORT[key] : undefined
+    const dir = sort?.key === key ? sort.dir : !sort && server && serverSort === server[0] ? server[1] : null
+    const click = () => {
+      if (server) { setSort(null); onSort!(serverSort === server[0] && !sort ? null : server[0]); return }
+      setSort((s) => (s?.key === key ? (s.dir === 1 ? { key, dir: -1 } : null) : { key, dir: 1 }))
+    }
+    return (
+      <th key={key} scope="col" aria-sort={dir ? (dir === 1 ? 'ascending' : 'descending') : 'none'}>
+        <button className="tt-sort" onClick={click} title={server ? 'Sort the whole list' : more ? 'Sort the loaded rows' : undefined}>
+          {label}{dir && <Icon name={dir === 1 ? 'arrowUp' : 'arrowDown'} size={11} />}
+        </button>
+      </th>
+    )
+  }
+  const body = useRef<HTMLTableSectionElement>(null)
+  const w = useWindowed(order, body, 37)
+  const span = visible.length + (sel ? 3 : 2)
   return (
     <div className="tt-wrap">
       <div className="tt-tools">
-        <span className="muted xsmall">{tasks.length} tasks · click a header to sort</span>
+        <span className="muted xsmall">{total != null && total > tasks.length ? `${tasks.length.toLocaleString()} of ${total.toLocaleString()} tasks loaded` : `${tasks.length.toLocaleString()} tasks`} · click a header to sort{sort && more ? ' (loaded rows)' : ''}</span>
         <span className="spacer" />
         <Menu align="end" label="Columns" trigger={(p) => <button {...p} className="btn sm"><Icon name="layers" size={13} />Columns</button>}>
           {() => cols.map((c) => <MenuItem key={c.key} active={shown.includes(c.key)} end={shown.includes(c.key) ? '✓' : undefined} onClick={() => toggleCol(c.key)}>{c.label}</MenuItem>)}
@@ -87,9 +106,10 @@ export function TaskTable({ tasks, labels, pathOf, onOpen, onToggle, selected, s
       <div className="tt-scroll">
         <table className="tt">
           <thead><tr>{sel && <th scope="col" className="tt-sel"><input ref={allBox} type="checkbox" className="sel-box" checked={rows.length > 0 && picked === rows.length} onChange={() => (picked === rows.length ? sel.clear() : sel.set(order))} aria-label="Select all" /></th>}<th scope="col" className="tt-check" aria-label="Done" />{head('title', 'Title')}{visible.map((c) => head(c.key, c.label))}</tr></thead>
-          <tbody>
-            {rows.map((t) => (
-              <tr key={t.id} data-task={t.id} className={(t.done ? 'done ' : '') + (t.id === selected ? 'sel ' : '') + (sel?.has(t.id) ? 'picked' : '')} onClick={(e) => rowClick(e, t)}>
+          <tbody ref={body}>
+            {w.padTop > 0 && <tr aria-hidden="true" style={{ height: w.padTop }}><td colSpan={span} /></tr>}
+            {rows.slice(w.start, w.end).map((t) => (
+              <tr key={t.id} ref={w.measure(t.id)} data-task={t.id} className={(t.done ? 'done ' : '') + (t.id === selected ? 'sel ' : '') + (sel?.has(t.id) ? 'picked' : '')} onClick={(e) => rowClick(e, t)}>
                 {sel && (
                   <td className="tt-sel" onClick={(e) => e.stopPropagation()}>
                     <input type="checkbox" className="sel-box" checked={sel.has(t.id)} aria-label={`Select "${t.title}"`}
@@ -101,7 +121,8 @@ export function TaskTable({ tasks, labels, pathOf, onOpen, onToggle, selected, s
                 {visible.map((c) => <td key={c.key}>{c.render ? c.render(t) : String(c.get(t) || '')}</td>)}
               </tr>
             ))}
-            {rows.length === 0 && <tr><td colSpan={visible.length + (sel ? 3 : 2)} className="empty">No tasks here.</td></tr>}
+            {w.padBottom > 0 && <tr aria-hidden="true" style={{ height: w.padBottom }}><td colSpan={span} /></tr>}
+            {rows.length === 0 && <tr><td colSpan={span} className="empty">No tasks here.</td></tr>}
           </tbody>
         </table>
       </div>

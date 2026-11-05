@@ -7,15 +7,16 @@ import { useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { AppShell } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { ErrorBox, Menu, MenuItem, SkeletonRows, useMediaQuery } from '../../components/ui'
+import { Confirm, ErrorBox, Menu, MenuItem, SkeletonRows, useMediaQuery } from '../../components/ui'
 import { Ring, TaskRow } from '../../components/TaskRow'
 import { QuickAddInput } from '../../components/QuickAdd'
-import { keys, useLabels, useMe, useOverview, useProjects, useSavedViews, useSetDone, useTasks, useUpdateTask, type TaskQuery } from '../../lib/queries'
+import { keys, useLabels, useMe, useOverview, useProjects, useSavedViews, useSetDone, useTaskPages, useUpdateTask, type TaskQuery } from '../../lib/queries'
+import { cachedTask, listItems, listTotal } from '../../lib/taskLists'
 import { toast } from '../../components/toast'
 import { TaskTable } from './TaskTable'
 import { nextTaskState, parseTaskState, serializeTaskState, type Sort, type TaskState, type SmartView } from '../../lib/qs'
 import { groupByDay, groupByDue, fmtDate, isSameDay, addDays, dayKey, parseDayKey, startOfDay, weekdayName } from '../../lib/dates'
-import { PRIORITIES, type Label, type Overview, type Project, type SavedView, type Task, type TaskPage } from '../../lib/types'
+import { PRIORITIES, type Label, type Overview, type Project, type SavedView, type Task } from '../../lib/types'
 import { TaskDrawer } from './TaskDrawer'
 import { ProjectDialog, ProjectMenu, SaveViewDialog, viewFilters } from './ProjectDialog'
 import { ShareDialog } from './ProjectShare'
@@ -24,8 +25,9 @@ import { BulkBar } from './BulkBar'
 import { TasksSidebar, VIEWS, ViewMenu } from './Sidebar'
 import { ShortcutsDialog, useTaskKeys } from './Shortcuts'
 import { useSelection, type Selection } from './selection'
-import { plural, useBulkOps, useDeleteWithUndo, useHiddenTasks, useReorderTasks, useSaveView } from './api'
-import { boardParams, canEditTask as canEditTaskFor, fitsList, nestTasks } from './util'
+import { bulkFilter, plural, positionsBetween, useBulkOps, useDeleteWithUndo, useHiddenTasks, usePlaceTasks, useSaveView, type BulkTarget } from './api'
+import { canEditTask as canEditTaskFor, fitsList, nestTasks } from './util'
+import { revealRow, useLoadMore, useWindowed } from './virtual'
 import './tasks.css'
 
 // Layouts other than the list load on demand.
@@ -51,17 +53,27 @@ const GROUPS = [['auto', 'Automatic'], ['due', 'Due date'], ['priority', 'Priori
 const GROUP_BTN = { auto: 'Group', due: 'By due', priority: 'By priority', project: 'By project', none: 'No groups' }
 const COLLAPSED_TASKS = 'app.tasks.collapsedTasks'
 
+/** Rows per page of a list (later pages load as you scroll). */
+export const PAGE = 100
+
+/** The list's query. A project's list holds its open tasks; done ones are a separate, paged query. */
 export function listParams(s: TaskState, overview: Overview | undefined, saved: SavedView | undefined, sortChosen = false): TaskQuery | null {
-  const base: TaskQuery = { sort: s.sort, q: s.q || undefined, limit: 500 }
-  if (s.project) return { ...base, project: s.project }
-  if (s.saved) return saved ? { ...base, ...saved.filters, q: s.q || (saved.filters.q as string | undefined), sort: sortChosen ? s.sort : saved.filters.sort ?? s.sort } : null
+  const base: TaskQuery = { sort: s.sort, q: s.q || undefined, limit: PAGE }
+  if (s.project) return { ...base, project: s.project, done: false }
+  if (s.saved) return saved ? { ...base, ...saved.filters, limit: PAGE, q: s.q || (saved.filters.q as string | undefined), sort: sortChosen ? s.sort : saved.filters.sort ?? s.sort } : null
   switch (s.view) {
-    case 'inbox': return overview ? { ...base, project: overview.inbox_id } : null
-    case 'all': return { ...base, done: false }
-    case 'done': return { ...base, view: 'done', sort: 'done', limit: 200 }
+    case 'inbox': return overview ? { ...base, project: overview.inbox_id, done: false } : null
+    // Manual order means nothing across projects (the Sort menu doesn't offer it here): page by due date,
+    // so the date sections fill in order as you scroll.
+    case 'all': return { ...base, sort: s.sort === 'position' ? 'due' : s.sort, done: false }
+    case 'done': return { ...base, view: 'done', sort: 'done' }
     default: return { ...base, view: s.view ?? 'today' }
   }
 }
+
+/** Timeline and calendar show a project's done tasks too (the list keeps them in their own section). */
+const withDone = (p: TaskQuery): TaskQuery => { const o = { ...p }; if (o.project && o.done === false) delete o.done; return o }
+const TIMELINE_PAGES = 4 // x 500 rows
 
 /** Extra filters on top of a list (a saved view's own label/priority/assignee filters are kept). */
 export function withFilters(p: TaskQuery, f: { label: string; prio: number; assignee: string }): TaskQuery {
@@ -128,16 +140,21 @@ export default function TasksPage() {
   const isList = !isBoard && !isTable && !alt
   const layout: LayoutName = isBoard ? 'board' : isTable ? 'table' : alt ?? 'list'
   const isProjectList = !!state.project || state.view === 'inbox'
-  const tasks = useTasks(params ?? {}, !!params && !isBoard && !isCal)
+  const tasks = useTaskPages(params ?? {}, !!params && (isList || isTable))
+  const tlParams = useMemo(() => (params ? { ...withDone(params), limit: 500 } : null), [params]) // eslint-disable-line react-hooks/exhaustive-deps
+  const tlQuery = useTaskPages(tlParams ?? {}, !!tlParams && isTimeline)
+  // The timeline needs every dated task of the list: follow its pages (bounded).
+  useEffect(() => {
+    if (isTimeline && tlQuery.hasNextPage && !tlQuery.isFetchingNextPage && (tlQuery.data?.pages.length ?? 0) < TIMELINE_PAGES) tlQuery.fetchNextPage()
+  }, [isTimeline, tlQuery.hasNextPage, tlQuery.isFetchingNextPage, tlQuery.data?.pages.length]) // eslint-disable-line react-hooks/exhaustive-deps
   const doneParams = useMemo(() => {
-    if (!params || isProjectList || state.view === 'done' || !showCompleted || !(isList || isTable)) return null
-    const p: TaskQuery = { ...params, done: true, sort: 'done', limit: 100 }
+    if (!params || state.view === 'done' || !showCompleted || !(isList || isTable)) return null
+    const p: TaskQuery = { ...params, done: true, sort: 'done' }
     if (p.view !== 'favorites' && p.view !== 'assigned') delete p.view
     return p
-  }, [params, isProjectList, state.view, showCompleted, isList, isTable]) // eslint-disable-line react-hooks/exhaustive-deps
-  const doneQuery = useTasks(doneParams ?? {}, !!doneParams)
-  const bParams = state.project ? boardParams(state.project, state.q) : {}
-  const boardTasks = useTasks(bParams, isBoard)
+  }, [params, state.view, showCompleted, isList, isTable]) // eslint-disable-line react-hooks/exhaustive-deps
+  const doneQuery = useTaskPages(doneParams ?? {}, !!doneParams)
+  const [boardItems, setBoardItems] = useState<Task[]>([])
   const setDone = useSetDone()
   const updateTask = useUpdateTask()
   const ops = useBulkOps()
@@ -154,7 +171,10 @@ export default function TasksPage() {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(() => new Set())
   const [collapsedTasks, setCollapsedTasks] = useState(() => readSet(COLLAPSED_TASKS))
   const [focus, setFocus] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const sel = useSelection()
+  // "Select all N matching": the selection as it was when chosen; any other change drops back to ids.
+  const [matching, setMatching] = useState<Set<string> | null>(null)
   const touch = useMediaQuery('(hover: none)')
   // A new list (or filter, or layout) starts with nothing selected, no open sections collapsed, no focus mode.
   useEffect(() => sel.clear(), [state.project, state.view, state.saved, state.q, labelFilter, prioMin, assignee, layout]) // eslint-disable-line
@@ -177,9 +197,12 @@ export default function TasksPage() {
     }
     return m
   }, [projects, byId])
-  const items = useMemo(() => (tasks.data?.items ?? []).filter((t) => !hidden.has(t.id)), [tasks.data, hidden])
+  const items = useMemo(() => listItems(tasks.data).filter((t) => !hidden.has(t.id)), [tasks.data, hidden])
+  const total = listTotal(tasks.data) ?? items.length
   const open = useMemo(() => items.filter((t) => !t.done), [items])
-  const doneList = useMemo(() => (isProjectList ? items.filter((t) => t.done) : (doneQuery.data?.items ?? []).filter((t) => !hidden.has(t.id))), [isProjectList, items, doneQuery.data, hidden])
+  const doneList = useMemo(() => listItems(doneQuery.data).filter((t) => !hidden.has(t.id)), [doneQuery.data, hidden])
+  const doneTotal = listTotal(doneQuery.data)
+  const tlItems = useMemo(() => listItems(tlQuery.data).filter((t) => !hidden.has(t.id)), [tlQuery.data, hidden])
   const nested = useMemo(() => nestTasks(isProjectList ? open : items), [isProjectList, open, items])
 
   const groups = useMemo(() => {
@@ -215,36 +238,39 @@ export default function TasksPage() {
 
   const visibleRows = (list: Task[]): Task[] => list.flatMap((t) => [t, ...(collapsedTasks.has(t.id) ? [] : visibleRows(nested.kids.get(t.id) ?? []))])
   const flat = groups.filter((g) => !collapsedSections.has(g.key)).flatMap((g) => (state.view === 'done' ? g.items : visibleRows(g.items)))
-  const tableTasks = state.view === 'done' ? items : [...open, ...(showCompleted ? doneList : [])]
-  const boardItems = useMemo(() => (boardTasks.data?.items ?? []).filter((t) => !hidden.has(t.id)), [boardTasks.data, hidden])
+  const tableTasks = useMemo(() => (state.view === 'done' ? items : [...open, ...(showCompleted ? doneList : [])]), [state.view, items, open, showCompleted, doneList])
   /** Row order on screen, for Shift-click ranges, Ctrl+A and j/k. */
   const order = useMemo(() => [...flat, ...(showCompleted && state.view !== 'done' ? doneList : [])].map((t) => t.id), [flat, doneList, showCompleted, state.view])
-  const navOrder = isTable ? tableTasks.map((t) => t.id) : isBoard ? boardItems.map((t) => t.id) : isTimeline ? items.filter((t) => t.due || t.start).map((t) => t.id) : order
+  const navOrder = isTable ? tableTasks.map((t) => t.id) : isBoard ? boardItems.map((t) => t.id) : isTimeline ? tlItems.filter((t) => t.due || t.start).map((t) => t.id) : order
   const pool = isBoard ? boardItems : isTable ? tableTasks : [...items, ...doneList]
   const picked = pool.filter((t) => sel.ids.has(t.id))
-  const taskById = useMemo(() => new Map([...items, ...doneList, ...boardItems].map((t) => [t.id, t])), [items, doneList, boardItems])
-  const findTask = (id: string | null): Task | undefined => {
-    if (!id) return undefined
-    return taskById.get(id) ?? qc.getQueryData<Task>(keys.task(id)) ?? qc.getQueriesData<TaskPage>({ queryKey: ['tasks', 'list'] }).flatMap(([, d]) => d?.items ?? []).find((t) => t.id === id)
-  }
+  const taskById = useMemo(() => new Map([...items, ...doneList, ...boardItems, ...tlItems].map((t) => [t.id, t])), [items, doneList, boardItems, tlItems])
+  const findTask = (id: string | null): Task | undefined => (id ? taskById.get(id) ?? cachedTask(qc, id) : undefined)
+  // "Select all N matching" is offered once every loaded row of the list is selected and more exist.
+  const canMatch = (isList || isTable) && !!params && total > items.length && sel.ids.size > 0 && items.every((t) => sel.ids.has(t.id))
+  const matchingOn = !!matching && matching === sel.ids && canMatch
+  const bulkTarget = (ids: string[]): BulkTarget => (matchingOn && params ? { filter: bulkFilter(params), total } : ids)
 
   const toggle = (t: Task) => setDone.mutate({ task: t, done: !t.done })
   // Keep each task's time of day, move the date to today (an earlier time today becomes "today", 23:59).
+  // One bulk request per distinct new due time (not one per task).
   const rescheduleToToday = (list: Task[]) => {
     const now = new Date()
+    const byDue = new Map<string, string[]>()
     for (const t of list) {
       if (!t.due) continue
       const d = new Date(t.due)
       d.setFullYear(now.getFullYear(), now.getMonth(), now.getDate())
       if (d < now) d.setHours(23, 59, 0, 0)
-      updateTask.mutate({ id: t.id, body: { due: d.toISOString() } })
+      byDue.set(d.toISOString(), [...(byDue.get(d.toISOString()) ?? []), t.id])
     }
+    for (const [due, ids] of byDue) ops.update(ids, { due })
     toast.show(`Moved ${plural(list.length)} to today`)
   }
   const openTask = (t: Task) => { if (t.id.startsWith('temp-')) return; setSelected(t.id); update({ task: t.id }) }
-  const listKey = params ? keys.taskList(params) : undefined
-  const quickKey = isBoard && state.project ? keys.taskList(bParams) : listKey
-  const totalOpen = isProjectList ? open.length : items.filter((t) => !t.done).length
+  const listKey = params ? keys.taskPages(params) : undefined
+  const quickKey = isBoard ? undefined : listKey // a board add lands in its first column's list via the settle
+  const totalOpen = state.view === 'done' ? 0 : total
 
   const setLayout = (L: LayoutName) => {
     try { localStorage.setItem(layoutKey(state), L) } catch { /* ignore */ }
@@ -272,7 +298,7 @@ export default function TasksPage() {
   // ---------------------------------------------------------------- drag and drop (list rows)
   const [drag, setDrag] = useState<{ ids: string[]; over: string | null; index?: number } | null>(null)
   const reorderProject = state.project ?? (state.view === 'inbox' ? overview?.inbox_id ?? '' : '')
-  const reorder = useReorderTasks(reorderProject)
+  const place = usePlaceTasks(reorderProject)
   const canReorder = isProjectList && state.sort === 'position' && groups.length === 1 && groups[0]?.key === 'all' && !state.q && !labelFilter && !prioMin && !assignee && (project?.role ?? 2) >= 1
   const groupOf = useMemo(() => new Map(groups.flatMap((g) => g.items.map((t) => [t.id, g.key] as const))), [groups])
   const today = startOfDay(new Date())
@@ -281,7 +307,7 @@ export default function TasksPage() {
     if (state.view === 'done') return null
     if (key === 'today' || key === 'tomorrow' || key === 'nodate' || key.startsWith('day:')) {
       const day = key === 'nodate' ? null : key === 'today' ? today : key === 'tomorrow' ? addDays(today, 1) : parseDayKey(key.slice(4))
-      return (ids) => ops.setDue(ids.map((id) => taskById.get(id)!).filter(Boolean), day)
+      return (ids) => ops.setDue(ids, ids.map((id) => taskById.get(id)!).filter(Boolean), day)
     }
     if (/^p\d+$/.test(key)) return (ids) => ops.setPriority(ids, Number(key.slice(1)))
     const p = key.startsWith('pr') ? byId.get(key.slice(2)) : undefined
@@ -294,10 +320,14 @@ export default function TasksPage() {
     e.dataTransfer.effectAllowed = 'move'
     setTimeout(() => setDrag({ ids, over: null }), 0) // after the browser grabbed the drag image
   }
-  const indexAt = (el: HTMLElement, y: number) => {
+  /** Drop index among the section's root rows (not being dragged); only rows near the view are rendered. */
+  const indexAt = (el: HTMLElement, y: number, list: Task[]) => {
+    const roots = list.map((t) => t.id).filter((id) => !drag?.ids.includes(id))
     const rows = Array.from(el.querySelectorAll<HTMLElement>('.pick[data-root]')).filter((r) => !drag?.ids.includes(r.dataset.id!))
-    const i = rows.findIndex((r) => { const b = r.getBoundingClientRect(); return y < b.top + b.height / 2 })
-    return i < 0 ? rows.length : i
+    const r = rows.find((x) => { const b = x.getBoundingClientRect(); return y < b.top + b.height / 2 })
+    if (r) return Math.max(0, roots.indexOf(r.dataset.id!))
+    const last = rows.at(-1)
+    return last ? roots.indexOf(last.dataset.id!) + 1 : roots.length
   }
   const isChild = (id: string) => { const t = taskById.get(id); return !!t?.parent_id && taskById.has(t.parent_id) }
   const sectionDrop = (key: string, list: Task[]) => {
@@ -309,7 +339,7 @@ export default function TasksPage() {
       onDragOver: (e: DragEvent<HTMLElement>) => {
         e.preventDefault()
         e.dataTransfer.dropEffect = 'move'
-        const index = reorderHere ? indexAt(e.currentTarget, e.clientY) : undefined
+        const index = reorderHere ? indexAt(e.currentTarget, e.clientY, list) : undefined
         if (drag.over !== key || drag.index !== index) setDrag({ ...drag, over: key, index })
       },
       onDragLeave: (e: DragEvent<HTMLElement>) => {
@@ -318,10 +348,13 @@ export default function TasksPage() {
       onDrop: (e: DragEvent<HTMLElement>) => {
         e.preventDefault()
         if (reorderHere) {
-          const rest = list.map((t) => t.id).filter((id) => !drag.ids.includes(id))
-          const at = indexAt(e.currentTarget, e.clientY)
-          const ids = [...rest.slice(0, at), ...drag.ids, ...rest.slice(at)]
-          if (ids.join() !== list.map((t) => t.id).join()) reorder.mutate(ids)
+          const rest = list.filter((t) => !drag.ids.includes(t.id))
+          const at = indexAt(e.currentTarget, e.clientY, list)
+          const ids = [...rest.slice(0, at).map((t) => t.id), ...drag.ids, ...rest.slice(at).map((t) => t.id)]
+          const prev = rest[at - 1], next = rest[at]
+          if (ids.join() !== list.map((t) => t.id).join() && (prev || next)) {
+            place.mutate({ ids: drag.ids, after: prev?.id, before: prev ? undefined : next?.id, positions: positionsBetween(drag.ids.length, prev?.position, next?.position) })
+          }
         } else act?.(drag.ids)
         setDrag(null)
       },
@@ -367,7 +400,7 @@ export default function TasksPage() {
         const down = k === 'j' || k === 'ArrowDown'
         const next = navOrder[i < 0 ? (down ? 0 : navOrder.length - 1) : Math.max(0, Math.min(navOrder.length - 1, i + (down ? 1 : -1)))]
         setSelected(next)
-        document.querySelector(`[data-task="${next}"]`)?.scrollIntoView({ block: 'nearest' })
+        revealRow(next)
         if (state.task) update({ task: next }, true)
         return true
       }
@@ -383,8 +416,8 @@ export default function TasksPage() {
       case 'd': {
         const list = ts()
         if (!list.length) return false
-        if (list.length === 1) setDone.mutate({ task: list[0], done: !list[0].done })
-        else ops.setDone(list.map((t) => t.id), !list.every((t) => t.done))
+        if (list.length === 1 && !matchingOn) setDone.mutate({ task: list[0], done: !list[0].done })
+        else ops.setDone(bulkTarget(list.map((t) => t.id)), !list.every((t) => t.done))
         sel.clear()
         return true
       }
@@ -392,27 +425,28 @@ export default function TasksPage() {
         const list = ts()
         if (!list.length) return false
         const fav = !list.every((t) => t.favorite)
-        ops.update(list.map((t) => t.id), { favorite: fav }, list.length > 1 ? (fav ? 'Added to favourites' : 'Removed from favourites') : undefined)
+        ops.update(bulkTarget(list.map((t) => t.id)), { favorite: fav }, list.length > 1 ? (fav ? 'Added to favourites' : 'Removed from favourites') : undefined)
         return true
       }
       case 't': {
         const list = ts()
         if (!list.length) return false
         const eod = new Date(); eod.setHours(23, 59, 0, 0)
-        ops.update(list.map((t) => t.id), { due: eod.toISOString() }, 'Due today')
+        ops.update(bulkTarget(list.map((t) => t.id)), { due: eod.toISOString() }, 'Due today')
         return true
       }
       case '1': case '2': case '3': case '4': {
         const list = ts()
         if (!list.length) return false
         const p = PRIORITIES[Number(k) - 1]
-        ops.setPriority(list.map((t) => t.id), p.value)
+        ops.setPriority(bulkTarget(list.map((t) => t.id)), p.value)
         toast.show(`Priority: ${p.label}`)
         return true
       }
       case 'Delete': case 'Backspace': {
         const list = ts()
         if (!list.length) return false
+        if (matchingOn) { setConfirmDelete(true); return true }
         deleteLater(list)
         sel.clear()
         if (state.task && list.some((t) => t.id === state.task)) update({ task: null })
@@ -460,27 +494,54 @@ export default function TasksPage() {
         editing={editing === t.id} touch={touch} acts={rowActs} />
     )
   }
-  const rowsOf = (t: Task, depth: number, showProject: boolean): ReactNode[] => {
+  /** A root row and its visible subtasks (plus an open "add subtask" input), flattened for the window. */
+  const flatRows = (t: Task, depth: number, showProject: boolean, out: VItem[]) => {
     const kids = nested.kids.get(t.id) ?? []
-    const collapsed = collapsedTasks.has(t.id)
-    return [
-      rowFor(t, depth, kids.length, depth === 0, showProject),
-      addingSub === t.id && (
-        <div key={'sub' + t.id} className="sub-add" style={{ '--depth': depth + 1 } as CSSProperties}
-          onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), setAddingSub(null))}
-          onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node) && !e.currentTarget.querySelector('input')?.value) setAddingSub(null) }}>
-          <QuickAddInput compact autoFocus parentId={t.id} projectId={t.project_id} listKey={listKey} optimistic={{ parent_id: t.id, project_id: t.project_id }} placeholder="Subtask, then Enter (Esc to finish)" />
-        </div>
-      ),
-      ...(collapsed ? [] : kids.flatMap((c) => rowsOf(c, depth + 1, showProject))),
-    ]
+    out.push({ kind: 'row', key: t.id, t, depth, nKids: kids.length, root: depth === 0, showProject })
+    if (addingSub === t.id) out.push({ kind: 'sub', key: 'sub' + t.id, t, depth })
+    if (!collapsedTasks.has(t.id)) for (const c of kids) flatRows(c, depth + 1, showProject, out)
   }
+  const renderItem = (it: VItem): ReactNode => {
+    if (it.kind === 'line') return <div className="drop-line list" />
+    if (it.kind === 'row') return rowFor(it.t, it.depth, it.nKids, it.root, it.showProject)
+    const t = it.t
+    return (
+      <div className="sub-add" style={{ '--depth': it.depth + 1 } as CSSProperties}
+        onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), setAddingSub(null))}
+        onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node) && !e.currentTarget.querySelector('input')?.value) setAddingSub(null) }}>
+        <QuickAddInput compact autoFocus parentId={t.id} projectId={t.project_id} listKey={listKey} optimistic={{ parent_id: t.id, project_id: t.project_id }} placeholder="Subtask, then Enter (Esc to finish)" />
+      </div>
+    )
+  }
+  const sectionItems = (g: { key: string; items: Task[] }): VItem[] => {
+    const out: VItem[] = []
+    if (state.view === 'done') {
+      for (const t of g.items) out.push({ kind: 'row', key: t.id, t, depth: 0, nKids: 0, root: true, showProject: true })
+      return out
+    }
+    const reordering = drag?.over === g.key && drag.index !== undefined
+    let k = 0 // index among root rows that aren't being dragged, for the drop line
+    for (const t of g.items) {
+      if (reordering && !drag!.ids.includes(t.id) && k++ === drag!.index) out.push({ kind: 'line', key: 'dl' })
+      flatRows(t, 0, !isProjectList, out)
+    }
+    if (reordering && drag!.index === k) out.push({ kind: 'line', key: 'dl' })
+    return out
+  }
+  const doneItems = useMemo((): VItem[] => doneList.map((t) => ({ kind: 'row', key: t.id, t, depth: 0, nKids: 0, root: false, showProject: !isProjectList })), [doneList, isProjectList])
+  // Load the next page when the end of the list comes near.
+  const moreRef = useRef<HTMLDivElement>(null)
+  const doneMoreRef = useRef<HTMLDivElement>(null)
+  useLoadMore(moreRef, (isList || isTable) && !!tasks.hasNextPage && !tasks.isFetchingNextPage, () => tasks.fetchNextPage(), [items.length])
+  useLoadMore(doneMoreRef, (isList || isTable) && !tasks.hasNextPage && !!doneQuery.hasNextPage && !doneQuery.isFetchingNextPage, () => doneQuery.fetchNextPage(), [doneList.length])
 
   const filtersActive = !!(labelFilter || prioMin || assignee || state.q)
   const savedDirty = !!saved && (!!labelFilter || !!prioMin || !!assignee || search.has('sort') || (!!state.q && state.q !== saved.filters.q))
   const updateSaved = (v: SavedView) => saveView.mutate({ id: v.id, body: { filters: viewFilters(params) } }, { onSuccess: () => { toast.show('View updated'); setSearch(new URLSearchParams({ saved: v.id })) } })
   const doneTodayN = overview?.done_today ?? 0 // "X of Y done today" (from the overview, no extra request)
-  const projectPct = items.length ? Math.round(((items.length - open.length) / items.length) * 100) : 0
+  // A project's done count: the done query's total when it's loaded, else the project's own count (unfiltered).
+  const projectDone = doneTotal ?? (filtersActive ? null : project?.done_count ?? null)
+  const projectPct = projectDone != null && total + projectDone ? Math.round((projectDone / (total + projectDone)) * 100) : 0
   const writable = (project?.role ?? 0) >= 1
 
   const sidebar = (
@@ -535,13 +596,13 @@ export default function TasksPage() {
               {project && !project.is_inbox && <span className="dot lg" style={{ background: project.colour || 'var(--app-muted)' }} />}
               {saved && <Icon name="filter" size={16} className="muted" />}
               <span className="truncate">{title}</span>
-              {!isBoard && !isCal && tasks.data && <span className="tasks-count">{totalOpen}</span>}
+              {(isList || isTable) && tasks.data && <span className="tasks-count">{total.toLocaleString()}</span>}
               {project && !project.is_inbox && project.shared && (
                 <button className="chip shared-chip" onClick={() => setSharing(project)} title="People with access"><Icon name="users" size={11} />Shared</button>
               )}
             </h1>
-            {isProjectList && !isBoard && !isCal && tasks.data && items.length > 0 && (
-              <p className="muted small row tasks-progress" title={`${projectPct}% complete`}><Ring value={projectPct} size={14} />{open.length} open · {items.length - open.length} done</p>
+            {isProjectList && !isBoard && !isCal && tasks.data && projectDone != null && total + projectDone > 0 && (
+              <p className="muted small row tasks-progress" title={`${projectPct}% complete`}><Ring value={projectPct} size={14} />{total.toLocaleString()} open · {projectDone.toLocaleString()} done</p>
             )}
             {state.view === 'today' && !state.q && tasks.data && overview && (doneTodayN + totalOpen > 0) && (
               <p className="muted small row tasks-progress"><Ring value={Math.round((doneTodayN / (doneTodayN + totalOpen)) * 100)} size={14} />{doneTodayN} of {doneTodayN + totalOpen} done today</p>
@@ -624,13 +685,21 @@ export default function TasksPage() {
 
         <Suspense fallback={<SkeletonRows rows={8} />}>
         {isBoard && state.project ? (
-          <Board projectId={state.project} labels={labels} q={state.q} onOpen={openTask} writable={writable} hidden={hidden} sel={sel} selected={state.task ?? selected} />
+          <Board projectId={state.project} labels={labels} q={state.q} onOpen={openTask} writable={writable} hidden={hidden} sel={sel} selected={state.task ?? selected} onItems={setBoardItems} />
         ) : isCal ? (
           !params ? <SkeletonRows rows={8} /> : <Calendar base={params} labels={labels} projectId={state.project ?? (state.view === 'inbox' ? overview?.inbox_id ?? null : null)} hidden={hidden} onOpen={openTask} selected={state.task} />
         ) : isTimeline ? (
-          !params || tasks.isPending ? <SkeletonRows rows={8} /> : tasks.error && !tasks.data ? <ErrorBox error={tasks.error} retry={() => tasks.refetch()} /> : <Timeline tasks={items} onOpen={openTask} selected={state.task ?? selected} />
+          !params || tlQuery.isPending ? <SkeletonRows rows={8} /> : tlQuery.error && !tlQuery.data ? <ErrorBox error={tlQuery.error} retry={() => tlQuery.refetch()} /> : <Timeline tasks={tlItems} onOpen={openTask} selected={state.task ?? selected} />
         ) : isTable ? (
-          !params || tasks.isPending ? <SkeletonRows rows={8} /> : <TaskTable tasks={tableTasks} labels={labels} pathOf={pathOf} onOpen={openTask} onToggle={toggle} selected={state.task ?? selected} sel={sel} />
+          !params || tasks.isPending ? <SkeletonRows rows={8} /> : tasks.error && !tasks.data ? <ErrorBox error={tasks.error} retry={() => tasks.refetch()} /> : (
+            <>
+              <TaskTable tasks={tableTasks} total={total + (showCompleted && state.view !== 'done' ? doneTotal ?? 0 : 0)} more={!!tasks.hasNextPage || !!doneQuery.hasNextPage} labels={labels} pathOf={pathOf} onOpen={openTask} onToggle={toggle} selected={state.task ?? selected} sel={sel}
+                sort={state.view === 'done' ? undefined : (params?.sort as Sort | undefined)} onSort={state.view === 'done' ? undefined : (s2) => setSearch((p) => { const n = new URLSearchParams(p); if (s2) n.set('sort', s2); else n.delete('sort'); return n }, { replace: true })} />
+              <div ref={moreRef} aria-hidden="true" />
+              {(tasks.isFetchingNextPage || doneQuery.isFetchingNextPage) && <SkeletonRows rows={3} />}
+              <div ref={doneMoreRef} aria-hidden="true" />
+            </>
+          )
         ) : (
           <div className={'tasks-list' + (sel.ids.size ? ' selecting' : '') + (drag ? ' dragging' : '')}>
             {!params || tasks.isPending ? (
@@ -643,48 +712,47 @@ export default function TasksPage() {
               groups.filter((g) => g.items.length || g.keep).map((g) => {
                 const reordering = drag?.over === g.key && drag.index !== undefined
                 const collapsed = collapsedSections.has(g.key)
-                let k = 0 // index among root rows that aren't being dragged, for the drop line
                 return (
                   <section key={g.key} className={'task-section' + (drag?.over === g.key && !reordering ? ' drop' : '')} aria-label={g.label || title} {...sectionDrop(g.key, g.items)}>
                     {g.label && (
                       <h2 className={'task-section-head' + (g.key === 'overdue' ? ' danger' : '')}>
                         <button className="section-toggle" aria-expanded={!collapsed} onClick={() => setCollapsedSections((s) => { const n = new Set(s); if (n.has(g.key)) n.delete(g.key); else n.add(g.key); return n })}>
-                          <Icon name={collapsed ? 'chevronRight' : 'chevronDown'} size={12} />{g.label}<span>{g.items.length}</span>
+                          <Icon name={collapsed ? 'chevronRight' : 'chevronDown'} size={12} />{g.label}<span>{g.items.length}{tasks.hasNextPage && grouping !== 'none' ? '+' : ''}</span>
                         </button>
                         {g.key === 'overdue' && g.items.length > 0 && <button className="btn ghost sm section-act" onClick={() => rescheduleToToday(g.items)} title="Move all overdue tasks to today">Reschedule to today</button>}
                         {drag?.over === g.key && !reordering && <span className="drop-hint">Drop to {dropHint(g.key, g.label)}</span>}
                       </h2>
                     )}
-                    {!collapsed && (state.view === 'done'
-                      ? g.items.map((t) => rowFor(t, 0, 0, true, true))
-                      : g.items.map((t) => {
-                        const line = reordering && !drag!.ids.includes(t.id) && k++ === drag!.index
-                        return [line && <div key={'dl' + t.id} className="drop-line list" />, ...rowsOf(t, 0, !isProjectList)]
-                      }))}
-                    {!collapsed && reordering && drag!.index === k && <div className="drop-line list" />}
+                    {!collapsed && <WindowRows items={sectionItems(g)} render={renderItem} />}
                     {!collapsed && g.keep && !g.items.length && <div className="section-empty muted xsmall">Nothing scheduled</div>}
                   </section>
                 )
               })
             )}
+            <div ref={moreRef} aria-hidden="true" />
+            {tasks.isFetchingNextPage && <SkeletonRows rows={3} avatar />}
             {showCompleted && state.view !== 'done' && tasks.data && (
               <section className="task-section done-section">
-                <h2 className="task-section-head"><Icon name="check" size={12} />Completed<span>{isProjectList ? doneList.length : doneQuery.data?.total ?? '…'}</span></h2>
-                {doneQuery.isPending && doneParams ? <SkeletonRows rows={2} /> : doneList.length ? doneList.map((t) => rowFor(t, 0, 0, false, !isProjectList)) : <div className="section-empty muted xsmall">No completed tasks</div>}
+                <h2 className="task-section-head"><Icon name="check" size={12} />Completed<span>{doneTotal?.toLocaleString() ?? '…'}</span></h2>
+                {doneQuery.isPending && doneParams ? <SkeletonRows rows={2} /> : doneList.length ? <WindowRows items={doneItems} render={renderItem} /> : <div className="section-empty muted xsmall">No completed tasks</div>}
+                <div ref={doneMoreRef} aria-hidden="true" />
+                {doneQuery.isFetchingNextPage && <SkeletonRows rows={2} />}
               </section>
             )}
-            {isProjectList && !showCompleted && tasks.data && doneList.length > 0 && (
-              <button className="task-section-head toggle" onClick={() => setExtra('done', '1')}><Icon name="chevronRight" size={14} />Completed<span>{doneList.length}</span></button>
-            )}
-            {tasks.data && tasks.data.total > (tasks.data.items.length) && (
-              <p className="muted xsmall" style={{ padding: '0.75rem' }}>Showing {tasks.data.items.length} of {tasks.data.total}. Narrow the list with a filter.</p>
+            {isProjectList && !showCompleted && tasks.data && !!projectDone && (
+              <button className="task-section-head toggle" onClick={() => setExtra('done', '1')}><Icon name="chevronRight" size={14} />Completed<span>{projectDone.toLocaleString()}</span></button>
             )}
             {canReorder && open.length > 1 && !touch && <p className="muted xsmall tasks-hint">Drag tasks to reorder them, or onto a project in the sidebar to move them. Double-click a title to rename.</p>}
           </div>
         )}
         </Suspense>
       </div>
-      {(isList || isTable || isBoard) && picked.length > 0 && <BulkBar tasks={picked} projects={projects} labels={labels} onClear={sel.clear} />}
+      {(isList || isTable || isBoard) && picked.length > 0 && (
+        <BulkBar tasks={picked} target={bulkTarget(picked.map((t) => t.id))} projects={projects} labels={labels} onClear={() => { sel.clear(); setMatching(null) }}
+          matchTotal={canMatch && !matchingOn ? total : undefined} onMatch={() => setMatching(sel.ids)} onUnmatch={matchingOn ? () => setMatching(null) : undefined} />
+      )}
+      <Confirm open={confirmDelete} title={`Delete ${plural(total)}?`} body="Every task matching this list is deleted, with its subtasks. This can't be undone."
+        confirmLabel="Delete" onConfirm={() => { ops.remove(bulkTarget([])); sel.clear(); setMatching(null) }} onClose={() => setConfirmDelete(false)} />
       <TaskDrawer id={state.task} onClose={() => update({ task: null })} onOpen={(id) => update({ task: id })} />
       <ProjectDialog open={projectDialog !== null} project={projectDialog?.project ?? null} parentId={projectDialog?.parent} projects={projects}
         onClose={() => setProjectDialog(null)} onCreated={(p) => update({ project: p.id, task: null })} />
@@ -891,3 +959,22 @@ const TaskSearch = memo(function TaskSearch({ value, onCommit, onEnter }: { valu
     </label>
   )
 })
+
+type VItem =
+  | { kind: 'row'; key: string; t: Task; depth: number; nKids: number; root: boolean; showProject: boolean }
+  | { kind: 'sub'; key: string; t: Task; depth: number }
+  | { kind: 'line'; key: string }
+
+/** A section's rows, windowed: only those near the viewport are in the DOM (keys keep measured heights). */
+function WindowRows({ items, render }: { items: VItem[]; render: (it: VItem) => ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const keys = useMemo(() => items.map((i) => i.key), [items])
+  const w = useWindowed(keys, ref, 52, 1)
+  return (
+    <div ref={ref} className="vrows">
+      {w.padTop > 0 && <div style={{ height: w.padTop }} aria-hidden="true" />}
+      {items.slice(w.start, w.end).map((it) => <div key={it.key} ref={w.measure(it.key)} className="vrow">{render(it)}</div>)}
+      {w.padBottom > 0 && <div style={{ height: w.padBottom }} aria-hidden="true" />}
+    </div>
+  )
+}

@@ -280,3 +280,90 @@ class RepeatAndInputTests(TestCase):
         ComptechUser.objects.filter(id=self.user.id).update(timezone="Mars/Olympus")
         r = self.client.post("/api/v2/tasks/quick", {"text": "Stretch every day"}, content_type="application/json")
         self.assertEqual(r.status_code, 201)
+
+
+class PagingBoardBulkTests(TestCase):
+    """Keyset paging, the one-request board, placing next to a neighbour, bulk changes."""
+
+    def setUp(self):
+        self.owner = ComptechUser.objects.create_user("own", password="pw")
+        self.other = ComptechUser.objects.create_user("oth", password="pw")
+        self.client.force_login(self.owner)
+        self.p = self.api("post", "projects", {"name": "Big"}).json()
+        self.todo, self.doing, self.done = self.api("get", f"projects/{self.p['id']}/buckets").json()
+
+    def api(self, method, path, body=None, user=None):
+        self.client.force_login(user or self.owner)
+        if method == "get":
+            return self.client.get(f"/api/v2/tasks/{path}", body or {})
+        return getattr(self.client, method)(f"/api/v2/tasks/{path}", body or {}, content_type="application/json")
+
+    def add(self, title, **kw):
+        return self.api("post", "", {"title": title, "project_id": self.p["id"], **kw}).json()
+
+    def test_keyset_pages_match_one_big_page_for_every_sort(self):
+        due = "2026-11-10T10:00:00Z"
+        for i, (d, prio) in enumerate([(due, 10), (due, 10), (None, 20), ("2026-11-09T10:00:00Z", 5), (None, 10), (due, 15), (None, 0)]):
+            self.add(f"T{i}", due=d, priority=prio, position=i % 3)  # ties on every key; the id settles them
+        self.add("Old", done=True, done_at="2025-01-01T00:00:00Z")
+        for sort in ["position", "due", "priority", "created", "updated", "title", "done"]:
+            with self.subTest(sort=sort):
+                params = {"project": self.p["id"], "sort": sort}
+                whole = [t["id"] for t in self.api("get", "", {**params, "limit": 50}).json()["items"]]
+                got, cursor = [], None
+                while True:
+                    r = self.api("get", "", {**params, "limit": 2, **({"cursor": cursor, "count": "false"} if cursor else {})}).json()
+                    self.assertEqual(r["total"], len(whole) if cursor is None else None)
+                    got += [t["id"] for t in r["items"]]
+                    cursor = r["next"]
+                    if not cursor:
+                        break
+                self.assertEqual(got, whole)
+        self.assertEqual(self.api("get", "", {"sort": "due", "cursor": "nonsense"}).status_code, 400)
+
+    def test_board_counts_and_first_pages_in_one_request_then_a_column_pages_on(self):
+        for i in range(3):
+            self.add(f"Todo {i}")
+        loose = self.add("No column")
+        Todo.objects.filter(id=loose["id"]).update(bucket=None)  # shown in the first open column
+        self.add("Finished", done=True)
+        cols = self.api("get", f"projects/{self.p['id']}/board", {"per": 2}).json()["columns"]
+        first, _, done = cols
+        self.assertEqual((first["total"], first["open"], len(first["items"]), done["total"], done["open"]), (4, 4, 2, 1, 0))
+        rest = self.api("get", "", {"project": self.p["id"], "bucket": first["id"], "top_level": True, "sort": "position",
+                                    "limit": 2, "cursor": first["next"]}).json()
+        self.assertEqual([t["title"] for t in first["items"] + rest["items"]], ["Todo 0", "Todo 1", "Todo 2", "No column"])
+        self.assertIsNone(self.api("get", f"projects/{self.p['id']}/board", {"items": "false"}).json()["columns"][0]["items"])
+
+    def test_place_and_move_next_to_a_neighbour(self):
+        a, b, c = self.add("A"), self.add("B"), self.add("C")
+        order = lambda: [t["title"] for t in self.api("get", "", {"project": self.p["id"], "sort": "position"}).json()["items"]]
+        r = self.api("post", f"projects/{self.p['id']}/place", {"ids": [c["id"]], "after": a["id"]}).json()
+        self.assertEqual((order(), r["renumbered"]), (["A", "C", "B"], False))
+        Todo.objects.update(position=5)  # all tied: placing needs a renumber
+        r = self.api("post", f"projects/{self.p['id']}/place", {"ids": [a["id"]], "before": c["id"]}).json()
+        self.assertTrue(r["renumbered"])
+        self.assertEqual(order().index("A") + 1, order().index("C"))
+        moved = self.api("post", f"{b['id']}/move", {"bucket_id": self.done["id"], "before": a["id"]}).json()
+        self.assertEqual((moved["done"], order().index("B") + 1 == order().index("A")), (True, True))
+
+    def test_bulk_by_ids_or_filter_skips_what_you_cannot_edit(self):
+        from .models import Label, ProjectMember
+        tasks = [self.add(f"Bulk {i}", due="2026-11-10T15:30:00Z") for i in range(3)]
+        ids = [t["id"] for t in tasks]
+        ProjectMember.objects.create(project_id=self.p["id"], user=self.other, role=ProjectMember.Role.READ)
+        r = self.api("post", "bulk", {"ids": ids, "action": "done"}, user=self.other).json()
+        self.assertEqual((r["count"], r["failed"]), (0, 3))
+        r = self.api("post", "bulk", {"filter": {"project": self.p["id"], "q": "bulk"}, "action": "done"}).json()
+        self.assertEqual((r["count"], r["tasks"]), (3, None))
+        self.assertEqual(set(Todo.objects.filter(completed=True).values_list("bucket_id", flat=True)), {self.done["id"]})
+        r = self.api("post", "bulk", {"ids": ids, "action": "reopen"}).json()
+        self.assertEqual({(t["done"], t["bucket_id"]) for t in r["tasks"]}, {(False, self.todo["id"])})
+        label = Label.objects.create(owner=self.owner, name="x")
+        r = self.api("post", "bulk", {"ids": ids[:2], "action": "update", "due_day": "2026-12-01", "add_label": label.id, "priority": 20}).json()
+        self.assertEqual({(t["due"], tuple(t["labels"]), t["priority"]) for t in r["tasks"]}, {("2026-12-01T15:30:00Z", (label.id,), 20)})
+        other = self.api("post", "projects", {"name": "Elsewhere"}).json()
+        self.api("post", "bulk", {"ids": ids[:1], "action": "move", "project_id": other["id"]})
+        self.assertEqual(str(Todo.objects.get(id=ids[0]).project_id), other["id"])
+        self.api("post", "bulk", {"ids": ids, "action": "delete"})
+        self.assertFalse(Todo.objects.filter(id__in=ids).exists())

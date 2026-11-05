@@ -95,7 +95,7 @@ export interface Overview {
 }
 export interface Project {
   id: UUID; parent_id: UUID | null; name: string; description: string; colour: string; is_inbox: boolean; archived: boolean
-  favorite: boolean; position: number; default_view: string; role: number; shared: boolean; open_count?: number
+  favorite: boolean; position: number; default_view: string; role: number; shared: boolean; open_count?: number; done_count?: number
 }
 export interface Member { id: number; user: UserBrief; role: number }
 export interface Bucket { id: number; project_id: UUID; name: string; position: number; limit: number; is_done: boolean }
@@ -115,7 +115,7 @@ export interface Relation {
   other_visible?: boolean // false: a task you can't open (shown as "Private task")
 }
 export interface TaskDetail extends Task { relations: Relation[] }
-export interface TaskPage { items: Task[]; total: number }
+export interface TaskPage { items: Task[]; total?: number | null; next?: string | null }
 export interface TaskIn {
   title: string; description?: string; project_id?: UUID | null; bucket_id?: number | null; parent_id?: UUID | null
   due?: ISODateTime | null; start?: ISODateTime | null; priority?: number; labels?: number[]; favorite?: boolean; position?: number | null

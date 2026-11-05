@@ -1,6 +1,6 @@
 // Pure helpers for the Tasks page (no React): repeat/reminder wording, time-spent parsing, whether a new
 // task belongs to the list on screen, subtask nesting and the calendar month window. Unit-tested.
-import { addDays, dayDiff, isEndOfDay, startOfDay, startOfWeek } from '../../lib/dates'
+import { addDays, dayDiff, isEndOfDay, startOfWeek } from '../../lib/dates'
 import type { Project, Task, TaskReminder } from '../../lib/types'
 
 // ---------------------------------------------------------------- repeat
@@ -80,32 +80,8 @@ export function isOverdue(t: Pick<Task, 'due' | 'done'>, now = new Date()): bool
 }
 
 // ---------------------------------------------------------------- does a new task belong here?
-/** Mirrors the server's list filters for the params on screen; null = can't tell (the refetch decides). */
-export function fitsList(t: Task, p: Record<string, unknown>, me?: string, now = new Date()): boolean | null {
-  if (p.due_before || p.due_after || p.done_after) return null
-  const end = new Date(now); end.setHours(23, 59, 59, 999)
-  const due = t.due ? new Date(t.due) : null
-  if (p.project && t.project_id !== p.project) return false
-  if (p.parent && t.parent_id !== p.parent) return false
-  if (p.top_level && t.parent_id) return false
-  const views: Record<string, () => boolean> = {
-    today: () => !!due && due <= end,
-    upcoming: () => !!due && due >= startOfDay(now) && due <= addDays(end, 7),
-    overdue: () => !!due && due < now,
-    nodate: () => !due,
-    favorites: () => t.favorite,
-    assigned: () => !!me && t.assignees.some((a) => a.username === me),
-    done: () => t.done,
-  }
-  const view = p.view as string | undefined
-  if (view && views[view] && !views[view]()) return false
-  if (p.done === false && t.done) return false
-  if (p.label && !String(p.label).split(',').every((id) => t.labels.includes(Number(id)))) return false
-  if (p.priority_min && t.priority < Number(p.priority_min)) return false
-  if (p.assignee && !t.assignees.some((a) => a.username === p.assignee)) return false
-  if (p.q && !`${t.title} ${t.description}`.toLowerCase().includes(String(p.q).toLowerCase())) return false
-  return true
-}
+/** Mirrors the server's list filters for the params on screen (lib/taskLists.ts). */
+export { fitsList } from '../../lib/taskLists'
 
 // ---------------------------------------------------------------- subtasks under their parents
 /** Roots in input order, and each loaded parent's loaded children (a child whose parent isn't loaded is a root). */
@@ -137,9 +113,6 @@ export function rescheduleTo(t: Pick<Task, 'due' | 'start'>, day: Date): { due: 
   if (t.start) out.start = new Date(new Date(t.start).getTime() + (nd.getTime() - old.getTime())).toISOString()
   return out
 }
-
-/** The board's list query (also read by the page for its counts). */
-export const boardParams = (projectId: string, q: string) => ({ project: projectId, top_level: true, sort: 'position', limit: 500, q: q || undefined })
 
 /** Whether I can edit a task, as the server decides (tasks.service.can_edit_task): a loose task is its
  *  creator's; in a project it takes edit rights there (a creator made view-only keeps none). Until the

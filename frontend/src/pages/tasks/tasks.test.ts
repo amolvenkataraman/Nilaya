@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { dragPatch, taskSpan } from './Timeline'
-import { dueOn, pool } from './api'
+import { dueOn, positionsBetween } from './api'
 
 const at = (d: number, h: number, m = 0) => new Date(2026, 10, d, h, m).toISOString()
 const day = (iso: string | null | undefined) => (iso ? new Date(iso).getDate() : null)
@@ -26,24 +26,15 @@ describe('bulk helpers', () => {
     expect(new Date(dueOn(at(4, 23, 59), target)!).getMinutes()).toBe(59)
     expect(dueOn(at(4, 9), null)).toBeNull()
   })
-  it('pools requests and counts failures', async () => {
-    let live = 0
-    let peak = 0
-    const failed = await pool([1, 2, 3, 4, 5, 6, 7, 8], async (n) => {
-      peak = Math.max(peak, ++live)
-      await new Promise((r) => setTimeout(r, 1))
-      live--
-      if (n % 4 === 0) throw new Error('x')
-    }, 3)
-    expect(failed).toBe(2)
-    expect(peak).toBe(3)
-  })
 })
 
 import { calendarRange, fitsList, nestTasks, parseMinutes, repeatText, rescheduleTo } from './util'
 import { treeDrop } from './Sidebar'
 import { withFilters } from './TasksPage'
 import type { Project, Task } from '../../lib/types'
+import { QueryClient } from '@tanstack/react-query'
+import { listItems, listTotal, settleTaskLists } from '../../lib/taskLists'
+import { rangeGaps } from './Calendar'
 
 describe('task helpers', () => {
   it('parses time spent and words repeats', () => {
@@ -59,7 +50,34 @@ describe('task helpers', () => {
     expect(fitsList(t, { project: 'p1', label: '3' })).toBe(true)
     expect(fitsList(t, { view: 'today' })).toBe(false)
     expect(fitsList(t, { view: 'nodate', priority_min: 15 })).toBe(false)
-    expect(fitsList(t, { due_after: 'x' })).toBeNull()
+    // Server rules: views and loose lists hold open tasks; date windows are [due_after, due_before).
+    expect(fitsList({ ...t, done: true }, { project: 'p1', done: false })).toBe(false)
+    expect(fitsList({ ...t, due: at(1, 9) }, { view: 'overdue' })).toBe(true)
+    expect(fitsList({ ...t, done: true, due: at(1, 9) }, { view: 'overdue' })).toBe(false)
+    expect(fitsList({ ...t, due: at(6, 9) }, { due_after: at(6, 0), due_before: at(7, 0) })).toBe(true)
+    expect(fitsList({ ...t, due: at(7, 0) }, { due_after: at(6, 0), due_before: at(7, 0) })).toBe(false)
+  })
+  it('settles a changed task into cached pages: leaves, joins in order, never past the loaded range', () => {
+    const qc = new QueryClient()
+    const mk = (id: string, position: number, done = false) => ({ id, title: id, description: '', project_id: 'p1', parent_id: null, bucket_id: null, due: null, done, done_at: done ? at(5, 9) : null, favorite: false, labels: [], priority: 10, assignees: [], position, created_on: at(1, 9), updated_on: at(1, 9) }) as unknown as Task
+    const cursor = (t: Task) => btoa(JSON.stringify(['position', [t.position, t.created_on, t.id]])).replace(/=+$/, '')
+    const openKey = ['tasks', 'list', { project: 'p1', done: false, sort: 'position' }, 'pages']
+    const doneKey = ['tasks', 'list', { project: 'p1', done: true, sort: 'done' }]
+    const [a, b] = [mk('a', 1), mk('b', 3)]
+    qc.setQueryData(openKey, { pages: [{ items: [a, b], total: 9, next: cursor(b) }], pageParams: [null] })
+    qc.setQueryData(doneKey, { items: [], total: 0, next: null })
+    settleTaskLists(qc, { tasks: [{ ...a, done: true, done_at: at(6, 9) }, mk('c', 2), mk('z', 99)] })
+    expect(listItems(qc.getQueryData(openKey)).map((t) => t.id)).toEqual(['c', 'b']) // a left, c joined between, z waits for its page
+    expect(listTotal(qc.getQueryData(openKey))).toBe(9)
+    expect(listItems(qc.getQueryData(doneKey)).map((t) => t.id)).toEqual(['a'])
+    settleTaskLists(qc, { gone: ['b'] })
+    expect(listItems(qc.getQueryData(openKey)).map((t) => t.id)).toEqual(['c'])
+  })
+  it('finds the days a calendar still needs, and drop positions between neighbours', () => {
+    expect(rangeGaps([[10, 20]], 0, 30)).toEqual([[0, 10], [20, 30]])
+    expect(rangeGaps([[0, 15], [15, 40]], 10, 30)).toEqual([])
+    expect(positionsBetween(2, 1, 2)).toEqual([1 + 1 / 3, 1 + 2 / 3])
+    expect(positionsBetween(1, 5)).toEqual([6])
   })
   it('nests loaded subtasks, keeps orphans as roots', () => {
     const { roots, kids } = nestTasks([{ id: 'a', parent_id: null }, { id: 'b', parent_id: 'a' }, { id: 'c', parent_id: 'zz' }])

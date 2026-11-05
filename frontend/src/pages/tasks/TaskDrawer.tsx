@@ -12,7 +12,8 @@ import {
   keys, useComments, useLabels, useMe, useMoveTask, useProjects, useSetDone, useTask, useTasks, useUpdateTask,
 } from '../../lib/queries'
 import { fmtStamp, relTime, shortStamp } from '../../lib/dates'
-import { PRIORITIES, type Project, type Task, type TaskDetail, type TaskPage } from '../../lib/types'
+import { PRIORITIES, type Project, type TaskDetail } from '../../lib/types'
+import { cachedTask } from '../../lib/taskLists'
 import { useAddComment, useDeleteComment, useDeleteWithUndo, useDuplicateTask, useEditComment, useUnassignMe } from './api'
 import './tasks.css'
 import { PROJECT_COLOURS } from './ProjectDialog'
@@ -67,10 +68,7 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
   const unassign = useUnassignMe(task.id)
   const path = pathOf(projects, task.project_id)
   // The parent's title from whatever list already has it (no extra request).
-  const parent = task.parent_id
-    ? qc.getQueryData<TaskDetail>(keys.task(task.parent_id)) ??
-      qc.getQueriesData<TaskPage>({ queryKey: ['tasks', 'list'] }).flatMap(([, d]) => d?.items ?? []).find((t: Task) => t.id === task.parent_id)
-    : undefined
+  const parent = task.parent_id ? cachedTask(qc, task.parent_id) : undefined
   const save = (body: FullPatch) => update.mutate({ id: task.id, body: body as Parameters<typeof update.mutate>[0]['body'] })
   const remove = () => { removeLater([task]); onClose() }
 

@@ -446,3 +446,14 @@ button.side-twisty:hover { color: var(--app-fg); background: var(--hover); }
 .side-proj.tree-before { box-shadow: inset 0 2px 0 var(--app-accent); }
 .side-proj.tree-after { box-shadow: inset 0 -2px 0 var(--app-accent); }
 .side-proj.tree-inside { background: var(--app-accent-soft); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--app-accent) 45%, transparent); }
+
+/* Windowed list rows (virtual.ts): the wrapper keeps the section's 1px rhythm. */
+.vrows { display: grid; gap: 1px; }
+.vrow { min-width: 0; }
+.bulk-bar .btn.ghost.bulk-match { color: var(--app-accent); white-space: nowrap; }
+@media (max-width: 760px) { .bulk-bar .btn.ghost.sm.bulk-match { width: auto; padding: 0 0.5rem; } }
+.board-more { display: block; width: calc(100% - 1rem); margin: 0.25rem 0.5rem 0.5rem; justify-content: center; color: var(--app-muted); font-size: var(--fs-xs); }
+.board-more:hover { color: var(--app-fg); }
+.cal-cap { padding: 0.25rem 0; }
+.tt-note { margin-left: 0.5rem; }
+.tt tr[aria-hidden] td { padding: 0; border: 0; }

@@ -1,13 +1,16 @@
 """/api/v2/tasks/: projects, kanban buckets, labels, tasks, comments, relations, reminders, saved views."""
 
+import base64
+import binascii
 import datetime
+import json
 import uuid
 from typing import Literal, Optional
 
 import bleach
 from django.db import transaction
-from django.db.models import Count, IntegerField, Max, OuterRef, Q, Subquery
-from django.db.models.functions import Coalesce
+from django.db.models import Case, Count, F, IntegerField, Max, OuterRef, Q, Subquery, Value, When, Window
+from django.db.models.functions import Coalesce, RowNumber
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from ninja import Field, Router, Schema
@@ -56,6 +59,7 @@ class ProjectOut(Schema):
     shared: bool
     owner: UserBrief
     open_count: int = 0
+    done_count: int = 0
 
 
 class ProjectIn(Schema):
@@ -306,6 +310,10 @@ class MoveIn(Schema):
     project_id: Optional[uuid.UUID] = None
     bucket_id: Optional[int] = None
     position: Optional[float] = None
+    # Or place it next to a task (in the destination project): the server picks the position, so a drop
+    # works when only part of a long list or column is loaded.
+    after: Optional[uuid.UUID] = None
+    before: Optional[uuid.UUID] = None
 
 
 class QuickIn(Schema):
@@ -374,7 +382,71 @@ class OverviewOut(Schema):
 
 class TaskPage(Schema):
     items: list[TaskOut]
-    total: int
+    total: Optional[int] = None  # null with count=false
+    next: Optional[str] = None   # cursor for the next page; null on the last page
+
+
+class BoardColumn(BucketOut):
+    total: int        # top-level tasks in the column (matching q)
+    open: int         # open ones (the WIP limit counts these)
+    items: Optional[list[TaskOut]] = None
+    next: Optional[str] = None
+
+
+class BoardOut(Schema):
+    columns: list[BoardColumn]
+
+
+class BulkFilter(Schema):
+    """The list filters of GET / (a "select all N matching" selection)."""
+    view: Literal["", "today", "upcoming", "overdue", "nodate", "favorites", "assigned", "done"] = ""
+    project: Optional[uuid.UUID] = None
+    label: str = ""
+    priority_min: Optional[int] = None
+    q: str = Field("", max_length=200)
+    done: Optional[bool] = None
+    due_before: Optional[datetime.datetime] = None
+    due_after: Optional[datetime.datetime] = None
+    parent: Optional[uuid.UUID] = None
+    top_level: bool = False
+    assignee: str = ""
+    done_after: Optional[datetime.datetime] = None
+    bucket: Optional[int] = None
+
+
+class BulkIn(Schema):
+    ids: Optional[list[uuid.UUID]] = Field(None, max_length=500)
+    filter: Optional[BulkFilter] = None   # instead of ids: every task matching (up to 5000)
+    action: Literal["done", "reopen", "update", "move", "delete"]
+    # update:
+    priority: Optional[int] = Field(None, ge=0, le=20)
+    favorite: Optional[bool] = None
+    due: Optional[datetime.datetime] = None        # exact due for all
+    due_day: Optional[datetime.date] = None        # that day, keeping each task's time of day (23:59 if none)
+    clear_due: bool = False
+    add_label: Optional[int] = None
+    remove_label: Optional[int] = None
+    # move:
+    project_id: Optional[uuid.UUID] = None
+
+
+class BulkOut(Schema):
+    count: int                      # tasks changed
+    failed: int                     # selected but not editable by you (or gone)
+    more: bool = False              # filter matched more than 5000: run it again for the rest
+    ids: list[uuid.UUID]            # what changed (for undo)
+    tasks: Optional[list[TaskOut]] = None  # with ids: the changed tasks, to update lists in place
+
+
+class PlaceIn(Schema):
+    ids: list[uuid.UUID] = Field(..., min_length=1, max_length=500)
+    after: Optional[uuid.UUID] = None
+    before: Optional[uuid.UUID] = None
+
+
+class PlaceOut(Schema):
+    positions: dict[str, float]
+    renumbered: bool  # other tasks' positions changed too: refetch the project's lists
 
 
 # ================================================================ helpers
@@ -418,7 +490,7 @@ def _project_out(p, user, counts):
     return {**{f: getattr(p, f) for f in ("id", "parent_id", "name", "description", "colour", "is_inbox",
                                           "archived", "favorite", "position", "default_view")},
             "role": svc.project_role(user, p), "shared": p.owner_id != user.id or p.members.exists(), "owner": p.owner,
-            "open_count": counts.get(p.id, 0)}
+            "open_count": counts.get(p.id, (0, 0))[0], "done_count": counts.get(p.id, (0, 0))[1]}
 
 
 def _assignees(t, usernames):
@@ -564,9 +636,74 @@ def _filter(qs, user, *, view="", project=None, label="", priority_min=None, q="
     return qs
 
 
-SORTS = {"position": ["position", "created_on"], "due": ["complete_by", "-priority"],
-         "priority": ["-priority", "complete_by"], "created": ["-created_on"], "updated": ["-updated_on"],
-         "title": ["name"], "done": ["-completed_on"]}
+# Sort keys as (field, descending, nullable); the id breaks ties, so keyset paging never skips or repeats a row.
+SORTS = {"position": [("position", False, False), ("created_on", False, False)],
+         "due": [("complete_by", False, True), ("priority", True, False)],
+         "priority": [("priority", True, False), ("complete_by", False, True)],
+         "created": [("created_on", True, False)], "updated": [("updated_on", True, False)],
+         "title": [("name", False, False)], "done": [("completed_on", True, True)]}
+SORTS = {k: v + [("id", False, False)] for k, v in SORTS.items()}
+_DATES = {"complete_by", "created_on", "updated_on", "completed_on"}
+PAGE_MAX = 500
+
+
+def _cursor(sort, t):
+    vals = []
+    for f, _d, _n in SORTS[sort]:
+        v = getattr(t, f)
+        vals.append(v.isoformat() if isinstance(v, datetime.datetime) else str(v) if isinstance(v, uuid.UUID) else v)
+    return base64.urlsafe_b64encode(json.dumps([sort, vals], separators=(",", ":")).encode()).decode().rstrip("=")
+
+
+def _uncursor(sort, cursor):
+    try:
+        if len(cursor) > 2000:
+            raise ValueError
+        got, vals = json.loads(base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)))
+        keys = SORTS[sort]
+        if got != sort or len(vals) != len(keys):
+            raise ValueError
+        out = []
+        for (f, _d, _n), v in zip(keys, vals):
+            if v is None:
+                out.append(None)
+            elif f in _DATES:
+                out.append(datetime.datetime.fromisoformat(v))
+            elif f == "id":
+                out.append(uuid.UUID(v))
+            elif f == "position":
+                out.append(float(v))
+            elif f == "priority":
+                out.append(int(v))
+            else:
+                out.append(str(v))
+        return out
+    except (ValueError, TypeError, KeyError, binascii.Error):
+        raise HttpError(400, "Invalid cursor (it belongs to another sort, or is damaged)")
+
+
+def _page(qs, sort, limit, cursor="", offset=0):
+    """One page in `sort` order, keyset-paged after `cursor` (offset still works without one).
+    Returns (items, next cursor or None)."""
+    keys = SORTS[sort]
+    if cursor:
+        qs = qs.filter(svc.keyset_after(keys, _uncursor(sort, cursor)))
+        offset = 0
+    rows = list(qs.order_by(*svc.keyset_order(keys))[offset:offset + limit + 1])
+    more = len(rows) > limit
+    rows = rows[:limit]
+    return rows, (_cursor(sort, rows[-1]) if more and rows else None)
+
+
+def _bucket_filter(project_id, bucket_id):
+    """A board column's tasks: the bucket's own, and in the first open column also tasks without a valid
+    bucket (as the board shows them)."""
+    buckets = list(Bucket.objects.filter(project_id=project_id).order_by("position", "id").values_list("id", "is_done"))
+    ids = [b for b, _ in buckets]
+    first = next((b for b, d in buckets if not d), ids[0] if ids else None)
+    if bucket_id == first:
+        return Q(bucket_id=bucket_id) | Q(bucket__isnull=True) | ~Q(bucket_id__in=ids)
+    return Q(bucket_id=bucket_id)
 
 
 # ================================================================ overview
@@ -605,7 +742,8 @@ def list_projects(request, include_archived: bool = False):
     qs = svc.accessible_projects(request.user).select_related("owner").prefetch_related("members")
     if not include_archived:
         qs = qs.filter(archived=False)
-    counts = dict(Todo.objects.filter(project__in=qs, completed=False).values_list("project").annotate(n=Count("id")))
+    counts = {r[0]: r[1:] for r in Todo.objects.filter(project__in=qs).values_list("project").annotate(
+        o=Count("id", filter=Q(completed=False)), d=Count("id", filter=Q(completed=True))).order_by()}
     return [_project_out(p, request.user, counts) for p in qs.order_by("-is_inbox", "position", "name")]
 
 
@@ -678,6 +816,31 @@ def reorder_tasks(request, project_id: uuid.UUID, payload: ReorderIn):
     return 204, None
 
 
+def _anchor(project_id, task_id):
+    if task_id is None:
+        return None
+    t = Todo.objects.filter(project_id=project_id, id=task_id).first()
+    if t is None:
+        raise HttpError(400, "after/before must be a task in the same project")
+    return t
+
+
+@router.post("/projects/{uuid:project_id}/place", response=PlaceOut,
+             summary="Put tasks (in this order) right after one task or before another; neither = at the end")
+def place_tasks(request, project_id: uuid.UUID, payload: PlaceIn):
+    p = _project(request.user, project_id, ProjectMember.Role.WRITE)
+    if payload.after and payload.before:
+        raise HttpError(400, "Give after or before, not both")
+    if {payload.after, payload.before} & set(payload.ids):
+        raise HttpError(400, "A task can't be placed next to itself")
+    tasks = {t.id: t for t in Todo.objects.filter(project=p, id__in=payload.ids)}
+    ordered = [tasks[i] for i in dict.fromkeys(payload.ids) if i in tasks]
+    if not ordered:
+        raise HttpError(404, "No such tasks in this project")
+    renumbered = svc.place(p.id, ordered, after=_anchor(p.id, payload.after), before=_anchor(p.id, payload.before))
+    return {"positions": {str(t.id): t.position for t in ordered}, "renumbered": renumbered}
+
+
 @router.get("/projects/{uuid:project_id}/members", response=list[MemberOut])
 def list_members(request, project_id: uuid.UUID):
     p = _project(request.user, project_id)
@@ -716,6 +879,37 @@ def remove_member(request, project_id: uuid.UUID, member_id: int):
 @router.get("/projects/{uuid:project_id}/buckets", response=list[BucketOut])
 def list_buckets(request, project_id: uuid.UUID):
     return list(_project(request.user, project_id).buckets.all())
+
+
+@router.get("/projects/{uuid:project_id}/board", response=BoardOut,
+            summary="The board in one request: columns with counts and the first `per` top-level tasks of each")
+def board(request, project_id: uuid.UUID, q: str = "", per: int = 50, items: bool = True):
+    p = _project(request.user, project_id)
+    buckets = list(p.buckets.order_by("position", "id"))
+    ids = [b.id for b in buckets]
+    first = next((b.id for b in buckets if not b.is_done), ids[0] if ids else None)
+    col = Case(When(bucket_id__in=ids, then=F("bucket_id")), default=Value(first), output_field=IntegerField())
+    base = _filter(svc.visible_tasks(request.user), request.user, project=p.id, q=q[:200], top_level=True)
+    counts = {r["col"]: r for r in base.annotate(col=col).values("col")
+              .annotate(total=Count("id"), open=Count("id", filter=Q(completed=False))).order_by()}
+    per = max(1, min(per, 200))
+    cols = {b.id: {**{f: getattr(b, f) for f in ("id", "project_id", "name", "position", "limit", "is_done")},
+                   "total": counts.get(b.id, {}).get("total", 0), "open": counts.get(b.id, {}).get("open", 0)}
+            for b in buckets}
+    if items and buckets:
+        # One query for every column's first page: number the rows per column, keep the first per + 1.
+        qs = (_filter(_tasks_qs(request.user), request.user, project=p.id, q=q[:200], top_level=True)
+              .annotate(col=col, rn=Window(RowNumber(), partition_by=[col], order_by=svc.keyset_order(SORTS["position"])))
+              .filter(rn__lte=per + 1).order_by("col", "rn"))
+        for c in cols.values():
+            c["items"] = []
+        for t in qs:
+            c = cols[t.col]
+            if len(c["items"]) < per:
+                c["items"].append(t)
+            else:
+                c["next"] = _cursor("position", c["items"][-1])
+    return {"columns": list(cols.values())}
 
 
 @router.post("/projects/{uuid:project_id}/buckets", response={201: BucketOut})
@@ -821,22 +1015,23 @@ def list_tasks(request, view: Literal["", "today", "upcoming", "overdue", "nodat
                done: Optional[bool] = None, due_before: Optional[datetime.datetime] = None,
                due_after: Optional[datetime.datetime] = None, parent: Optional[uuid.UUID] = None,
                top_level: bool = False, assignee: str = "", done_after: Optional[datetime.datetime] = None,
+               bucket: Optional[int] = None,
                sort: Literal["position", "due", "priority", "created", "updated", "title", "done"] = "position",
-               limit: int = 500, offset: int = 0):
-    svc.ensure_inbox(request.user)
+               limit: int = 100, offset: int = 0, cursor: str = "", count: bool = True):
+    if not cursor:
+        svc.ensure_inbox(request.user)  # later pages: done on the first one
     if priority_min is not None:
         priority_min = max(-1, min(priority_min, 100))
     offset = max(0, min(offset, 10 ** 9))
     qs = _filter(_tasks_qs(request.user), request.user, view=view, project=project, label=label,
                  priority_min=priority_min, q=q, done=done, due_before=due_before, due_after=due_after,
                  parent=parent, top_level=top_level, assignee=assignee, done_after=done_after)
-    total = qs.count()
-    order = SORTS[sort]
-    if sort == "due":
-        from django.db.models import F
-        order = [F("complete_by").asc(nulls_last=True), "-priority"]
-    limit = max(1, min(limit, 1000))
-    return {"items": list(qs.order_by(*order)[offset:offset + limit]), "total": total}
+    if bucket is not None:
+        if not project:
+            raise HttpError(400, "bucket needs project")
+        qs = qs.filter(_bucket_filter(project, bucket))
+    items, nxt = _page(qs, sort, max(1, min(limit, PAGE_MAX)), cursor, offset)
+    return {"items": items, "total": qs.count() if count else None, "next": nxt}
 
 
 def _create(user, data, parsed_labels=()):
@@ -910,6 +1105,146 @@ def from_event(request, event_id: str, project_id: Optional[uuid.UUID] = None):
     return 201, _task(request.user, t.id)
 
 
+# ---------------------------------------------------------------- bulk
+
+BULK_MAX = 5000
+
+
+def _chunks(ids, n=500):
+    for i in range(0, len(ids), n):
+        yield ids[i:i + n]
+
+
+def _editable(user):
+    """Tasks you may edit, as a filter (service.can_edit_task for many rows): your own loose tasks, and
+    tasks in projects you own or can edit in."""
+    projects = Project.objects.filter(Q(owner=user) | Q(id__in=ProjectMember.objects.filter(
+        user=user, role__gte=ProjectMember.Role.WRITE).values("project_id"))).values("id")
+    return Q(project_id__in=projects) | Q(project__isnull=True, user=user)
+
+
+def _bulk_done(ids, done, now):
+    """Complete or reopen many tasks in a few UPDATEs; repeating tasks go through service.set_done (dates
+    move forward, or a recent step is undone), like POST {id}/done."""
+    for chunk in _chunks(ids):
+        rows = Todo.objects.filter(id__in=chunk)
+        stepped = rows.filter(repeat_mode__gt=0).filter(Q(complete_by__isnull=False) | Q(start_on__isnull=False))
+        each = stepped.filter(completed=False) if done else rows.filter(repeat_mode__gt=0, completed=False)
+        for t in each.select_related("user", "project", "bucket").prefetch_related("reminders"):
+            svc.set_done(t, done)
+        plain = rows.exclude(id__in=each.values("id")) if each.exists() else rows
+        if done:
+            plain = list(plain.filter(completed=False).values_list("id", "project_id", "bucket__is_done"))
+            Todo.objects.filter(id__in=[i for i, _p, _d in plain]).update(completed=True, completed_on=now, status=100, updated_on=now)
+            moves = {}
+            for i, pid, in_done in plain:
+                if pid and not in_done:
+                    moves.setdefault(pid, []).append(i)
+            target = dict(Bucket.objects.filter(project_id__in=moves, is_done=True).order_by("-position", "-id").values_list("project_id", "id"))
+        else:
+            plain = list(plain.filter(completed=True).values_list("id", "project_id", "bucket__is_done"))
+            Todo.objects.filter(id__in=[i for i, _p, _d in plain]).update(
+                completed=False, completed_on=None, updated_on=now,
+                status=Case(When(status=100, then=Value(0)), default=F("status"), output_field=IntegerField()))
+            moves = {}
+            for i, pid, in_done in plain:
+                if pid and in_done:
+                    moves.setdefault(pid, []).append(i)
+            target = dict(Bucket.objects.filter(project_id__in=moves, is_done=False).order_by("-position", "-id").values_list("project_id", "id"))
+            for pid in moves:
+                target.setdefault(pid, None)  # no open column: like set_done, the task loses its column
+        for pid, tids in moves.items():  # (the dicts keep the first column by position: later rows overwrite)
+            if pid in target:
+                Todo.objects.filter(id__in=tids).update(bucket_id=target[pid])
+
+
+def _bulk_update(user, ids, payload, now):
+    fields = {k: getattr(payload, k) for k in ("priority", "favorite") if getattr(payload, k) is not None}
+    label_ids = [x for x in (payload.add_label, payload.remove_label) if x is not None]
+    if label_ids and Label.objects.filter(id__in=label_ids, owner=user).count() != len(set(label_ids)):
+        raise HttpError(400, "Unknown label")
+    if payload.due is not None or payload.clear_due:
+        fields["complete_by"] = payload.due
+    tz = svc.user_tz(user)
+    through = Todo.labels.through
+    for chunk in _chunks(ids):
+        Todo.objects.filter(id__in=chunk).update(**fields, updated_on=now)
+        if payload.due_day is not None:
+            rows = list(Todo.objects.filter(id__in=chunk).only("id", "complete_by"))
+            for t in rows:
+                local = t.complete_by.astimezone(tz) if t.complete_by else None
+                hm = (local.hour, local.minute) if local and (local.hour, local.minute) != (23, 59) else (23, 59)
+                t.complete_by = svc._localize(tz, datetime.datetime.combine(payload.due_day, datetime.time(*hm)))
+            Todo.objects.bulk_update(rows, ["complete_by"])
+        if "complete_by" in fields or payload.due_day is not None:
+            for t in Todo.objects.filter(id__in=chunk, reminders__isnull=False).distinct().prefetch_related("reminders"):
+                svc.sync_reminders(t)
+        if payload.add_label is not None:
+            through.objects.bulk_create([through(todo_id=i, label_id=payload.add_label) for i in chunk], ignore_conflicts=True)
+        if payload.remove_label is not None:
+            through.objects.filter(todo_id__in=chunk, label_id=payload.remove_label).delete()
+
+
+def _bulk_move(user, ids, project):
+    buckets = list(project.buckets.order_by("position", "id").values_list("id", "is_done"))
+    open_b = next((b for b, d in buckets if not d), None)
+    done_b = next((b for b, d in buckets if d), None)
+    allowed = {project.owner_id, *ProjectMember.objects.filter(project=project).values_list("user_id", flat=True)}
+    for chunk in _chunks(ids):
+        rows = Todo.objects.filter(id__in=chunk).exclude(project=project)
+        rows.filter(completed=True).update(project=project, bucket_id=done_b)
+        rows.filter(completed=False).update(project=project, bucket_id=open_b)
+        # assignees who aren't in the new project would keep seeing it
+        Todo.assignees.through.objects.filter(todo_id__in=chunk).exclude(comptechuser_id__in=allowed).delete()
+
+
+@router.post("/bulk", response=BulkOut,
+             summary="Change many tasks at once: the given ids, or every task matching a list filter (up to 5000)")
+def bulk(request, payload: BulkIn):
+    user = request.user
+    if (payload.ids is None) == (payload.filter is None):
+        raise HttpError(400, "Give ids or filter")
+    base = svc.visible_tasks(user)
+    if payload.ids is not None:
+        selected = base.filter(id__in=payload.ids)
+    else:
+        f = payload.filter.dict()
+        bucket = f.pop("bucket")
+        f["q"] = f["q"][:200]
+        selected = _filter(base, user, **f)
+        if bucket is not None:
+            if not f["project"]:
+                raise HttpError(400, "bucket needs project")
+            selected = selected.filter(_bucket_filter(f["project"], bucket))
+    editable = _editable(user)
+    ids = list(dict.fromkeys(selected.filter(editable).order_by().values_list("id", flat=True)[:BULK_MAX + 1]))
+    more = len(ids) > BULK_MAX
+    ids = ids[:BULK_MAX]
+    failed = len(set(payload.ids)) - len(ids) if payload.ids is not None else selected.exclude(editable).count()
+    project = None
+    if payload.action == "move":
+        if not payload.project_id:
+            raise HttpError(400, "move needs project_id")
+        project = _project(user, payload.project_id, ProjectMember.Role.WRITE)
+        if project.archived:
+            raise HttpError(400, "That project is archived")
+    now = timezone.now()
+    with transaction.atomic():
+        if payload.action in ("done", "reopen"):
+            _bulk_done(ids, payload.action == "done", now)
+        elif payload.action == "update":
+            _bulk_update(user, ids, payload, now)
+        elif payload.action == "move":
+            _bulk_move(user, ids, project)
+        else:
+            for chunk in _chunks(ids):
+                Todo.objects.filter(id__in=chunk).delete()  # subtasks go with their parent
+    tasks = None
+    if payload.ids is not None and payload.action != "delete":
+        tasks = list(_tasks_qs(user).filter(id__in=ids))
+    return {"count": len(ids), "failed": failed, "more": more, "ids": ids, "tasks": tasks}
+
+
 @router.get("/{uuid:task_id}", response=TaskDetailOut)
 def get_task(request, task_id: uuid.UUID):
     t = _task(request.user, task_id)
@@ -960,8 +1295,16 @@ def move_task(request, task_id: uuid.UUID, payload: MoveIn):
             Todo.objects.filter(bucket=bucket, completed=False, parent__isnull=True).count() >= bucket.limit:
         raise HttpError(400, f"\"{bucket.name}\" is at its limit of {bucket.limit}")
     moved = project is not None and project.id != t.project_id
+    dest = project.id if project else t.project_id
+    if payload.after and payload.before:
+        raise HttpError(400, "Give after or before, not both")
+    if t.id in (payload.after, payload.before):
+        raise HttpError(400, "A task can't be placed next to itself")
+    after, before = _anchor(dest, payload.after), _anchor(dest, payload.before)
     with transaction.atomic():
         svc.move(t, project=project, bucket=bucket, position=payload.position)
+        if after or before:
+            svc.place(t.project_id, [t], after=after, before=before)
         if moved:  # assignees who aren't in the new project would keep seeing it
             t.assignees.remove(*t.assignees.exclude(id__in=svc.assignable_user_ids(t)))
     return _task(request.user, t.id)

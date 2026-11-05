@@ -1,26 +1,37 @@
 // Kanban board for one project: buckets as columns, drag and drop (HTML5 DnD) between and within
 // columns, plus a "Move to" menu on each card for keyboard and touch users.
-import { useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react'
+// One request draws it (GET projects/{id}/board: columns, their counts and first 50 cards each, seeded into
+// one paged list per column); "Load more" pages a column. Drops name a neighbour card, so they work
+// with partly loaded columns.
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react'
+import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { Avatar, Confirm, Dialog, ErrorBox, Menu, MenuItem } from '../../components/ui'
 import { Ring, TaskCheck, dueTone, fmtMinutes, hoverText } from '../../components/TaskRow'
 import { toast } from '../../components/toast'
-import { keys, useBuckets, useCreateTask, useMoveTask, useSetDone, useTasks } from '../../lib/queries'
+import { get } from '../../lib/api'
+import { keys, useCreateTask, useMoveTask, useSetDone, useTaskPages } from '../../lib/queries'
+import { cachedTask, listItems } from '../../lib/taskLists'
 import { fmtStamp, dueLabel } from '../../lib/dates'
-import type { Bucket, Label, Task } from '../../lib/types'
-import { useDeleteBucket, useReorderTasks, useSaveBucket } from './api'
+import type { Bucket, Label, Task, TaskPage } from '../../lib/types'
+import { positionsBetween, useDeleteBucket, useSaveBucket } from './api'
 import { previewQuick } from '../../lib/quick'
 import type { Selection } from './selection'
-import { boardParams, repeatText } from './util'
+import { repeatText } from './util'
 
-/** The board's task query (shared with the page, which reads the same cache for the bulk bar). */
-/** WIP counts open top-level tasks, as the server does. */
-const openCount = (items: Task[]) => items.filter((t) => !t.done && !t.parent_id).length
-const atLimit = (b: Bucket, items: Task[]) => b.limit > 0 && !b.is_done && openCount(items) >= b.limit
+export const BOARD_PAGE = 50
+/** One column's paged list (the board request seeds its first page). */
+export const columnParams = (projectId: string, bucketId: number, q: string) =>
+  ({ project: projectId, bucket: bucketId, top_level: true, sort: 'position', limit: BOARD_PAGE, q: q || undefined })
+
+export interface BoardColumn extends Bucket { total: number; open: number; items?: Task[] | null; next?: string | null }
+interface BoardOut { columns: BoardColumn[] }
+
 /** A position between two neighbours (for buckets moved left/right or dropped). */
 const between = (a?: number, b?: number) => (a == null ? (b == null ? 1 : b - 1) : b == null ? a + 1 : (a + b) / 2)
-
-const byPosition = (a: Task, b: Task) => a.position - b.position || a.created_on.localeCompare(b.created_on)
+const byPosition = (a: Task, b: Task) => a.position - b.position || a.created_on.localeCompare(b.created_on) || (a.id < b.id ? -1 : 1)
+/** WIP counts open top-level tasks, as the server does. */
+const atLimit = (c: BoardColumn) => c.limit > 0 && !c.is_done && c.open >= c.limit
 
 /** Position between two neighbours (or past the end); pure, so the drop is predictable. */
 export function positionBetween(prev?: Task, next?: Task): number {
@@ -30,59 +41,65 @@ export function positionBetween(prev?: Task, next?: Task): number {
   return 1
 }
 
-export function Board({ projectId, labels, q, onOpen, writable, hidden, sel, selected }: {
+/** Columns and counts. Refetches (after a change) skip the cards when every column's list is cached. */
+function useBoard(projectId: string, q: string) {
+  const qc = useQueryClient()
+  return useQuery({
+    queryKey: keys.board(projectId, q),
+    queryFn: async ({ signal }) => {
+      const prev = qc.getQueryData<BoardOut>(keys.board(projectId, q))
+      const cached = !!prev?.columns.length && prev.columns.every((c) => qc.getQueryData(keys.taskPages(columnParams(projectId, c.id, q))))
+      const r = await get<BoardOut>(`tasks/projects/${projectId}/board`, { q: q || undefined, per: BOARD_PAGE, items: cached ? false : undefined }, signal)
+      for (const c of r.columns) {
+        const k = keys.taskPages(columnParams(projectId, c.id, q))
+        if (c.items && !qc.getQueryData(k)) qc.setQueryData(k, { pages: [{ items: c.items, total: c.total, next: c.next ?? null } satisfies TaskPage], pageParams: [null] })
+      }
+      return { columns: r.columns.map(({ items: _i, next: _n, ...c }) => c) }
+    },
+    placeholderData: keepPreviousData,
+  })
+}
+
+type Drag = { id: string; over: number | null; index: number }
+
+export function Board({ projectId, labels, q, onOpen, writable, hidden, sel, selected, onItems }: {
   projectId: string; labels?: Label[]; q: string; onOpen: (t: Task) => void; writable: boolean; hidden: Set<string>; sel: Selection; selected: string | null
+  /** Every loaded card, in column order (the page's selection, keyboard and bulk bar use it). */
+  onItems: (items: Task[]) => void
 }) {
-  const buckets = useBuckets(projectId)
-  const params = boardParams(projectId, q)
-  const tasks = useTasks(params)
+  const qc = useQueryClient()
+  const board = useBoard(projectId, q)
   const move = useMoveTask()
-  const setDone = useSetDone()
   const saveBucket = useSaveBucket(projectId)
-  const reorder = useReorderTasks(projectId)
-  const [drag, setDrag] = useState<{ id: string; over: number | null; index: number } | null>(null)
+  const [drag, setDrag] = useState<Drag | null>(null)
   const [colDrag, setColDrag] = useState<{ id: number; over: number | null; before: boolean } | null>(null)
-  const colRefs = useRef(new Map<number, HTMLDivElement>())
+  const [loaded, setLoaded] = useState(() => new Map<number, Task[]>())
+  const cols = useMemo(() => [...(board.data?.columns ?? [])].sort((a, b) => a.position - b.position), [board.data])
+  const order = useMemo(() => cols.flatMap((c) => (loaded.get(c.id) ?? []).map((t) => t.id)), [cols, loaded])
+  useEffect(() => { onItems(cols.flatMap((c) => loaded.get(c.id) ?? [])) }, [cols, loaded, onItems])
+  const report = useMemo(() => (id: number, items: Task[]) => setLoaded((m) => (m.get(id) === items ? m : new Map(m).set(id, items))), [])
 
-  const cols = useMemo(() => {
-    const list = [...(buckets.data ?? [])].sort((a, b) => a.position - b.position)
-    const first = list.find((b) => !b.is_done) ?? list[0]
-    const map = new Map<number, Task[]>(list.map((b) => [b.id, []]))
-    for (const t of tasks.data?.items ?? []) {
-      if (hidden.has(t.id)) continue
-      const id = t.bucket_id && map.has(t.bucket_id) ? t.bucket_id : first?.id
-      if (id != null) map.get(id)!.push(t)
-    }
-    return list.map((b) => ({ bucket: b, items: map.get(b.id)!.sort(byPosition) }))
-  }, [buckets.data, tasks.data, hidden])
-  const order = cols.flatMap((c) => c.items.map((t) => t.id))
-
-  const indexAt = (bucketId: number, clientY: number) => {
-    const el = colRefs.current.get(bucketId)
-    if (!el) return 0
-    const cards = Array.from(el.querySelectorAll<HTMLElement>('[data-card]')).filter((c) => c.dataset.card !== drag?.id)
-    const i = cards.findIndex((c) => {
-      const r = c.getBoundingClientRect()
-      return clientY < r.top + r.height / 2
-    })
-    return i < 0 ? cards.length : i
-  }
-
-  const dropAt = (taskId: string, bucket: Bucket, index: number) => {
-    const col = cols.find((c) => c.bucket.id === bucket.id)
-    const list = (col?.items ?? []).filter((t) => t.id !== taskId)
-    const task = tasks.data?.items.find((t) => t.id === taskId)
+  const dropAt = (taskId: string, col: BoardColumn, index: number, list: Task[]) => {
+    const task = list.find((t) => t.id === taskId) ?? cachedTask(qc, taskId)
     if (!task) return
-    if (task.bucket_id === bucket.id && col?.items.findIndex((t) => t.id === taskId) === index) return // dropped where it was
-    if (task.bucket_id !== bucket.id && atLimit(bucket, col?.items ?? [])) return toast.error(`"${bucket.name}" is at its limit of ${bucket.limit}.`)
-    // Then renumber the column 0..n on the server so positions never tie.
-    const ids = [...list.slice(0, index).map((t) => t.id), taskId, ...list.slice(index).map((t) => t.id)]
-    if (task.bucket_id === bucket.id) return reorder.mutate(ids)
-    move.mutate({ id: taskId, bucket_id: bucket.id, position: positionBetween(list[index - 1], list[index]) }, { onSuccess: () => reorder.mutate(ids) })
+    const here = list.some((t) => t.id === taskId)
+    if (here && list.findIndex((t) => t.id === taskId) === index) return // dropped where it was
+    if (!here && atLimit(col)) return toast.error(`"${col.name}" is at its limit of ${col.limit}.`)
+    const rest = list.filter((t) => t.id !== taskId)
+    const prev = rest[index - 1], next = rest[index]
+    const optimistic: Task = { ...task, bucket_id: col.id, position: positionsBetween(1, prev?.position, next?.position)[0], done: col.is_done ? true : here ? task.done : false }
+    if (!here) {
+      // Counts move with the card at once (the board refetch confirms them).
+      qc.setQueryData<BoardOut>(keys.board(projectId, q), (o) => o && { columns: o.columns.map((c) => {
+        const d = c.id === col.id ? 1 : c.id === task.bucket_id ? -1 : 0
+        return d ? { ...c, total: c.total + d, open: c.open + (task.done ? 0 : d) } : c
+      }) })
+    }
+    move.mutate({ id: taskId, bucket_id: here ? undefined : col.id, after: prev?.id, before: prev ? undefined : next?.id, optimistic })
   }
 
-  if ((buckets.error && !buckets.data) || (tasks.error && !tasks.data)) return <ErrorBox error={buckets.error ?? tasks.error} />
-  if (buckets.isPending || tasks.isPending) {
+  if (board.error && !board.data) return <ErrorBox error={board.error} retry={() => board.refetch()} />
+  if (board.isPending) {
     return (
       <div className="board">
         {[0, 1, 2].map((i) => (
@@ -96,83 +113,113 @@ export function Board({ projectId, labels, q, onOpen, writable, hidden, sel, sel
 
   return (
     <div className="board" role="list" aria-label="Board">
-      {cols.map(({ bucket, items }) => (
-        <div
-          key={bucket.id}
-          role="listitem"
-          className={'board-col' + (drag?.over === bucket.id ? ' drop' : '') + (colDrag?.over === bucket.id ? (colDrag.before ? ' col-before' : ' col-after') : '') + (colDrag?.id === bucket.id ? ' dragging' : '')}
-          onDragOver={(e: DragEvent) => {
-            if (colDrag) {
-              e.preventDefault()
-              const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
-              const before = e.clientX < r.left + r.width / 2
-              const overId = bucket.id === colDrag.id ? null : bucket.id
-              if (colDrag.over !== overId || colDrag.before !== before) setColDrag({ ...colDrag, over: overId, before })
-              return
+      {cols.map((col) => (
+        <Column key={col.id} col={col} cols={cols} projectId={projectId} q={q} labels={labels} writable={writable} hidden={hidden} sel={sel} selected={selected} order={order}
+          drag={drag} setDrag={setDrag} colDrag={colDrag} setColDrag={setColDrag} onOpen={onOpen} report={report} dropAt={dropAt}
+          onMove={(t, b) => {
+            if (atLimit(b)) return toast.error(`"${b.name}" is at its limit of ${b.limit}.`)
+            dropAt(t.id, b, (loaded.get(b.id) ?? []).length, loaded.get(b.id) ?? [])
+          }}
+          onColumnDrop={() => {
+            if (colDrag?.over != null) {
+              const rest = cols.filter((b) => b.id !== colDrag.id)
+              const i = rest.findIndex((b) => b.id === colDrag.over)
+              const [a, b] = colDrag.before ? [rest[i - 1], rest[i]] : [rest[i], rest[i + 1]]
+              saveBucket.mutate({ id: colDrag.id, body: { position: between(a?.position, b?.position) } })
             }
-            if (!drag) return
-            e.preventDefault()
-            e.dataTransfer.dropEffect = 'move'
-            const index = indexAt(bucket.id, e.clientY)
-            if (drag.over !== bucket.id || drag.index !== index) setDrag({ ...drag, over: bucket.id, index })
-          }}
-          onDragLeave={(e) => {
-            if (drag && !(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setDrag({ ...drag, over: null })
-          }}
-          onDrop={(e) => {
-            e.preventDefault()
-            if (colDrag) {
-              if (colDrag.over != null) {
-                const rest = cols.map((c) => c.bucket).filter((b) => b.id !== colDrag.id)
-                const i = rest.findIndex((b) => b.id === colDrag.over)
-                const [a, b] = colDrag.before ? [rest[i - 1], rest[i]] : [rest[i], rest[i + 1]]
-                saveBucket.mutate({ id: colDrag.id, body: { position: between(a?.position, b?.position) } })
-              }
-              setColDrag(null)
-              return
-            }
-            const id = e.dataTransfer.getData('text/x-task') || drag?.id
-            if (id) dropAt(id, bucket, indexAt(bucket.id, e.clientY))
-            setDrag(null)
-          }}
-        >
-          <ColumnHead bucket={bucket} items={items} projectId={projectId} writable={writable} cols={cols.map((c) => c.bucket)}
-            onGrab={(e) => { e.dataTransfer.setData('text/x-bucket', String(bucket.id)); e.dataTransfer.effectAllowed = 'move'; setTimeout(() => setColDrag({ id: bucket.id, over: null, before: true }), 0) }}
-            onRelease={() => setColDrag(null)} />
-          <div className="board-cards" ref={(el) => { if (el) colRefs.current.set(bucket.id, el); else colRefs.current.delete(bucket.id) }}>
-            {items.map((t, i) => (
-              <div key={t.id}>
-                {drag?.over === bucket.id && drag.index === i && drag.id !== t.id && <div className="drop-line" />}
-                <Card
-                  task={t}
-                  labels={labels}
-                  buckets={cols.map((c) => c.bucket)}
-                  dragging={drag?.id === t.id}
-                  picked={sel.has(t.id) || t.id === selected}
-                  draggable={writable}
-                  onOpen={(e) => { if (sel.click(e, t.id, order)) return; sel.clear(); onOpen(t) }}
-                  onToggle={() => setDone.mutate({ task: t, done: !t.done })}
-                  onMove={(b) => {
-                    const col = cols.find((c) => c.bucket.id === b.id)
-                    if (atLimit(b, col?.items ?? [])) return toast.error(`"${b.name}" is at its limit of ${b.limit}.`)
-                    move.mutate({ id: t.id, bucket_id: b.id, position: positionBetween(col?.items.at(-1)) })
-                  }}
-                  onDragStart={(e) => {
-                    e.dataTransfer.setData('text/x-task', t.id)
-                    e.dataTransfer.effectAllowed = 'move'
-                    setTimeout(() => setDrag({ id: t.id, over: bucket.id, index: i }), 0)
-                  }}
-                  onDragEnd={() => setDrag(null)}
-                />
-              </div>
-            ))}
-            {drag?.over === bucket.id && drag.index >= items.filter((t) => t.id !== drag.id).length && <div className="drop-line" />}
-            {items.length === 0 && !drag && <div className="board-empty">No tasks</div>}
-          </div>
-          {writable && <AddCard projectId={projectId} bucket={bucket} listKey={keys.taskList(params)} last={items.at(-1)} />}
-        </div>
+            setColDrag(null)
+          }} />
       ))}
-      {writable && <AddColumn onAdd={(name) => saveBucket.mutate({ body: { name, position: between(cols.at(-1)?.bucket.position) } })} />}
+      {writable && <AddColumn onAdd={(name) => saveBucket.mutate({ body: { name, position: between(cols.at(-1)?.position) } })} />}
+    </div>
+  )
+}
+
+function Column({ col, cols, projectId, q, labels, writable, hidden, sel, selected, order, drag, setDrag, colDrag, setColDrag, onOpen, report, dropAt, onMove, onColumnDrop }: {
+  col: BoardColumn; cols: BoardColumn[]; projectId: string; q: string; labels?: Label[]; writable: boolean; hidden: Set<string>; sel: Selection; selected: string | null; order: string[]
+  drag: Drag | null; setDrag: (d: Drag | null) => void
+  colDrag: { id: number; over: number | null; before: boolean } | null; setColDrag: (d: { id: number; over: number | null; before: boolean } | null) => void
+  onOpen: (t: Task) => void; report: (id: number, items: Task[]) => void
+  dropAt: (taskId: string, col: BoardColumn, index: number, list: Task[]) => void; onMove: (t: Task, b: BoardColumn) => void; onColumnDrop: () => void
+}) {
+  const params = columnParams(projectId, col.id, q)
+  const pages = useTaskPages(params)
+  const setDone = useSetDone()
+  const ref = useRef<HTMLDivElement>(null)
+  const items = useMemo(() => listItems(pages.data).filter((t) => !hidden.has(t.id)).sort(byPosition), [pages.data, hidden])
+  useEffect(() => report(col.id, items), [col.id, items, report])
+  const indexAt = (clientY: number) => {
+    const cards = Array.from(ref.current?.querySelectorAll<HTMLElement>('[data-card]') ?? []).filter((c) => c.dataset.card !== drag?.id)
+    const i = cards.findIndex((c) => { const r = c.getBoundingClientRect(); return clientY < r.top + r.height / 2 })
+    return i < 0 ? cards.length : i
+  }
+  const left = Math.max(0, col.total - items.length)
+  return (
+    <div
+      role="listitem"
+      className={'board-col' + (drag?.over === col.id ? ' drop' : '') + (colDrag?.over === col.id ? (colDrag.before ? ' col-before' : ' col-after') : '') + (colDrag?.id === col.id ? ' dragging' : '')}
+      onDragOver={(e: DragEvent) => {
+        if (colDrag) {
+          e.preventDefault()
+          const r = (e.currentTarget as HTMLElement).getBoundingClientRect()
+          const before = e.clientX < r.left + r.width / 2
+          const overId = col.id === colDrag.id ? null : col.id
+          if (colDrag.over !== overId || colDrag.before !== before) setColDrag({ ...colDrag, over: overId, before })
+          return
+        }
+        if (!drag) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = 'move'
+        const index = indexAt(e.clientY)
+        if (drag.over !== col.id || drag.index !== index) setDrag({ ...drag, over: col.id, index })
+      }}
+      onDragLeave={(e) => {
+        if (drag && !(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) setDrag({ ...drag, over: null })
+      }}
+      onDrop={(e) => {
+        e.preventDefault()
+        if (colDrag) return onColumnDrop()
+        const id = e.dataTransfer.getData('text/x-task') || drag?.id
+        if (id) dropAt(id, col, indexAt(e.clientY), items)
+        setDrag(null)
+      }}
+    >
+      <ColumnHead bucket={col} total={col.total} open={col.open} projectId={projectId} writable={writable} cols={cols}
+        onGrab={(e) => { e.dataTransfer.setData('text/x-bucket', String(col.id)); e.dataTransfer.effectAllowed = 'move'; setTimeout(() => setColDrag({ id: col.id, over: null, before: true }), 0) }}
+        onRelease={() => setColDrag(null)} />
+      <div className="board-cards" ref={ref}>
+        {pages.error && !pages.data && <ErrorBox error={pages.error} retry={() => pages.refetch()} />}
+        {items.map((t, i) => (
+          <div key={t.id}>
+            {drag?.over === col.id && drag.index === i && drag.id !== t.id && <div className="drop-line" />}
+            <Card
+              task={t}
+              labels={labels}
+              buckets={cols}
+              dragging={drag?.id === t.id}
+              picked={sel.has(t.id) || t.id === selected}
+              draggable={writable}
+              onOpen={(e) => { if (sel.click(e, t.id, order)) return; sel.clear(); onOpen(t) }}
+              onToggle={() => setDone.mutate({ task: t, done: !t.done })}
+              onMove={(b) => onMove(t, cols.find((c) => c.id === b.id)!)}
+              onDragStart={(e) => {
+                e.dataTransfer.setData('text/x-task', t.id)
+                e.dataTransfer.effectAllowed = 'move'
+                setTimeout(() => setDrag({ id: t.id, over: col.id, index: i }), 0)
+              }}
+              onDragEnd={() => setDrag(null)}
+            />
+          </div>
+        ))}
+        {drag?.over === col.id && drag.index >= items.filter((t) => t.id !== drag.id).length && <div className="drop-line" />}
+        {items.length === 0 && !drag && !pages.isPending && <div className="board-empty">No tasks</div>}
+        {pages.hasNextPage && (
+          <button className="btn ghost sm board-more" onClick={() => pages.fetchNextPage()} disabled={pages.isFetchingNextPage}>
+            {pages.isFetchingNextPage ? 'Loading…' : `Load more${left ? ` · ${left.toLocaleString()} left` : ''}`}
+          </button>
+        )}
+      </div>
+      {writable && <AddCard projectId={projectId} bucket={col} listKey={keys.taskPages(params)} last={items.at(-1)} />}
     </div>
   )
 }
@@ -240,8 +287,8 @@ function Card({ task, labels, buckets, dragging, picked, draggable, onOpen, onTo
   )
 }
 
-function ColumnHead({ bucket, items, projectId, writable, cols, onGrab, onRelease }: {
-  bucket: Bucket; items: Task[]; projectId: string; writable: boolean; cols: Bucket[]; onGrab: (e: DragEvent) => void; onRelease: () => void
+function ColumnHead({ bucket, total, open, projectId, writable, cols, onGrab, onRelease }: {
+  bucket: Bucket; total: number; open: number; projectId: string; writable: boolean; cols: Bucket[]; onGrab: (e: DragEvent) => void; onRelease: () => void
 }) {
   const save = useSaveBucket(projectId)
   const remove = useDeleteBucket()
@@ -249,7 +296,6 @@ function ColumnHead({ bucket, items, projectId, writable, cols, onGrab, onReleas
   const [name, setName] = useState(bucket.name)
   const [confirm, setConfirm] = useState(false)
   const [wip, setWip] = useState<string | null>(null)
-  const open = openCount(items)
   const over = bucket.limit > 0 && !bucket.is_done && open > bucket.limit
   const i = cols.findIndex((b) => b.id === bucket.id)
   const saveWip = () => { if (wip != null) save.mutate({ id: bucket.id, body: { limit: Math.max(0, Math.min(999, parseInt(wip || '0', 10) || 0)) } }); setWip(null) }
@@ -271,7 +317,7 @@ function ColumnHead({ bucket, items, projectId, writable, cols, onGrab, onReleas
           {bucket.is_done && <Icon name="check" size={13} title="Tasks moved here are marked done" />}{bucket.name}
         </h3>
       )}
-      <span className={'board-count' + (over ? ' over' : '')} title={bucket.limit ? `WIP limit ${bucket.limit}` : undefined}>{bucket.limit > 0 && !bucket.is_done ? `${open} / ${bucket.limit}` : items.length}</span>
+      <span className={'board-count' + (over ? ' over' : '')} title={bucket.limit ? `WIP limit ${bucket.limit}` : undefined}>{bucket.limit > 0 && !bucket.is_done ? `${open} / ${bucket.limit}` : total.toLocaleString()}</span>
       <span className="spacer" />
       {writable && (
         <Menu align="end" label="Column actions" trigger={(p) => <button {...p} className="btn ghost icon sm" aria-label={`${bucket.name} column actions`}><Icon name="more" size={14} /></button>}>

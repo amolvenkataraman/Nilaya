@@ -3,9 +3,11 @@
 import { useCallback, useSyncExternalStore } from 'react'
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { API_BASE, ApiError, del, get, patch, post, readCookie } from '../../lib/api'
-import { keys, patchTaskCaches } from '../../lib/queries'
+import { bumpParent, keys, refreshTaskCounts } from '../../lib/queries'
+import { cachedTask, listItems, patchTaskLists, settleTaskLists, type TaskList } from '../../lib/taskLists'
+import { dayKey } from '../../lib/dates'
 import { toast } from '../../components/toast'
-import type { Bucket, Comment, Label, Member, Project, Relation, SavedView, Task, TaskDetail, TaskPage, UserBrief } from '../../lib/types'
+import type { Bucket, Comment, Label, Member, Project, Relation, SavedView, Task, TaskDetail, UserBrief } from '../../lib/types'
 
 const onError = (e: unknown) => toast.error((e as Error).message)
 
@@ -29,7 +31,7 @@ export function useSaveProject() {
     },
     onSuccess: (p) => {
       // The response has no open count: keep the one we have. Counts and the archived list refresh from the overview.
-      setProjects(qc, (list) => (list.some((x) => x.id === p.id) ? list.map((x) => (x.id === p.id ? { ...x, ...p, open_count: x.open_count } : x)) : [...list, p]))
+      setProjects(qc, (list) => (list.some((x) => x.id === p.id) ? list.map((x) => (x.id === p.id ? { ...x, ...p, open_count: x.open_count, done_count: x.done_count } : x)) : [...list, p]))
       qc.invalidateQueries({ queryKey: keys.overview })
       qc.invalidateQueries({ queryKey: [...keys.projects, 'archived'] })
     },
@@ -51,7 +53,7 @@ export function useSaveBucket(projectId: string) {
   return useMutation({
     mutationFn: ({ id, body }: { id?: number; body: Partial<Bucket> }) =>
       id ? patch<Bucket>(`tasks/buckets/${id}`, body) : post<Bucket>(`tasks/projects/${projectId}/buckets`, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: keys.buckets(projectId) }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: keys.buckets(projectId) }); qc.invalidateQueries({ queryKey: ['tasks', 'board', projectId] }) },
     onError,
   })
 }
@@ -81,7 +83,7 @@ export function useAddComment(taskId: string) {
     mutationFn: (body: string) => post<Comment>(`tasks/${taskId}/comments`, { body }),
     onSuccess: (c) => {
       qc.setQueryData<Comment[]>(keys.comments(taskId), (old) => [...(old ?? []), c])
-      qc.invalidateQueries({ queryKey: ['tasks', 'list'] })
+      patchTaskLists(qc, [taskId], (t) => ({ ...t, comments: (t.comments ?? 0) + 1 }))
     },
     onError,
   })
@@ -142,141 +144,169 @@ export function useDuplicateTask() {
   })
 }
 
-/** Set the order of tasks in a project (positions 0..n), e.g. a board column after a drop. */
-export function useReorderTasks(projectId: string) {
+/** Put tasks (in this order) right after one task, or before another, in a project's manual order. The
+ *  server picks positions between the neighbours, so it works when only part of the list is loaded. */
+export function usePlaceTasks(projectId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (ids: string[]) => post<void>(`tasks/projects/${projectId}/reorder`, { ids }),
-    onMutate: (ids) => {
-      const rollbacks = ids.map((id, i) => patchTaskCaches(qc, id, (t) => ({ ...t, position: i })))
-      return { rollback: () => rollbacks.reverse().forEach((r) => r()) }
+    mutationFn: (v: { ids: string[]; after?: string; before?: string; positions: number[] }) =>
+      post<{ positions: Record<string, number>; renumbered: boolean }>(`tasks/projects/${projectId}/place`, { ids: v.ids, after: v.after, before: v.before }),
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: ['tasks', 'list'] })
+      const tasks = v.ids.map((id, i) => { const t = cachedTask(qc, id); return t && { ...t, position: v.positions[i] } }).filter((t): t is Task => !!t)
+      return { rollback: settleTaskLists(qc, { tasks, keep: v.ids }) }
+    },
+    onSuccess: (r, v) => {
+      if (r.renumbered) return qc.invalidateQueries({ queryKey: ['tasks', 'list'] }) // other tasks moved too (rare)
+      const tasks = Object.entries(r.positions).map(([id, position]) => { const t = cachedTask(qc, id); return t && { ...t, position } }).filter((t): t is Task => !!t)
+      settleTaskLists(qc, { tasks, keep: v.ids })
     },
     onError: (e, _v, ctx) => (ctx?.rollback(), onError(e)),
-    onSettled: () => qc.invalidateQueries({ queryKey: ['tasks', 'list'] }),
   })
 }
 
+/** Positions for `n` tasks dropped between two loaded neighbours (the optimistic copy of the server's choice). */
+export function positionsBetween(n: number, prev?: number, next?: number): number[] {
+  if (prev == null && next == null) return Array.from({ length: n }, (_, i) => i + 1)
+  if (next == null) return Array.from({ length: n }, (_, i) => prev! + i + 1)
+  if (prev == null) return Array.from({ length: n }, (_, i) => next - n + i)
+  return Array.from({ length: n }, (_, i) => prev + ((next - prev) * (i + 1)) / (n + 1))
+}
+
 // ---------------------------------------------------------------- bulk actions
-/** Same areas as lib/queries refreshTasks: lists, counts, the open task, the dashboard agenda. */
+/** Same areas as lib/queries refreshTaskCounts, plus every list (after a filter-wide change). */
 export function refreshTaskAreas(qc: QueryClient) {
-  for (const k of [['tasks', 'list'], ['tasks', 'overview'], ['tasks', 'detail'], ['calendar', 'agenda']]) qc.invalidateQueries({ queryKey: k })
+  for (const k of [['tasks', 'list'], ['tasks', 'overview'], ['tasks', 'board'], ['tasks', 'detail'], ['calendar', 'agenda']]) qc.invalidateQueries({ queryKey: k })
 }
 
-/** Run `fn` over `items`, at most `n` at a time (the browser's per-host limit). Resolves to the failure count. */
-export async function pool<T>(items: T[], fn: (x: T) => Promise<unknown>, n = 6): Promise<number> {
-  let failed = 0
-  let i = 0
-  const worker = async () => {
-    while (i < items.length) {
-      const x = items[i++]
-      try { await fn(x) } catch { failed++ }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(n, items.length) }, worker))
-  return failed
-}
+/** What a bulk action applies to: loaded rows by id, or every task matching the list ("select all N"). */
+export type BulkTarget = string[] | { filter: Record<string, unknown>; total: number }
+export const targetCount = (t: BulkTarget) => (Array.isArray(t) ? t.length : t.total)
+const BULK_IDS = 500
 
-class BulkError extends Error {
-  all: boolean
-  constructor(failed: number, total: number) {
-    super(failed === total ? `Couldn't change ${total === 1 ? 'the task' : 'the selected tasks'}.` : `${failed} of ${total} tasks couldn't be changed.`)
-    this.all = failed === total
+export interface BulkBody {
+  action: 'done' | 'reopen' | 'update' | 'move' | 'delete'
+  priority?: number; favorite?: boolean; due?: string | null; due_day?: string; clear_due?: boolean
+  add_label?: number; remove_label?: number; project_id?: string
+}
+interface BulkOut { count: number; failed: number; more: boolean; ids: string[]; tasks: Task[] | null }
+
+/** The list filters a "select all matching" sends (GET / params without paging and sort). */
+export function bulkFilter(p: Record<string, unknown>): Record<string, unknown> {
+  const out: Record<string, unknown> = {}
+  for (const k of ['view', 'project', 'label', 'priority_min', 'q', 'done', 'due_before', 'due_after', 'parent', 'top_level', 'assignee', 'done_after', 'bucket']) {
+    if (p[k] !== undefined && p[k] !== '') out[k] = p[k]
   }
+  return out
 }
 
 export interface BulkVars {
-  ids: string[]
-  request: (id: string) => Promise<unknown>
-  /** Optimistic change applied to each selected task in every cached list and detail. */
+  target: BulkTarget
+  body: BulkBody
+  /** Optimistic change, in place, to each selected task that's loaded. */
   patch?: (t: Task) => Task
-  /** Optimistically remove the tasks from the list caches whose query params match. */
-  drop?: (params: Record<string, unknown>) => boolean
+  /** Optimistic change that moves tasks between lists at once (move to another project). */
+  settle?: (t: Task) => Task
   /** Success toast (omit for silent, e.g. when the change is already visible). */
-  done?: string
-  undo?: () => void
+  done?: string | ((n: number) => string)
+  undo?: (ids: string[]) => void
 }
 
-/** One mutation for N tasks: one optimistic cache pass, N requests (pooled), one refresh. */
+/** One mutation for N tasks: one optimistic cache pass, one request (POST /tasks/bulk, 500 ids per call),
+ *  then the changed tasks are put where they belong in the cached lists. */
 export function useBulk() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: async (v: BulkVars) => {
-      const failed = await pool(v.ids, v.request)
-      if (failed) throw new BulkError(failed, v.ids.length)
+    mutationFn: async (v: BulkVars): Promise<BulkOut> => {
+      if (!Array.isArray(v.target)) {
+        const out: BulkOut = { count: 0, failed: 0, more: false, ids: [], tasks: null }
+        for (let i = 0; i < 10; i++) { // 5000 a call; "more" means run again
+          const r = await post<BulkOut>('tasks/bulk', { ...v.body, filter: v.target.filter })
+          out.count += r.count; out.failed = r.failed; out.ids.push(...r.ids)
+          if (!r.more || v.body.action !== 'delete') break // only a delete shrinks the match; others would repeat
+        }
+        return out
+      }
+      const out: BulkOut = { count: 0, failed: 0, more: false, ids: [], tasks: [] }
+      for (let i = 0; i < v.target.length; i += BULK_IDS) {
+        const r = await post<BulkOut>('tasks/bulk', { ...v.body, ids: v.target.slice(i, i + BULK_IDS) })
+        out.count += r.count; out.failed += r.failed; out.ids.push(...r.ids); out.tasks!.push(...(r.tasks ?? []))
+      }
+      return out
     },
     onMutate: async (v) => {
       await qc.cancelQueries({ queryKey: ['tasks'] })
-      const set = new Set(v.ids)
-      const snaps = qc.getQueriesData({ queryKey: ['tasks'] })
-      for (const [key, data] of qc.getQueriesData<TaskPage>({ queryKey: ['tasks', 'list'] })) {
-        if (!data) continue
-        const params = (key[2] ?? {}) as Record<string, unknown>
-        let items = data.items
-        if (v.drop?.(params)) items = items.filter((t) => !set.has(t.id))
-        else if (v.patch) items = items.map((t) => (set.has(t.id) ? v.patch!(t) : t))
-        if (items !== data.items) qc.setQueryData<TaskPage>(key, { items, total: data.total - (data.items.length - items.length) })
-      }
-      if (v.patch) for (const id of v.ids) qc.setQueryData<TaskDetail>(keys.task(id), (old) => (old ? ({ ...old, ...v.patch!(old) } as TaskDetail) : old))
-      return { rollback: () => snaps.forEach(([k, d]) => qc.setQueryData(k, d)) }
+      const ids = Array.isArray(v.target) ? v.target : [] // filter mode: no optimistic pass (we don't hold them all)
+      if (v.body.action === 'delete') return { rollback: settleTaskLists(qc, { gone: ids }) }
+      if (v.settle) return { rollback: settleTaskLists(qc, { tasks: ids.map((id) => cachedTask(qc, id)).filter((t): t is Task => !!t).map(v.settle) }) }
+      if (v.patch) return { rollback: patchTaskLists(qc, ids, v.patch) }
+      return { rollback: () => {} }
     },
-    onSuccess: (_r, v) => { if (v.done) toast.show(v.done, v.undo ? { action: { label: 'Undo', run: v.undo } } : undefined) },
-    onError: (e, _v, ctx) => {
-      // All failed: put everything back. Partly failed: the refresh below shows what really changed.
-      if (!(e instanceof BulkError) || e.all) ctx?.rollback()
-      toast.error((e as Error).message)
+    onSuccess: (r, v) => {
+      if (!Array.isArray(v.target)) refreshTaskAreas(qc)
+      else if (v.body.action === 'delete') settleTaskLists(qc, { gone: r.ids })
+      else settleTaskLists(qc, { tasks: r.tasks ?? [] })
+      if (r.failed) toast.error(r.count ? `${r.failed} of ${r.count + r.failed} tasks couldn't be changed (view-only).` : "You can only view these tasks.")
+      const msg = typeof v.done === 'function' ? v.done(r.count) : v.done
+      if (msg && r.count) toast.show(msg, v.undo ? { action: { label: 'Undo', run: () => v.undo!(r.ids) } } : undefined)
     },
-    onSettled: () => refreshTaskAreas(qc),
+    onError: (e, _v, ctx) => { ctx?.rollback(); toast.error((e as Error).message) },
+    onSettled: () => refreshTaskCounts(qc),
   })
 }
 
 const PRIO_LABEL: Record<number, string> = { 0: 'None', 5: 'Low', 10: 'Medium', 15: 'High', 20: 'Urgent' }
-export const plural = (n: number, w = 'task') => `${n} ${w}${n === 1 ? '' : 's'}`
+export const plural = (n: number, w = 'task') => `${n.toLocaleString()} ${w}${n === 1 ? '' : 's'}`
 
-/** Ready-made bulk operations over task ids (used by the bulk bar and drag and drop). */
+/** Ready-made bulk operations (bulk bar, keyboard, drag and drop). Each takes loaded ids or a filter. */
 export function useBulkOps() {
   const bulk = useBulk()
-  const update = (ids: string[], body: Partial<Task>, done?: string) =>
-    bulk.mutate({ ids, request: (id) => patch<Task>(`tasks/${id}`, body), patch: (t) => ({ ...t, ...body }), done })
+  const update = (target: BulkTarget, body: Partial<Task>, done?: string) => {
+    const b: BulkBody = { action: 'update' }
+    if (body.favorite !== undefined) b.favorite = body.favorite
+    if (body.priority !== undefined) b.priority = body.priority
+    if (body.due !== undefined) { if (body.due) b.due = body.due; else b.clear_due = true }
+    bulk.mutate({ target, body: b, patch: (t) => ({ ...t, ...body }), done })
+  }
   const ops = {
     pending: bulk.isPending,
     update,
-    setDue: (tasks: Task[], day: Date | null) => {
-      // Keep each task's time of day unless it had none (23:59 = "that day").
+    /** Keep each task's time of day unless it had none (23:59 = "that day"). */
+    setDue: (target: BulkTarget, tasks: Task[], day: Date | null) => {
       const each = new Map(tasks.map((t) => [t.id, dueOn(t.due, day)]))
       bulk.mutate({
-        ids: tasks.map((t) => t.id),
-        request: (id) => patch<Task>(`tasks/${id}`, { due: each.get(id) ?? null }),
-        patch: (t) => ({ ...t, due: each.get(t.id) ?? null }),
+        target,
+        body: day ? { action: 'update', due_day: dayKey(day) } : { action: 'update', clear_due: true },
+        patch: (t) => ({ ...t, due: each.has(t.id) ? each.get(t.id)! : dueOn(t.due, day) }),
       })
     },
-    setPriority: (ids: string[], priority: number) => update(ids, { priority, priority_label: PRIO_LABEL[priority] ?? '' } as Partial<Task>),
-    toggleLabel: (tasks: Task[], labelId: number) => {
-      const all = tasks.every((t) => t.labels.includes(labelId))
-      const next = new Map(tasks.map((t) => [t.id, all ? t.labels.filter((x) => x !== labelId) : [...new Set([...t.labels, labelId])]]))
+    setPriority: (target: BulkTarget, priority: number) => update(target, { priority, priority_label: PRIO_LABEL[priority] ?? '' } as Partial<Task>),
+    /** Add the label to all, or take it off when every (loaded) selected task has it. */
+    toggleLabel: (target: BulkTarget, tasks: Task[], labelId: number) => {
+      const all = tasks.length > 0 && tasks.every((t) => t.labels.includes(labelId))
       bulk.mutate({
-        ids: tasks.map((t) => t.id),
-        request: (id) => patch<Task>(`tasks/${id}`, { labels: next.get(id) }),
-        patch: (t) => ({ ...t, labels: next.get(t.id) ?? t.labels }),
+        target,
+        body: all ? { action: 'update', remove_label: labelId } : { action: 'update', add_label: labelId },
+        patch: (t) => ({ ...t, labels: all ? t.labels.filter((x) => x !== labelId) : [...new Set([...t.labels, labelId])] }),
       })
     },
-    setDone: (ids: string[], done: boolean) =>
+    setDone: (target: BulkTarget, done: boolean) =>
       bulk.mutate({
-        ids,
-        request: (id) => post(`tasks/${id}/done`, undefined, { done }),
+        target,
+        body: { action: done ? 'done' : 'reopen' },
         patch: (t) => ({ ...t, done, done_at: done ? new Date().toISOString() : null }),
-        done: done ? `Completed ${plural(ids.length)}` : undefined,
-        undo: done ? () => ops.setDone(ids, false) : undefined,
+        done: done ? (n) => `Completed ${plural(n)}` : undefined,
+        undo: done ? (ids) => ops.setDone(ids, false) : undefined,
       }),
-    move: (ids: string[], project: Pick<Project, 'id' | 'name' | 'is_inbox'>) =>
+    move: (target: BulkTarget, project: Pick<Project, 'id' | 'name' | 'is_inbox'>) =>
       bulk.mutate({
-        ids,
-        request: (id) => post<Task>(`tasks/${id}/move`, { project_id: project.id }),
-        patch: (t) => ({ ...t, project_id: project.id, bucket_id: null }),
-        drop: (p) => typeof p.project === 'string' && p.project !== project.id,
-        done: `Moved ${plural(ids.length)} to ${project.is_inbox ? 'Inbox' : project.name}`,
+        target,
+        body: { action: 'move', project_id: project.id },
+        settle: (t) => ({ ...t, project_id: project.id, bucket_id: null }),
+        done: (n) => `Moved ${plural(n)} to ${project.is_inbox ? 'Inbox' : project.name}`,
       }),
-    remove: (ids: string[]) =>
-      bulk.mutate({ ids, request: (id) => del(`tasks/${id}`), drop: () => true, done: `Deleted ${plural(ids.length)}` }),
+    /** Delete right away (no undo window): for "all N matching", after a confirm. */
+    remove: (target: BulkTarget) => bulk.mutate({ target, body: { action: 'delete' }, done: (n) => `Deleted ${plural(n)}` }),
   }
   return ops
 }
@@ -399,26 +429,38 @@ const setHidden = (next: Set<string>) => { hidden = next; hiddenListeners.forEac
 const pending = new Map<symbol, string[]>()
 export const useHiddenTasks = () => useSyncExternalStore((l) => (hiddenListeners.add(l), () => hiddenListeners.delete(l)), () => hidden)
 
+/** Delete through the bulk endpoint, 500 ids a request; keepalive lets it finish while the page unloads. */
+async function bulkDelete(ids: string[], keepalive = false): Promise<number> {
+  let failed = 0
+  for (let i = 0; i < ids.length; i += BULK_IDS) {
+    const chunk = ids.slice(i, i + BULK_IDS)
+    try {
+      if (keepalive) {
+        await fetch(`${API_BASE}/tasks/bulk`, { method: 'POST', keepalive: true, credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': readCookie('csrftoken') }, body: JSON.stringify({ action: 'delete', ids: chunk }) })
+      } else {
+        await post('tasks/bulk', { action: 'delete', ids: chunk })
+      }
+    } catch { failed += chunk.length }
+  }
+  return failed
+}
+
 if (typeof window !== 'undefined') {
   window.addEventListener('pagehide', () => {
-    for (const ids of pending.values()) {
-      for (const id of ids) {
-        fetch(`${API_BASE}/tasks/${id}`, { method: 'DELETE', keepalive: true, credentials: 'same-origin', headers: { 'X-CSRFToken': readCookie('csrftoken') } }).catch(() => {})
-      }
-    }
+    for (const ids of pending.values()) bulkDelete(ids, true).catch(() => {})
     pending.clear()
   })
 }
 
 export function useDeleteWithUndo() {
   const qc = useQueryClient()
-  return useCallback((tasks: Pick<Task, 'id' | 'title'>[]) => {
+  return useCallback((tasks: (Pick<Task, 'id' | 'title'> & Partial<Pick<Task, 'parent_id' | 'done'>>)[]) => {
     if (!tasks.length) return
     const ids = tasks.map((t) => t.id)
     const gone = new Set(ids)
     // Loaded subtasks go with their parent (the server deletes them too).
-    for (const [, data] of qc.getQueriesData<TaskPage>({ queryKey: ['tasks', 'list'] })) {
-      for (const t of data?.items ?? []) if (t.parent_id && gone.has(t.parent_id)) gone.add(t.id)
+    for (const [, data] of qc.getQueriesData<TaskList>({ queryKey: ['tasks', 'list'] })) {
+      for (const t of listItems(data)) if (t.parent_id && gone.has(t.parent_id)) gone.add(t.id)
     }
     setHidden(new Set([...hidden, ...gone]))
     const key = Symbol('delete')
@@ -426,10 +468,13 @@ export function useDeleteWithUndo() {
     const unhide = () => setHidden(new Set([...hidden].filter((id) => !gone.has(id))))
     const timer = setTimeout(async () => {
       if (!pending.delete(key)) return
-      const failed = await pool(ids, (id) => del(`tasks/${id}`).catch((e) => { if (!(e instanceof ApiError && e.status === 404)) throw e }))
+      const failed = await bulkDelete(ids)
       if (failed) toast.error(failed === ids.length ? "Couldn't delete. Nothing was deleted." : `${failed} of ${ids.length} tasks couldn't be deleted.`)
       for (const id of ids) qc.removeQueries({ queryKey: keys.task(id) })
-      await Promise.all([['tasks', 'list'], ['tasks', 'overview'], ['calendar', 'agenda']].map((k) => qc.invalidateQueries({ queryKey: k })))
+      if (!failed) settleTaskLists(qc, { gone })
+      else qc.invalidateQueries({ queryKey: ['tasks', 'list'] })
+      for (const t of tasks) if ('parent_id' in t && t.parent_id && !gone.has(t.parent_id)) bumpParent(qc, t.parent_id as string, { subtasks: -1, done: (t as Task).done ? -1 : 0 })
+      refreshTaskCounts(qc)
       unhide()
     }, 6000)
     toast.show(ids.length === 1 ? `Deleted "${tasks[0].title}"` : `Deleted ${plural(ids.length)}`, {

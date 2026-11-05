@@ -40,8 +40,21 @@ ISO 8601 datetimes with offsets (UTC).""",
   project `+Name`, priority `!1`–`!4`, dates (today, tomorrow, fri, next week, Nov 20, 2026-12-01, in 3 days,
   5pm, 17:30) and repeats (daily, weekly, every 2 days, every month).
 - **List filters** combine: `view` (today, upcoming, overdue, nodate, favorites, assigned, done), `project`,
-  `label=1,2` (all must match), `priority_min`, `q`, `due_before`/`due_after`, `parent`, `top_level`, `sort`.
-  Saved views (`/views`) store these parameters as JSON.
+  `label=1,2` (all must match), `priority_min`, `q`, `due_before`/`due_after`, `parent`, `top_level`, `bucket`
+  (a board column; needs `project`), `sort`. Saved views (`/views`) store these parameters as JSON.
+- **Paging:** `GET /` returns `{items, total, next}`, 100 tasks by default (`limit` up to 500). Pass the returned
+  `next` as `cursor` for the following page until it's null; cursors are keyset (stable while tasks change) and
+  belong to their `sort`. `count=false` skips `total` (null) on later pages. `offset` still works without a cursor.
+- **Board:** `GET projects/{id}/board?per=50` returns every column with `total`/`open` counts and its first `per`
+  top-level tasks plus a `next` cursor (page on with `GET /?project=…&bucket=…&top_level=true&sort=position&cursor=…`);
+  `items=false` returns counts only. Projects carry `open_count` and `done_count`.
+- **Ordering:** `POST projects/{id}/place {ids, after|before}` puts tasks right after (or before) another task;
+  `POST {id}/move` takes `after`/`before` too. The server picks positions between the neighbours, renumbering the
+  project only when they're too close (`renumbered: true`). `reorder {ids}` still sets positions 0..n.
+- **Bulk:** `POST bulk {ids (≤500) | filter, action}` with `action` done, reopen, update (`priority`, `favorite`,
+  `due`, `due_day` keeping each task's time, `clear_due`, `add_label`, `remove_label`), move (`project_id`) or
+  delete. `filter` takes the list filters and covers up to 5000 matching tasks (`more: true` when there are more).
+  Tasks you can't edit are skipped and counted in `failed`; with `ids` the changed tasks come back in `tasks`.
 - Relations are stored in both directions (blocks ↔ blocked_by, precedes ↔ follows, duplicate_of ↔ duplicated_by).""",
     "photos": """Read-only access to the photo library the user can see.
 

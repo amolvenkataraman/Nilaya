@@ -599,6 +599,16 @@ class Todo(models.Model):
     created_on = models.DateTimeField(default=timezone.now)
     updated_on = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        # The Tasks lists' filters and sorts (manual order in a project, open/done, due, done date, recent).
+        indexes = [
+            models.Index(fields=["project", "completed", "position"], name="todo_project_open_pos"),
+            models.Index(fields=["user", "completed"], name="todo_user_done"),
+            models.Index(fields=["completed", "complete_by"], name="todo_done_due"),
+            models.Index(fields=["completed", "completed_on"], name="todo_done_on"),
+            models.Index(fields=["updated_on"], name="todo_updated"),
+        ]
+
     def __str__(self):
         return f"{self.name} for {self.user.username}."
 

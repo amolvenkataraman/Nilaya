@@ -8,7 +8,7 @@ import re
 import pytz
 from django.conf import settings
 from django.db import IntegrityError, transaction
-from django.db.models import Q
+from django.db.models import F, Max, Q
 from django.utils import timezone
 
 from scheduler.models import Todo
@@ -238,6 +238,82 @@ def move(todo, *, project=None, bucket=None, position=None):
     if position is not None:
         todo.position = position
     todo.save()
+
+
+# ---------------------------------------------------------------- ordering / keyset paging
+
+def keyset_order(keys):
+    """ORDER BY for [(field, desc, nullable)]: nulls last on both databases, then the id as a tiebreaker."""
+    out = []
+    for f, desc, nullable in keys:
+        expr = F(f).desc(nulls_last=True) if desc else F(f).asc(nulls_last=True)
+        out.append(expr if nullable else (F(f).desc() if desc else F(f).asc()))
+    return out
+
+
+def keyset_after(keys, values):
+    """Rows strictly after `values` in keyset_order(keys) order: (a > x) or (a = x and b > y) or ...
+    Nulls sort last, so nothing but another null follows a null."""
+    cond, prefix = None, Q()
+    for (f, desc, nullable), v in zip(keys, values):
+        if v is None:
+            same = Q(**{f + "__isnull": True})
+        else:
+            step = Q(**{f + ("__lt" if desc else "__gt"): v})
+            if nullable:
+                step |= Q(**{f + "__isnull": True})
+            step = prefix & step
+            cond = step if cond is None else cond | step
+            same = Q(**{f: v})
+        prefix &= same
+    return cond if cond is not None else Q(pk__in=[])
+
+
+POSITION_KEYS = [("position", False, False), ("created_on", False, False), ("id", False, False)]
+
+
+def place(project_id, todos, after=None, before=None):
+    """Give `todos` consecutive positions right after the task `after` (or right before `before`) in the
+    project's manual order (position, created_on, id), so a drop needs no full renumber and works when the
+    client has loaded only part of a long list. Renumbers the project (0..n) only when the gap between
+    the neighbours is too small. Saves the todos; returns True if it renumbered."""
+    moving = [t.id for t in todos]
+    rest = Todo.objects.filter(project_id=project_id).exclude(id__in=moving)
+    anchor = after or before
+    vals = lambda t: [t.position, t.created_on, t.id]
+    if after is not None:
+        lo = after.position
+        hi = rest.filter(keyset_after(POSITION_KEYS, vals(after))).order_by(*keyset_order(POSITION_KEYS)) \
+            .values_list("position", flat=True).first()
+    elif before is not None:
+        hi = before.position
+        rev = [(f, not d, n) for f, d, n in POSITION_KEYS]
+        lo = rest.filter(keyset_after(rev, vals(before))).order_by(*keyset_order(rev)).values_list("position", flat=True).first()
+    else:
+        lo = rest.aggregate(m=Max("position"))["m"]
+        hi = None
+    n = len(todos)
+    if lo is None and hi is None:
+        new = [float(i + 1) for i in range(n)]
+    elif hi is None:
+        new = [lo + i + 1 for i in range(n)]
+    elif lo is None:
+        new = [hi - n + i for i in range(n)]
+    elif hi - lo > 1e-6 * (n + 1):
+        step = (hi - lo) / (n + 1)
+        new = [lo + step * (i + 1) for i in range(n)]
+    else:  # neighbours tie or are too close: renumber the project with the block in place
+        ordered = list(rest.order_by(*keyset_order(POSITION_KEYS)).only("id", "position"))
+        at = next(i for i, t in enumerate(ordered) if t.id == anchor.id) + (1 if after is not None else 0)
+        ordered[at:at] = todos
+        for i, t in enumerate(ordered):
+            t.position = float(i)
+        Todo.objects.bulk_update(ordered, ["position"], batch_size=500)
+        return True
+    for t, pos in zip(todos, new):
+        t.position = pos
+    Todo.objects.bulk_update(todos, ["position"])
+    return False
 
 
 def sync_reminders(todo):
