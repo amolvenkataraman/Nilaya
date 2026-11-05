@@ -129,3 +129,22 @@ class TaskApiTests(TestCase):
         self.assertEqual(r.status_code, 400)
         listed = {t["id"]: t["relation_count"] for t in self.client.get("/api/v2/tasks/?done=false").json()["items"]}
         self.assertEqual((listed[a["id"]], listed[b["id"]]), (1, 1))
+
+
+class NullPatchTests(TestCase):
+    def test_null_for_a_required_field_is_ignored_not_a_500(self):
+        user = ComptechUser.objects.create_user("nul", password="pw")
+        self.client.force_login(user)
+        post = lambda path, body: self.client.post(path, body, content_type="application/json").json()
+        task = post("/api/v2/tasks/", {"title": "T"})["id"]
+        group = post("/api/v2/places/groups", {"name": "G"})["id"]
+        place = post("/api/v2/places/", {"group_id": group, "name": "P", "latitude": 1, "longitude": 2})["id"]
+        cal = post("/api/v2/calendar/calendars", {"name": "C"})["id"]
+        event = post("/api/v2/calendar/events", {"calendar_id": cal, "name": "E", "start": "2026-11-05T15:00:00Z"})["id"]
+        for path, field in ((f"/api/v2/tasks/{task}", "title"), (f"/api/v2/tasks/{task}", "priority"),
+                            (f"/api/v2/places/groups/{group}", "name"), (f"/api/v2/places/{place}", "latitude"),
+                            (f"/api/v2/calendar/events/{event}", "name"), ("/api/v2/me", "first_name")):
+            with self.subTest(path=path, field=field):
+                self.assertEqual(self.client.patch(path, {field: None}, content_type="application/json").status_code, 200)
+        self.assertEqual(Todo.objects.get(id=task).name, "T")
+        self.assertEqual(self.client.post(f"/api/v2/calendar/events/{event}/duplicate?days=99999999").status_code, 400)

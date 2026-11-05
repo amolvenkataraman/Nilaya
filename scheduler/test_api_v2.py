@@ -100,3 +100,59 @@ class AvailabilityTests(TestCase):
         busy = self.client.get("/api/v2/calendar/availability/fin?date=2026-11-05").json()["busy"]
         self.assertEqual(len(busy), 1)
         self.assertNotIn("name", busy[0])  # only times, never what the event is
+
+
+class PrivateAndMovedSeriesTests(TestCase):
+    def setUp(self):
+        self.owner = ComptechUser.objects.create_user("gus", password="pw", timezone="America/Toronto")
+        self.sub = ComptechUser.objects.create_user("hal", password="pw", timezone="America/Toronto")
+        self.a = Calendar.objects.create(name="A", owner=self.owner)
+        self.b = Calendar.objects.create(name="B", owner=self.owner)
+        for c in (self.a, self.b):
+            Subscriber.objects.create(calendar=c, user=self.owner, subscribe_type=0)
+        Subscriber.objects.create(calendar=self.b, user=self.sub, subscribe_type=2)
+
+    def test_private_events_stay_masked_in_tasks_from_event(self):
+        e = Event.objects.create(calendar=self.b, name="Doctor", startdate=at(20, 9), enddate=at(20, 10),
+                                 visibility="private", created_by=self.owner)
+        self.client.force_login(self.sub)
+        self.assertEqual(self.client.post(f"/api/v2/tasks/from-event/{e.id}").status_code, 404)
+        self.assertFalse(Todo.objects.filter(user=self.sub).exists())
+
+    def test_moving_a_series_takes_its_changed_occurrences_along(self):
+        self.client.force_login(self.owner)
+        body = {"calendar_id": self.a.id, "name": "Class", "start": at(2, 9).isoformat(), "end": at(2, 10).isoformat(),
+                "rrule": "FREQ=WEEKLY;COUNT=4"}
+        series = self.client.post("/api/v2/calendar/events", body, content_type="application/json").json()
+        occ = f"{series['id']}:{at(9, 9).astimezone(datetime.timezone.utc):%Y-%m-%dT%H:%M:%SZ}"
+        r = self.client.patch(f"/api/v2/calendar/events/{occ}?scope=this", {"name": "Class (room 2)"},
+                              content_type="application/json")
+        self.assertEqual(r.status_code, 200, r.content)
+        r = self.client.patch(f"/api/v2/calendar/events/{series['id']}?scope=all", {"calendar_id": self.b.id},
+                              content_type="application/json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(set(Event.objects.values_list("calendar_id", flat=True)), {self.b.id})
+        self.client.force_login(self.sub)  # subscribed to B only: used to be a KeyError (500)
+        r = self.client.get("/api/v2/calendar/events", {"start": at(1, 0).isoformat(), "end": at(30, 0).isoformat()})
+        self.assertEqual(r.status_code, 200)
+        self.assertEqual([e["name"] for e in r.json()], ["Class", "Class (room 2)", "Class", "Class"])
+
+    def test_moving_a_series_a_week_across_dst_keeps_its_exceptions(self):
+        self.client.force_login(self.owner)
+        local = lambda m, d: TZ.localize(datetime.datetime(2026, m, d, 9))
+        key = lambda m, d: local(m, d).astimezone(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        body = {"calendar_id": self.a.id, "name": "W", "start": local(10, 26).isoformat(),
+                "end": (local(10, 26) + datetime.timedelta(hours=1)).isoformat(), "rrule": "FREQ=WEEKLY;COUNT=6"}
+        sid = self.client.post("/api/v2/calendar/events", body, content_type="application/json").json()["id"]
+        for d in (9, 16):  # consecutive overrides: moving by one period used to hit the unique constraint (500)
+            self.client.patch(f"/api/v2/calendar/events/{sid}:{key(11, d)}?scope=this", {"name": f"W{d}"},
+                              content_type="application/json")
+        self.client.delete(f"/api/v2/calendar/events/{sid}:{key(11, 23)}?scope=this")
+        r = self.client.patch(f"/api/v2/calendar/events/{sid}?scope=all",  # Oct 26 EDT -> Nov 2 EST: 169 hours
+                              {"start": local(11, 2).isoformat(), "end": (local(11, 2) + datetime.timedelta(hours=1)).isoformat()},
+                              content_type="application/json")
+        self.assertEqual(r.status_code, 200, r.content)
+        r = self.client.get("/api/v2/calendar/events", {"start": at(1, 0).isoformat(), "end": local(12, 10).isoformat()})
+        got = [(e["name"], datetime.datetime.fromisoformat(e["start"]).astimezone(TZ).strftime("%m-%d %H:%M")) for e in r.json()]
+        self.assertEqual(got, [("W", "11-02 09:00"), ("W", "11-09 09:00"), ("W9", "11-16 09:00"), ("W16", "11-23 09:00"),
+                               ("W", "12-07 09:00")])  # Nov 30 is the deleted one, moved along

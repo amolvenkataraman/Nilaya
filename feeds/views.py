@@ -9,6 +9,7 @@ from django.utils import timezone
 from django.db.models import Q
 
 from scheduler import ical
+from scheduler.service import masked_for
 from scheduler.models import Event, Subscriber
 
 from . import ics
@@ -78,7 +79,7 @@ def _calendar_feed(f, now):
             y = zones.setdefault(name, [tz, e.startdate.year, e.startdate.year])
             y[1] = min(y[1], e.startdate.year)
         bodies.extend(ical.vevent(e, calendar_name=s.calendar.name, colour=e.display_colour(s.colour), tz=tz,
-                                  tzid=name, stamp=e.updated_on or now, **kw))
+                                  tzid=name, stamp=e.updated_on or now, masked=masked_for(e, f.user, s.role), **kw))
 
     for e in singles.iterator():
         add(e)

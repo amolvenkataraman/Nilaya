@@ -140,13 +140,17 @@ def _save_if_changed(e, before):
     """Write only events the source changed: most syncs change nothing, and saving every event each
     time cost an UPDATE per event and a new updated_on (so the events ETag changed and browsers
     never got a 304 after a sync)."""
+    # Each write in its own savepoint: one bad row (say, a UID too long for the column) is skipped by
+    # _ingest without aborting the transaction, which would silently drop the whole sync.
     if before is None:
-        e.save()
+        with transaction.atomic():
+            e.save()
         return
     e.normalize()
     changed = [k for k, v in _state(e).items() if v != before[k]]
     if changed:
-        e.save(update_fields=changed)
+        with transaction.atomic():
+            e.save(update_fields=changed)
 
 
 def _in_window(it, lo, hi, tz_cal):
@@ -190,6 +194,7 @@ def _ingest(calendar, items, lo, hi):
                 if e.rrule and it.uid in cancelled_keys:
                     e.exdates = sorted(set(e.exdates) | cancelled_keys[it.uid])
                 _save_if_changed(e, before)
+                existing[it.uid] = e  # a UID listed twice updates this row instead of colliding with it
                 counts["saved"] += 1
                 if e.rrule:
                     series[it.uid] = e
@@ -214,6 +219,7 @@ def _ingest(calendar, items, lo, hi):
                     e.calendar = calendar
                     _fill(e, Item(it, recurrence_id=None, rrule=""), tz_cal)
                     _save_if_changed(e, before)
+                    existing[sid] = e
                     counts["saved"] += 1
                     continue
                 if it.status == "cancelled":
@@ -230,6 +236,7 @@ def _ingest(calendar, items, lo, hi):
                 _fill(o, it, tz_cal)
                 o.event_category_id = o.event_category_id or parent.event_category_id
                 _save_if_changed(o, before)
+                existing[sid] = o
                 counts["overrides"] += 1
             except Exception as ex:
                 counts["skipped"] += 1

@@ -182,13 +182,32 @@ def split(series, original):
 
 
 def shift_series(series, delta):
-    """Move a series by ``delta``: its exdates and overrides' original starts move with it."""
+    """Move a series by ``delta`` (``series.startdate`` is already the new start): its exdates,
+    rdates and changed occurrences move with it, by the same wall-clock amount in its zone, so
+    their keys still match the occurrences when the move crosses a DST change (a week later can
+    be 169 hours later)."""
     if not delta:
         return
-    series.exdates = [rec.key(rec.parse_moment(x) + delta) for x in (series.exdates or [])]
-    series.rdates = [rec.key(rec.parse_moment(x) + delta) for x in (series.rdates or [])]
-    for o in Event.objects.filter(recurrence_parent=series):
-        Event.objects.filter(pk=o.pk).update(original_start=o.original_start + delta)
+    tz = rec.event_zone(series)
+    naive = lambda m: m.astimezone(tz).replace(tzinfo=None)  # noqa: E731
+    wall = naive(series.startdate) - naive(series.startdate - delta)
+    move = lambda m: (naive(m) + wall).replace(tzinfo=tz).astimezone(rec.UTC)  # noqa: E731
+    series.exdates = [rec.key(move(rec.parse_moment(x))) for x in (series.exdates or [])]
+    series.rdates = [rec.key(move(rec.parse_moment(x))) for x in (series.rdates or [])]
+    # One at a time, starting from the far end: moving by exactly one period would otherwise put an
+    # override on its neighbour's not-yet-moved original_start (unique per series). The changed
+    # occurrences' own times move too (else one renamed earlier stays behind, next to the moved one).
+    order = "-original_start" if delta > dt.timedelta() else "original_start"
+    days = dt.timedelta(days=round(wall / dt.timedelta(days=1)))
+    cal_tz = series.calendar.tz
+    for o in Event.objects.filter(recurrence_parent=series).order_by(order):
+        if o.kind == "all_day" and o.start_date:  # dates are the truth; times are their local midnights
+            sd, ed = o.start_date + days, (o.end_date or o.start_date + dt.timedelta(days=1)) + days
+            times = {"start_date": sd, "end_date": ed, "startdate": rec.local_midnight(sd, cal_tz),
+                     "enddate": rec.local_midnight(ed, cal_tz)}
+        else:
+            times = {"startdate": move(o.startdate), "enddate": move(o.enddate) if o.enddate else None}
+        Event.objects.filter(pk=o.pk).update(original_start=move(o.original_start), **times)
 
 
 def delete_following(series, original):

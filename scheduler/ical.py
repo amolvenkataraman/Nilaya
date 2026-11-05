@@ -89,11 +89,13 @@ def _rule_lines(e, tz, tzid):
     return out
 
 
-def vevent(e, *, calendar_name, colour, tz, tzid, stamp, extra_exdates=()):
-    """VEVENT lines for a single event, a series (with RRULE) or an override (RECURRENCE-ID)."""
+def vevent(e, *, calendar_name, colour, tz, tzid, stamp, extra_exdates=(), masked=False):
+    """VEVENT lines for a single event, a series (with RRULE) or an override (RECURRENCE-ID).
+    masked: someone else's private event seen by a plain subscriber, sent as "Busy" with times only."""
     uid = f"{e.recurrence_parent_id or e.id}@avnet"
     recurring = bool(e.rrule) or bool(e.recurrence_parent_id)
-    summary = e.name if e.kind != "deadline" else f"Due: {e.name}"
+    name = "Busy" if masked else e.name
+    summary = name if e.kind != "deadline" else f"Due: {name}"
     lines = ["BEGIN:VEVENT", f"UID:{uid}", f"DTSTAMP:{utc(stamp)}", f"LAST-MODIFIED:{utc(e.updated_on or stamp)}",
              f"SUMMARY:{esc(summary)}"]
     lines += _time_lines(e, tz, tzid, recurring)
@@ -107,15 +109,15 @@ def vevent(e, *, calendar_name, colour, tz, tzid, stamp, extra_exdates=()):
         else:
             lines.append(f"RECURRENCE-ID;TZID={tzid}:{_local(e.original_start, tz)}")
     for value, prop in ((e.location, "LOCATION"), (e.description, "DESCRIPTION")):
-        if value:
+        if value and not masked:
             lines.append(f"{prop}:{esc(value)}")
-    if e.meeting_url:
+    if e.meeting_url and not masked:
         lines.append(f"URL:{e.meeting_url}")
         lines.append(f"CONFERENCE;VALUE=URI;FEATURE=VIDEO:{e.meeting_url}")
     cats = [calendar_name]
-    if e.event_category_id and e.event_category.legacy_id != 0:
+    if e.event_category_id and e.event_category.legacy_id != 0 and not masked:
         cats.append(e.event_category.name)
-    cats += list(e.tags or [])
+    cats += [] if masked else list(e.tags or [])
     lines.append("CATEGORIES:" + ",".join(esc(c) for c in cats if c))
     if colour:
         lines.append(f"COLOR:{colour}")  # RFC 7986 allows CSS colour names; #rrggbb is widely accepted

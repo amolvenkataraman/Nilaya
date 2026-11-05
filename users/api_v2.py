@@ -54,7 +54,7 @@ def me(request):
 @router.patch("", response=MeOut)
 def update_me(request, payload: MePatch):
     user = request.user
-    data = payload.dict(exclude_unset=True)
+    data = {k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None or k == "birthday"}
     if "timezone" in data and data["timezone"] not in pytz.all_timezones_set:
         raise HttpError(400, "Unknown time zone")
     for key, value in data.items():

@@ -246,7 +246,7 @@ class EventManager(models.Manager):
         return super().bulk_create(objs, *args, **kwargs)
 
 
-_SNAPSHOT = ("kind", "allday", "startdate", "enddate", "start_date", "end_date")
+_SNAPSHOT = ("kind", "allday", "startdate", "enddate", "start_date", "end_date", "calendar_id")
 
 
 class Event(models.Model):
@@ -466,7 +466,19 @@ class Event(models.Model):
             kwargs["update_fields"] = set(kwargs["update_fields"]) | {
                 "updated_on", "kind", "allday", "startdate", "enddate", "start_date", "end_date",
                 "recurrence_end", "event_category", "transparency", "rrule"}
+        loaded = getattr(self, "_loaded", None)
+        moved_from = loaded.get("calendar_id") if loaded else None
+        if kwargs.get("update_fields") is not None and not {"calendar", "calendar_id"} & set(kwargs["update_fields"]):
+            moved_from = None
         super().save(*args, **kwargs)
+        if moved_from is not None and moved_from != self.calendar_id and self.rrule:
+            # A series moved to another calendar takes its changed occurrences along: they're
+            # listed with the series, and roles/colours come from their own calendar.
+            ow = Event.objects.filter(recurrence_parent=self)
+            if Calendar.objects.filter(id=moved_from).values_list("owner_id", flat=True).first() != self.calendar.owner_id:
+                ow.update(calendar_id=self.calendar_id, event_category_id=self.event_category_id, category=self.category)
+            else:
+                ow.update(calendar_id=self.calendar_id)
         self._loaded = {f: self.__dict__.get(f) for f in _SNAPSHOT}
 
     def display_colour(self, sub_colour=None):

@@ -485,7 +485,7 @@ def create_invite(request, calendar_id: int, payload: InviteIn):
 def update_invite(request, calendar_id: int, invite_id: int, payload: InvitePatch):
     me = _sub(request.user, calendar_id, editor=True)
     i = get_object_or_404(Invite, id=invite_id, calendar_id=calendar_id)
-    data = payload.dict(exclude_unset=True)
+    data = {k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None or k in ("expires_on", "max_uses")}
     days = data.pop("expires_in_days", None)
     if days:
         from django.utils import timezone
@@ -778,6 +778,8 @@ def _apply(e, data, user):
                                                                         defaults={"colour": old.colour, "icon": old.icon})[0])
             e.calendar = cal = new_cal
             tz = cal.tz
+        if data.get("name") is None:
+            data.pop("name", None)  # required: null leaves it as it is
         for k in ("name", "description", "location"):
             if k in data:
                 setattr(e, k, bleach.clean(data[k]) if data[k] else data[k])
@@ -1020,6 +1022,8 @@ def duplicate_event(request, event_id: str, days: int = 0):
     src = svc.occurrence_view(e, original) if original is not None else e
     if src is None:
         raise HttpError(404, "No such occurrence")
+    if abs(days) > 36600:
+        raise HttpError(400, "Shift by up to 100 years")
     shift = datetime.timedelta(days=days)
     copy = svc._clone(src, startdate=src.startdate + shift, enddate=src.enddate + shift if src.enddate else None,
                       start_date=src.start_date + shift if src.start_date else None,

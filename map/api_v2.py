@@ -336,7 +336,8 @@ def create_group(request, payload: GroupIn):
 def update_group(request, group_id: int, payload: GroupPatch):
     g = _own_group(request.user, group_id)
     for key, value in payload.dict(exclude_unset=True).items():
-        setattr(g, key, value)
+        if value is not None:  # every field is required: null leaves it as it is
+            setattr(g, key, value)
     g.save()
     from .models import GroupPreference
     shown = GroupPreference.objects.filter(user=request.user, group=g, visible=True).exists()
@@ -705,7 +706,8 @@ def place_photos(request, place_id: uuid.UUID, limit: int = Query(24, ge=1, le=1
 @router.patch("/{uuid:place_id}", response=PlaceOut)
 def update_place(request, place_id: uuid.UUID, payload: PlacePatch):
     place = get_object_or_404(Location, id=place_id, group__owner=request.user)
-    data = _clean(payload.dict(exclude_unset=True))
+    nullable = {"altitude", "address", "rating", "visited_on", "status"}  # status: dropped below
+    data = _clean({k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None or k in nullable})
     if "group_id" in data:
         data["group"] = _own_group(request.user, data.pop("group_id"))
     if data.get("status") is None:

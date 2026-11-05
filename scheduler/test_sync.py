@@ -126,3 +126,12 @@ class SyncTests(TestCase):
                                                            "end": "2026-12-26T00:00:00-05:00"}).json()
         self.assertEqual([(x["name"], x["kind"], x["start_date"], x["transparency"]) for x in xmas],
                          [("Holiday", "all_day", "2026-12-25", "free")])
+
+    def test_a_uid_listed_twice_does_not_drop_the_rest_of_the_feed(self):
+        ics = "\r\n".join(["BEGIN:VCALENDAR", "VERSION:2.0"] + [
+            f"BEGIN:VEVENT\r\nUID:{uid}\r\nSUMMARY:{name}\r\nDTSTART:2026110{day}T150000Z\r\nDTEND:2026110{day}T160000Z\r\nEND:VEVENT"
+            for uid, name, day in (("dup@x", "First", 2), ("dup@x", "Second", 3), ("other@x", "Other", 4))] + ["END:VCALENDAR", ""])
+        with mock.patch("scheduler.sync.requests.get", return_value=response(ics)):
+            self.assertTrue(sync_ical(self.cal, *WINDOW))
+        self.assertEqual(sorted(Event.objects.filter(calendar=self.cal).values_list("sync_id", "name")),
+                         [("dup@x", "Second"), ("other@x", "Other")])

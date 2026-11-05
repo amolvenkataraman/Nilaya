@@ -46,3 +46,15 @@ class FeedTests(TestCase):
         self.client.delete(f"/api/v2/feeds/{feed_id}")
         self.assertEqual(self.client.get("/" + path).status_code, 404)
         self.assertEqual(self.client.get("/feeds/f_deadbeef_nope.ics").status_code, 404)
+
+    def test_others_private_events_are_busy_in_my_feed(self):
+        other = ComptechUser.objects.get(username="lee")
+        cal = Calendar.objects.get(name="Not mine")
+        Subscriber.objects.create(calendar=cal, user=self.user, subscribe_type=2)
+        soon = timezone.now() + datetime.timedelta(days=3)
+        Event.objects.create(calendar=cal, name="Therapy", location="Clinic", description="notes", startdate=soon,
+                             enddate=soon + datetime.timedelta(hours=1), visibility="private", created_by=other)
+        body = self.client.get("/" + self.make("calendar")).content.decode()
+        self.assertIn("SUMMARY:Busy", body)
+        for secret in ("Therapy", "Clinic", "notes"):
+            self.assertNotIn(secret, body)

@@ -551,7 +551,7 @@ def create_project(request, payload: ProjectIn):
 @router.patch("/projects/{uuid:project_id}", response=ProjectOut)
 def update_project(request, project_id: uuid.UUID, payload: ProjectPatch):
     p = _project(request.user, project_id, ProjectMember.Role.ADMIN)
-    data = payload.dict(exclude_unset=True)
+    data = {k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None or k in ("parent_id", "description")}
     if p.is_inbox and ("archived" in data or "parent_id" in data):
         raise HttpError(400, "The Inbox can't be archived or nested")
     if data.get("parent_id"):
@@ -644,7 +644,7 @@ def create_bucket(request, project_id: uuid.UUID, payload: BucketIn):
 def update_bucket(request, bucket_id: int, payload: BucketPatch):
     b = get_object_or_404(Bucket, id=bucket_id)
     _project(request.user, b.project_id, ProjectMember.Role.WRITE)
-    data = payload.dict(exclude_unset=True)
+    data = {k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None}
     if data.get("is_done"):
         b.project.buckets.exclude(id=b.id).update(is_done=False)
     for key, value in data.items():
@@ -683,6 +683,8 @@ def create_label(request, payload: LabelIn):
 def update_label(request, label_id: int, payload: LabelPatch):
     label = get_object_or_404(Label, id=label_id, owner=request.user)
     for key, value in payload.dict(exclude_unset=True).items():
+        if value is None:
+            continue
         setattr(label, key, _clean(value) if key == "name" else value)
     label.save()
     return label
@@ -710,7 +712,8 @@ def create_view(request, payload: ViewIn):
 def update_view(request, view_id: uuid.UUID, payload: ViewPatch):
     v = get_object_or_404(SavedView, id=view_id, owner=request.user)
     for key, value in payload.dict(exclude_unset=True).items():
-        setattr(v, key, value)
+        if value is not None:
+            setattr(v, key, _clean(value) if key == "name" else value)
     v.save()
     return v
 
@@ -797,6 +800,8 @@ def from_event(request, event_id: str, project_id: Optional[uuid.UUID] = None):
     e = cal_svc.occurrence_view(series, original) if series is not None and original is not None else series
     if e is None:
         raise HttpError(404, "Event not found")
+    if cal_svc.masked_for(e, request.user, cal_svc.role(cal_svc.subscription(request.user, e.calendar_id))):
+        raise HttpError(404, "Event not found")  # someone else's private event: subscribers only see "Busy"
     ident = e.ident()
     existing = Todo.objects.filter(user=request.user, custom_info__event_id=ident).first()
     if existing:
@@ -818,7 +823,8 @@ def get_task(request, task_id: uuid.UUID):
 @router.patch("/{uuid:task_id}", response=TaskOut)
 def update_task(request, task_id: uuid.UUID, payload: TaskPatch):
     t = _task(request.user, task_id, edit=True)
-    data = payload.dict(exclude_unset=True)
+    nullable = {"description", "due", "start", "repeat_every", "parent_id", "labels", "assignees", "reminders"}
+    data = {k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None or k in nullable}
     old_assignees = set(t.assignees.values_list("id", flat=True))
     _apply_task(request.user, t, data)
     with transaction.atomic():

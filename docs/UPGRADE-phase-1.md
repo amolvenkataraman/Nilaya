@@ -37,18 +37,21 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 ## Step by step
 
 ### 0. Rehearse on a copy of production (recommended)
-The migrations were tested on SQLite only. This runs them on a throwaway copy of your real database first; the live `Comptech` DB isn't touched.
+The migrations were tested on SQLite only. This runs them on a throwaway copy of your real database first; the live `Comptech` DB isn't touched. The new code goes into a separate folder (a git worktree), not `/opt/Comptech`: the running app reads templates and lazily imported code from its own folder, so switching branches there would mix old and new code while it runs.
 ```bash
 cd /opt/Comptech
 pg_dump -h 127.0.0.1 -U postgres Comptech > ~/comptech-rehearsal.sql
 createdb -h 127.0.0.1 -U postgres Comptech_rehearsal
 psql -h 127.0.0.1 -U postgres -q Comptech_rehearsal < ~/comptech-rehearsal.sql
-git fetch && git checkout improve/phase-1       # or master after the merge
-source CT_env/bin/activate && pip install -r requirements.txt
+git fetch && git worktree add ~/comptech-rehearsal origin/improve/phase-1   # or origin/master after the merge
+export COMPTECH_SECRETS_DIR=/opt/Comptech/Comptech   # read secret.txt etc. from the live folder (no copies)
+source CT_env/bin/activate && pip install -r ~/comptech-rehearsal/requirements.txt   # only adds packages; the running app keeps working
+cd ~/comptech-rehearsal
 COMPTECH_DB_NAME=Comptech_rehearsal python manage.py migrate
 COMPTECH_DB_NAME=Comptech_rehearsal python manage.py calendar_migration_report   # expect "No inconsistencies found"
+cd /opt/Comptech
 dropdb -h 127.0.0.1 -U postgres Comptech_rehearsal && rm ~/comptech-rehearsal.sql
-git checkout -                                   # back to what was running
+git worktree remove --force ~/comptech-rehearsal && unset COMPTECH_SECRETS_DIR
 ```
 If `migrate` fails here, stop and send me the error; production is unaffected.
 
