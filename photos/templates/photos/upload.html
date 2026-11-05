@@ -458,7 +458,7 @@
 </div>
 
 <script>
-    const csrfToken = "{{ csrf_token }}";
+    const uploadCsrfToken = "{{ csrf_token }}";  // not csrfToken: that name is the global helper in js/script.js
     const dropzone = document.getElementById('dropzone');
     const fileInput = document.getElementById('fileInput');
     const queueCard = document.getElementById('queueCard');
@@ -646,7 +646,7 @@
 
             const xhr = new XMLHttpRequest();
             xhr.open('POST', "{% url 'upload_photos' %}", true);
-            xhr.setRequestHeader('X-CSRFToken', csrfToken);
+            xhr.setRequestHeader('X-CSRFToken', uploadCsrfToken);
 
             xhr.upload.onprogress = (e) => {
                 if (e.lengthComputable) {
