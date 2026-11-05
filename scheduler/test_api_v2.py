@@ -106,6 +106,8 @@ class AvailabilityTests(TestCase):
         Subscriber.objects.create(calendar=private, user=other, subscribe_type=0, display_busy=0)
         Event.objects.create(calendar=shared, name="Standup", startdate=at(5, 9), enddate=at(5, 10))
         Event.objects.create(calendar=private, name="Doctor", startdate=at(5, 11), enddate=at(5, 12))
+        Event.objects.create(calendar=shared, name="Conference", kind="all_day", allday=True,  # all-day: not busy
+                             startdate=at(5, 0), enddate=at(6, 0))
         self.client.force_login(me)
         busy = self.client.get("/api/v2/calendar/availability/fin?date=2026-11-05").json()["busy"]
         self.assertEqual(len(busy), 1)

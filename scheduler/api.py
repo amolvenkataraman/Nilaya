@@ -144,7 +144,7 @@ def get_availability(request, username):
     busy_categories = [1, 2, 4, 5, 6, 7, 9]
     # Free (transparent) and cancelled events never block; deadlines have no length.
     evs = svc.events_in_range(some + every, day, day + datetime.timedelta(days=1), related=("calendar",), extra=(
-        Q(transparency="busy", enddate__isnull=False)
+        Q(transparency="busy", enddate__isnull=False, kind="event")  # timed events only: not all-day or deadlines
         & (Q(calendar__in=every) | Q(calendar__in=some, category__in=busy_categories))))
     return success_response({"busy": [[e.startdate, e.enddate] for e in evs]})
 

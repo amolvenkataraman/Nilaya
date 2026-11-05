@@ -1218,7 +1218,7 @@ def availability(request, username: str, date: datetime.date):
     every = [s.calendar_id for s in subs if s.display_busy == 2]
     busy_categories = [1, 2, 4, 5, 6, 7, 9]
     evs = svc_.events_in_range(some + every, day, day + datetime.timedelta(days=1), related=("calendar",), extra=(
-        Q(transparency="busy", enddate__isnull=False)
+        Q(transparency="busy", enddate__isnull=False, kind="event")  # timed events only: not all-day or deadlines
         & (Q(calendar__in=every) | Q(calendar__in=some, category__in=busy_categories))))
     return {"username": user.username, "date": date, "busy": [{"start": e.startdate, "end": e.enddate} for e in evs]}
 
