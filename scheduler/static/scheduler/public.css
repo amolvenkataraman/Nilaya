@@ -1,0 +1,246 @@
+/* Public calendar page (/calendar/public/<id>/). */
+.navbar-page-title {
+    margin-left: 4px;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.public-subscribe-btn {
+    height: 30px;
+    font-size: 13px;
+    white-space: nowrap;
+}
+
+.main-container {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    background: var(--app-surface);
+}
+
+.month-selector {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--app-border);
+    min-width: 0;
+}
+
+.month-nav {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    flex-shrink: 0;
+}
+
+.month-nav .btn,
+.month-nav .form-select {
+    height: 32px;
+    font-size: 13px;
+}
+
+.month-nav .btn {
+    color: var(--app-fg);
+    border-color: var(--app-border);
+    background: var(--app-surface);
+}
+
+.month-nav .btn:hover,
+.month-nav .btn:focus-visible {
+    background: var(--app-surface-2);
+}
+
+.table-calendar tbody td {
+    height: max(96px, calc((100vh - 140px) / 6));
+}
+
+.month-nav .form-select {
+    width: auto;
+    padding-top: 0;
+    padding-bottom: 0;
+}
+
+.month-nav .icon-btn {
+    width: 32px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#monthAndYear {
+    margin: 0 0 0 4px;
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+}
+
+.wrapper {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+}
+
+.table-calendar {
+    width: 100%;
+    table-layout: fixed;
+    border-collapse: collapse;
+    border-style: hidden;
+}
+
+.table-calendar td,
+.table-calendar th {
+    border: 1px solid var(--app-border);
+}
+
+.table-calendar th {
+    height: 28px;
+    padding: 0 8px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--app-muted);
+    text-align: left;
+}
+
+.table-calendar td {
+    vertical-align: top;
+    text-align: left;
+    padding: 2px 3px 3px;
+    overflow: hidden;
+}
+
+.date-picker-dead {
+    background: var(--app-bg);
+}
+
+.date-span {
+    height: 24px;
+    display: flex;
+    align-items: center;
+}
+
+.date-span span {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 22px;
+    height: 22px;
+    padding: 0 4px;
+    border-radius: 11px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.table-calendar tr td:first-child .date-span,
+.table-calendar tr td:last-child .date-span {
+    color: var(--app-danger);
+}
+
+.table-calendar td.selected .date-span span {
+    background: var(--app-accent);
+    color: var(--app-accent-fg);
+    font-weight: 600;
+}
+
+.public-event {
+    height: 20px;
+    margin: 0 0 1px;
+    padding: 0 6px 0 4px;
+    border-radius: 4px;
+    font-size: 12px;
+    line-height: 20px;
+    color: var(--app-fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.public-event::before {
+    content: "";
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    margin: 0 5px 0 2px;
+    border-radius: 50%;
+    background: var(--event-colour, var(--app-accent));
+}
+
+.public-event:hover {
+    background: var(--app-surface-2);
+}
+
+.public-event .ev-time {
+    color: var(--app-muted);
+    margin-right: 4px;
+}
+
+@media (max-width: 575.98px) {
+    .month-selector {
+        padding: 8px;
+        gap: 4px;
+        flex-wrap: wrap;
+    }
+
+    #monthAndYear {
+        order: -1;
+        flex: 1 0 100%;
+        margin: 0 0 4px;
+        font-size: 15px;
+    }
+
+    .month-nav .form-select {
+        font-size: 12px;
+        padding-left: 8px;
+        padding-right: 24px;
+        background-position: right 6px center;
+    }
+
+    .table-calendar th {
+        padding: 0;
+        text-align: center;
+        font-size: 10px;
+        letter-spacing: 0.02em;
+    }
+
+    .table-calendar td {
+        padding: 2px;
+    }
+
+    .date-span {
+        justify-content: center;
+    }
+
+    .reg-events {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 3px;
+        padding: 0 2px;
+    }
+
+    .public-event {
+        width: 7px;
+        height: 7px;
+        margin: 0;
+        padding: 0;
+        border-radius: 50%;
+        font-size: 0;
+        background: var(--event-colour, var(--app-accent));
+    }
+
+    .public-event::before,
+    .public-event > span {
+        display: none;
+    }
+}

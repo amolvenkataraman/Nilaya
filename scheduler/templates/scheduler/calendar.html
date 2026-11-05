@@ -11,48 +11,37 @@
 <script src="{% static 'js/jquery/jquery.min.js' %}" type="text/javascript"></script>
 <script src="{% static 'js/moment/moment.min.js' %}" type="text/javascript"></script>
 <script src="{% static 'js/handlebars/handlebars.js' %}" type="text/javascript"></script>
-
-<script>
-    const currver = "6.0.0";
-    if (!localStorage.getItem("calendar_version")) { localStorage.setItem("calendar_version", currver); }
-    else if (localStorage.getItem("calendar_version") != currver) { localStorage.setItem("calendar_version", currver); document.location.reload(true); }
-
-    var USER_ID = "{{ request.user.id }}";
-    var CSRF_TOKEN = "{{ csrf_token }}";
-
-    var URLS = {
-        "create_edit_event": "{% url 'create_edit_event' %}",
-        "duplicate_event": "{% url 'duplicate_event' %}",
-        "todo_add": "{% url 'todo' 'add' %}",
-        "todo_edit": "{% url 'todo' 'edit' %}",
-        "todo_delete": "{% url 'todo' 'delete' %}",
-        "todo_complete": "{% url 'todo' 'complete' %}",
-        "toggle_visibility": "{% url 'toggle_visibility' %}",
-        "calendar": "{% url 'calendar' %}",
-        "subscribe": "{% url 'subscribe' %}",
-        "get_events": "{% url 'get_events' %}",
-        "invite": "{% url 'invite' %}",
-        "sync_events": "{% url 'sync_events' %}",
-        "delete_event": "{% url 'delete_event' %}",
-        "unsubscribe": "{% url 'unsubscribe' %}",
-    };
-
-    var vars = JSON.parse("{{ vars }}".replace(/&#x27;/g, '"'));
-
-    var notification = new Audio(`{% static 'sound/Calender_SFX_1_DH.mp3' %}`);
-</script>
+<script src="{% static 'scheduler/script.js' %}" type="text/javascript" defer></script>
+<script src="{% static 'scheduler/sidebar.js' %}" type="text/javascript" defer></script>
 {% endblock %}
 
 
 {% block page_body %}
-<div class="cal-page">
+{{ vars|json_script:"cal-vars" }}
+<div class="cal-page"
+    data-user="{{ request.user.id }}"
+    data-sound="{% static 'sound/Calender_SFX_1_DH.mp3' %}"
+    data-url-create-edit-event="{% url 'create_edit_event' %}"
+    data-url-duplicate-event="{% url 'duplicate_event' %}"
+    data-url-todo-add="{% url 'todo' 'add' %}"
+    data-url-todo-edit="{% url 'todo' 'edit' %}"
+    data-url-todo-delete="{% url 'todo' 'delete' %}"
+    data-url-todo-complete="{% url 'todo' 'complete' %}"
+    data-url-toggle-visibility="{% url 'toggle_visibility' %}"
+    data-url-calendar="{% url 'calendar' %}"
+    data-url-subscribe="{% url 'subscribe' %}"
+    data-url-get-events="{% url 'get_events' %}"
+    data-url-invite="{% url 'invite' %}"
+    data-url-sync-events="{% url 'sync_events' %}"
+    data-url-delete-event="{% url 'delete_event' %}"
+    data-url-unsubscribe="{% url 'unsubscribe' %}">
     <div class="cal-toolbar noprint">
         <div class="btn-group cal-nav-btns" role="group" aria-label="Navigate">
-            <button type="button" class="btn btn-sm" id="previous" onclick="go_prev()" title="Previous (P)" aria-label="Previous">
+            <button type="button" class="btn btn-sm" id="previous" data-action="prev" title="Previous (P)" aria-label="Previous">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
             </button>
-            <button type="button" class="btn btn-sm" id="cal-today-btn" onclick="today_()" title="Today (T)">Today</button>
-            <button type="button" class="btn btn-sm" id="next" onclick="go_next()" title="Next (N)" aria-label="Next">
+            <button type="button" class="btn btn-sm" id="cal-today-btn" data-action="today" title="Today (T)">Today</button>
+            <button type="button" class="btn btn-sm" id="next" data-action="next" title="Next (N)" aria-label="Next">
                 <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
             </button>
         </div>
@@ -62,13 +51,13 @@
             <span class="visually-hidden">Loading...</span>
         </div>
         <div class="cal-toolbar-spacer"></div>
-        <select class="form-select form-select-sm cal-view-select" id="calViewSelect" onchange="switch_view(this.value)" aria-label="View">
+        <select class="form-select form-select-sm cal-view-select" id="calViewSelect" aria-label="View">
             <option value="month">Month</option>
             <option value="week">Week</option>
             <option value="day">Day</option>
         </select>
         <button type="button" class="btn btn-primary btn-sm cal-new-btn" data-bs-toggle="modal" data-bs-target="#big-modal"
-            onclick="add_edit_event(new Date().getDate(), new Date().getMonth() + 1, new Date().getFullYear())" title="New event (A)">
+            data-action="new-event" title="New event (A)">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2z"/></svg>
             <span class="cal-new-label">New event</span>
         </button>
@@ -82,8 +71,8 @@
                     <tbody id="calendar-body"></tbody>
                 </table>
             </div>
-            <div class="container-calendar view-week" style="display:none;"></div>
-            <div class="container-calendar view-day" style="display:none;"></div>
+            <div class="container-calendar view-week" hidden></div>
+            <div class="container-calendar view-day" hidden></div>
         </div>
     </div>
 </div>
@@ -120,19 +109,17 @@
     </div>
 </div>
 
-<div class="command-block">
+<div class="command-block" hidden>
     <input type="text" class="form-control" placeholder="Command" aria-label="Command" />
 </div>
 
-<textarea class="copy-ta" style="display: none;"></textarea>
-
-<script src="{% static 'scheduler/script.js' %}" type="text/javascript"></script>
+<textarea class="copy-ta" hidden></textarea>
 {% endblock %}
 
 
 {% block left_sidebar %}
 <div class="my-selector-container">
-    <select class="form-select" id="month" onchange="jump_()" aria-label="Month">
+    <select class="form-select" id="month" aria-label="Month">
         <option value=0>January</option>
         <option value=1>February</option>
         <option value=2>March</option>
@@ -146,14 +133,14 @@
         <option value=10>November</option>
         <option value=11>December</option>
     </select>
-    <select class="form-select" id="year" onchange="jump_()" aria-label="Year"></select>
+    <select class="form-select" id="year" aria-label="Year"></select>
 </div>
 
 <div class="sidebar-calendar-list">
     <div class="calendarlist-mine-header">
         <span>My calendars</span>
         <button type="button" class="create-btn" data-bs-toggle="modal" data-bs-target="#modal"
-            onclick="create_calendar()" title="Create or subscribe to a calendar (S)" aria-label="Add calendar">
+            data-action="create-calendar" title="Create or subscribe to a calendar (S)" aria-label="Add calendar">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
                 <path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2z" />
             </svg>
@@ -164,7 +151,7 @@
     <div class="calendarlist-other-header">
         <span>Other calendars</span>
         <button type="button" class="create-btn" data-bs-toggle="modal" data-bs-target="#modal"
-            onclick="create_calendar()" title="Create or subscribe to a calendar (S)" aria-label="Add calendar">
+            data-action="create-calendar" title="Create or subscribe to a calendar (S)" aria-label="Add calendar">
             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
                 <path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2z" />
             </svg>
@@ -177,18 +164,18 @@
 {% block left_sidebar_footer %}
 <div class="other-calendar-options">
     <div class="form-check">
-        <input type="checkbox" class="form-check-input" id="displayTodosCb" onclick="change_display();">
+        <input type="checkbox" class="form-check-input display-option" id="displayTodosCb">
         <label class="form-check-label" for="displayTodosCb">Show tasks</label>
     </div>
     <div class="form-check">
-        <input type="checkbox" class="form-check-input" id="displayBirthdaysCb" onclick="change_display();">
+        <input type="checkbox" class="form-check-input display-option" id="displayBirthdaysCb">
         <label class="form-check-label" for="displayBirthdaysCb">Show birthdays</label>
     </div>
     <div class="form-check">
-        <input type="checkbox" class="form-check-input" id="displayAllCb" onclick="change_display();">
+        <input type="checkbox" class="form-check-input display-option" id="displayAllCb">
         <label class="form-check-label" for="displayAllCb">Show all events</label>
     </div>
-    <button type="button" class="unstyled-button refresh-info-btn" onclick="populate_calendar(m, y, true);" title="Refresh now">
+    <button type="button" class="unstyled-button refresh-info-btn" data-action="refresh" title="Refresh now">
         Last refreshed <span id="last-refresh">never</span>
     </button>
 </div>
@@ -197,51 +184,67 @@
 
 {% block right_sidebar %}
 <div class="todos">
-    <ul class="nav" id="sidebar-tabs" role="tablist">
-        <li class="nav-item">
-            <a class="nav-link c-point" data-sidebar-tab=".sb-todos" title="Tasks" role="tab"
-                onclick="show_in_sidebar('.sb-todos')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M2 2.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V3a.5.5 0 0 0-.5-.5H2zM3 3H2v1h1V3z" />
-                    <path d="M5 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zM5.5 7a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 4a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9z" />
-                    <path fill-rule="evenodd" d="M1.5 7a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V7zM2 7h1v1H2V7zm0 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5H2zm1 .5H2v1h1v-1z" />
-                </svg>
-                Tasks
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link c-point" data-sidebar-tab=".sb-upcoming" title="Upcoming" role="tab"
-                onclick="show_in_sidebar('.sb-upcoming')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                    <path d="M8 3.5a.5.5 0 0 0-1 0V8a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 7.71V3.5z"/>
-                    <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
-                </svg>
-                Upcoming
-            </a>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link c-point" data-sidebar-tab=".sb-insight" title="Insight" role="tab"
-                onclick="show_in_sidebar('.sb-insight')">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                    <path fill-rule="evenodd" d="M0 0h1v15h15v1H0V0Zm10 3.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V4.9l-3.613 4.417a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61L13.445 4H10.5a.5.5 0 0 1-.5-.5Z" />
-                </svg>
-                Insight
-            </a>
-        </li>
-    </ul>
-    <div class="sidebar-info sb-todos" style="display: none;">
-        <button type="button" class="btn btn-primary w-100 todo-create-btn" data-bs-toggle="modal" data-bs-target="#modal"
-            onclick="add_edit_todo()">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2z"/></svg>
-            New task
+    <div class="nav" id="sidebar-tabs" role="tablist" aria-label="Sidebar">
+        <button type="button" class="nav-link" data-sidebar-tab=".sb-todos" role="tab" aria-selected="false" aria-controls="sb-todos" title="Tasks">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                <path fill-rule="evenodd" d="M2 2.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V3a.5.5 0 0 0-.5-.5H2zM3 3H2v1h1V3z" />
+                <path d="M5 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zM5.5 7a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 4a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9z" />
+                <path fill-rule="evenodd" d="M1.5 7a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V7zM2 7h1v1H2V7zm0 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5H2zm1 .5H2v1h1v-1z" />
+            </svg>
+            Tasks
         </button>
+        <button type="button" class="nav-link" data-sidebar-tab=".sb-upcoming" role="tab" aria-selected="false" aria-controls="sb-upcoming" title="Upcoming">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                <path d="M8 3.5a.5.5 0 0 0-1 0V8a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 7.71V3.5z"/>
+                <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
+            </svg>
+            Upcoming
+        </button>
+        <button type="button" class="nav-link" data-sidebar-tab=".sb-insight" role="tab" aria-selected="false" aria-controls="sb-insight" title="Insight">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
+                <path fill-rule="evenodd" d="M0 0h1v15h15v1H0V0Zm10 3.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V4.9l-3.613 4.417a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61L13.445 4H10.5a.5.5 0 0 1-.5-.5Z" />
+            </svg>
+            Insight
+        </button>
+    </div>
+
+    <div class="sidebar-info sb-todos" id="sb-todos" role="tabpanel" hidden>
+        <form class="todo-quick" novalidate>
+            <label class="visually-hidden" for="todo-quick-input">Add a task</label>
+            <svg class="todo-quick-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2z"/></svg>
+            <input type="text" class="form-control form-control-sm" id="todo-quick-input" maxlength="512" autocomplete="off"
+                placeholder="Add a task" title="Try: Pay rent tomorrow 5pm *bills +Home !3 every month" aria-describedby="todo-quick-msg">
+        </form>
+        <div class="todo-quick-msg" id="todo-quick-msg" aria-live="polite"></div>
         <div class="todo-list"></div>
+        <div class="todo-footer">
+            <a href="/tasks/" class="todo-footer-link">Open Tasks</a>
+            <button type="button" class="todo-footer-link" data-bs-toggle="modal" data-bs-target="#modal" data-action="new-task">New task with details</button>
+        </div>
     </div>
-    <div class="sidebar-info sb-upcoming" style="display: none;">
-        <div class="sidebar-empty">Nothing here yet.</div>
+    <div class="sidebar-info sb-upcoming" id="sb-upcoming" role="tabpanel" hidden>
+        <div class="agenda" aria-live="polite"></div>
     </div>
-    <div class="sidebar-info sb-insight" style="display: none;">
-        <div class="sidebar-empty">Nothing here yet.</div>
+    <div class="sidebar-info sb-insight" id="sb-insight" role="tabpanel" hidden>
+        <div class="ins-head">
+            <div class="ins-seg" role="group" aria-label="Period">
+                <button type="button" class="ins-seg-btn" data-period="week" aria-pressed="true">Week</button>
+                <button type="button" class="ins-seg-btn" data-period="month" aria-pressed="false">Month</button>
+            </div>
+            <div class="ins-nav">
+                <button type="button" class="ins-nav-btn" data-shift="-1" title="Previous period" aria-label="Previous period">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
+                </button>
+                <button type="button" class="ins-nav-btn" data-shift="1" title="Next period" aria-label="Next period">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
+                </button>
+            </div>
+        </div>
+        <div class="ins-range">
+            <span class="ins-range-label"></span>
+            <button type="button" class="ins-reset" data-shift="0" hidden>Current</button>
+        </div>
+        <div class="ins-body" aria-live="polite"></div>
     </div>
 </div>
 {% endblock %}
