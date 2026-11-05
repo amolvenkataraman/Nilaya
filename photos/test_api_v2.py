@@ -66,6 +66,7 @@ class PhotosApiTests(TestCase):
 
     def test_stats_and_storage(self):
         Photo.objects.filter(id=self.photos[1].id).update(video=True, size=1000, size_total=1500, length=30)
+        Photo.objects.filter(id=self.photos[2].id).update(file_not_available=True)  # old thumbnail-failure flag: still counted
         self.client.force_login(self.user)
         s = self.client.get("/api/v2/photos/stats").json()
         self.assertEqual((s["totals"]["photos"], s["totals"]["videos"]), (2, 1))

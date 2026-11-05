@@ -3,9 +3,10 @@ import { dayDiff, fmtDate } from '../../lib/dates'
 /** Video length in seconds -> "1:05". */
 export function fmtDuration(sec: number | null): string {
   if (!sec || sec < 0) return ''
-  const m = Math.floor(sec / 60)
-  const s = Math.round(sec % 60)
-  return `${m}:${String(s).padStart(2, '0')}`
+  const t = Math.round(sec)
+  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60
+  const pad = (x: number) => String(x).padStart(2, '0')
+  return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`  // 12:04:29, not 724:29
 }
 
 /** Day header: "Today", "Yesterday", "Fri, Jul 31" (year added when not this year). */

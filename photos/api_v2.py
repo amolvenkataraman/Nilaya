@@ -9,7 +9,7 @@ import os
 import uuid
 from typing import Literal, Optional
 
-from django.db.models import Count, Max, Min, OuterRef, Q, Subquery, Sum
+from django.db.models import Count, F, Max, Min, OuterRef, Q, Subquery, Sum
 from django.db.models.functions import Coalesce
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -152,7 +152,9 @@ def library(user, request=None, listing=False):
     subs = Album_Subscriber.objects.filter(user=user)
     if listing:
         subs = subs.filter(visible=True)
-    qs = Photo.objects.filter(album_id__in=subs.values("album_id"), file_not_available=False)
+    # file_not_available isn't used to hide items: old scripts set it whenever a thumbnail failed (most
+    # older videos), and the classic pages always showed and counted those items.
+    qs = Photo.objects.filter(album_id__in=subs.values("album_id"))
     return hidden_mode.visible(qs, request)
 
 
@@ -682,7 +684,7 @@ def _storage(request):
     group = lambda field, n=12: [{"name": r[field] if r[field] is not None else "Unknown", "count": r["count"],
                                   "total_kb": r["total"] or 0, "optimized_kb": r["opt"] or 0}
                                  for r in qs.values(field).annotate(count=Count("id"), total=Sum("size_total"), opt=Sum("size"))
-                                 .order_by("-total")[:n]]
+                                 .order_by(F("total").desc(nulls_last=True))[:n]]  # Postgres sorts NULL first
     rollup = daily(request)
     if rollup is not None:
         years = [{"year": r["y"], "count": r["count"] or 0, "total_kb": r["total"] or 0} for r in
@@ -692,7 +694,7 @@ def _storage(request):
         years = [{"year": r["y"], "count": r["count"], "total_kb": r["total"] or 0} for r in
                  qs.exclude(date_taken__isnull=True).annotate(y=ExtractYear("date_taken")).values("y")
                  .annotate(count=Count("id"), total=Sum("size_total")).order_by("y")]
-    largest = list(qs.select_related("album").order_by("-size_total")[:12])
+    largest = list(qs.filter(size_total__gt=0).select_related("album").order_by("-size_total")[:12])
     return {"all": block(qs), "photo": block(qs.filter(video=False)), "video": block(qs.filter(video=True)),
             "by_year": years, "by_library": group("album__name"), "by_camera": group("camera_model"),
             "by_type": group("mimetype"),
