@@ -1,5 +1,6 @@
 from django.http import HttpResponseBadRequest, JsonResponse
-from django.db.models import Q
+from django.db.models import Count, Q
+from django.db.models.functions import ExtractDay
 from django.utils import timezone
 from scheduler.models import *
 from scheduler.sync import *
@@ -30,43 +31,40 @@ def can_edit_calendar(user, calendar):
 
 @login_required_api
 def get_events(request):
-    month = request.GET.get("month")
-    if month == None:
-        return error_response("Month not provided")
-    year = request.GET.get("year")
-    if year == None:
-        return error_response("Year not provided")
+    try:
+        month, year = int(request.GET["month"]), int(request.GET["year"])
+        month_start, month_end = month_bounds(year, month)
+        tz = pytz.timezone(TIME_ZONE)
+    except (KeyError, ValueError):
+        return error_response("Valid month and year required")
 
     ans = {"data": {}}
     user_ = request.user
-    calendars = user_.calendar_subscribed.all()
     albums = [i.album for i in user_.album_subscribed.all()]
 
-    if request.GET.get("show_all") == "1":
-        calendars = user_.calendar_subscribed.all()
-    else:
-        calendars = user_.calendar_subscribed.filter(calendar__active=True)
-
-    if request.GET.get("show_invisible") == "1":
-        calendars1 = [i.calendar for i in calendars]
-    else:
-        calendars1 = [i.calendar for i in calendars.filter(visible=True)]
+    calendars = user_.calendar_subscribed.all()
+    if request.GET.get("show_all") != "1":
+        calendars = calendars.filter(calendar__active=True)
+    shown = calendars if request.GET.get("show_invisible") == "1" else calendars.filter(visible=True)
 
     ans["data"]["calendars"] = [i.getinfo(cal=True) for i in calendars.order_by('calendar__name')]
-    ans["data"]["birthdays"] = [i.getinfo_zip() for i in user_.friends.filter(birthday__month=int(month))]
-    try:
-        if user_.birthday.month == int(month): ans["data"]["birthdays"].append(user_.getinfo_zip())
-    except AttributeError: pass
-    ans["data"]["events"] = [i.getinfo() for i in Event.objects.filter(
-        Q(calendar__in=list(calendars1)) &
-        ((Q(startdate__month=int(month)) & Q(startdate__year=(int(year)))) |
-        (Q(enddate__month=int(month)) & Q(enddate__year=(int(year)))) |
-        Q(Q(startdate__month__lt=int(month), enddate__month__gt=int(month)) & (Q(startdate__year=int(year), enddate__year=int(year)))))
-    ).order_by('startdate', '-enddate', 'name').iterator()]
-    ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(Q(user=user_) & (Q(completed=False) | (Q(complete_by__month=int(month)) & Q(complete_by__year=int(year))))).order_by('complete_by')]
+    ans["data"]["birthdays"] = [i.getinfo_zip() for i in user_.friends.filter(birthday__month=month)]
+    if user_.birthday and user_.birthday.month == month:
+        ans["data"]["birthdays"].append(user_.getinfo_zip())
 
-    pl = [timezone.localtime(i.date_taken, pytz.timezone(TIME_ZONE)).day for i in Photo.objects.filter(album__in=albums, date_taken__month=month, date_taken__year=year)]
-    ans["data"]["photos"] = {i: pl.count(i) for i in pl}
+    ans["data"]["events"] = [i.getinfo() for i in Event.objects.filter(
+        overlapping(month_start, month_end), calendar__in=[s.calendar_id for s in shown]
+    ).order_by('startdate', '-enddate', 'name').iterator()]
+
+    # Open todos, plus the ones completed this month.
+    ans["data"]["todos"] = [i.getinfo() for i in Todo.objects.filter(
+        Q(user=user_) & (Q(completed=False) | Q(completed_on__gte=month_start, completed_on__lt=month_end))
+    ).order_by('complete_by')]
+
+    # Photos per local day, counted in the database (not by loading every photo).
+    per_day = (Photo.objects.filter(album__in=albums, date_taken__gte=month_start, date_taken__lt=month_end)
+               .annotate(day=ExtractDay('date_taken', tzinfo=tz)).values('day').annotate(n=Count('id')))
+    ans["data"]["photos"] = {row['day']: row['n'] for row in per_day}
 
     # TEMPORARY - For experiments
     # To remove later
@@ -125,28 +123,24 @@ def sync_events(request):
 
 
 def get_availability(request, username):
-    dts = request.GET.get("date")
-    if dts == None: return error_response("No date provided")
-    dt = datetime.datetime.strptime(dts, '%Y-%m-%d')
-    dt1 = dt + datetime.timedelta(days=1)
-
+    """Busy blocks for one day, only from calendars the user chose to expose (display_busy)."""
     try:
-        u = ComptechUser.objects.filter(username=username)[0]
+        day = pytz.timezone(TIME_ZONE).localize(datetime.datetime.strptime(request.GET["date"], '%Y-%m-%d'))
+    except (KeyError, ValueError):
+        return error_response("Valid date (YYYY-MM-DD) required")
+    user = ComptechUser.objects.filter(username=username).first()
+    if user is None:
+        return error_response("User does not exist", 404)
 
-        cals = Subscriber.objects.filter(user=u, calendar__active=True)
-        c1 = [i.calendar for i in cals if i.display_busy == 1] # Busy some events
-        c2 = [i.calendar for i in cals if i.display_busy == 2] # Busy all events
-
-        ev1 = Event.objects.filter(Q(calendar__in=c1) & Q(Q(Q(startdate__gte=dt) & Q(enddate__lte=dt1)) | Q(Q(startdate__lt=dt) & Q(enddate__gt=dt1))) & Q(category__in=[1, 2, 4, 5, 6, 7, 9]))
-        ev2 = Event.objects.filter(Q(calendar__in=c2) & Q(Q(Q(startdate__gte=dt) & Q(enddate__lte=dt1)) | Q(Q(startdate__lt=dt) & Q(enddate__gt=dt1))))
-        evs = ev1.union(ev2).order_by('startdate')
-
-        busy = [[i.startdate, i.enddate] for i in evs]
-        ans = {"busy": busy}
-
-        return success_response(ans)
-
-    except IndexError: return error_response("User does not exist")
+    subs = Subscriber.objects.filter(user=user, calendar__active=True, display_busy__in=[1, 2])
+    some = [s.calendar_id for s in subs if s.display_busy == 1]  # only "busy" categories
+    every = [s.calendar_id for s in subs if s.display_busy == 2]  # every event
+    busy_categories = [1, 2, 4, 5, 6, 7, 9]
+    evs = Event.objects.filter(
+        Q(startdate__lt=day + datetime.timedelta(days=1), enddate__gt=day),  # overlaps the day
+        Q(calendar__in=every) | Q(calendar__in=some, category__in=busy_categories),
+    ).order_by('startdate')
+    return success_response({"busy": [[e.startdate, e.enddate] for e in evs]})
 
 def get_calendar_events(request):
     try:
