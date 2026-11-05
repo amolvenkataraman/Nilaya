@@ -146,7 +146,8 @@ ASGI_APPLICATION = 'Comptech.asgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql_psycopg2',
-        'NAME': 'Comptech',
+        # Override only for rehearsals on a copy (docs/UPGRADE-phase-1.md); production uses "Comptech".
+        'NAME': os.environ.get('COMPTECH_DB_NAME', 'Comptech'),
         'USER': 'postgres',
         'PASSWORD': DB_PASSWORD,
         'HOST': '127.0.0.1',
