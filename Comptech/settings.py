@@ -89,6 +89,9 @@ INSTALLED_APPS = [
     'static_files',
     'notifications',
     'tasks',
+    'apikeys',
+    'contacts',
+    'habits',
 
     # Main functionality apps
     'scheduler',
