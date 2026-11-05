@@ -6,7 +6,7 @@ Media URLs are the signed nginx paths the old UI uses (/private/... thumbnails,
 
 import datetime
 import uuid
-from typing import Optional
+from typing import Literal, Optional
 
 from django.db.models import Count, Max, Min, Q, Sum
 from django.shortcuts import get_object_or_404
@@ -141,10 +141,15 @@ class SummaryOut(Schema):
     per_year: list[dict]
 
 
-def library(user, request=None):
+def library(user, request=None, listing=False):
     """Every photo the user can see through the library albums they subscribe to.
-    Hidden photos are left out unless the owner has show-hidden mode on (pass the request)."""
-    qs = Photo.objects.filter(album__users_subscribed__user=user, file_not_available=False)
+    Hidden photos are left out unless the owner has show-hidden mode on (pass the request).
+    listing=True also leaves out libraries switched off in Sources (like the classic timeline);
+    direct access to a photo ignores that switch."""
+    subs = Album_Subscriber.objects.filter(user=user)
+    if listing:
+        subs = subs.filter(visible=True)
+    qs = Photo.objects.filter(album_id__in=subs.values("album_id"), file_not_available=False)
     return hidden_mode.visible(qs, request)
 
 
@@ -178,8 +183,10 @@ def _page(qs, before, limit, before_id=None):
 @router.get("/timeline", response=PageOut, summary="Newest first; pass next_before to get the next page")
 def timeline(request, before: Optional[datetime.datetime] = None, limit: int = 120,
              video: Optional[bool] = None, country: str = "", city: str = "", before_id: Optional[uuid.UUID] = None,
-             camera: str = "", objects: str = ""):
-    qs = library(request.user, request)
+             camera: str = "", objects: str = "", after: Optional[datetime.datetime] = None):
+    qs = library(request.user, request, listing=True)
+    if after:
+        qs = qs.filter(date_taken__gte=after)  # with before: a time range (e.g. an event's photos)
     if camera:
         qs = qs.filter(camera_model=camera)
     if objects:
@@ -198,7 +205,7 @@ def on_this_day(request, per_year: int = 12):
     import pytz
     tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else None
     today = timezone.localdate(timezone=tz)  # the user's date, not the server's
-    qs = (library(request.user, request).select_related("album")
+    qs = (library(request.user, request, listing=True).select_related("album")
           .filter(date_taken__month=today.month, date_taken__day=today.day, date_taken__year__lt=today.year)
           .order_by("-date_taken"))
     groups = {}
@@ -211,7 +218,7 @@ def on_this_day(request, per_year: int = 12):
 
 @router.get("/summary", response=SummaryOut)
 def summary(request):
-    qs = library(request.user, request)
+    qs = library(request.user, request, listing=True)
     agg = qs.aggregate(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True)),
                        size=Sum("size_total"), first=Min("date_taken"), last=Max("date_taken"))
     top = lambda field: [{"name": r[field], "count": r["n"]} for r in
@@ -236,7 +243,7 @@ def counts(request, start: datetime.date, end: datetime.date):
     if rollup is not None:  # fast path: the materialized per-day view
         rows = rollup.filter(day__gte=start, day__lte=end).values("day").annotate(n=Sum("photos") + Sum("videos"))
         return {r["day"].isoformat(): r["n"] for r in rows if r["n"]}
-    rows = (library(request.user, request).filter(date_taken__gte=lo, date_taken__lt=hi)
+    rows = (library(request.user, request, listing=True).filter(date_taken__gte=lo, date_taken__lt=hi)
             .annotate(day=TruncDate("date_taken", tzinfo=tz)).values("day").annotate(n=Count("id")))
     return {r["day"].isoformat(): r["n"] for r in rows}
 
@@ -282,7 +289,7 @@ def days(request, start: datetime.date, end: datetime.date):
     tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
     lo = tz.localize(datetime.datetime.combine(start, datetime.time())) if hasattr(tz, "localize") else datetime.datetime.combine(start, datetime.time(), tzinfo=tz)
     hi = lo + datetime.timedelta(days=(end - start).days + 1)
-    rows = (library(request.user, request).filter(date_taken__gte=lo, date_taken__lt=hi)
+    rows = (library(request.user, request, listing=True).filter(date_taken__gte=lo, date_taken__lt=hi)
             .annotate(day=TruncDate("date_taken", tzinfo=tz)).values("day")
             .annotate(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True)), size_kb=Sum("size_total")))
     return {r["day"].isoformat(): {"photos": r["photos"], "videos": r["videos"], "size_kb": r["size_kb"] or 0} for r in rows}
@@ -310,6 +317,164 @@ def albums(request):
         out.append({"id": a.id, "name": a.name, "description": a.description, "public": a.public,
                     "mine": a.owner_id == request.user.id, "count": a.count, "size_kb": a.size_kb or 0, "cover": cover})
     return out
+
+
+class AlbumIn(Schema):
+    name: str = Field(..., min_length=1, max_length=64)
+    description: str = ""
+    public: bool = False
+
+
+class AlbumPatch(Schema):
+    name: Optional[str] = Field(None, min_length=1, max_length=64)
+    description: Optional[str] = None
+    public: Optional[bool] = None
+    cover_photo_id: Optional[uuid.UUID] = None
+
+
+class MemberIn(Schema):
+    username: str
+    role: Literal["editor", "viewer"] = "viewer"
+
+
+class MemberPatch(Schema):
+    role: Literal["editor", "viewer"]
+
+
+ROLE_TO_TYPE = {"editor": 1, "viewer": 2}
+TYPE_TO_ROLE = {0: "owner", 1: "editor", 2: "viewer"}
+
+
+def _album_out(a, user):
+    from .models import ShareAlbum_Photo
+    photos = Photo.objects.filter(photo_in_sharealbum__sharealbum=a)
+    cover = a.cover_photo if a.cover_photo_id and not a.cover_photo.hidden else \
+        photos.filter(hidden=False).select_related("album").order_by("-date_taken").first()
+    agg = photos.aggregate(n=Count("id"), size=Sum("size_total"))
+    return {"id": a.id, "name": a.name, "description": a.description, "public": a.public, "mine": a.owner_id == user.id,
+            "count": agg["n"], "size_kb": agg["size"] or 0, "cover": cover}
+
+
+def _own_share_album(user, album_id):
+    return get_object_or_404(ShareAlbum, id=album_id, owner=user)
+
+
+@router.post("/albums", response={201: ShareAlbumOut}, summary="Create a shared album")
+def create_album(request, payload: AlbumIn):
+    from .models import ShareAlbum_Subscriber
+    import bleach
+    a = ShareAlbum.objects.create(owner=request.user, name=bleach.clean(payload.name),
+                                  description=bleach.clean(payload.description), public=payload.public)
+    ShareAlbum_Subscriber.objects.create(album=a, user=request.user, subscribe_type=0)
+    return 201, _album_out(a, request.user)
+
+
+@router.patch("/albums/{uuid:album_id}", response=ShareAlbumOut, summary="Rename, describe, make public, set the cover (owner)")
+def update_album(request, album_id: uuid.UUID, payload: AlbumPatch):
+    from .models import ShareAlbum_Photo
+    import bleach
+    a = _own_share_album(request.user, album_id)
+    data = payload.dict(exclude_unset=True)
+    if data.get("name") is not None:
+        a.name = bleach.clean(data["name"])
+    if "description" in data:
+        a.description = bleach.clean(data["description"] or "")
+    if data.get("public") is not None:
+        a.public = data["public"]
+    if data.get("cover_photo_id"):
+        if not ShareAlbum_Photo.objects.filter(sharealbum=a, photo_id=data["cover_photo_id"]).exists():
+            raise HttpError(400, "That photo isn't in this album")
+        a.cover_photo_id = data["cover_photo_id"]
+    a.save()
+    return _album_out(a, request.user)
+
+
+@router.delete("/albums/{uuid:album_id}", response={204: None}, summary="Delete a shared album (owner); the photos stay")
+def delete_album(request, album_id: uuid.UUID):
+    _own_share_album(request.user, album_id).delete()
+    return 204, None
+
+
+@router.get("/albums/{uuid:album_id}/members", summary="People an album is shared with (owner)")
+def album_members(request, album_id: uuid.UUID):
+    from .models import ShareAlbum_Subscriber
+    a = _own_share_album(request.user, album_id)
+    return [{"id": m.id, "username": m.user.username, "name": m.user.get_full_name() or m.user.username,
+             "role": TYPE_TO_ROLE.get(m.subscribe_type, "viewer")}
+            for m in ShareAlbum_Subscriber.objects.filter(album=a).exclude(subscribe_type=0).select_related("user")]
+
+
+@router.post("/albums/{uuid:album_id}/members", response={201: dict}, summary="Share an album with someone (owner)")
+def add_album_member(request, album_id: uuid.UUID, payload: MemberIn):
+    from .models import ShareAlbum_Subscriber
+    from users.models import ComptechUser
+    from notifications.service import notify
+    a = _own_share_album(request.user, album_id)
+    target = get_object_or_404(ComptechUser, username=payload.username)
+    if target.id == request.user.id or ShareAlbum_Subscriber.objects.filter(album=a, user=target).exists():
+        raise HttpError(400, "They already have access")
+    m = ShareAlbum_Subscriber.objects.create(album=a, user=target, subscribe_type=ROLE_TO_TYPE[payload.role])
+    notify(target, f"{request.user.get_full_name() or request.user.username} shared \"{a.name}\" with you",
+           f"You can {'edit' if payload.role == 'editor' else 'view'} this album.", source="Photos",
+           url=f"/photos/?album={a.id}")
+    return 201, {"id": m.id, "username": target.username, "role": payload.role}
+
+
+@router.patch("/albums/{uuid:album_id}/members/{int:member_id}", summary="Change someone's role (owner)")
+def update_album_member(request, album_id: uuid.UUID, member_id: int, payload: MemberPatch):
+    from .models import ShareAlbum_Subscriber
+    a = _own_share_album(request.user, album_id)
+    m = get_object_or_404(ShareAlbum_Subscriber.objects.exclude(subscribe_type=0), id=member_id, album=a)
+    m.subscribe_type = ROLE_TO_TYPE[payload.role]
+    m.save(update_fields=["subscribe_type"])
+    return {"id": m.id, "role": payload.role}
+
+
+@router.delete("/albums/{uuid:album_id}/members/{int:member_id}", response={204: None}, summary="Stop sharing with someone (owner)")
+def remove_album_member(request, album_id: uuid.UUID, member_id: int):
+    from .models import ShareAlbum_Subscriber
+    a = _own_share_album(request.user, album_id)
+    get_object_or_404(ShareAlbum_Subscriber.objects.exclude(subscribe_type=0), id=member_id, album=a).delete()
+    return 204, None
+
+
+class LibraryPatch(Schema):
+    visible: bool
+
+
+@router.patch("/libraries/{int:album_id}", summary="Show or hide a library in the timeline and stats (Sources)")
+def set_library_visible(request, album_id: int, payload: LibraryPatch):
+    sub = get_object_or_404(Album_Subscriber, user=request.user, album_id=album_id)
+    sub.visible = payload.visible
+    sub.save(update_fields=["visible"])
+    return {"id": album_id, "visible": sub.visible}
+
+
+@router.post("/libraries/{int:album_id}/only", summary="Show only this library")
+def only_library(request, album_id: int):
+    sub = get_object_or_404(Album_Subscriber, user=request.user, album_id=album_id)
+    Album_Subscriber.objects.filter(user=request.user).exclude(id=sub.id).update(visible=False)
+    sub.visible = True
+    sub.save(update_fields=["visible"])
+    return {"id": album_id, "visible": True}
+
+
+@router.post("/ingest", response={202: dict}, summary="Import new files from your libraries' Ingest folders (owners/editors)")
+def ingest(request):
+    from .tasks import ingest_all_photos
+    if not Album_Subscriber.objects.filter(user=request.user, subscribe_type__in=[0, 1]).exists():
+        raise HttpError(403, "You don't own or edit any library")
+    ingest_all_photos.delay(user_id=request.user.id)
+    return 202, {"status": "started"}
+
+
+@router.post("/{uuid:photo_id}/delete-original", summary="Delete the original/RAW kept next to a photo (owners/editors, browser only)")
+def delete_original(request, photo_id: uuid.UUID):
+    from apikeys.models import ApiKey
+    from .views import delete_photo_original
+    if isinstance(getattr(request, "auth", None), ApiKey):
+        raise HttpError(403, "Deleting files needs a signed-in browser session")
+    return delete_photo_original(request, str(photo_id))  # classic logic: safety checks + owner/editor only
 
 
 @router.get("/albums/{uuid:album_id}/photos", response=PageOut)
@@ -383,7 +548,7 @@ class PhotoDetailOut(PhotoOut):
 def browse_category(request, category: str):
     if category not in ("cities", "countries", "cameras", "objects"):
         raise HttpError(404, "Unknown category")
-    return browse.browse_items(library(request.user, request), category)
+    return browse.browse_items(library(request.user, request, listing=True), category)
 
 
 def _local_now(request):
@@ -396,7 +561,7 @@ def _local_now(request):
 def stats(request):
     from django.db.models import Avg
     from django.db.models.functions import ExtractHour, ExtractIsoWeekDay, TruncMonth
-    qs = library(request.user, request)
+    qs = library(request.user, request, listing=True)
     tz, now = _local_now(request)
     agg = qs.aggregate(total=Count("id"), videos=Count("id", filter=Q(video=True)), mp=Avg("megapixels", filter=Q(video=False)),
                        first=Min("date_taken"), last=Max("date_taken"))
@@ -440,7 +605,7 @@ def stats(request):
 @router.get("/storage", summary="Storage used: optimized vs total (originals/RAW), by type, year, library and camera")
 def storage(request):
     from django.db.models.functions import ExtractYear
-    qs = library(request.user, request)
+    qs = library(request.user, request, listing=True)
     part = lambda q: q.aggregate(count=Count("id"), optimized_kb=Sum("size"), total_kb=Sum("size_total"), length_s=Sum("length"))
     def block(q):
         a = part(q)
