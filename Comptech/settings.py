@@ -93,6 +93,7 @@ INSTALLED_APPS = [
     'contacts',
     'habits',
     'analytics',
+    'feeds',
 
     # Main functionality apps
     'scheduler',

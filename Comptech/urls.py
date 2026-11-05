@@ -38,6 +38,7 @@ urlpatterns = [
     path("contacts/", include("contacts.urls")),
     path("habits/", include("habits.urls")),
     path("analytics/", include("analytics.urls")),
+    path("feeds/", include("feeds.urls")),
     path("notifications/", include("notifications.urls")),
     re_path(r"^app(?:/.*)?$", spa.index, name="spa"),  # new React UI (frontend/), client-side routes
     path("api/v2/", api_v2.urls),
