@@ -382,6 +382,30 @@ def get_meta(request):
     return meta()
 
 
+class BirthdayOut(Schema):
+    id: uuid.UUID
+    name: str
+    date: datetime.date
+    age: Optional[int]
+
+
+@router.get("/birthdays", response=list[BirthdayOut], summary="Birthdays falling in [start, end] (for the calendar), with age when the year is known")
+def birthdays(request, start: datetime.date, end: datetime.date):
+    if end < start or (end - start).days > 400:
+        raise HttpError(400, "Pick a range of up to 400 days")
+    out = []
+    for p in _people(request.user).filter(birthday_month__isnull=False, birthday_day__isnull=False):
+        day = start
+        while day <= end:
+            nxt = p.next_birthday(day)  # Feb 29 falls on Feb 28 in other years
+            if nxt is None or nxt > end:
+                break
+            out.append({"id": p.id, "name": p.name, "date": nxt,
+                        "age": nxt.year - p.birthday_year if p.birthday_year else None})
+            day = nxt + datetime.timedelta(days=1)
+    return sorted(out, key=lambda b: (b["date"], b["name"]))
+
+
 @router.get("/stats", response=StatsOut, summary="Counts, upcoming birthdays, overdue keep-in-touch, tags")
 def stats(request):
     today = timezone.localdate()

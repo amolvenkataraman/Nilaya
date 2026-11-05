@@ -299,3 +299,18 @@ class PageTests(Base):
         r = self.client.get("/contacts/")
         self.assertContains(r, "contacts/contacts.js")
         self.assertContains(r, 'id="ct-boot"')
+
+
+
+class BirthdaysTests(TestCase):
+    def test_birthdays_in_range_with_age_and_leap_day(self):
+        import datetime
+        user = ComptechUser.objects.create_user("bday", password="pw")
+        Person.objects.create(owner=user, first_name="Ada", birthday_year=1990, birthday_month=3, birthday_day=10)
+        Person.objects.create(owner=user, first_name="Leap", birthday_month=2, birthday_day=29)
+        Person.objects.create(owner=ComptechUser.objects.create_user("other", password="pw"), first_name="Nope",
+                              birthday_month=3, birthday_day=10)
+        self.client.force_login(user)
+        r = self.client.get("/api/v2/contacts/birthdays?start=2027-02-01&end=2027-03-31").json()
+        self.assertEqual([(b["name"], b["date"], b["age"]) for b in r],
+                         [("Leap", "2027-02-28", None), ("Ada", "2027-03-10", 37)])
