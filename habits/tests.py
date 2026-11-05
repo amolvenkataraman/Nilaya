@@ -204,7 +204,8 @@ class ApiTests(TestCase):
         mk(self.u, name="Gone", archived=True)
         weekly = mk(self.u, name="Weekly", target=3, period="week", start_date=self.today)
         log(weekly, self.today)
-        mk(self.u, name="Limit", kind="measurable", unit="cups", goal="at_most", target=2)
+        mk(self.u, name="Limit", kind="measurable", unit="cups", goal="at_most", target=2,
+           start_date=self.today - dt.timedelta(days=30))  # relative to the real today, not the fixed WED
         r = self.call("get", "today").json()
         self.assertEqual(r["date"], str(self.today))
         got = {h["habit"]["name"]: (h["due"], h["done"], h["streak"]) for h in r["habits"]}
