@@ -127,17 +127,8 @@ DATABASES = {
         'HOST': '127.0.0.1',
         'PORT': '5432',
     },
-    # 'chat_db': {
-    #     'ENGINE': 'django.db.backends.postgresql_psycopg2',
-    #     'NAME': 'chat',
-    #     'USER': 'postgres',
-    #     'PASSWORD': DB_PASSWORD,
-    #     'HOST': '127.0.0.1',
-    #     'PORT': '5432',
-    # }
 }
 
-# DATABASE_ROUTERS = ['chat.routers.ChatRouter']
 
 CHANNEL_LAYERS = {
     'default': {

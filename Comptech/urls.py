@@ -22,7 +22,6 @@ urlpatterns = [
     path("", include("mainsite.urls")),
     path("accounts/", include("users.urls")),
 
-    # path("chat/", include("chat.urls")),
     path("calendar/", include("scheduler.urls")),
     path("photos/", include("photos.urls")),
     path("map/", include("map.urls")),

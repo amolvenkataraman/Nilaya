@@ -33,7 +33,6 @@ Django (Daphne + Channels for WebSocket)
       ├── map/          ← Location Groups & Points
       ├── users/        ← ComptechUser (custom AbstractUser)
       ├── notifications/
-      └── chat/         ← WebSocket consumers
       │
       ▼
 PostgreSQL (Comptech database)
