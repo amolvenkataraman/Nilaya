@@ -79,7 +79,7 @@ def _check_destination(url):
 def _post(url, **kwargs):
     _check_destination(url)
     try:
-        response = requests.post(url, timeout=TIMEOUT, **kwargs)
+        response = requests.post(url, timeout=TIMEOUT, allow_redirects=False, **kwargs)  # a redirect could leave the LAN
     except requests.RequestException as exc:
         raise DeliveryError(f"Couldn't reach {urlsplit(url).hostname}: {type(exc).__name__}") from exc
     if response.status_code >= 400:

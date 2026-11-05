@@ -1,0 +1,93 @@
+"""Tasks: quick-add parsing, recurring, kanban done-sync, WIP limits, sharing roles, Inbox."""
+
+import datetime
+
+import pytz
+from django.test import TestCase
+
+from scheduler.models import Todo
+from users.models import ComptechUser
+
+from .service import parse_quick_add
+
+TZ = pytz.timezone("America/Toronto")
+NOW = TZ.localize(datetime.datetime(2026, 11, 4, 21, 0))  # a Wednesday evening
+
+
+class QuickAddTests(TestCase):
+    def test_tokens_dates_and_repeats(self):
+        cases = {
+            "Pay rent tomorrow 5pm *bills +Home !3 every month":
+                ("Pay rent", "2026-11-05 17:00", ["bills"], "Home", 15, 2, None),
+            'Buy milk *"grocery run" +"Side Projects"': ("Buy milk", None, ["grocery run"], "Side Projects", None, 0, None),
+            "Call mom fri": ("Call mom", "2026-11-06 23:59", [], None, None, 0, None),
+            "Dentist Nov 20 at 3:30pm": ("Dentist", "2026-11-20 15:30", [], None, None, 0, None),
+            "Ship at 8pm": ("Ship", "2026-11-05 20:00", [], None, None, 0, None),  # past today -> tomorrow
+            "Gym every 2 days": ("Gym", "2026-11-04 23:59", [], None, None, 1, 172800),
+            "Just a title": ("Just a title", None, [], None, None, 0, None),
+        }
+        for text, (title, due, labels, project, prio, mode, every) in cases.items():
+            with self.subTest(text=text):
+                r = parse_quick_add(text, TZ, NOW)
+                self.assertEqual((r["title"], r["due"] and r["due"].strftime("%Y-%m-%d %H:%M"), r["labels"], r["project"],
+                                  r["priority"], r["repeat_mode"], r["repeat_every"]),
+                                 (title, due, labels, project, prio, mode, every))
+
+
+class TaskApiTests(TestCase):
+    def setUp(self):
+        self.owner = ComptechUser.objects.create_user("own", password="pw")
+        self.other = ComptechUser.objects.create_user("oth", password="pw")
+        self.client.force_login(self.owner)
+
+    def post(self, path, body=None, user=None):
+        if user:
+            self.client.force_login(user)
+        return self.client.post(f"/api/v2/tasks/{path}", body or {}, content_type="application/json")
+
+    def test_orphan_todos_land_in_the_inbox(self):
+        Todo.objects.create(user=self.owner, name="From the calendar")
+        inbox = self.client.get("/api/v2/tasks/overview").json()["inbox_id"]
+        self.assertEqual(str(Todo.objects.get().project_id), inbox)
+
+    def test_repeating_task_moves_forward_and_stays_open(self):
+        due = "2026-11-04T09:00:00+00:00"
+        t = self.post("", {"title": "Water plants", "due": due, "repeat_mode": 1, "repeat_every": 86400}).json()
+        r = self.post(f"{t['id']}/done").json()
+        self.assertTrue(r["repeated"])
+        self.assertFalse(r["task"]["done"])
+        self.assertGreater(r["task"]["due"], due)
+
+    def test_done_column_sync_and_wip_limit(self):
+        p = self.post("projects", {"name": "Reno"}).json()
+        todo, doing, done = self.client.get(f"/api/v2/tasks/projects/{p['id']}/buckets").json()
+        a = self.post("", {"title": "A", "project_id": p["id"]}).json()
+        b = self.post("", {"title": "B", "project_id": p["id"]}).json()
+        self.assertTrue(self.post(f"{a['id']}/move", {"bucket_id": done["id"]}).json()["done"])
+        self.assertEqual(self.post(f"{a['id']}/done?done=false").json()["task"]["bucket_id"], todo["id"])
+        self.client.patch(f"/api/v2/tasks/buckets/{doing['id']}", {"limit": 1}, content_type="application/json")
+        self.assertEqual(self.post(f"{a['id']}/move", {"bucket_id": doing["id"]}).status_code, 200)
+        self.assertEqual(self.post(f"{b['id']}/move", {"bucket_id": doing["id"]}).status_code, 400)
+
+    def test_sharing_roles(self):
+        p = self.post("projects", {"name": "Family"}).json()
+        t = self.post("", {"title": "Groceries", "project_id": p["id"]}).json()
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(f"/api/v2/tasks/{t['id']}").status_code, 404)
+        self.post(f"projects/{p['id']}/members", {"username": "oth", "role": 0}, user=self.owner)
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.get(f"/api/v2/tasks/{t['id']}").status_code, 200)
+        patch = lambda: self.client.patch(f"/api/v2/tasks/{t['id']}", {"title": "x"}, content_type="application/json")
+        self.assertEqual(patch().status_code, 403)
+        self.post(f"projects/{p['id']}/members", {"username": "oth", "role": 1}, user=self.owner)
+        self.client.force_login(self.other)
+        self.assertEqual(patch().status_code, 200)
+        self.assertEqual(self.client.delete(f"/api/v2/tasks/projects/{p['id']}").status_code, 403)
+
+    def test_relations_are_stored_both_ways_and_cycles_are_refused(self):
+        a = self.post("", {"title": "A"}).json()
+        b = self.post("", {"title": "B", "parent_id": a["id"]}).json()
+        self.post(f"{a['id']}/relations", {"other_id": b["id"], "kind": "blocks"})
+        self.assertEqual(self.client.get(f"/api/v2/tasks/{b['id']}").json()["relations"][0]["kind"], "blocked_by")
+        r = self.client.patch(f"/api/v2/tasks/{a['id']}", {"parent_id": b["id"]}, content_type="application/json")
+        self.assertEqual(r.status_code, 400)
