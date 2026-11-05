@@ -150,3 +150,38 @@ class DeletePermissionTests(TestCase):
         self.assertEqual(r.json(), {"added": [str(self.photo.id)]})
         r = self.client.delete(f"/api/v2/photos/albums/{sa.id}/photos", {"ids": [str(self.photo.id)]}, content_type="application/json")
         self.assertEqual(r.json(), {"removed": 1})
+
+
+
+class GeoGamesTests(TestCase):
+    """Geoguessr (guess where a photo was taken) and the location-entry tool (set locations for photos without one)."""
+
+    def setUp(self):
+        self.owner = ComptechUser.objects.create_user("geo1", password="pw")
+        self.viewer = ComptechUser.objects.create_user("geo2", password="pw")
+        album = Album.objects.create(name="Camera", owner=self.owner, location="/nonexistent/")
+        Album_Subscriber.objects.create(album=album, user=self.owner, subscribe_type=0)
+        Album_Subscriber.objects.create(album=album, user=self.viewer, subscribe_type=2)
+        now = timezone.now()
+        self.tagged = Photo.objects.create(owner=self.owner, album=album, filepath="t.jpg", orientation="1",
+                                           date_taken=now, latitude=43.47, longitude=-80.54)
+        self.untagged = Photo.objects.create(owner=self.owner, album=album, filepath="u.jpg", orientation="1", date_taken=now)
+
+    def test_game_round_and_next_photo_to_locate(self):
+        self.client.force_login(self.viewer)
+        self.assertEqual(self.client.get("/api/v2/photos/game/round").json()["id"], str(self.tagged.id))
+        self.assertEqual(self.client.get("/api/v2/photos/locate/next").json()["id"], str(self.untagged.id))
+
+    def test_only_owners_and_editors_can_set_a_location(self):
+        body = {"lat": 48.85, "lng": 2.35}
+        self.client.force_login(self.viewer)
+        r = self.client.post(f"/api/v2/photos/{self.untagged.id}/location", body, content_type="application/json")
+        self.assertEqual(r.status_code, 404)
+        self.client.post("/photos/geoguessr_ent/", {"photo": str(self.untagged.id), **body}, content_type="application/json")
+        self.untagged.refresh_from_db()
+        self.assertIsNone(self.untagged.latitude)  # the classic tool no longer lets viewers write either
+        self.client.force_login(self.owner)
+        r = self.client.post(f"/api/v2/photos/{self.untagged.id}/location", body, content_type="application/json")
+        self.assertEqual((r.status_code, round(r.json()["lat"], 2)), (200, 48.85))
+        bad = self.client.post(f"/api/v2/photos/{self.untagged.id}/location", {"lat": 95, "lng": 0}, content_type="application/json")
+        self.assertEqual(bad.status_code, 422)

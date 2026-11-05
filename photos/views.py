@@ -485,7 +485,8 @@ def geoguessr_ent(request):
         except Photo.DoesNotExist:
             return error_response("Photo does not exist", 404)
 
-        album_subs = request.user.album_subscribed.all()
+        # Changing a photo's location is an edit: library owners/editors only (viewers could write before).
+        album_subs = request.user.album_subscribed.filter(subscribe_type__in=[0, 1])
         albums = [i.album for i in album_subs]
 
         if p.album in albums:

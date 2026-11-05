@@ -5,6 +5,7 @@ Media URLs are the signed nginx paths the old UI uses (/private/... thumbnails,
 """
 
 import datetime
+import os
 import uuid
 from typing import Literal, Optional
 
@@ -631,6 +632,55 @@ def storage(request):
             "by_type": group("mimetype"),
             "largest": [{"id": str(p.id), "thumb_url": PhotoOut.resolve_thumb_url(p), "size_kb": p.size_total or 0,
                          "video": p.video, "date_taken": p.date_taken} for p in largest]}
+
+
+# ---------------------------------------------------------------- Geoguessr and location entry
+
+@router.get("/game/round", response=PhotoOut, summary="Geoguessr: a random geotagged photo from your libraries")
+def game_round(request):
+    p = (library(request.user, request, listing=True).exclude(latitude__isnull=True).exclude(longitude__isnull=True)
+         .exclude(latitude=0, longitude=0).filter(video=False).select_related("album").order_by("?").first())
+    if p is None:
+        raise HttpError(404, "No geotagged photos yet")
+    return p
+
+
+@router.get("/locate/next", response=PhotoOut, summary="Location entry: the next photo without a location (optionally a year/month)")
+def locate_next(request, year: Optional[int] = None, month: Optional[int] = None, zero: bool = False):
+    qs = library(request.user, request, listing=True).select_related("album")
+    if year:
+        qs = qs.filter(date_taken__year=year)
+    if month:
+        qs = qs.filter(date_taken__month=month)
+    qs = qs.filter(latitude=0, longitude=0).order_by("-date_taken") if zero else \
+        qs.filter(Q(latitude__isnull=True) | Q(longitude__isnull=True)).order_by("?")
+    p = qs.first()
+    if p is None:
+        raise HttpError(404, "Every photo here has a location")
+    return p
+
+
+class LocationIn(Schema):
+    lat: float = Field(..., ge=-90, le=90)
+    lng: float = Field(..., ge=-180, le=180)
+
+
+@router.post("/{uuid:photo_id}/location", response=PhotoOut, summary="Set a photo's location (library owners/editors)")
+def set_location(request, photo_id: uuid.UUID, payload: LocationIn):
+    from django.conf import settings
+    from django.db import transaction
+    from .models import refresh_photo_matviews
+    p = get_object_or_404(_editable_library(request.user).select_related("album").distinct(), id=photo_id)
+    p.latitude, p.longitude = payload.lat, payload.lng
+    p.save(update_fields=["latitude", "longitude"])
+    p.refresh_city_data()  # offline reverse geocoding: city/country
+    try:  # same audit trail as the classic tool
+        with open(os.path.join(settings.BASE_DIR, "photo_gg_ent_log.txt"), "a") as f:
+            f.write(f"{p.id} --> ({payload.lat}, {payload.lng}) [{request.user.username}]\n")
+    except OSError:
+        pass
+    transaction.on_commit(refresh_photo_matviews)
+    return p
 
 
 @router.get("/{uuid:photo_id}/details", response=PhotoDetailOut, summary="Everything known about one photo (info panel)")
