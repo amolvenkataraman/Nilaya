@@ -94,7 +94,7 @@ def profile_view(request, user=None):
                 return success_response()
 
             except Exception as ex:
-                return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
+                return server_error(ex)
 
         else:
             return error_response("Not logged in", 401)

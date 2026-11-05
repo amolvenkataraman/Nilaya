@@ -201,7 +201,7 @@ def calendar(request):
             s.save()
             return success_response()
         except Exception as ex:
-            return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
+            return server_error(ex)
 
 @login_required_api
 def toggle_visibility(request):
@@ -279,7 +279,7 @@ def create_edit_event(request):
         return success_response()
 
     except Exception as ex:
-        return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
+        return server_error(ex)
 
 @post_request_only
 @login_required_api
@@ -310,7 +310,7 @@ def duplicate_event(request):
         except IndexError: return error_response("Event does not exist", 401)
 
     except Exception as ex:
-        return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
+        return server_error(ex)
 
 @post_request_only
 @login_required_api
@@ -327,7 +327,7 @@ def delete_event(request):
                 ev.delete()
                 return success_response()
             except Exception as ex:
-                return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
+                return server_error(ex)
 
         except IndexError:
             return error_response("Invalid Event")
@@ -382,7 +382,7 @@ def todo(request, command):
             else: return error_response("Not authorized", 401)
 
     except Exception as ex:
-        return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
+        return server_error(ex)
 
 @login_required_api
 def subscribe(request):

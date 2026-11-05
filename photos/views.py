@@ -620,7 +620,7 @@ def ingest_photos(request):
         
         return success_response("Ingest started")
     except Exception as ex:
-        return error_response(f"A(n) {type(ex).__name__} occurred. {ex.args}", 500)
+        return server_error(ex)
 
 @post_request_only
 @login_required_api
