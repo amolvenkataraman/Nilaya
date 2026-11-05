@@ -724,10 +724,37 @@ class PhotoLocationCache(models.Model):
         db_table = 'photos_photo_location_cache'
         unique_together = ['album_id', 'lat', 'lng', 'on_plane', 'dt_year', 'cnt']
 
-def refresh_photo_location_cache():
-    # Postgres: a materialized view (photos/sql/photo_location_cache.sql) that needs
-    # refreshing. SQLite (local testing): a plain view (migration 0022), always current.
+class PhotoDaily(models.Model):
+    """Per library album and local day: counts, sizes, video length (hidden photos left out).
+    A materialized view on Postgres (migration 0026), a plain view on SQLite."""
+    id = models.CharField(max_length=40, primary_key=True)
+    album_id = models.IntegerField()
+    day = models.DateField()
+    photos = models.IntegerField()
+    videos = models.IntegerField()
+    size_kb = models.BigIntegerField()
+    size_total_kb = models.BigIntegerField()
+    length_s = models.BigIntegerField()
+
+    class Meta:
+        managed = False
+        db_table = 'photos_photo_daily'
+
+
+MATVIEWS = ('photos_photo_location_cache', 'photos_photo_daily')
+
+
+def refresh_photo_matviews():
+    """Refresh the photo materialized views (migrations 0025, 0026) after ingest or hiding.
+    CONCURRENTLY keeps them readable while refreshing. SQLite uses plain views: nothing to do."""
     if connection.vendor != 'postgresql':
         return
     with connection.cursor() as cursor:
-        cursor.execute('REFRESH MATERIALIZED VIEW photos_photo_location_cache;')
+        for view in MATVIEWS:
+            try:
+                cursor.execute(f'REFRESH MATERIALIZED VIEW CONCURRENTLY {view};')
+            except Exception:  # first refresh after creation, or no unique index yet
+                cursor.execute(f'REFRESH MATERIALIZED VIEW {view};')
+
+
+refresh_photo_location_cache = refresh_photo_matviews  # old name, still used by ingest code

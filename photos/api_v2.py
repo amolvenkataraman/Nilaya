@@ -120,6 +120,17 @@ def library(user, request=None):
     return hidden_mode.visible(qs, request)
 
 
+def daily(request):
+    """The per-day rollup view for this user's libraries, or None when it can't be used
+    (show-hidden mode needs the live table; the view's days are in settings.TIME_ZONE)."""
+    from django.conf import settings
+    from .models import PhotoDaily
+    if hidden_mode.show_hidden(request) or request.user.timezone not in ("", settings.TIME_ZONE, "Canada/Eastern", "America/Toronto"):
+        return None
+    albums = Album_Subscriber.objects.filter(user=request.user).values("album_id")
+    return PhotoDaily.objects.filter(album_id__in=albums)
+
+
 def _page(qs, before, limit, before_id=None):
     """Newest first, keyset-paged on (date_taken, id) so photos with the same timestamp aren't skipped."""
     qs = qs.exclude(date_taken__isnull=True)
@@ -193,6 +204,10 @@ def counts(request, start: datetime.date, end: datetime.date):
     tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
     lo = tz.localize(datetime.datetime.combine(start, datetime.time())) if hasattr(tz, "localize") else datetime.datetime.combine(start, datetime.time(), tzinfo=tz)
     hi = lo + datetime.timedelta(days=(end - start).days + 1)
+    rollup = daily(request)
+    if rollup is not None:  # fast path: the materialized per-day view
+        rows = rollup.filter(day__gte=start, day__lte=end).values("day").annotate(n=Sum("photos") + Sum("videos"))
+        return {r["day"].isoformat(): r["n"] for r in rows if r["n"]}
     rows = (library(request.user, request).filter(date_taken__gte=lo, date_taken__lt=hi)
             .annotate(day=TruncDate("date_taken", tzinfo=tz)).values("day").annotate(n=Count("id")))
     return {r["day"].isoformat(): r["n"] for r in rows}
@@ -321,9 +336,14 @@ def stats(request):
     dated = qs.exclude(date_taken__isnull=True)
     hours = dict(dated.annotate(h=ExtractHour("date_taken", tzinfo=tz)).values_list("h").annotate(n=Count("id")))
     weekdays = dict(dated.annotate(d=ExtractIsoWeekDay("date_taken", tzinfo=tz)).values_list("d").annotate(n=Count("id")))
-    months = [{"month": r["m"].strftime("%Y-%m"), "photos": r["photos"], "videos": r["videos"]} for r in
-              dated.annotate(m=TruncMonth("date_taken", tzinfo=tz)).values("m")
-              .annotate(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True))).order_by("m")]
+    rollup = daily(request)
+    if rollup is not None:
+        months = [{"month": r["m"].strftime("%Y-%m"), "photos": r["photos"], "videos": r["videos"]} for r in
+                  rollup.annotate(m=TruncMonth("day")).values("m").annotate(photos=Sum("photos"), videos=Sum("videos")).order_by("m")]
+    else:
+        months = [{"month": r["m"].strftime("%Y-%m"), "photos": r["photos"], "videos": r["videos"]} for r in
+                  dated.annotate(m=TruncMonth("date_taken", tzinfo=tz)).values("m")
+                  .annotate(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True))).order_by("m")]
     cams = (qs.exclude(camera_model__isnull=True).exclude(camera_model="").values("camera_make", "camera_model")
             .annotate(n=Count("id")).order_by("-n")[:10])
     top = lambda field: [{"name": r[field], "count": r["n"]} for r in qs.exclude(**{f"{field}__isnull": True})
@@ -355,9 +375,15 @@ def storage(request):
                                   "total_kb": r["total"] or 0, "optimized_kb": r["opt"] or 0}
                                  for r in qs.values(field).annotate(count=Count("id"), total=Sum("size_total"), opt=Sum("size"))
                                  .order_by("-total")[:n]]
-    years = [{"year": r["y"], "count": r["count"], "total_kb": r["total"] or 0} for r in
-             qs.exclude(date_taken__isnull=True).annotate(y=ExtractYear("date_taken")).values("y")
-             .annotate(count=Count("id"), total=Sum("size_total")).order_by("y")]
+    rollup = daily(request)
+    if rollup is not None:
+        years = [{"year": r["y"], "count": r["count"] or 0, "total_kb": r["total"] or 0} for r in
+                 rollup.annotate(y=ExtractYear("day")).values("y")
+                 .annotate(count=Sum("photos") + Sum("videos"), total=Sum("size_total_kb")).order_by("y")]
+    else:
+        years = [{"year": r["y"], "count": r["count"], "total_kb": r["total"] or 0} for r in
+                 qs.exclude(date_taken__isnull=True).annotate(y=ExtractYear("date_taken")).values("y")
+                 .annotate(count=Count("id"), total=Sum("size_total")).order_by("y")]
     largest = list(qs.select_related("album").order_by("-size_total")[:12])
     return {"all": block(qs), "photo": block(qs.filter(video=False)), "video": block(qs.filter(video=True)),
             "by_year": years, "by_library": group("album__name"), "by_camera": group("camera_model"),
