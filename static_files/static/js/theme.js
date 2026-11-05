@@ -34,4 +34,9 @@
     };
 
     document.addEventListener("DOMContentLoaded", function () { apply(stored()); });
+
+    // Any button with data-theme-cycle cycles the theme (no inline onclick needed).
+    document.addEventListener("click", function (e) {
+        if (e.target.closest && e.target.closest("[data-theme-cycle]")) window.cycleTheme();
+    });
 })();

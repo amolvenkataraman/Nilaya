@@ -23,19 +23,13 @@
         {% block page_styles %} {% endblock page_styles %}
 
         {% block page_script %} {% endblock page_script %}
-        
-        <style>
-            /* * { 
-                transition: none !important; 
-            } */
-        </style>
     </head>
 
-    <body>
+    <body data-left-sidebar="{% if left_sidebar %}1{% endif %}" data-right-sidebar="{% if right_sidebar %}1{% endif %}">
         <div class="ct-navbar">
             <div class="navbar-content navbar-left">
                 {% if left_sidebar %}
-                <button class="unstyled-button navbar-btn left-sidebar-btn" onclick=toggleLeftSidebar()>
+                <button type="button" class="unstyled-button navbar-btn left-sidebar-btn" aria-label="Toggle left sidebar">
                     <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-list" viewBox="0 0 16 16">
                         <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
                     </svg>
@@ -72,7 +66,7 @@
                     <div class="dropdown-menu dropdown-menu-end notif-menu" aria-labelledby="notificationsDropdownBtn">
                         <div class="notif-menu-head">
                             <span>Notifications</span>
-                            <a href="#" onclick="markAllNotificationsRead(event)">Mark all read</a>
+                            <a href="#" data-notif-read-all>Mark all read</a>
                         </div>
                         <ul class="list-unstyled mb-0" id="notif-list">
                             <li><span class="dropdown-item-text app-muted">Loading…</span></li>
@@ -142,13 +136,13 @@
                             </div>
 
                             <div class="user-dd-options-right">
-                                <button type="button" class="unstyled-button theme-toggle user-dd-link-icon" onclick="cycleTheme()" title="Theme for this device">
+                                <button type="button" class="unstyled-button theme-toggle user-dd-link-icon" data-theme-cycle title="Theme for this device">
                                     <svg class="ti-system" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 15A7 7 0 1 0 8 1v14zm0 1A8 8 0 1 1 8 0a8 8 0 0 1 0 16z"/></svg>
                                     <svg class="ti-light" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M8 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8z"/></svg>
                                     <svg class="ti-dark" width="16" height="16" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true"><path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/></svg>
                                     <span data-theme-label>System</span>
                                 </button>
-                                <form method="post" action="{% url 'logout' %}" style="display: inline;">
+                                <form method="post" action="{% url 'logout' %}" class="d-inline">
                                 {% csrf_token %}
                                 <button type="submit" class="user-dd-link-icon unstyled-button" title="Log out">
                                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-box-arrow-right" viewBox="0 0 16 16">
@@ -164,16 +158,16 @@
                 
                 {% else %}
 
-                <button class="unstyled-button navbar-btn user-dd" type="button" onclick="window.location.href=`{% url 'login' %}`;">
+                <a class="unstyled-button navbar-btn user-dd" href="{% url 'login' %}" title="Sign in" aria-label="Sign in">
                     <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-person-fill" viewBox="0 0 16 16">
                         <path d="M3 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H3Zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/>
                     </svg>
-                </button>
+                </a>
 
                 {% endif %}
 
                 {% if right_sidebar %}
-                <button class="unstyled-button navbar-btn right-sidebar-btn" onclick=toggleRightSidebar()>
+                <button type="button" class="unstyled-button navbar-btn right-sidebar-btn" aria-label="Toggle right sidebar">
                     <svg xmlns="http://www.w3.org/2000/svg" width="30" height="30" fill="currentColor" class="bi bi-list" viewBox="0 0 16 16">
                         <path fill-rule="evenodd" d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5zm0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5z"/>
                     </svg>
@@ -217,20 +211,6 @@
                 </div>
             </div>
         </div>
+        <script src="{% static 'js/shell.js' %}"></script>
     </body>
-
-    <script>
-        left_sb = false;
-        right_sb = false;
-        {% if left_sidebar %}
-        left_sb = true;
-        {% endif %}
-        {% if right_sidebar %}
-        right_sb = true;
-        {% endif %}
-
-        // Phones: start with sidebars closed (they open over the page).
-        if (window.matchMedia("(max-width: 900px)").matches) { left_sb = false; right_sb = false; }
-        updateSidebars(left_sb, right_sb);
-    </script>
 </html>

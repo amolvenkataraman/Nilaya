@@ -81,6 +81,8 @@
     document.addEventListener("DOMContentLoaded", () => {
         const btn = document.getElementById("notificationsDropdownBtn");
         if (!btn) return;
+        const readAll = document.querySelector("[data-notif-read-all]");
+        if (readAll) readAll.addEventListener("click", window.markAllNotificationsRead);
         btn.addEventListener("show.bs.dropdown", loadList);
         refreshCount();
         setInterval(() => { if (!document.hidden) refreshCount(); }, 60000);
