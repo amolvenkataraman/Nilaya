@@ -61,6 +61,12 @@ class TaskApiTests(TestCase):
         order = [t["title"] for t in self.client.get(f"/api/v2/tasks/?project={p['id']}&sort=position").json()["items"]]
         self.assertEqual(order, ["B", "Fix bug", "A"])
 
+    def test_overview_can_include_projects_labels_and_views(self):
+        self.post("labels", {"name": "home"})
+        r = self.client.get("/api/v2/tasks/overview?include=projects,labels,views").json()
+        self.assertEqual((len(r["projects"]), [l["name"] for l in r["labels"]], r["views"]), (1, ["home"], []))
+        self.assertNotIn("projects", self.client.get("/api/v2/tasks/overview").json())
+
     def test_done_after_filter(self):
         t = self.post("", {"title": "Ship it", "percent": 40, "time_spent": 30}).json()
         self.assertEqual((t["percent"], t["time_spent"]), (40, 30))

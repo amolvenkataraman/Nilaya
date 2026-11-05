@@ -329,6 +329,9 @@ class ViewPatch(Schema):
 
 
 class OverviewOut(Schema):
+    projects: Optional[list[ProjectOut]] = None   # with ?include=projects
+    labels: Optional[list[LabelOut]] = None       # with ?include=labels
+    views: Optional[list[ViewOut]] = None         # with ?include=views
     inbox: int
     today: int
     overdue: int
@@ -491,18 +494,27 @@ SORTS = {"position": ["position", "created_on"], "due": ["complete_by", "-priori
 
 # ================================================================ overview
 
-@router.get("/overview", response=OverviewOut, summary="Counts for the sidebar")
-def overview(request):
+@router.get("/overview", response=OverviewOut, exclude_none=True,
+            summary="Counts for the sidebar; ?include=projects,labels,views bundles the page's first load into one request")
+def overview(request, include: str = ""):
     user = request.user
     inbox = svc.ensure_inbox(user)
     base = svc.visible_tasks(user).exclude(project__archived=True)
     open_ = base.filter(completed=False)
     count = lambda view: _filter(base, user, view=view).count()
     week_ago = timezone.now() - datetime.timedelta(days=7)
-    return {"inbox": open_.filter(project=inbox).count(), "today": count("today"), "overdue": count("overdue"),
-            "upcoming": count("upcoming"), "no_date": count("nodate"), "favorites": count("favorites"),
-            "assigned": count("assigned"), "done_this_week": base.filter(completed=True, completed_on__gte=week_ago).count(),
-            "inbox_id": inbox.id}
+    out = {"inbox": open_.filter(project=inbox).count(), "today": count("today"), "overdue": count("overdue"),
+           "upcoming": count("upcoming"), "no_date": count("nodate"), "favorites": count("favorites"),
+           "assigned": count("assigned"), "done_this_week": base.filter(completed=True, completed_on__gte=week_ago).count(),
+           "inbox_id": inbox.id}
+    parts = {p.strip() for p in include.split(",") if p.strip()}
+    if "projects" in parts:
+        out["projects"] = list_projects(request, include_archived="archived" in parts)
+    if "labels" in parts:
+        out["labels"] = list(Label.objects.filter(owner=user))
+    if "views" in parts:
+        out["views"] = list(SavedView.objects.filter(owner=user))
+    return out
 
 
 # ================================================================ projects
