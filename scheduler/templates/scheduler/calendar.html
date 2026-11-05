@@ -13,6 +13,7 @@
 <script src="{% static 'js/handlebars/handlebars.js' %}" type="text/javascript"></script>
 <script src="{% static 'scheduler/pickers.js' %}" type="text/javascript" defer></script>
 <script src="{% static 'scheduler/script.js' %}" type="text/javascript" defer></script>
+<script src="{% static 'scheduler/calsettings.js' %}" type="text/javascript" defer></script>
 <script src="{% static 'scheduler/sidebar.js' %}" type="text/javascript" defer></script>
 <script src="{% static 'scheduler/chrome.js' %}" type="text/javascript" defer></script>
 <script src="{% static 'scheduler/widgets.js' %}" type="text/javascript" defer></script>
@@ -77,6 +78,12 @@
             <span class="cal-new-label">New event</span>
         </button>
     </header>
+
+    <div class="cal-banner noprint" id="cal-banner" role="status" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 1.75 14.5 13.5h-13zM8 6.5v3M8 11.5h.01"/></svg>
+        <span class="cal-banner-msg"></span>
+        <button type="button" class="cal-banner-btn" data-action="retry">Retry</button>
+    </div>
 
     <div class="main-container">
         <div class="c-container wrapper">
@@ -239,6 +246,10 @@
     <div class="form-check">
         <input type="checkbox" class="form-check-input display-option" id="displayBirthdaysCb">
         <label class="form-check-label" for="displayBirthdaysCb">Show birthdays</label>
+    </div>
+    <div class="form-check">
+        <input type="checkbox" class="form-check-input display-option" id="displayContactBirthdaysCb">
+        <label class="form-check-label" for="displayContactBirthdaysCb">Contacts' birthdays</label>
     </div>
     <div class="form-check">
         <input type="checkbox" class="form-check-input display-option" id="displayAllCb">

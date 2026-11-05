@@ -139,11 +139,11 @@
                 results.replaceChildren(...items.map((ev, i) => {
                     const s = new Date(ev.start);
                     const cal = calendars[ev.calendar_id];
-                    const colour = cal && /^#[0-9a-fA-F]{3,8}$/.test(cal.colour) ? cal.colour : 'var(--app-muted)';
+                    const colour = cal_hex(ev.display_colour) || (cal && cal_hex(cal.colour)) || 'var(--app-muted)';
                     const when = ev.all_day ? `${moment(s).format('ddd MMM D, YYYY')} · All day`
                         : `${moment(s).format('ddd MMM D, YYYY')} · ${ev.kind === 'deadline' ? 'Due ' : ''}${short_time(s)}`;
                     return h('button', { type: 'button', class: 'cal-res' + (new Date(ev.end || ev.start) < now ? ' is-past' : ''), role: 'option', id: `cal-res-${i}`, 'data-i': i, 'aria-selected': 'false', tabindex: '-1' }, [
-                        h('span', { class: 'cal-res-dot', style: { '--event-colour': colour }, 'aria-hidden': 'true' }),
+                        h('span', { class: 'cal-res-dot', style: { '--event-colour': colour, '--ink-l': (cal_ink(colour) || {}).l || colour, '--ink-d': (cal_ink(colour) || {}).d || colour }, 'aria-hidden': 'true' }),
                         h('span', { class: 'cal-res-main' }, [
                             h('span', { class: 'cal-res-title', text: plain(ev.name) }),
                             h('span', { class: 'cal-res-meta', text: [when, cal ? plain(cal.calendar.name) : ''].filter(Boolean).join(' · ') }),

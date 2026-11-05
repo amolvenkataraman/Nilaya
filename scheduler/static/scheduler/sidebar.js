@@ -95,7 +95,8 @@
             quickInput.value = '';
             const due = task.due ? ` · due ${moment(task.due).calendar(null, { sameElse: 'MMM D, h:mm A' })}` : '';
             quickMsg.textContent = `Added "${plain(task.title)}"${due}`;
-            populate_calendar(m, y, true);
+            upsert_todo(task);
+            after_local_change();
         }).catch(err => {
             quickMsg.textContent = err.message || "Couldn't add the task.";
             quickMsg.classList.add('is-error');
@@ -112,14 +113,28 @@
     let agendaLoadedAt = 0;
     let agendaSeq = 0;
 
+    let agendaInflight = false;
     function loadAgenda() {
+        if (agendaInflight) return;  // one request at a time; the result serves every trigger
+        agendaInflight = true;
         const seq = ++agendaSeq;
         if (!agendaBox.childElementCount) agendaBox.replaceChildren(skeleton(['40%', '90%', '75%', '85%', '35%', '80%']));
-        api(`/api/v2/calendar/agenda?days=${AGENDA_DAYS}`).then(items => {
+        const today = startOfDay(new Date());
+        const last = new Date(today); last.setDate(last.getDate() + AGENDA_DAYS - 1);
+        // Contacts' birthdays come from their own (day-cached) request; if it fails the agenda still shows.
+        // Same yearly ranges as the month grid, so this is usually a cache hit.
+        const years = [...new Set([today.getFullYear(), last.getFullYear()])];
+        const bdays = show_contact_birthdays()
+            ? Promise.all(years.map(yr => contact_birthdays(`${yr}-01-01`, `${yr}-12-31`))).then(ls => ls.flat().filter(b => b.date >= ymd(today) && b.date <= ymd(last))).catch(() => [])
+            : Promise.resolve([]);
+        Promise.all([api(`/api/v2/calendar/agenda?days=${AGENDA_DAYS}`), bdays]).then(([items, bd]) => {
             if (seq !== agendaSeq) return;
             agendaLoadedAt = Date.now();
+            for (const b of bd) {
+                items.push({ kind: 'birthday', id: b.id, title: birthday_label(b), start: `${b.date}T00:00:00`, end: null, colour: '#e87ba4', calendar: 'Contacts', location: null, done: false });
+            }
             renderAgenda(items);
-        }).catch(() => {
+        }).finally(() => { agendaInflight = false; }).catch(() => {
             if (seq !== agendaSeq) return;
             agendaBox.replaceChildren(h('div', { class: 'sidebar-empty' }, [
                 "Couldn't load upcoming items. ",
@@ -133,6 +148,7 @@
     function itemDay(it) {
         const d = new Date(it.start);
         if (it.kind === 'all_day') { const p = getEasternDateParts(d); return new Date(p.year, p.month - 1, p.day); }
+        if (it.kind === 'birthday') { const [Y, M, D] = it.start.slice(0, 10).split('-').map(Number); return new Date(Y, M - 1, D); }
         return startOfDay(d);
     }
 
@@ -171,7 +187,8 @@
                 h('h3', { class: 'agenda-day-label', text: g.label }),
             ]);
             // all-day first within a day, then by time
-            g.rows.sort((a, b) => (b.it.kind === 'all_day') - (a.it.kind === 'all_day') || new Date(a.it.start) - new Date(b.it.start));
+            const allDayish = (k) => k === 'all_day' || k === 'birthday';
+            g.rows.sort((a, b) => allDayish(b.it.kind) - allDayish(a.it.kind) || new Date(a.it.start) - new Date(b.it.start));
             for (const row of g.rows) section.append(agendaRow(row.it, row.ongoing));
             frag.append(section);
         }
@@ -180,7 +197,7 @@
 
     function agendaTime(it, ongoing) {
         const start = new Date(it.start);
-        if (it.kind === 'all_day') return 'All day';
+        if (it.kind === 'all_day' || it.kind === 'birthday') return 'All day';
         if (ongoing) return it.end ? `→ ${short_time(new Date(it.end))}` : '';
         if (it.kind === 'todo' && start.getHours() === 23 && start.getMinutes() === 59) return '';
         return short_time(start);
@@ -198,11 +215,14 @@
             class: `agenda-row kind-${it.kind}` + (it.done ? ' is-done' : ''),
             style: { '--event-colour': /^#[0-9a-fA-F]{3,8}$/.test(it.colour) ? it.colour : 'var(--app-muted)' },
         });
+        cal_set_ink(row, it.colour);
         row.append(h('span', { class: 'ag-dot', 'aria-hidden': 'true' }));
         row.append(h('span', { class: 'ag-time', text: time }));
 
         const fullLabel = [time, title, meta.join(' · ')].filter(Boolean).join(', ');
-        const open = it.kind === 'todo'
+        const open = it.kind === 'birthday'
+            ? h('a', { class: 'ag-open', href: `/contacts/?id=${encodeURIComponent(it.id)}`, title: title, 'aria-label': `${fullLabel}. Open contact` })
+            : it.kind === 'todo'
             ? h('a', { class: 'ag-open', href: `/tasks/?task=${encodeURIComponent(it.id)}`, title: title, 'aria-label': `${fullLabel}. Open in Tasks` })
             : h('button', { type: 'button', class: 'ag-open', 'data-event-id': it.id, 'data-start': it.start, title: title, 'aria-label': `${fullLabel}. Show details` });
         const main = h('span', { class: 'ag-main' }, [
@@ -211,7 +231,8 @@
         ]);
         row.append(main, open);
 
-        if (it.kind === 'deadline' && !it.done) {
+        // "+ Task" needs a plain event id (an occurrence of a repeating deadline has "<series>:<start>").
+        if (it.kind === 'deadline' && !it.done && !String(it.id).includes(':')) {
             if (it.has_todo) {
                 row.append(h('span', { class: 'ag-intask', title: 'Already in Tasks' }, [icon('check'), ' Task']));
             } else {
@@ -227,9 +248,10 @@
         const add = e.target.closest('[data-add-task]');
         if (add) {
             add.disabled = true;
-            api(`/api/v2/tasks/from-event/${encodeURIComponent(add.dataset.addTask)}`, { method: 'POST' }).then(() => {
+            api(`/api/v2/tasks/from-event/${encodeURIComponent(add.dataset.addTask)}`, { method: 'POST' }).then(task => {
                 add.replaceWith(h('span', { class: 'ag-intask', title: 'Added to Tasks' }, [icon('check'), ' Task']));
-                populate_calendar(m, y, true);  // refreshes the task list; the agenda reloads after it
+                upsert_todo(task);
+                after_local_change();
             }).catch(() => {
                 add.disabled = false;
                 add.title = "Couldn't add. Try again";
@@ -246,6 +268,7 @@
     const insRange = insPanel.querySelector('.ins-range-label');
     const insReset = insPanel.querySelector('.ins-reset');
     const insCache = new Map();
+    const insInflight = new Map();
     let insSeq = 0;
     let insPeriod = 'week';
     try { if (localStorage.getItem('calendar_insight_period') === 'month') insPeriod = 'month'; } catch (e) { }
@@ -284,7 +307,9 @@
         if (insCache.has(key)) { renderInsights(insCache.get(key)); return; }
         insBody.replaceChildren(skeleton(['100%', '100%', '100%', '100%', '60%', '100%', '100%', '80%']));
         insBody.setAttribute('aria-busy', 'true');
-        api(`/api/v2/calendar/insights?period=${insPeriod}&date=${ymd(insAnchor)}`).then(d => {
+        // One request per period even when several triggers fire at once.
+        if (!insInflight.has(key)) insInflight.set(key, api(`/api/v2/calendar/insights?period=${insPeriod}&date=${ymd(insAnchor)}`).finally(() => insInflight.delete(key)));
+        insInflight.get(key).then(d => {
             insCache.set(key, d);
             if (seq === insSeq) renderInsights(d);
         }).catch(() => {
@@ -419,7 +444,7 @@
             const tip = `${it.label} · ${fmtHours(it.hours)} · ${it.events} event${it.events === 1 ? '' : 's'}`;
             const c = colour ? colour(it) : null;
             return h('div', { class: 'ins-bar-row', title: tip }, [
-                h('span', { class: 'ins-bar-label' }, [c ? h('span', { class: 'ins-bar-dot', style: { '--bar-colour': c }, 'aria-hidden': 'true' }) : null, it.label]),
+                h('span', { class: 'ins-bar-label' }, [c ? h('span', { class: 'ins-bar-dot', style: { '--bar-colour': c, '--ink-l': (cal_ink(c) || {}).l || c, '--ink-d': (cal_ink(c) || {}).d || c }, 'aria-hidden': 'true' }) : null, it.label]),
                 h('span', { class: 'ins-bar-track', 'aria-hidden': 'true' }, [
                     h('span', { class: 'ins-bar-fill' + (c ? ' has-colour' : ''), style: { width: `${Math.max(2, (it.hours / top) * 100)}%`, ...(c ? { '--bar-colour': c } : {}) } }),
                 ]),
@@ -519,13 +544,12 @@
         if (e.detail.tab === '.sb-insight') loadInsights();
     });
     // Data reloads: every minute (tick) and after edits (manual). Edits invalidate insights.
+    // Month paging doesn't touch the agenda/insights; edits do, background refreshes only when stale.
     document.addEventListener('calendar:loaded', (e) => {
-        if (e.detail.manual) { insCache.clear(); agendaLoadedAt = 0; }
-        refreshVisible(e.detail.manual);
+        if (e.detail.manual) { insCache.clear(); agendaLoadedAt = 0; refreshVisible(true); }
+        else if (e.detail.background) refreshVisible(false);
     });
     document.addEventListener('calendar:changed', () => { insCache.clear(); agendaLoadedAt = 0; refreshVisible(true); });
 
-    // The tab restored from localStorage may already be open (script.js ran first).
-    if (isVisible(upPanel)) loadAgenda();
-    if (isVisible(insPanel)) loadInsights();
+    // First loads come from widgets.js when each widget is first on screen.
 })();

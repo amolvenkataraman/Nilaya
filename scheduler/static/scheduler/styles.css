@@ -3741,3 +3741,515 @@ a.wg-nt-main:hover .wg-nt-title {
 .cal-appearance > .d-flex {
   margin-top: 0.75rem;
 }
+
+/* ===================================================================== Connection banner (never covers the page) */
+.cal-banner {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2rem;
+  padding: 0.25rem 1.5rem;
+  border-bottom: 1px solid color-mix(in srgb, var(--app-warning) 35%, var(--app-border));
+  background: var(--app-warning-soft);
+  color: var(--app-fg);
+  font-size: 0.8125rem;
+}
+
+.cal-banner[hidden] {
+  display: none;
+}
+
+.cal-banner svg {
+  flex: none;
+  color: var(--app-warning);
+}
+
+.cal-banner-msg {
+  min-width: 0;
+}
+
+.cal-banner-btn {
+  flex: none;
+  padding: 0.125rem 0.5rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  background: var(--app-surface);
+  color: var(--app-fg);
+  font-size: 0.75rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.cal-banner-btn:hover {
+  background: var(--cal-hover);
+}
+
+.cal-banner-btn:focus-visible {
+  outline: 2px solid var(--app-accent);
+  outline-offset: 1px;
+}
+
+.todo-item.is-fading {
+  opacity: 0.45;
+  transition: opacity 0.3s;
+}
+
+.todo-item.is-fading .todo-name {
+  text-decoration: line-through;
+}
+
+/* ===================================================================== Custom colours: readable marks in both themes */
+.event-button,
+.agenda-row,
+.cal-res-dot,
+.ins-bar-dot {
+  --ink: var(--ink-l, var(--event-colour, var(--bar-colour)));
+}
+
+.cv-event,
+.cv-allday-event {
+  --ink: var(--ink-l, var(--ev));
+}
+
+.calendar-name-div {
+  --ink: var(--ink-l, var(--cal-colour));
+}
+
+[data-bs-theme="dark"] :is(.event-button, .agenda-row, .cal-res-dot, .ins-bar-dot) {
+  --ink: var(--ink-d, var(--event-colour, var(--bar-colour)));
+}
+
+[data-bs-theme="dark"] :is(.cv-event, .cv-allday-event) {
+  --ink: var(--ink-d, var(--ev));
+}
+
+[data-bs-theme="dark"] .calendar-name-div {
+  --ink: var(--ink-d, var(--cal-colour));
+}
+
+.event-timed::before,
+.ag-dot,
+.cal-res-dot,
+.ins-bar-dot {
+  background: var(--ink);
+}
+
+.event-button .event-icon {
+  color: var(--ink);
+}
+
+.cv-event {
+  border-left-color: var(--ink);
+}
+
+.calendar-name-div .form-check-input,
+.calendar-name-div .form-check-input:focus {
+  border-color: var(--ink);
+}
+
+.calendar-icon {
+  color: var(--ink);
+}
+
+/* A very light calendar colour gets a dark tick. */
+.calendar-name-div.is-light .form-check-input:checked {
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%231b222c' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+}
+
+/* Contact birthdays */
+.event-bday {
+  text-decoration: none;
+}
+
+.event-bday .event-icon svg {
+  margin-right: 0.3125rem;
+}
+
+.cv-bday {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  text-decoration: none;
+}
+
+.cv-bday svg {
+  flex: none;
+  width: 11px;
+  height: 11px;
+  color: var(--ink);
+}
+
+/* ===================================================================== Event form extras */
+.cal-stack {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.cal-hint {
+  font-size: 0.75rem;
+  color: var(--app-muted);
+}
+
+.cal-hint.is-error,
+.cs-sync-status.is-error {
+  color: var(--app-danger);
+}
+
+.cal-rems {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.cal-rem,
+.cal-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  height: 1.5rem;
+  padding: 0 0.25rem 0 0.5rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+  font-size: 0.75rem;
+}
+
+.cal-tag {
+  padding-right: 0.5rem;
+  border-radius: 999px;
+  margin-right: 0.25rem;
+}
+
+.cal-rem-x {
+  width: 1.125rem;
+  height: 1.125rem;
+  padding: 0;
+  border: 0;
+  border-radius: 4px;
+  background: none;
+  color: var(--app-muted);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.cal-rem-x:hover {
+  background: var(--cal-hover);
+  color: var(--app-danger);
+}
+
+.cal-place {
+  position: relative;
+  display: block;
+}
+
+.cal-place-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  min-height: 2rem;
+  padding: 0 0.25rem 0 0.625rem;
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius-sm);
+}
+
+.cal-place-chip[hidden] {
+  display: none;
+}
+
+.cal-place-results {
+  left: 0;
+  right: auto;
+  width: 100%;
+}
+
+.cal-place-results .cal-res {
+  grid-template-columns: 0 minmax(0, 1fr);
+}
+
+.event-scope {
+  display: grid;
+  gap: 0.375rem;
+}
+
+.event-scope .cal-sec-h {
+  margin: 0;
+}
+
+.btn-check:disabled + .cal-seg-btn {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.ei-scope {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.8125rem;
+}
+
+.ei-countdown:not(:has(*)) {
+  display: none;
+}
+
+.ei-extra:empty {
+  display: none;
+}
+
+/* ===================================================================== Calendar settings */
+.cs {
+  display: grid;
+  gap: 1rem;
+}
+
+.cs-sec {
+  padding: 1rem;
+  border: 1px solid var(--cal-hair);
+  border-radius: var(--app-radius);
+}
+
+.cs-h {
+  margin: 0 0 0.75rem;
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.cs-foot {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.cs-switch {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 0;
+  margin: 0;
+  padding-left: 0;
+}
+
+.cs-switch .form-check-input {
+  float: none;
+  margin: 0;
+  flex: none;
+}
+
+.cs-list {
+  display: grid;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cs-list li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 2.5rem;
+  border-bottom: 1px solid var(--cal-hair);
+  font-size: 0.8125rem;
+}
+
+.cs-list li:last-child {
+  border-bottom: 0;
+}
+
+.cs-list li.is-unusable .cs-code {
+  text-decoration: line-through;
+  color: var(--app-muted);
+}
+
+.cs-list .form-check-input {
+  margin: 0;
+  flex: none;
+}
+
+.cs-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cs-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.0625rem 0.375rem;
+  border-radius: 4px;
+  background: var(--cal-sel);
+  color: var(--app-accent);
+}
+
+.cs-role {
+  width: auto;
+  height: 1.875rem;
+  font-size: 0.8125rem;
+}
+
+.cs-remove:hover {
+  color: var(--app-danger);
+}
+
+.cs-code {
+  font-family: var(--app-font-mono);
+  font-size: 0.8125rem;
+  color: var(--app-fg);
+}
+
+.cs-invite-new {
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr) minmax(0, 0.7fr) minmax(0, 0.8fr) auto;
+  gap: 0.375rem;
+  margin-top: 0.75rem;
+}
+
+.cs-invite-new .form-control,
+.cs-invite-new .form-select {
+  height: 1.875rem;
+  font-size: 0.8125rem;
+}
+
+@media (max-width: 640px) {
+  .cs-invite-new {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+}
+
+.cs-num {
+  max-width: 6rem;
+}
+
+.cs-danger-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.cs-danger-row .form-control {
+  max-width: 16rem;
+  height: 1.875rem;
+}
+
+.wg-hb-check.is-kept {
+  border-color: color-mix(in srgb, var(--app-success) 60%, transparent);
+  background: var(--app-success-soft);
+  color: var(--app-success);
+}
+
+.wg-hb.is-over .wg-hb-sub {
+  color: var(--app-warning);
+}
+
+.wg-hb-check.is-over {
+  border-color: var(--app-warning);
+  background: var(--app-warning-soft);
+  color: var(--app-warning);
+}
+
+.cv-event-loc {
+  color: var(--app-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cv-event.is-done .cv-event-title {
+  text-decoration: line-through;
+  color: var(--app-muted);
+}
+
+/* Tints and checkboxes use the readable variant too, so very dark/light colours keep their shape. */
+.event-button {
+  background: color-mix(in srgb, var(--ink) 9%, transparent);
+}
+
+.event-button:hover {
+  background: color-mix(in srgb, var(--ink) 17%, transparent);
+}
+
+.event-allday {
+  background: color-mix(in srgb, var(--ink) 22%, var(--app-surface));
+}
+
+.event-allday:hover {
+  background: color-mix(in srgb, var(--ink) 30%, var(--app-surface));
+}
+
+.cv-event {
+  background: color-mix(in srgb, var(--ink) 16%, var(--app-surface));
+}
+
+.cv-event:hover {
+  background: color-mix(in srgb, var(--ink) 24%, var(--app-surface));
+}
+
+.cv-event.cv-deadline {
+  background: color-mix(in srgb, var(--ink) 9%, var(--app-surface));
+}
+
+.cv-allday-event {
+  background: color-mix(in srgb, var(--ink) 22%, var(--app-surface));
+}
+
+.cv-allday-event:hover {
+  background: color-mix(in srgb, var(--ink) 30%, var(--app-surface));
+}
+
+.calendar-name-div .form-check-input:checked {
+  background-color: var(--ink);
+  border-color: var(--ink);
+}
+
+.calendar-name-div.is-light .form-check-input:checked,
+.calendar-name-div:not(.is-light) .form-check-input:checked {
+  background-image: var(--tick);
+}
+
+.calendar-name-div {
+  --tick-dark: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%231b222c' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+  --tick-white: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3e%3cpath fill='none' stroke='%23fff' stroke-linecap='round' stroke-linejoin='round' stroke-width='3' d='m6 10 3 3 6-6'/%3e%3c/svg%3e");
+  --tick: var(--tick-white);
+}
+
+.calendar-name-div.is-light {
+  --tick: var(--tick-dark);
+}
+
+[data-bs-theme="dark"] .calendar-name-div {
+  --tick: var(--tick-white);
+}
+
+[data-bs-theme="dark"] .calendar-name-div.is-light-d {
+  --tick: var(--tick-dark);
+}
+
+@media (max-width: 575.98px) {
+  .event-button {
+    background: none;
+  }
+
+  .event-timed,
+  .event-allday {
+    background: var(--ink);
+  }
+}
+
+.todo-list:not(.is-expanded) .todo-item.is-extra {
+  display: none;
+}
+
+button.todo-more {
+  border: 0;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+}
+
+.todo-list:empty::before {
+  content: "No open tasks.";
+}

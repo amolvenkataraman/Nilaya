@@ -236,24 +236,32 @@
     const CHECK = '<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="m3.5 8.5 3 3 6-7"/></svg>';
     const fmtNum = (v) => (Math.round(v * 100) / 100).toString();
 
+    // Habits API flags: done (finished; never for limits), done_today (today's entry does the job),
+    // status: done | partial | pending | kept | over | skipped | off.
     function habitRow(t) {
         const hb = t.habit;
         const colour = /^#[0-9a-fA-F]{3,8}$/.test(hb.colour) ? hb.colour : 'var(--app-accent)';
         const name = plain(hb.name);
         const measurable = hb.kind === 'measurable';
-        const sub = measurable
-            ? `${fmtNum(t.period_value)} of ${fmtNum(t.period_required)} ${plain(hb.unit) || ''}${hb.period !== 'day' ? ` this ${hb.period}` : ''}`.trim()
-            : (hb.period !== 'day' ? `${fmtNum(t.period_value)} of ${fmtNum(t.period_required)} this ${hb.period}` : (t.done ? 'Done today' : 'Not yet today'));
-        const today = !measurable && t.value > 0;  // yes/no: checked today (weekly goals may still be open)
+        const limit = hb.goal === 'at_most';
+        const status = t.status || (t.done ? 'done' : 'pending');
+        const ticked = limit ? status === 'kept' : !!(t.done_today ?? t.done);
+        let sub;
+        if (limit) sub = status === 'over' ? `Over the limit · ${fmtNum(t.period_value)} of ${fmtNum(t.period_required)} ${plain(hb.unit) || ''}`.trim() : `Within the limit · ${fmtNum(t.period_value)} of ${fmtNum(t.period_required)} ${plain(hb.unit) || ''}`.trim();
+        else if (measurable) sub = `${fmtNum(t.period_value)} of ${fmtNum(t.period_required)} ${plain(hb.unit) || ''}${hb.period !== 'day' ? ` this ${hb.period}` : ''}`.trim();
+        else if (hb.period !== 'day') sub = `${fmtNum(t.period_value)} of ${fmtNum(t.period_required)} this ${hb.period}`;
+        else sub = status === 'skipped' ? 'Skipped today' : ticked ? 'Done today' : 'Not yet today';
+        const addOne = measurable;  // tap adds 1 (limits: logs one more)
+        const label = addOne ? `Add 1 to ${name}` : `${ticked ? 'Undo today' : 'Mark done today'}: ${name}`;
         const btn = h('button', {
-            type: 'button', class: 'wg-hb-check' + (t.done || today ? ' is-done' : '') + (t.over ? ' is-over' : ''), 'data-habit': hb.id,
-            title: measurable ? `Add 1 ${plain(hb.unit) || ''}`.trim() : (today ? 'Undo today' : 'Mark done today'),
-            'aria-label': measurable ? `Add 1 to ${name}` : `${today ? 'Undo today' : 'Mark done today'}: ${name}`,
-            'aria-pressed': measurable ? null : (today ? 'true' : 'false'),
+            type: 'button', 'data-habit': hb.id, title: addOne ? `Add 1 ${plain(hb.unit) || ''}`.trim() : (ticked ? 'Undo today' : 'Mark done today'), 'aria-label': label,
+            class: 'wg-hb-check' + (ticked && !limit ? ' is-done' : '') + (limit && status === 'kept' ? ' is-kept' : '') + (status === 'over' ? ' is-over' : ''),
+            'aria-pressed': addOne ? null : (ticked ? 'true' : 'false'),
         });
-        if (measurable && !t.done) btn.textContent = '+';
-        else if (measurable || today || t.done) btn.innerHTML = CHECK;  // static icon
-        return h('li', { class: 'wg-hb' + (t.done ? ' is-done' : ''), style: { '--hb': colour } }, [
+        if (status === 'over') btn.textContent = '!';
+        else if (ticked) btn.innerHTML = CHECK;  // static icon
+        else if (addOne) btn.textContent = '+';
+        return h('li', { class: 'wg-hb' + (t.done ? ' is-done' : '') + (status === 'over' ? ' is-over' : ''), style: { '--hb': colour }, 'data-row': hb.id }, [
             btn,
             h('a', { class: 'wg-hb-main', href: '/habits/', title: 'Open Habits' }, [
                 h('span', { class: 'wg-hb-name', text: name }),
@@ -263,10 +271,18 @@
         ]);
     }
 
+    let habitsToday = [];
+    const habitsCountText = () => {
+        const goals = habitsToday.filter(t => t.habit.goal !== 'at_most');
+        return goals.length ? `${goals.filter(t => t.done || t.goal_met).length}/${goals.length}` : '';
+    };
+
     function loadHabits() {
+        loadedAt.habits = Date.now();
         habitsBox.replaceChildren(skeleton(3));
         api('/api/v2/habits/today').then(d => {
             const due = d.habits.filter(t => t.due && !t.habit.archived && !t.habit.paused);
+            habitsToday = due;
             habitsCount.textContent = d.total ? `${d.done}/${d.total}` : '';
             if (!due.length) { habitsBox.replaceChildren(message('No habits due today.')); return; }
             habitsBox.replaceChildren(h('ul', { class: 'wg-hb-list' }, due.map(habitRow)));
@@ -277,9 +293,12 @@
         const btn = e.target.closest('[data-habit]');
         if (!btn) return;
         btn.disabled = true;
+        // The response is the updated row: no refetch.
         api(`/api/v2/habits/${encodeURIComponent(btn.dataset.habit)}/check`, { method: 'POST' }).then(t => {
             btn.closest('.wg-hb').replaceWith(habitRow(t));
-            api('/api/v2/habits/today').then(d => { habitsCount.textContent = d.total ? `${d.done}/${d.total}` : ''; }).catch(() => { });
+            const i = habitsToday.findIndex(x => x.habit.id === t.habit.id);
+            if (i !== -1) habitsToday[i] = t;
+            habitsCount.textContent = habitsCountText();
         }).catch(() => {
             btn.disabled = false;
             toast("Couldn't update the habit.", true);
@@ -289,6 +308,7 @@
     // ------------------------------------------------------------------ Photos on this day
     const photosBox = sections.photos.querySelector('.wg-photos');
     function loadPhotos() {
+        loadedAt.photos = Date.now();
         photosBox.replaceChildren(skeleton(2));
         api('/api/v2/photos/on-this-day?per_year=6').then(groups => {
             if (!groups.length) { photosBox.replaceChildren(message('No photos from this day in earlier years.')); return; }
@@ -314,6 +334,7 @@
     const notifCount = document.getElementById('wg-count-notifications');
     const safeUrl = (u) => (typeof u === 'string' && (/^\/(?!\/)/.test(u) || /^https?:\/\//i.test(u))) ? u : null;
     function loadNotifications() {
+        loadedAt.notifications = Date.now();
         notifBox.replaceChildren(skeleton(3));
         api('/api/v2/notifications/?limit=5').then(d => {
             notifCount.textContent = d.unread ? String(d.unread) : '';
@@ -337,9 +358,18 @@
         if (!e.detail.manual) return;
         if (loaded.has('habits') && shown('habits')) loadHabits();
     });
-    window.addEventListener('focus', () => {
-        for (const id of ['habits', 'notifications']) if (loaded.has(id)) { if (shown(id)) LOADERS[id](); else loaded.delete(id); }
-    });
+    // Back on the tab after a while: refresh what's on screen (at most every 2 minutes per widget).
+    const loadedAt = {};
+    const refreshStale = () => {
+        if (document.visibilityState !== 'visible') return;
+        for (const id of ['habits', 'notifications', 'photos']) {
+            if (!loaded.has(id)) continue;
+            if (!shown(id)) { loaded.delete(id); continue; }  // reloads when it's next shown
+            if (Date.now() - (loadedAt[id] || 0) > 2 * 60000) LOADERS[id]();
+        }
+    };
+    window.addEventListener('focus', refreshStale);
+    document.addEventListener('visibilitychange', refreshStale);
 
     // ------------------------------------------------------------------ Insight: full view in a dialog
     const insPanel = sections.insight.querySelector('.sb-insight');
