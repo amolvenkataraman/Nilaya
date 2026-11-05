@@ -196,7 +196,7 @@
                         <h2>Todos</h2>
                         <div class="sub">Open, soonest due first</div>
                     </div>
-                    <a href="{% url 'display_calendar' %}">Open calendar</a>
+                    <a href="{% url 'tasks' %}">Open tasks</a>
                 </div>
                 <ul class="dash-list recent-todos">
                     <li class="dash-item empty">Loading...</li>
@@ -215,7 +215,11 @@
                         <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
                     </svg>
                 </span>
-                <span class="app-tile-text"><span class="app-tile-title">Calendar</span><span class="app-tile-sub">Events and todos</span></span>
+                <span class="app-tile-text"><span class="app-tile-title">Calendar</span><span class="app-tile-sub">Events, deadlines and insights</span></span>
+            </a>
+            <a href="{% url 'tasks' %}" class="app-card app-tile">
+                <span class="app-tile-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-check2-square" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 14.5A1.5 1.5 0 0 1 1.5 13V3A1.5 1.5 0 0 1 3 1.5h8a.5.5 0 0 1 0 1H3a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5V8a.5.5 0 0 1 1 0v5a1.5 1.5 0 0 1-1.5 1.5z"/><path d="m8.354 10.354 7-7a.5.5 0 0 0-.708-.708L8 9.293 5.354 6.646a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0"/></svg></span>
+                <span class="app-tile-text"><span class="app-tile-title">Tasks</span><span class="app-tile-sub">Projects, boards and todos</span></span>
             </a>
             <a class="app-card app-tile" href="{% url 'photos' %}">
                 <span class="app-tile-icon">
@@ -225,10 +229,6 @@
                     </svg>
                 </span>
                 <span class="app-tile-text"><span class="app-tile-title">Photos</span><span class="app-tile-sub">Library and albums</span></span>
-            </a>
-            <a href="{% url 'tasks' %}" class="app-card app-tile">
-                <span class="app-tile-icon"><svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-check2-square" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 14.5A1.5 1.5 0 0 1 1.5 13V3A1.5 1.5 0 0 1 3 1.5h8a.5.5 0 0 1 0 1H3a.5.5 0 0 0-.5.5v10a.5.5 0 0 0 .5.5h10a.5.5 0 0 0 .5-.5V8a.5.5 0 0 1 1 0v5a1.5 1.5 0 0 1-1.5 1.5z"/><path d="m8.354 10.354 7-7a.5.5 0 0 0-.708-.708L8 9.293 5.354 6.646a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0"/></svg></span>
-                <span class="app-tile-text"><span class="app-tile-title">Tasks</span><span class="app-tile-sub">Projects, boards and todos</span></span>
             </a>
             <a class="app-card app-tile" href="{% url 'map' %}">
                 <span class="app-tile-icon">
