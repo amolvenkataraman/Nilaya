@@ -2,6 +2,7 @@ from django.shortcuts import render
 from django.http import HttpResponse, JsonResponse, FileResponse
 from django.contrib.auth.decorators import login_required
 from django.conf import settings
+from django.utils import timezone
 from photos.models import *
 from photos.models import _reverse_geocode_city
 from django.db.models import Q
@@ -78,10 +79,10 @@ def make_naive(dt):
     return dt
 
 def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
-    SOURCE_DIR = album.location + "Ingest/**"
     DEST_DIR = album.location
-    
-    all_files = list(glob.glob(f"{SOURCE_DIR}/*.*"))
+
+    # Everything under Ingest/, at any depth (previously only files exactly one folder down).
+    all_files = list(glob.glob(f"{album.location}Ingest/**/*.*", recursive=True))
     normal_extensions = ["jpg", "jpeg", "png", "mp4", "mpg", "m4v", "mov", "mod", "avi", "3gp", "mkv", "gif", "heic"]
     raw_extensions = ["dng", "cr2", "cr3", "nef", "arw", "srw", "orf", "rw2", "raf", "pef", "3fr", "erf", "mef", "mos", "crw", "kdc", "sr2", "x3f", "mrw"]
     
@@ -148,7 +149,9 @@ def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
         p.video = (ff.split('.')[-1].lower() in ['mp4', 'mpg', 'm4v', 'mov', 'mod', 'avi', '3gp', 'mkv'])
         
         try:
-            p.date_taken = dt
+            # EXIF/filename dates are local wall time: store them as such, explicitly
+            # (Django did the same implicitly, with a warning per photo).
+            p.date_taken = timezone.make_aware(dt) if timezone.is_naive(dt) else dt
         except Exception:
             pass
 
