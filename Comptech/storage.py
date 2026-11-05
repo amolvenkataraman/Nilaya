@@ -26,3 +26,15 @@ class LenientManifestStorage(ManifestStaticFilesStorage):
             return super().hashed_name(name, content, filename)
         except ValueError:  # the referenced file doesn't exist
             return name
+
+    def stored_name(self, name):
+        """The hashed name from staticfiles.json, or the plain name. Never hash on the fly: a hash of
+        the raw file doesn't match the post-processed copy collectstatic wrote (CSS url() and import
+        rewrites change the content), so an invented name would 404. Missing entries mean
+        collectstatic hasn't run (or failed); the plain file still exists and loads."""
+        parsed = name.split("?", 1)[0].split("#", 1)[0]
+        hashed = self.hashed_files.get(self.hash_key(self.clean_name(parsed)))
+        if hashed is None:
+            return name
+        return hashed + name[len(parsed):]
+
