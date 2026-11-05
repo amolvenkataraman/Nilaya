@@ -36,6 +36,7 @@ api.add_router("/tasks/", "tasks.api.router")
 api.add_router("/contacts/", "contacts.api.router")
 api.add_router("/habits/", "habits.api.router")
 api.add_router("/keys/", "apikeys.api.router")
+api.add_router("/analytics/", "analytics.api.router")
 
 # /api/v2/<app>/guide.md: Markdown guides generated from this schema (see Comptech/api_guides.py).
 from apikeys.models import APPS as _APPS  # noqa: E402

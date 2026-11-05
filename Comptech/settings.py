@@ -92,6 +92,7 @@ INSTALLED_APPS = [
     'apikeys',
     'contacts',
     'habits',
+    'analytics',
 
     # Main functionality apps
     'scheduler',
@@ -107,6 +108,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'analytics.middleware.AnalyticsMiddleware',  # route-level usage events (see analytics/models.py)
 ]
 
 # Other sites can't frame us (clickjacking); our own pages can (the calendar shows
@@ -240,6 +242,7 @@ CELERY_BEAT_SCHEDULER = 'django_celery_beat.schedulers:DatabaseScheduler'
 CELERY_BEAT_SCHEDULE = {
     'task-reminders': {'task': 'tasks.tasks.send_due_reminders', 'schedule': 60.0},
     'auto-reminders': {'task': 'tasks.tasks.send_auto_reminders', 'schedule': 60.0},
+    'analytics-rollup': {'task': 'analytics.tasks.rollup', 'schedule': 24 * 3600.0},
     'cleanup-notifications': {'task': 'notifications.tasks.cleanup_expired_notifications', 'schedule': 6 * 3600.0},
 }
 
