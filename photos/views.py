@@ -706,7 +706,8 @@ def ingest_photos(request):
 @post_request_only
 @login_required_api
 def del_photo_req(request, photo_id):
-    album_subs = request.user.album_subscribed.all()
+    # Deleting removes files from disk: library owners/editors only, never viewers.
+    album_subs = request.user.album_subscribed.filter(subscribe_type__in=[0, 1])
     albums = [i.album for i in album_subs]
 
     try:
@@ -723,7 +724,7 @@ def del_photo_req(request, photo_id):
 @post_request_only
 @login_required_api
 def delete_photo_original(request, photo_id):
-    album_subs = request.user.album_subscribed.all()
+    album_subs = request.user.album_subscribed.filter(subscribe_type__in=[0, 1])  # owners/editors only
     albums = [i.album for i in album_subs]
 
     try:

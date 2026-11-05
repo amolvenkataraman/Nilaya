@@ -39,6 +39,12 @@ class PhotoOut(Schema):
     lon: Optional[float]
     camera: Optional[str]
     album_id: int
+    size_kb: Optional[int] = None        # optimized file (what the app serves)
+    size_total_kb: Optional[int] = None  # including originals/RAW
+    megapixels: Optional[float] = None
+    has_raw: bool = False
+    has_orig: bool = False
+    blur: Optional[float] = None
 
     @staticmethod
     def resolve_thumb_url(obj):
@@ -71,6 +77,27 @@ class PhotoOut(Schema):
     @staticmethod
     def resolve_camera(obj):
         return " ".join(filter(None, (obj.camera_make, obj.camera_model))) or None
+
+    @staticmethod
+    def resolve_size_kb(obj):
+        return obj.size
+
+    @staticmethod
+    def resolve_size_total_kb(obj):
+        return obj.size_total
+
+    @staticmethod
+    def resolve_has_raw(obj):
+        return bool(obj.raw_filepath)
+
+    @staticmethod
+    def resolve_has_orig(obj):
+        return bool(obj.orig_filepath)
+
+    @staticmethod
+    def resolve_blur(obj):
+        info = obj.ai_index_info or {}
+        return round(info["blur_score"], 1) if isinstance(info, dict) and info.get("blur_score") is not None else None
 
 
 class PageOut(Schema):
@@ -459,6 +486,52 @@ class HideIn(Schema):
 
 class HiddenModeIn(Schema):
     show: bool
+
+
+class IdsIn(Schema):
+    ids: list[uuid.UUID] = Field(..., min_length=1, max_length=1000)
+
+
+def _editable_library(user):
+    """Photos in libraries the user owns or edits (viewers can't change or delete)."""
+    return Photo.objects.filter(album__users_subscribed__user=user, album__users_subscribed__subscribe_type__in=[0, 1])
+
+
+@router.post("/delete", summary="Delete photos (removes the files; library owners/editors only)")
+def delete_photos(request, payload: IdsIn):
+    from .models import delete_photo
+    if isinstance(getattr(request, "auth", None), __import__("apikeys.models", fromlist=["ApiKey"]).ApiKey):
+        raise HttpError(403, "Deleting photos needs a signed-in browser session")
+    photos = list(_editable_library(request.user).filter(id__in=payload.ids).select_related("album").distinct())
+    for p in photos:
+        delete_photo(p)
+    return {"deleted": len(photos)}
+
+
+def _writable_share_album(user, album_id):
+    from .models import ShareAlbum_Subscriber
+    return get_object_or_404(ShareAlbum.objects.filter(
+        Q(owner=user) | Q(id__in=ShareAlbum_Subscriber.objects.filter(user=user, subscribe_type__in=[0, 1]).values("album_id"))),
+        id=album_id)
+
+
+@router.post("/albums/{uuid:album_id}/photos", summary="Add photos you can see to a shared album you own or edit")
+def add_to_album(request, album_id: uuid.UUID, payload: IdsIn):
+    from .models import ShareAlbum_Photo
+    album = _writable_share_album(request.user, album_id)
+    visible = set(library(request.user, request).filter(id__in=payload.ids).values_list("id", flat=True))
+    existing = set(ShareAlbum_Photo.objects.filter(sharealbum=album, photo_id__in=visible).values_list("photo_id", flat=True))
+    new = [pid for pid in payload.ids if pid in visible and pid not in existing]
+    ShareAlbum_Photo.objects.bulk_create([ShareAlbum_Photo(sharealbum=album, photo_id=pid) for pid in new])
+    return {"added": [str(pid) for pid in new]}
+
+
+@router.delete("/albums/{uuid:album_id}/photos", summary="Remove photos from a shared album you own or edit")
+def remove_from_album(request, album_id: uuid.UUID, payload: IdsIn):
+    from .models import ShareAlbum_Photo
+    album = _writable_share_album(request.user, album_id)
+    removed, _ = ShareAlbum_Photo.objects.filter(sharealbum=album, photo_id__in=payload.ids).delete()
+    return {"removed": removed}
 
 
 @router.post("/hide", summary="Hide or unhide your own photos")

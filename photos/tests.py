@@ -113,3 +113,40 @@ class HiddenPhotoViewTests(TestCase):
         self.client.force_login(self.owner)
         info = self.client.get("/photos/albums/json-list/").json()["albums"][0]
         self.assertEqual((info["photo_count"], info["cover_photo_id"]), (1, str(self.shown.id)))
+
+
+
+class DeletePermissionTests(TestCase):
+    """Deleting removes files from disk: only library owners/editors may, never viewers."""
+
+    def setUp(self):
+        self.owner = ComptechUser.objects.create_user("own", password="pw")
+        self.viewer = ComptechUser.objects.create_user("vie", password="pw")
+        self.album = Album.objects.create(name="Camera", owner=self.owner, location="/nonexistent/")
+        Album_Subscriber.objects.create(album=self.album, user=self.owner, subscribe_type=0)
+        Album_Subscriber.objects.create(album=self.album, user=self.viewer, subscribe_type=2)
+        self.photo = Photo.objects.create(owner=self.owner, album=self.album, filepath="a.jpg", orientation="1",
+                                          date_taken=timezone.now())
+
+    def test_viewers_cannot_delete_but_owners_can(self):
+        self.client.force_login(self.viewer)
+        self.client.post(f"/photos/delete/{self.photo.id}/")
+        self.client.post(f"/photos/delete-original/{self.photo.id}/")
+        r = self.client.post("/api/v2/photos/delete", {"ids": [str(self.photo.id)]}, content_type="application/json")
+        self.assertEqual(r.json(), {"deleted": 0})
+        self.assertTrue(Photo.objects.filter(id=self.photo.id).exists())
+        self.client.force_login(self.owner)
+        r = self.client.post("/api/v2/photos/delete", {"ids": [str(self.photo.id)]}, content_type="application/json")
+        self.assertEqual(r.json(), {"deleted": 1})
+        self.assertFalse(Photo.objects.filter(id=self.photo.id).exists())
+
+    def test_add_and_remove_from_a_shared_album(self):
+        sa = ShareAlbum.objects.create(owner=self.owner, name="Best")
+        self.client.force_login(self.viewer)  # not an editor of the album
+        r = self.client.post(f"/api/v2/photos/albums/{sa.id}/photos", {"ids": [str(self.photo.id)]}, content_type="application/json")
+        self.assertEqual(r.status_code, 404)
+        self.client.force_login(self.owner)
+        r = self.client.post(f"/api/v2/photos/albums/{sa.id}/photos", {"ids": [str(self.photo.id)]}, content_type="application/json")
+        self.assertEqual(r.json(), {"added": [str(self.photo.id)]})
+        r = self.client.delete(f"/api/v2/photos/albums/{sa.id}/photos", {"ids": [str(self.photo.id)]}, content_type="application/json")
+        self.assertEqual(r.json(), {"removed": 1})
