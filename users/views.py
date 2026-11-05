@@ -3,6 +3,10 @@ from django.shortcuts import render, redirect, Http404
 from django.contrib.auth import login, logout
 from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.views import redirect_to_login
+from django.db.models import Q
+import uuid
+from django.utils.http import url_has_allowed_host_and_scheme
 from .models import *
 from Comptech.utils import *
 from django.conf import settings as _settings
@@ -61,13 +65,19 @@ def password_change_view(request):
 # Render the user profile view
 def profile_view(request, user=None):
     if request.method == 'GET':
-        if user == None: user = request.user
+        if not request.user.is_authenticated:  # profiles (birthday, groups, ...) are for members only
+            return redirect_to_login(request.get_full_path())
+        if user is None:
+            user = request.user
         else:
-            try: user = ComptechUser.objects.filter(id=user)[0]
-            except:
-                try: user = ComptechUser.objects.filter(username=user)[0]
-                except: raise Http404()
-    
+            lookup = Q(username=user)
+            try:
+                lookup |= Q(id=uuid.UUID(user))
+            except ValueError:
+                pass
+            user = ComptechUser.objects.filter(lookup).first()
+            if user is None:
+                raise Http404()
         return render(request, 'users/profile.html', {'user': user.getinfo()})
 
     elif request.method == 'POST':
@@ -106,6 +116,8 @@ def logout_view(request):
 
 def profile_picture(request):
     if request.method == 'GET': # Slower method, only for compatibility. Use NGINX
+        if not request.user.is_authenticated:
+            return error_response("Not logged in", 401)
         username = request.GET.get('user')
         if username == None:
             user = request.user
