@@ -5,7 +5,8 @@ from django.db.models import Q
 from django.utils import timezone
 from .models import *
 
-from Comptech.settings import CALENDAR_VARS, ONLINE_MODE
+from django.conf import settings as _settings
+CALENDAR_VARS, ONLINE_MODE = _settings.CALENDAR_VARS, _settings.ONLINE_MODE
 from Comptech.utils import *
 
 import datetime

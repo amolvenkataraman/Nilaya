@@ -17,3 +17,7 @@ nohup.out
 celerybeat-schedule.db
 data.json
 *.pt
+
+# Local testing (localdev/)
+.venv/
+localdev/data/

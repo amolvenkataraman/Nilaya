@@ -11,7 +11,8 @@ from .indeximg import photo_ingest_for_album
 from .tasks import ingest_all_photos
 from .AI.objects import NAME_TO_ID_MAPPING
 from scheduler.models import *
-from Comptech.settings import BASE_DIR, TIME_ZONE
+from django.conf import settings as _settings
+BASE_DIR, TIME_ZONE = _settings.BASE_DIR, _settings.TIME_ZONE
 
 from PIL import Image, ExifTags, ImageOps
 from Comptech.utils import *
@@ -603,6 +604,8 @@ def get_photo(request, photo_id, ret_type):
                 return response
 
         else:
+            if settings.SERVE_FILES_WITH_DJANGO:  # local testing: no nginx
+                return FileResponse(open(f"{settings.THUMBNAIL_DIR}{photo.id}.webp", "rb"), content_type='image/webp')
             response = HttpResponse(content_type='image/webp')
             response['X-Accel-Redirect'] = f"/media_private/photo_cache/thumbnail/{photo.id}.webp"
             response['Content-Disposition'] = f'attachment; filename="{BASE_DIR}media_private/photo_cache/thumbnail/{photo.id}.webp"'
@@ -1799,13 +1802,22 @@ def search_category(request, category):
         album_ids = list(user_photos.values_list('album_id', flat=True).distinct())
         if album_ids:
             with connection.cursor() as cursor:
-                cursor.execute("""
-                    SELECT elem::int AS object_id, COUNT(*) AS count
-                    FROM photos_photo,
-                         jsonb_array_elements_text(COALESCE(ai_index_info->'objects', '[]'::jsonb)) AS elem
-                    WHERE album_id = ANY(%s)
-                    GROUP BY object_id
-                """, [album_ids])
+                if connection.vendor == 'postgresql':
+                    cursor.execute("""
+                        SELECT elem::int AS object_id, COUNT(*) AS count
+                        FROM photos_photo,
+                             jsonb_array_elements_text(COALESCE(ai_index_info->'objects', '[]'::jsonb)) AS elem
+                        WHERE album_id = ANY(%s)
+                        GROUP BY object_id
+                    """, [album_ids])
+                else:  # SQLite (local testing)
+                    marks = ",".join("%s" for _ in album_ids)
+                    cursor.execute(f"""
+                        SELECT CAST(j.value AS INTEGER) AS object_id, COUNT(*) AS count
+                        FROM photos_photo, json_each(photos_photo.ai_index_info, '$.objects') AS j
+                        WHERE album_id IN ({marks})
+                        GROUP BY object_id
+                    """, album_ids)  # noqa: S608 - placeholders only
                 rows = cursor.fetchall()
 
             for object_id, count in rows:
@@ -1900,7 +1912,7 @@ def search_category(request, category):
 ALLOWED_MEDIA_EXTENSIONS = {
     "jpg", "jpeg", "png", "mp4", "mpg", "m4v", "mov", "mod", "avi", "3gp", "mkv", "gif", "heic", "webp"
 }
-UPLOAD_TARGET_DIR = "/mnt/data/Photos/Uploads/"
+UPLOAD_TARGET_DIR = settings.UPLOADS_DIR
 
 
 def upload_photos(request):

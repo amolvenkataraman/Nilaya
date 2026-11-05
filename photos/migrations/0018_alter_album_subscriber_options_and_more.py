@@ -5,6 +5,8 @@ import django.db.models.deletion
 from django.conf import settings
 from django.db import migrations, models
 
+from Comptech.db_compat import PostgresOnly
+
 
 class Migration(migrations.Migration):
 
@@ -23,8 +25,8 @@ class Migration(migrations.Migration):
             name='cover_photo',
             field=models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.SET_NULL, related_name='cover_for_albums', to='photos.photo'),
         ),
-        migrations.AddIndex(
+        PostgresOnly(migrations.AddIndex(
             model_name='photo',
             index=django.contrib.postgres.indexes.GinIndex(fields=['ai_index_info'], name='idx_objects_gin'),
-        ),
+        )),
     ]

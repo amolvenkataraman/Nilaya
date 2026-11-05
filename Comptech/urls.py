@@ -16,7 +16,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path, re_path
 from django.conf.urls.static import static
-from Comptech import settings
+from django.conf import settings
 
 urlpatterns = [
     path("", include("mainsite.urls")),
@@ -33,3 +33,10 @@ urlpatterns = [
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL,document_root=settings.MEDIA_ROOT)
+
+if getattr(settings, 'SERVE_FILES_WITH_DJANGO', False):  # local testing only (no nginx)
+    from Comptech import localfiles
+    urlpatterns += [
+        path("private/<str:signature>/<path:path>", localfiles.private),
+        path("photo_cdn/<str:signature>/<path:path>", localfiles.photo_cdn),
+    ]

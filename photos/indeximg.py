@@ -59,6 +59,17 @@ def _extract_date_taken(filepath) -> datetime.datetime:
 
 import re
 
+def _place(src, dest):
+    """Copy a file into the library (server). Local testing hardlinks instead:
+    instant, no extra disk, and nothing in the app writes library files in place."""
+    if getattr(settings, 'PHOTOS_INGEST_HARDLINK', False):
+        try:
+            os.link(src, dest)
+            return
+        except OSError:
+            pass  # different filesystem: fall back to a copy
+    shutil.copy2(src, dest)
+
 def make_naive(dt):
     if dt is None:
         return None
@@ -128,7 +139,7 @@ def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
             continue
         
         print(f"  -> Ingesting new file: {basename} -> {dest_path}")
-        shutil.copy2(ff, dest_path)
+        _place(ff, dest_path)
 
         p = Photo()
         p.owner = user
@@ -195,7 +206,7 @@ def photo_ingest_for_album(album, user, refresh_matviews=True) -> list:
             
         print(f"  -> Associating RAW file {raw_base_name} with Photo ID {chosen_photo.id}")
         os.makedirs(os.path.dirname(dest_raw_path), exist_ok=True)
-        shutil.copy2(raw_filepath, dest_raw_path)
+        _place(raw_filepath, dest_raw_path)
         
         chosen_photo.raw_filepath = os.path.relpath(dest_raw_path, chosen_photo.album.location)
         chosen_photo.update_file_sizes()

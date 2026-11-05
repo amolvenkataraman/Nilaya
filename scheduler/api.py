@@ -5,7 +5,8 @@ from scheduler.models import *
 from scheduler.sync import *
 from scheduler.inject import *
 
-from Comptech.settings import CALENDAR_VARS, ONLINE_MODE, TIME_ZONE
+from django.conf import settings as _settings
+CALENDAR_VARS, ONLINE_MODE, TIME_ZONE = _settings.CALENDAR_VARS, _settings.ONLINE_MODE, _settings.TIME_ZONE
 from Comptech.utils import *
 from photos.models import *
 

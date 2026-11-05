@@ -5,7 +5,8 @@ from django.contrib.auth.forms import AuthenticationForm, PasswordChangeForm
 from django.contrib.auth.decorators import login_required
 from .models import *
 from Comptech.utils import *
-from Comptech.settings import MEDIA_ROOT
+from django.conf import settings as _settings
+MEDIA_ROOT = _settings.MEDIA_ROOT
 
 from PIL import Image
 import base64

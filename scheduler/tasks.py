@@ -2,7 +2,8 @@ from datetime import datetime
 from celery import shared_task
 from celery.utils.log import get_task_logger
 
-from Comptech.settings import ONLINE_MODE
+from django.conf import settings as _settings
+ONLINE_MODE = _settings.ONLINE_MODE
 from scheduler.models import *
 from scheduler.sync import *
 from django.utils import timezone
