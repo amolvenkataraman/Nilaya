@@ -2392,6 +2392,14 @@ function eastern_day(iso) {
     return new Date(p.year, p.month - 1, p.day);
 }
 
+// An all-day event's [first day, day after the last] as local dates: the server's start_date/end_date
+// (in the calendar's own zone), else the datetimes read in Eastern time (older responses).
+function allday_dates(ev) {
+    const day = s => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+    if (ev['start_date']) return [day(ev['start_date']), ev['end_date'] ? day(ev['end_date']) : null];
+    return [eastern_day(ev['startdate']), has_end(ev) ? eastern_day(ev['enddate']) : null];
+}
+
 // Items to draw on one day: timed events (incl. deadlines and multi-day pieces), all-day events,
 // and open tasks due that day (23:59 = "due that day", drawn in the all-day lane).
 function items_for_day(date, list = loaded_events()) {
@@ -2402,8 +2410,7 @@ function items_for_day(date, list = loaded_events()) {
         const cal = calendars[ev['calendar']];
         if (cal && cal['visible'] === false) continue;
         if (ev['allday']) {
-            const s = eastern_day(ev['startdate']);
-            let e = has_end(ev) ? eastern_day(ev['enddate']) : null;
+            let [s, e] = allday_dates(ev);
             if (!e || e <= s) { e = new Date(s); e.setDate(e.getDate() + 1); }
             if (s <= dayStart && dayStart < e) allDay.push(ev);
         } else if (!has_end(ev)) {
@@ -2585,12 +2592,9 @@ function reload_calendar() {
         let sd = new Date(ev['startdate']);
         let ed = new Date(ev['enddate']);
         if (ev['allday'] == true) {
-            const sParts = getEasternDateParts(sd);
-            sd = new Date(sParts.year, sParts.month - 1, sParts.day);
-            if (has_end(ev)) {
-                const eParts = getEasternDateParts(ed);
-                ed = new Date(eParts.year, eParts.month - 1, eParts.day);
-            }
+            const [s0, e0] = allday_dates(ev);
+            sd = s0;
+            if (e0) ed = e0;
         }
 
         // The event's own icon (once the server has it) replaces the category icon.
@@ -2933,12 +2937,9 @@ function show_event(event_) {
     let ed = new Date(event_["enddate"]);
     const deadline = !has_end(event_);
     if (event_["allday"] == true) {
-        const sParts = getEasternDateParts(sd);
-        sd = new Date(sParts.year, sParts.month - 1, sParts.day);
-        if (!deadline) {
-            const eParts = getEasternDateParts(ed);
-            ed = new Date(eParts.year, eParts.month - 1, eParts.day);
-        }
+        const [s0, e0] = allday_dates(event_);
+        sd = s0;
+        if (!deadline && e0) ed = e0;
     }
 
 

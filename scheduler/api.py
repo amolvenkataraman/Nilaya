@@ -121,6 +121,7 @@ def sync_events(request):
             return error_response("Calendar is a local calendar")
         status = sync_calendar(calendar, start_time, end_time, token, conditional=False)  # records the outcome
 
+        if status == "busy": return error_response("This calendar is already syncing", 409)
         if status: return success_response()
         return error_response("Calendar sync failed", 502)
 
@@ -474,6 +475,8 @@ def invite(request):
             return error_response("Invalid invite")
         if not can_edit_calendar(request.user, invite.calendar):
             return error_response("Not authorized", 401)
+        if invite.role == 1 and invite.calendar.owner_id != request.user.id:  # admin invites: the owner's (as in V2)
+            return error_response("Only the owner can change admin invites", 401)
         invite.active = not invite.active
         invite.save(update_fields=["active"])
         return success_response({"active": invite.active})

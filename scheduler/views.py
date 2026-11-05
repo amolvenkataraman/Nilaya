@@ -25,9 +25,11 @@ def countdown(request, event_id, time="start"):
     event_ = svc.occurrence_view(series, original) if original is not None else series
     if event_ is None:
         raise Http404()
+    role = series.calendar.role_of(request.user)
     if not event_.public and not series.calendar.public:
-        if not series.calendar.can_edit(request.user):
+        if role not in ("owner", "admin"):
             return error_response("Not authorized", 401)
+    masked = svc.masked_for(event_, request.user, role)  # a private event on a public calendar: "Busy"
 
     if time == "start": event_time = event_.startdate
     elif time == "end": event_time = event_.enddate
@@ -36,7 +38,7 @@ def countdown(request, event_id, time="start"):
     if event_time == None: raise Http404()
     if event_.enddate == None: time = "none"
 
-    return render(request, 'scheduler/countdown.html', {"event": event_.getinfo(), "time": event_time, "se": time})
+    return render(request, 'scheduler/countdown.html', {"event": event_.getinfo(masked=masked), "time": event_time, "se": time})
 
 def public_calendar(request, calendar_id):
     try: cal = Calendar.objects.filter(id=calendar_id)[0]

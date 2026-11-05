@@ -3,6 +3,7 @@ range queries with recurrence expansion, occurrence ids, series edits (this /
 following / all), roles and invite use."""
 
 import datetime as dt
+import logging
 import uuid
 from collections import defaultdict
 
@@ -11,6 +12,8 @@ from django.db.models import Q
 
 from . import recurrence as rec
 from .models import Calendar, Event, EventAttendee, EventReminder, Subscriber
+
+log = logging.getLogger(__name__)
 
 # Copied from a series onto an override or a split-off series.
 _NOT_COPIED = {"id", "rrule", "exdates", "rdates", "recurrence_end", "recurrence_parent", "original_start", "sync_id",
@@ -38,27 +41,37 @@ def events_in_range(calendar_ids, start, end, *, include_cancelled=False, extra=
     Singles come from one indexed range query; series are prefiltered with
     recurrence_end and expanded only inside the range."""
     base = Event.objects.filter(calendar_id__in=calendar_ids, recurrence_parent__isnull=True)
-    if extra is not None:
-        base = base.filter(extra)
     if not include_cancelled:
         base = base.exclude(status="cancelled")
-    out = list(base.filter(overlapping(start, end), rrule="").select_related(*related)
+    singles = base.filter(overlapping(start, end), rrule="")
+    out = list((singles.filter(extra) if extra is not None else singles).select_related(*related)
                .order_by("startdate", "-enddate", "name")[:limit])
-    series = list(base.exclude(rrule="").filter(startdate__lt=end)
-                  .filter(Q(recurrence_end__isnull=True) | Q(recurrence_end__gt=start)).select_related(*related))
+    # Series are found without ``extra``: a changed occurrence that matches a filter (a search, busy
+    # only) must be listed even when its series doesn't, and one that doesn't must still hide the
+    # occurrence it replaced (else it shows up again at its old time).
+    series_qs = base.exclude(rrule="").filter(startdate__lt=end).filter(
+        Q(recurrence_end__isnull=True) | Q(recurrence_end__gt=start))
+    series = list(series_qs.select_related(*related))
     if series:
+        matching = ({s.id for s in series} if extra is None else
+                    set(series_qs.filter(extra).values_list("id", flat=True)))
         skip = defaultdict(set)
         overrides = Event.objects.filter(recurrence_parent__in=[s.id for s in series]).filter(
             overlapping(start, end) | Q(original_start__gte=start - dt.timedelta(days=400), original_start__lt=end))
-        if extra is not None:
-            overrides = overrides.filter(extra)
+        shown = None if extra is None else set(overrides.filter(extra).values_list("id", flat=True))
         for o in overrides.select_related(*related):
             skip[o.recurrence_parent_id].add(rec.key(o.original_start))
-            if _overlaps(o, start, end) and (include_cancelled or o.status != "cancelled"):
+            if (_overlaps(o, start, end) and (include_cancelled or o.status != "cancelled")
+                    and (shown is None or o.id in shown)):
                 o.series_id, o.override_id = o.recurrence_parent_id, o.id
                 out.append(o)
         for s in series:
-            out.extend(rec.expand(s, start, end, rec.event_zone(s), skip[s.id]))
+            if s.id not in matching:
+                continue
+            try:
+                out.extend(rec.expand(s, start, end, rec.event_zone(s), skip[s.id]))
+            except Exception:  # one bad stored rule must not break every listing (or the reminder job)
+                log.exception("Skipped series %s with repeat rule %r", s.id, s.rrule)
         out.sort(key=_sort_key)
     return out[:limit]
 
@@ -161,8 +174,7 @@ def split(series, original):
     p = rec.parts(series.rrule)
     rule = series.rrule
     if "COUNT" in p:
-        done = len(rec.starts_between(series, tz, series.startdate - dt.timedelta(seconds=1),
-                                      original - dt.timedelta(seconds=1)))
+        done = rec.rule_count_before(series, tz, original)  # RDATEs don't count towards COUNT
         p["COUNT"] = str(max(1, int(p["COUNT"]) - done))
         rule = ";".join([f"FREQ={p.pop('FREQ')}"] + [f"{a}={b}" for a, b in p.items()])
     with transaction.atomic():
@@ -266,8 +278,14 @@ def visible_calendar_ids(user, include_hidden=False, include_inactive=False):
 
 
 def masked_for(e, user, role_):
-    """A private event on someone else's calendar shows only as busy to plain subscribers."""
-    return e.visibility == "private" and role_ == "subscriber" and e.created_by_id != getattr(user, "id", None)
+    """A private event shows only as busy to everyone but the calendar's owner and admins: plain
+    subscribers, visitors of a public calendar and anonymous users (role None). It doesn't depend on
+    created_by, which synced and pre-migration events don't have."""
+    return e.visibility == "private" and role_ not in ("owner", "admin")
+
+
+def can_see_private(role_):
+    return role_ in ("owner", "admin")
 
 
 # ---------------------------------------------------------------- input cleaning (both APIs)

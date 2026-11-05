@@ -39,7 +39,7 @@ class CalendarApiTests(TestCase):
         from .models import Invite
         admin = ComptechUser.objects.create_user("ada", password="pw")
         Subscriber.objects.create(calendar=self.cal, user=admin, subscribe_type=1)
-        inv = Invite.objects.create(calendar=self.cal, code="ADMINCODE1", role=1)
+        inv = Invite.objects.create(calendar=self.cal, code="ADMCODE1", role=1)
         self.client.force_login(admin)
         url = f"/api/v2/calendar/calendars/{self.cal.id}/invites/{inv.id}"
         self.assertEqual(self.client.patch(url, {"max_uses": None}, content_type="application/json").status_code, 403)
@@ -166,3 +166,125 @@ class PrivateAndMovedSeriesTests(TestCase):
         got = [(e["name"], datetime.datetime.fromisoformat(e["start"]).astimezone(TZ).strftime("%m-%d %H:%M")) for e in r.json()]
         self.assertEqual(got, [("W", "11-02 09:00"), ("W", "11-09 09:00"), ("W9", "11-16 09:00"), ("W16", "11-23 09:00"),
                                ("W", "12-07 09:00")])  # Nov 30 is the deleted one, moved along
+
+
+class ReviewFixTests(TestCase):
+    """One test per bug found in the phase-1 review (privacy and robustness)."""
+
+    def setUp(self):
+        self.owner = ComptechUser.objects.create_user("ivy", password="pw", timezone="America/Toronto")
+        self.sub = ComptechUser.objects.create_user("jon", password="pw", timezone="America/Toronto")
+        self.cal = Calendar.objects.create(name="Family", owner=self.owner, public=True)
+        Subscriber.objects.create(calendar=self.cal, user=self.owner, subscribe_type=0)
+        Subscriber.objects.create(calendar=self.cal, user=self.sub, subscribe_type=2)
+
+    def private(self, **kw):  # no created_by, like synced and pre-migration events
+        return Event.objects.create(calendar=self.cal, name="Doctor", location="Clinic", startdate=at(20, 9),
+                                    enddate=at(20, 10), visibility="private", **kw)
+
+    def events(self, **q):
+        r = self.client.get("/api/v2/calendar/events", {"start": at(1, 0).isoformat(), "end": at(30, 0).isoformat(), **q})
+        self.assertEqual(r.status_code, 200, r.content)
+        return r.json()
+
+    def test_countdown_and_public_calendar_mask_private_events_without_a_creator(self):
+        e = self.private()
+        self.assertNotContains(self.client.get(f"/calendar/countdown/{e.id}/start/"), "Doctor")  # anonymous
+        r = self.client.get("/calendar/api/calendarevents/", {"calendar": self.cal.id, "timespan": "month", "time": "2026-11"})
+        self.assertEqual([(x["name"], x["location"]) for x in r.json()["events"]], [("Busy", None)])
+        self.client.force_login(self.owner)
+        self.assertContains(self.client.get(f"/calendar/countdown/{e.id}/start/"), "Doctor")
+
+    def test_search_and_tag_never_match_a_masked_event(self):
+        self.private(tags=["health"])
+        self.client.force_login(self.sub)
+        self.assertEqual([x["name"] for x in self.events()], ["Busy"])
+        self.assertEqual((self.events(q="Doc"), self.events(tag="health")), ([], []))
+        self.client.force_login(self.owner)
+        self.assertEqual([x["name"] for x in self.events(q="Doc")], ["Doctor"])
+
+    def test_automatic_reminders_mask_private_events_and_never_copy_them_to_others(self):
+        from django.utils import timezone
+        from notifications.models import Notification, ReminderSettings
+        from tasks import auto_reminders
+        now = timezone.now().replace(second=0, microsecond=0, minute=0)
+        Event.objects.create(calendar=self.cal, name="Doctor", location="Clinic", visibility="private",
+                             startdate=now + datetime.timedelta(minutes=10), enddate=now + datetime.timedelta(minutes=40))
+        Event.objects.create(calendar=self.cal, name="Secret essay", description="notes", visibility="private",
+                             startdate=now + datetime.timedelta(days=3))
+        for u in (self.owner, self.sub):
+            ReminderSettings.objects.create(user=u, deadlines_to_todos=True)
+        auto_reminders.run(now)
+        mine = Notification.objects.filter(user=self.sub).values_list("title", "description")
+        self.assertTrue(mine and all("Doctor" not in t and "Clinic" not in (d or "") for t, d in mine), list(mine))
+        self.assertIn("Doctor", Notification.objects.filter(user=self.owner).values_list("title", flat=True)[0])
+        self.assertEqual(list(Todo.objects.values_list("user__username", flat=True)), ["ivy"])
+
+    def test_rules_with_line_breaks_are_refused_and_a_bad_stored_rule_is_skipped(self):
+        from tasks import auto_reminders
+        self.client.force_login(self.owner)
+        body = {"calendar_id": self.cal.id, "name": "x", "start": at(5, 9).isoformat(),
+                "rrule": "FREQ=DAILY;BYDAY=MO\nRDATE:20261110T090000Z"}
+        self.assertEqual(self.client.post("/api/v2/calendar/events", body, content_type="application/json").status_code, 400)
+        Event.objects.create(calendar=self.cal, name="Fine", startdate=at(5, 9), enddate=at(5, 10))
+        bad = Event.objects.create(calendar=self.cal, name="Bad", startdate=at(5, 9), enddate=at(5, 10), rrule="FREQ=DAILY")
+        Event.objects.filter(id=bad.id).update(rrule="FREQ=DAILY;BYDAY=MO\nRDATE:20261110T090000Z")  # an old row
+        with self.assertLogs("scheduler.service", "ERROR"):
+            self.assertEqual([x["name"] for x in self.events()], ["Fine"])
+            auto_reminders.run()
+
+    def test_rules_that_never_match_are_refused_and_cheap_to_list(self):
+        import time
+        from . import recurrence as rec
+        with self.assertRaises(ValueError):
+            rec.normalize_rrule("FREQ=YEARLY;BYMONTH=2;BYMONTHDAY=30", TZ)
+        # a 7-day step from a Thursday never lands on a Monday: stored anyway (e.g. by an old client)
+        Event.objects.create(calendar=self.cal, name="Never", startdate=at(5, 9), enddate=at(5, 10),
+                             rrule="FREQ=DAILY;INTERVAL=7;BYDAY=MO")
+        t = time.monotonic()
+        self.assertEqual(self.client.get("/calendar/block/", {"user": "ivy"}).status_code, 200)
+        self.client.force_login(self.owner)
+        self.assertEqual(self.events(), [])
+        self.assertLess(time.monotonic() - t, 0.3)
+
+    def test_times_without_a_zone_are_local_not_a_500(self):
+        self.client.force_login(self.owner)
+        r = self.client.get("/api/v2/calendar/events", {"start": "2026-11-01T00:00:00", "end": "2026-11-30T00:00:00"})
+        self.assertEqual(r.status_code, 200)
+        body = {"calendar_id": self.cal.id, "name": "Naive", "start": "2026-11-05T09:00:00", "end": "2026-11-05T10:00:00"}
+        r = self.client.post("/api/v2/calendar/events", body, content_type="application/json")
+        self.assertEqual(r.status_code, 201, r.content)
+        self.assertEqual(Event.objects.get(name="Naive").startdate, at(5, 9))
+
+    def test_a_moved_occurrence_does_not_reappear_at_its_old_time_in_availability_or_search(self):
+        Subscriber.objects.filter(calendar=self.cal, user=self.owner).update(display_busy=2)
+        s = Event.objects.create(calendar=self.cal, name="Gym", startdate=at(2, 9), enddate=at(2, 10), rrule="FREQ=DAILY")
+        self.client.force_login(self.owner)
+        occ = f"{s.id}:{at(5, 9).astimezone(datetime.timezone.utc):%Y-%m-%dT%H:%M:%SZ}"
+        r = self.client.patch(f"/api/v2/calendar/events/{occ}?scope=this", {"name": "Swim", "transparency": "free"},
+                              content_type="application/json")
+        self.assertEqual(r.status_code, 200, r.content)
+        busy = self.client.get("/api/v2/calendar/availability/ivy?date=2026-11-05").json()["busy"]
+        self.assertEqual(busy, [])
+        day = {"start": at(5, 0).isoformat(), "end": at(6, 0).isoformat()}
+        found = lambda q: [x["name"] for x in self.client.get("/api/v2/calendar/events", {**day, "q": q}).json()]
+        self.assertEqual((found("Gym"), found("Swim")), ([], ["Swim"]))
+
+    def test_this_and_following_keeps_count_with_rdates(self):
+        s = Event.objects.create(calendar=self.cal, name="Class", startdate=at(2, 9), enddate=at(2, 10),
+                                 rrule="FREQ=DAILY;COUNT=5", rdates=["2026-11-01T14:00:00Z"])
+        self.client.force_login(self.owner)
+        r = self.client.patch(f"/api/v2/calendar/events/{s.id}:2026-11-04T14:00:00Z?scope=following", {"name": "Class 2"},
+                              content_type="application/json")
+        self.assertEqual(r.status_code, 200, r.content)
+        self.assertEqual(Event.objects.get(name="Class 2").rrule, "FREQ=DAILY;COUNT=3")  # Nov 4, 5, 6
+
+    def test_only_the_owner_can_reactivate_an_admin_invite_in_the_legacy_api(self):
+        from .models import Invite
+        admin = ComptechUser.objects.create_user("kim", password="pw")
+        Subscriber.objects.create(calendar=self.cal, user=admin, subscribe_type=1)
+        inv = Invite.objects.create(calendar=self.cal, code="ADM00001", role=1, active=False)
+        self.client.force_login(admin)
+        self.assertEqual(self.client.post(f"/calendar/api/invite/?option=active&invite={inv.id}").status_code, 401)
+        inv.refresh_from_db()
+        self.assertFalse(inv.active)

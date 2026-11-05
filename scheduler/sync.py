@@ -15,8 +15,11 @@ from Comptech.api import *
 
 from dateutil import parser
 import bleach
+import contextlib
 import copy
 import datetime
+import functools
+import ipaddress
 import icalendar
 import requests
 import pytz
@@ -27,7 +30,9 @@ from scheduler import recurrence as rec
 
 # Timeout (seconds) for all outbound sync requests
 SYNC_TIMEOUT = 30
-PREVIEW_MAX_BYTES = 20 * 1024 * 1024  # a preview reads at most this much of a feed
+FEED_MAX_BYTES = 20 * 1024 * 1024  # a sync or preview reads at most this much of a feed
+PREVIEW_MAX_BYTES = FEED_MAX_BYTES
+SYNC_LOCK_SECONDS = 15 * 60  # longer than any sync; a crashed run's lock expires by itself
 
 
 def source_url(url):
@@ -45,10 +50,39 @@ class BlockedSource(requests.RequestException):
     """A feed link that points at this server itself or a link-local address."""
 
 
+@functools.lru_cache(maxsize=1)
+def _own_addresses():
+    """This machine's own addresses (its LAN address too, where Django and friends may also listen):
+    what its hostname resolves to, plus the source address the kernel would pick for an outside
+    route (a UDP connect() sends nothing)."""
+    import socket
+    found = set()
+    for name in {socket.gethostname(), socket.getfqdn()}:
+        try:
+            found |= {info[4][0].split("%")[0] for info in socket.getaddrinfo(name, None)}
+        except OSError:
+            pass
+    for family, probe in ((socket.AF_INET, "192.0.2.1"), (socket.AF_INET6, "2001:db8::1")):
+        try:
+            with socket.socket(family, socket.SOCK_DGRAM) as sock:
+                sock.connect((probe, 9))
+                found.add(sock.getsockname()[0].split("%")[0])
+        except OSError:
+            pass
+    return frozenset(ipaddress.ip_address(a) for a in found)
+
+
+def _blocked_ip(address):
+    ip = ipaddress.ip_address(str(address).split("%")[0])
+    if getattr(ip, "ipv4_mapped", None):
+        ip = ip.ipv4_mapped
+    return (ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip.is_reserved
+            or ip in _own_addresses())
+
+
 def _check_host(url):
     """Feeds may live on the LAN (Nextcloud and the like), but never on this machine (Django,
-    Redis, Postgres listen on localhost) or a link-local/metadata address."""
-    import ipaddress
+    Redis, Postgres listen on localhost and maybe on its LAN address) or a link-local/metadata address."""
     import socket
     from urllib.parse import urlsplit
     parts = urlsplit(url)
@@ -59,23 +93,85 @@ def _check_host(url):
     except socket.gaierror as ex:
         raise requests.ConnectionError(f"Unknown host {parts.hostname}") from ex
     for info in infos:
-        ip = ipaddress.ip_address(info[4][0].split("%")[0])
-        if ip.is_loopback or ip.is_link_local or ip.is_unspecified or ip.is_multicast or ip.is_reserved:
+        if _blocked_ip(info[4][0]):
             raise BlockedSource("That link points at this server or a reserved address")
 
 
+def _check_peer(r):
+    """Re-check the address the response actually came from. The name is resolved again when
+    connecting, so a DNS answer that changes between _check_host and the request (DNS rebinding)
+    could reach this machine; the request has gone out by then, but its answer is never read.
+    (Through an HTTP proxy, the proxy is the peer.) Mocked responses (tests) have no socket."""
+    import urllib3
+    if not isinstance(getattr(r, "raw", None), urllib3.response.HTTPResponse):
+        return
+    sock = getattr(getattr(r.raw, "_connection", None), "sock", None)
+    if sock is None:  # a "Connection: close" answer: http.client let go of the connection, its reader still has the socket
+        try:
+            sock = r.raw._fp.fp.raw._sock
+        except AttributeError:
+            sock = None
+    if sock is None:
+        if r.raw.length_remaining:  # a body we can't vouch for
+            r.close()
+            raise BlockedSource("Couldn't verify where the feed came from")
+        return
+    if _blocked_ip(sock.getpeername()[0]):
+        r.close()
+        raise BlockedSource("That link points at this server or a reserved address")
+
+
 def fetch_feed(url, **kwargs):
-    """GET a user-supplied feed link: webcal → https, host checked on every redirect (at most 5)."""
+    """GET a user-supplied feed link: webcal → https, host checked on every redirect (at most 5) and
+    the connected address checked again before anything is read. Streams: read the body with read_body."""
     url = source_url(url)
+    kwargs["stream"] = True
     for _ in range(6):
         _check_host(url)
         r = requests.get(url, allow_redirects=False, **kwargs)
+        _check_peer(r)
         if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("Location"):
             from urllib.parse import urljoin
             url = urljoin(url, r.headers["Location"])
+            r.close()
             continue
         return r
     raise requests.TooManyRedirects("Too many redirects")
+
+
+class FeedTooLarge(requests.RequestException):
+    pass
+
+
+def read_body(r, limit=None):
+    """The (decompressed) body of a streamed response, at most ``limit`` (FEED_MAX_BYTES) bytes."""
+    limit = limit or FEED_MAX_BYTES
+    try:
+        body = r.raw.read(limit + 1, decode_content=True)
+    finally:
+        r.close()
+    if len(body) > limit:
+        raise FeedTooLarge(f"The feed is larger than {limit // (1024 * 1024)} MB")
+    return body
+
+
+@contextlib.contextmanager
+def cache_lock(key, seconds=SYNC_LOCK_SECONDS):
+    """Yields False when another run holds ``key``. Fails open (yields True) when the cache is down:
+    an overlapping sync is wasteful, not harmful."""
+    from django.core.cache import cache
+    try:
+        got = cache.add(key, 1, seconds)
+    except Exception:
+        got, key = True, None
+    try:
+        yield got
+    finally:
+        if got and key:
+            try:
+                cache.delete(key)
+            except Exception:
+                pass
 
 
 def _google_events_url(calendar_id):
@@ -115,6 +211,38 @@ class Item(dict):
     __getattr__ = dict.get
 
 
+# Windows zone names (Outlook/Exchange feeds) → IANA, from CLDR's windowsZones (territory "001").
+# icalendar ≥ 6 maps these itself; this keeps older versions and odd TZIDs from losing the zone.
+WINDOWS_ZONES = {
+    "Dateline Standard Time": "Etc/GMT+12", "Hawaiian Standard Time": "Pacific/Honolulu",
+    "Alaskan Standard Time": "America/Anchorage", "Pacific Standard Time": "America/Los_Angeles",
+    "US Mountain Standard Time": "America/Phoenix", "Mountain Standard Time": "America/Denver",
+    "Central America Standard Time": "America/Guatemala", "Central Standard Time": "America/Chicago",
+    "Canada Central Standard Time": "America/Regina", "Mexico Standard Time": "America/Mexico_City",
+    "Central Standard Time (Mexico)": "America/Mexico_City", "SA Pacific Standard Time": "America/Bogota",
+    "Eastern Standard Time": "America/New_York", "US Eastern Standard Time": "America/Indianapolis",
+    "Atlantic Standard Time": "America/Halifax", "Newfoundland Standard Time": "America/St_Johns",
+    "E. South America Standard Time": "America/Sao_Paulo", "Argentina Standard Time": "America/Buenos_Aires",
+    "SA Eastern Standard Time": "America/Cayenne", "Greenland Standard Time": "America/Godthab",
+    "UTC": "Etc/UTC", "Coordinated Universal Time": "Etc/UTC", "GMT Standard Time": "Europe/London",
+    "Greenwich Standard Time": "Atlantic/Reykjavik", "W. Europe Standard Time": "Europe/Berlin",
+    "Central Europe Standard Time": "Europe/Budapest", "Romance Standard Time": "Europe/Paris",
+    "Central European Standard Time": "Europe/Warsaw", "W. Central Africa Standard Time": "Africa/Lagos",
+    "GTB Standard Time": "Europe/Bucharest", "E. Europe Standard Time": "Europe/Chisinau",
+    "FLE Standard Time": "Europe/Kiev", "Israel Standard Time": "Asia/Jerusalem", "Egypt Standard Time": "Africa/Cairo",
+    "South Africa Standard Time": "Africa/Johannesburg", "Turkey Standard Time": "Europe/Istanbul",
+    "Russian Standard Time": "Europe/Moscow", "Arab Standard Time": "Asia/Riyadh", "E. Africa Standard Time": "Africa/Nairobi",
+    "Iran Standard Time": "Asia/Tehran", "Arabian Standard Time": "Asia/Dubai", "Pakistan Standard Time": "Asia/Karachi",
+    "India Standard Time": "Asia/Calcutta", "Sri Lanka Standard Time": "Asia/Colombo", "Nepal Standard Time": "Asia/Katmandu",
+    "Bangladesh Standard Time": "Asia/Dhaka", "SE Asia Standard Time": "Asia/Bangkok", "China Standard Time": "Asia/Shanghai",
+    "Singapore Standard Time": "Asia/Singapore", "Taipei Standard Time": "Asia/Taipei", "W. Australia Standard Time": "Australia/Perth",
+    "Tokyo Standard Time": "Asia/Tokyo", "Korea Standard Time": "Asia/Seoul", "Cen. Australia Standard Time": "Australia/Adelaide",
+    "AUS Central Standard Time": "Australia/Darwin", "E. Australia Standard Time": "Australia/Brisbane",
+    "AUS Eastern Standard Time": "Australia/Sydney", "Tasmania Standard Time": "Australia/Hobart",
+    "West Pacific Standard Time": "Pacific/Port_Moresby", "New Zealand Standard Time": "Pacific/Auckland",
+}
+
+
 def _zone_name(value):
     """IANA name of a datetime's zone ("" for floating/unknown, "UTC" for Z times)."""
     tzinfo = getattr(value, "tzinfo", None)
@@ -123,7 +251,9 @@ def _zone_name(value):
     name = getattr(tzinfo, "key", None) or getattr(tzinfo, "zone", None) or str(tzinfo)
     if name in ("UTC", "Z", "utc") or tzinfo is datetime.timezone.utc:
         return "UTC"
-    return name if rec.valid_zone(name) else ""
+    if not rec.valid_zone(name):
+        name = WINDOWS_ZONES.get(name.strip().strip('"'), "")
+    return name if name and rec.valid_zone(name) else ""
 
 
 def _moment(value, tz):
@@ -362,9 +492,10 @@ def sync_ical(calendar, start, end, url=None, conditional=False):
     try:
         r = fetch_feed(url, timeout=SYNC_TIMEOUT, headers=headers)
         if r.status_code == 304:
+            r.close()
             return "not_modified"
         r.raise_for_status()
-        items = parse_ics(r.content, calendar.tz)
+        items = parse_ics(read_body(r), calendar.tz)
     except Exception as ex:
         print(f"iCal fetch/parse failed for {calendar.name}: {type(ex).__name__} {ex.args}")
         return False
@@ -518,21 +649,20 @@ def preview_source(calendar_type, url, tz):
     readable message when the source can't be read."""
     now = timezone.now()
     if calendar_type == 1:
+        # One message for every failure (blocked, unreachable, an HTTP error, too large, not ICS):
+        # telling them apart would map what answers where on the LAN.
+        generic = "Couldn't read an iCalendar (.ics) feed from that link."
         try:
-            r = fetch_feed(url, timeout=SYNC_TIMEOUT, stream=True)
+            r = fetch_feed(url, timeout=SYNC_TIMEOUT)
             r.raise_for_status()
-            body = r.raw.read(PREVIEW_MAX_BYTES + 1, decode_content=True)
-        except BlockedSource as ex:
-            raise ValueError(str(ex) + ".")
+            body = read_body(r, PREVIEW_MAX_BYTES)
         except requests.RequestException:
-            raise ValueError("Couldn't download the feed.")  # no detail: not a port scanner
-        if len(body) > PREVIEW_MAX_BYTES:
-            raise ValueError("The feed is too large to preview.")
+            raise ValueError(generic)
         try:
             name = str(icalendar.Calendar.from_ical(body).get("X-WR-CALNAME") or "")
             items = parse_ics(body, tz)
         except Exception:
-            raise ValueError("That link isn't an iCalendar (.ics) feed.")
+            raise ValueError(generic)
         def when(it):
             return rec.local_midnight(it["start_day"], tz) if it.get("all_day") else it.get("start")
         masters = [it for it in items if it.get("recurrence_id") is None and it.get("status") != "cancelled"]
@@ -572,6 +702,13 @@ def sync_calendar(cal, start=None, end=None, token=None, conditional=True):
     """Sync one calendar (its window by default) and record the outcome on it.
     Returns True, False or "not_modified". Conditional GET (ETag / If-Modified-Since) is
     used for ICS feeds, but only when the window hasn't moved since the last sync."""
+    with cache_lock(f"calendar:sync:{cal.pk}") as free:
+        if not free:
+            return "busy"  # another sync of this calendar is running
+        return _sync_calendar(cal, start, end, token, conditional)
+
+
+def _sync_calendar(cal, start, end, token, conditional):
     if start is None or end is None:
         start, end = window_strings(cal)
     now = timezone.now()

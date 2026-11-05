@@ -20,7 +20,9 @@ WINDOW = ("2026-10-01T00:00:00-04:00", "2027-06-01T00:00:00-04:00")
 
 
 def response(body, status=200, headers=None):
-    r = mock.Mock(status_code=status, headers=headers or {}, content=body if isinstance(body, bytes) else body.encode())
+    data = body if isinstance(body, bytes) else body.encode()
+    r = mock.Mock(status_code=status, headers=headers or {}, content=data)
+    r.raw.read = lambda n, decode_content=True: data[:n]  # feeds are streamed and read capped
     r.json.return_value = json.loads(body) if isinstance(body, str) and body.startswith("{") else None
     r.raise_for_status.return_value = None
     return r
@@ -146,3 +148,32 @@ class SyncTests(TestCase):
             self.assertTrue(sync_ical(self.cal, *WINDOW))
         self.assertEqual(sorted(Event.objects.filter(calendar=self.cal).values_list("sync_id", "name")),
                          [("dup@x", "Second"), ("other@x", "Other")])
+
+
+class FeedSafetyTests(TestCase):
+    def setUp(self):
+        user = ComptechUser.objects.create_user("saf", password="pw")
+        self.cal = Calendar.objects.create(name="Feed", owner=user, calendar_type=1, calendar_url="https://x/f.ics")
+
+    def test_this_hosts_lan_address_is_blocked_and_big_feeds_are_cut_off(self):
+        import ipaddress
+        from . import sync
+        with mock.patch("scheduler.sync._own_addresses", return_value=frozenset({ipaddress.ip_address("192.168.1.5")})):
+            with self.assertRaises(sync.BlockedSource):
+                sync._check_host("http://192.168.1.5:8000/")
+            sync._check_host("http://192.168.1.20/cal.ics")  # the rest of the LAN is fine
+        feed = (DATA / "feed.ics").read_bytes()
+        with mock.patch("scheduler.sync._check_host"), mock.patch("scheduler.sync.FEED_MAX_BYTES", len(feed) - 1), \
+                mock.patch("scheduler.sync.requests.get", return_value=response(feed)):
+            self.assertFalse(sync_ical(self.cal, *WINDOW))
+        self.assertFalse(Event.objects.exists())
+
+    def test_a_running_sync_blocks_a_second_one(self):
+        from .sync import cache_lock, sync_calendar
+        with cache_lock(f"calendar:sync:{self.cal.pk}"):
+            self.assertEqual(sync_calendar(self.cal), "busy")
+
+    def test_windows_zone_names_map_to_iana(self):
+        from .sync import _zone_name
+        tz = mock.Mock(key=None, zone="AUS Eastern Standard Time")
+        self.assertEqual(_zone_name(mock.Mock(tzinfo=tz)), "Australia/Sydney")

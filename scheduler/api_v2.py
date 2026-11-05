@@ -330,6 +330,8 @@ def sync_now(request, calendar_id: int):
         at = lambda d: datetime.datetime(d.year, d.month, d.day, tzinfo=c.tz).isoformat()
         start, end = at(payload.start), at(payload.end)
     status = sync_calendar(c, start, end, token=(payload.token or None) if payload else None, conditional=False)
+    if status == "busy":
+        raise HttpError(409, "This calendar is already syncing")
     c.refresh_from_db(fields=["last_synced_at", "last_sync_error"])
     return {"ok": bool(status), "not_modified": status == "not_modified", "last_synced_at": c.last_synced_at,
             "last_sync_error": c.last_sync_error}
@@ -472,7 +474,7 @@ def create_invite(request, calendar_id: int, payload: InviteIn):
         raise HttpError(409, "That invite code is already in use")
     while not code or Invite.objects.filter(code=code).exists():
         code = "".join(secrets.choice(string.ascii_letters + string.digits) for _ in range(8))
-    expires = payload.expires_on
+    expires = _aware(payload.expires_on, me.calendar.tz)
     if payload.expires_in_days:
         from django.utils import timezone
         expires = timezone.now() + datetime.timedelta(days=payload.expires_in_days)
@@ -487,6 +489,8 @@ def update_invite(request, calendar_id: int, invite_id: int, payload: InvitePatc
     i = get_object_or_404(Invite, id=invite_id, calendar_id=calendar_id)
     data = {k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None or k in ("expires_on", "max_uses")}
     days = data.pop("expires_in_days", None)
+    if data.get("expires_on") is not None:
+        data["expires_on"] = _aware(data["expires_on"], me.calendar.tz)
     if days:
         from django.utils import timezone
         data["expires_on"] = timezone.now() + datetime.timedelta(days=days)
@@ -756,7 +760,22 @@ def _event_out(e, sub_colour=None, masked=False, detail=False, user=None):
 
 def _out_for(user, e, detail=False):
     sub = Subscriber.objects.filter(user=user, calendar_id=e.calendar_id).select_related("calendar").first()
-    return _event_out(e, sub.colour if sub else None, svc.masked_for(e, user, sub.role if sub else None), detail, user)
+    role = sub.role if sub else e.calendar.role_of(user)
+    return _event_out(e, sub.colour if sub else None, svc.masked_for(e, user, role), detail, user)
+
+
+def _aware(value, tz):
+    """A datetime sent without a zone is local time in ``tz`` (comparing it with stored times would 500)."""
+    if isinstance(value, datetime.datetime) and value.tzinfo is None:
+        return value.replace(tzinfo=tz)
+    return value
+
+
+def _aware_times(data, tz):
+    for k in ("start", "end"):
+        if data.get(k) is not None:
+            data[k] = _aware(data[k], tz)
+    return data
 
 
 def _resolve(user, event_id, editor=False):
@@ -893,6 +912,8 @@ def _save(e):
 def list_events(request, start: datetime.datetime, end: datetime.datetime,
                 calendar: Optional[int] = None, include_hidden: bool = False, q: str = "", tag: str = "",
                 include_cancelled: bool = False, include_inactive: bool = False):
+    tz = rec.zone(request.user.timezone if rec.valid_zone(request.user.timezone) else "")
+    start, end = _aware(start, tz), _aware(end, tz)
     if end <= start or end - start > datetime.timedelta(days=400):
         raise HttpError(400, "Pick a range of up to 400 days")
     # Inactive (disabled) calendars stay out of the normal view, but asking for one by id, or with
@@ -906,8 +927,10 @@ def list_events(request, start: datetime.datetime, end: datetime.datetime,
     events = svc.events_in_range(list(subs), start, end, include_cancelled=include_cancelled, extra=extra)
     if tag:
         events = [e for e in events if svc.in_tags(e, tag)]
-    return [_event_out(e, subs[e.calendar_id].colour, svc.masked_for(e, request.user, subs[e.calendar_id].role))
-            for e in events]
+    out = ((e, svc.masked_for(e, request.user, subs[e.calendar_id].role)) for e in events)
+    # q and tag only match what the caller can see: a masked event ("Busy", no tags) never matches,
+    # or a search could spell out a private title letter by letter.
+    return [_event_out(e, subs[e.calendar_id].colour, masked) for e, masked in out if not (masked and (q or tag))]
 
 
 @router.post("/events", response={201: EventDetailOut})
@@ -918,6 +941,7 @@ def create_event(request, payload: EventIn):
         raise HttpError(400, "start (or start_date for an all-day event) is required")
     if data["kind"] is None and data["start_date"] and data["start"] is None:
         data["kind"] = "all_day"
+    _aware_times(data, sub.calendar.tz)
     e = Event(calendar=sub.calendar, created_by=request.user)
     if data["transparency"] is None:
         data.pop("transparency")  # model default: busy, deadlines free
@@ -968,7 +992,7 @@ _NON_TIME = ("name", "description", "location", "category_id", "category", "plac
               summary="Edit; for repeating events scope = this (one occurrence), following or all")
 def update_event(request, event_id: str, payload: EventPatch, scope: Optional[Scope] = None):
     e, original, sub = _resolve(request.user, event_id, editor=True)
-    data = payload.dict(exclude_unset=True)
+    data = _aware_times(payload.dict(exclude_unset=True), e.calendar.tz)
     reminders = data.pop("reminders", None)
     if "calendar_id" in data and data["calendar_id"] != e.calendar_id and (original is not None or e.rrule):
         if original is not None and (scope or "this") == "this":

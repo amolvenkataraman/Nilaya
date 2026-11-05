@@ -245,7 +245,8 @@ class LegacyDataMigrationTests(TransactionTestCase):
         self.assertIn("RRULE:FREQ=DAILY;INTERVAL=7", body.replace("\r\n ", ""))
         self.assertIn("SUMMARY:Tea &amp\\; cake <b>bold</b>", body.replace("\r\n ", ""))
         # photos: views still answer
-        from photos.models import PhotoDaily, PhotoLocationCache
+        from photos.models import PhotoDaily, PhotoLocationCache, refresh_photo_matviews
+        refresh_photo_matviews()  # materialized on Postgres (a no-op on SQLite)
         self.assertEqual(sum(d.photos for d in PhotoDaily.objects.all()), 1)  # the dated one
         self.assertEqual(PhotoLocationCache.objects.count(), 1)
 
