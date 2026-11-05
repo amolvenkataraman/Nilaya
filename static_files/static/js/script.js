@@ -23,14 +23,6 @@ function csrfToken() {
     return decodeURIComponent((document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/) || [])[1] || "");
 }
 
-function toggle_dark_mode() {
-    r = new XMLHttpRequest();
-    // Static file: Django template tags are not rendered here, so use the literal route.
-    r.open("POST", "/accounts/darkmode/");
-    r.setRequestHeader("X-CSRFToken", csrfToken());
-    r.onload = () => {window.location.reload();}
-    r.send();
-}
  
 function updateSidebars(left_sb, right_sb) {
     sl = document.querySelector(".sidebar-left");

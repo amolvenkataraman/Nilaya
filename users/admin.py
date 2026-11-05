@@ -10,7 +10,7 @@ class CTUAdmin(UserAdmin):
     
     fieldsets = UserAdmin.fieldsets + (
         ("Other", {
-            'fields': ('birthday', 'timezone', 'profile_picture', 'dark_mode', 'description', 'friends', 'user_groups', 'newuser',),
+            'fields': ('birthday', 'timezone', 'profile_picture', 'description', 'friends', 'user_groups', 'newuser',),
         }),
     )
 

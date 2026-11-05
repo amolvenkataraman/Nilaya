@@ -156,15 +156,3 @@ def get_user_info(request):
     else:
         return JsonResponse({"error": "Not logged in"})
 
-@login_required
-def toggle_dark_mode(request):
-    if request.method != 'POST':
-        return error_response("Method not allowed", 405)
-    user_ = request.user
-    if user_.dark_mode == True:
-        user_.dark_mode = False
-    else:
-        user_.dark_mode = True
-    user_.save()
-
-    return HttpResponse("DONE")
