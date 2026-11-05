@@ -157,5 +157,53 @@
         return li;
     }));
 
+    // Calendar feeds
+    const FEEDS = "/api/v2/feeds/";
+    async function loadFeeds() {
+        const box = $("ak-feeds");
+        try {
+            const feeds = await call("GET", FEEDS);
+            box.replaceChildren(...(feeds.length ? feeds.map((f) => {
+                const r = el("div", "ak-row");
+                const info = el("div");
+                info.append(el("div", "ak-name", f.kind === "tasks" ? "Tasks with due dates" : "Calendar events"));
+                const meta = el("div", "ak-meta");
+                meta.append(el("span", "", `Created ${day(f.created_on)}`),
+                    el("span", "", f.last_fetched_on ? `Last fetched ${ago(f.last_fetched_on)} · ${f.fetches} times` : "Never fetched"));
+                info.append(meta);
+                const revoke = el("button", "btn btn-sm btn-outline-secondary", "Revoke");
+                revoke.type = "button";
+                revoke.addEventListener("click", async () => {
+                    if (revoke.dataset.confirm !== "1") {
+                        revoke.dataset.confirm = "1"; revoke.textContent = "Click again to revoke";
+                        setTimeout(() => { revoke.dataset.confirm = ""; revoke.textContent = "Revoke"; }, 4000);
+                        return;
+                    }
+                    try { await call("DELETE", `${FEEDS}${f.id}`); loadFeeds(); } catch (e) { revoke.textContent = e.message; }
+                });
+                r.append(info, revoke);
+                return r;
+            }) : [el("div", "ak-empty", "No feeds yet.")]));
+        } catch (e) {
+            box.replaceChildren(el("div", "ak-empty", `Couldn't load feeds: ${e.message}`));
+        }
+    }
+    $("ak-feed-add").addEventListener("click", async () => {
+        const kind = $("ak-feed-kind").value;
+        try {
+            const res = await call("POST", FEEDS, { kind, name: kind === "tasks" ? "Tasks" : "Calendar" });
+            $("ak-feed-url").textContent = res.url;
+            $("ak-feed-created").hidden = false;
+            loadFeeds();
+        } catch (e) { alert(e.message); }
+    });
+    $("ak-feed-copy").addEventListener("click", async () => {
+        const btn = $("ak-feed-copy");
+        try { await navigator.clipboard.writeText($("ak-feed-url").textContent); btn.textContent = "Copied"; }
+        catch (e) { window.getSelection().selectAllChildren($("ak-feed-url")); btn.textContent = "Press Ctrl+C"; }
+        setTimeout(() => { btn.textContent = "Copy"; }, 2000);
+    });
+
     load();
+    loadFeeds();
 })();

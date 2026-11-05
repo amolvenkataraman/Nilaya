@@ -32,3 +32,7 @@
 .ak-token-row { display: flex; gap: 8px; align-items: stretch; }
 .ak-token { flex: 1; min-width: 0; padding: 8px 10px; border: 1px solid var(--app-border); border-radius: var(--app-radius-sm); background: var(--app-surface-2); overflow-wrap: anywhere; font-size: 0.8rem; user-select: all; }
 .ak-hint { font-size: 0.8rem; margin: 0; }
+.ak-card-head-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ak-feed-new { display: flex; gap: 6px; }
+.ak-feed-new .form-select { width: auto; }
+.ak-feed-created { display: flex; gap: 8px; padding: 12px 16px 0; align-items: stretch; }

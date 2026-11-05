@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% load static %}
-{% block page_title %}API keys{% endblock %}
+{% block page_title %}API keys and feeds{% endblock %}
 {% block page_styles %}<link rel="stylesheet" href="{% static 'apikeys/apikeys.css' %}">{% endblock %}
 {% block page_script %}<script src="{% static 'apikeys/apikeys.js' %}" defer></script>{% endblock %}
 {% block page_body %}
@@ -19,6 +19,25 @@
         <div id="ak-list" class="ak-list" aria-live="polite">
             <div class="ak-skel"></div><div class="ak-skel"></div>
         </div>
+    </section>
+
+    <section class="app-card ak-card" aria-labelledby="ak-feeds-h">
+        <div class="ak-card-head ak-card-head-row">
+            <h2 id="ak-feeds-h">Calendar feeds</h2>
+            <div class="ak-feed-new">
+                <select class="form-select form-select-sm" id="ak-feed-kind" aria-label="Feed type">
+                    <option value="calendar">Calendar events</option>
+                    <option value="tasks">Tasks with due dates</option>
+                </select>
+                <button class="btn btn-sm btn-outline-secondary" id="ak-feed-add" type="button">Create feed</button>
+            </div>
+        </div>
+        <p class="app-muted ak-pad">Subscribe to these private addresses from your phone's calendar app (iOS: Settings → Calendar → Accounts → Add subscribed calendar; Google Calendar: Add by URL). Anyone with the address can read the feed, so revoke it if it leaks.</p>
+        <div class="ak-feed-created" id="ak-feed-created" hidden>
+            <code id="ak-feed-url" class="ak-token"></code>
+            <button type="button" class="btn btn-sm btn-outline-secondary" id="ak-feed-copy">Copy</button>
+        </div>
+        <div id="ak-feeds" class="ak-list"></div>
     </section>
 
     <section class="app-card ak-card" aria-labelledby="ak-guides-h">
