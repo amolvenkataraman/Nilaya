@@ -70,7 +70,8 @@
     }
     function fmtClock(hhmm) { return hhmm ? moment(hhmm, 'HH:mm').format('h:mm A') : '–'; }
 
-    function isVisible(panel) { return panel && !panel.hidden; }
+    // Rendered on screen (its widget is shown, expanded, and in tabs mode the active tab).
+    function isVisible(panel) { return !!panel && panel.getClientRects().length > 0; }
 
     function skeleton(lines) {
         const box = h('div', { class: 'sb-skeleton', 'aria-hidden': 'true' });
@@ -342,7 +343,7 @@
             ['Meetings', fmtHours(t.meeting_hours), delta(t.meeting_hours, p.meeting_hours, fmtHours)],
             ['Focus time', fmtHours(t.focus_hours), delta(t.focus_hours, p.focus_hours, fmtHours)],
             ['Tasks completed', n(d.todos.completed), delta(d.todos.completed, d.todos.completed_previous, n, 'tasks')],
-            ['Photos taken', n(d.photos), delta(d.photos, null, n)],
+            ['Photos taken', n(d.photos), delta(d.photos, p.photos, n, 'photos')],
         ];
         return h('dl', { class: 'ins-kpis' }, rows.map(([label, value, dl]) => h('div', { class: 'ins-kpi' }, [
             h('dt', { text: label }), h('dd', {}, [h('span', { class: 'ins-kpi-val', text: value }), dl]),

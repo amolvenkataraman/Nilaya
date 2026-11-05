@@ -11,8 +11,11 @@
 <script src="{% static 'js/jquery/jquery.min.js' %}" type="text/javascript"></script>
 <script src="{% static 'js/moment/moment.min.js' %}" type="text/javascript"></script>
 <script src="{% static 'js/handlebars/handlebars.js' %}" type="text/javascript"></script>
+<script src="{% static 'scheduler/pickers.js' %}" type="text/javascript" defer></script>
 <script src="{% static 'scheduler/script.js' %}" type="text/javascript" defer></script>
 <script src="{% static 'scheduler/sidebar.js' %}" type="text/javascript" defer></script>
+<script src="{% static 'scheduler/chrome.js' %}" type="text/javascript" defer></script>
+<script src="{% static 'scheduler/widgets.js' %}" type="text/javascript" defer></script>
 {% endblock %}
 
 
@@ -35,33 +38,45 @@
     data-url-sync-events="{% url 'sync_events' %}"
     data-url-delete-event="{% url 'delete_event' %}"
     data-url-unsubscribe="{% url 'unsubscribe' %}">
-    <div class="cal-toolbar noprint">
-        <div class="btn-group cal-nav-btns" role="group" aria-label="Navigate">
-            <button type="button" class="btn btn-sm" id="previous" data-action="prev" title="Previous (P)" aria-label="Previous">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
-            </button>
-            <button type="button" class="btn btn-sm" id="cal-today-btn" data-action="today" title="Today (T)">Today</button>
-            <button type="button" class="btn btn-sm" id="next" data-action="next" title="Next (N)" aria-label="Next">
-                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
-            </button>
+    <header class="cal-head noprint">
+        <div class="cal-nav">
+            <button type="button" class="cal-btn" id="cal-today-btn" data-action="today" title="Today (T)">Today</button>
+            <div class="cal-btn-group" role="group" aria-label="Navigate">
+                <button type="button" class="cal-btn cal-btn-icon" id="previous" data-action="prev" title="Previous (K)" aria-label="Previous">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="M10 3 5 8l5 5"/></svg>
+                </button>
+                <button type="button" class="cal-btn cal-btn-icon" id="next" data-action="next" title="Next (J)" aria-label="Next">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="m6 3 5 5-5 5"/></svg>
+                </button>
+            </div>
         </div>
-        <h1 class="cal-title" id="monthAndYear"></h1>
+        <h1 class="cal-title" id="monthAndYear" aria-live="polite"></h1>
         <div class="loading-screen" role="status">
             <div class="spinner-border" aria-hidden="true"></div>
             <span class="visually-hidden">Loading...</span>
         </div>
-        <div class="cal-toolbar-spacer"></div>
-        <select class="form-select form-select-sm cal-view-select" id="calViewSelect" aria-label="View">
-            <option value="month">Month</option>
-            <option value="week">Week</option>
-            <option value="day">Day</option>
-        </select>
-        <button type="button" class="btn btn-primary btn-sm cal-new-btn" data-bs-toggle="modal" data-bs-target="#big-modal"
-            data-action="new-event" title="New event (A)">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2z"/></svg>
+        <div class="cal-grow"></div>
+        <div class="cal-search" role="search">
+            <label class="visually-hidden" for="cal-q">Search events</label>
+            <svg class="cal-search-ico" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" viewBox="0 0 16 16" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3"/></svg>
+            <input type="search" id="cal-q" placeholder="Search events" autocomplete="off" spellcheck="false" maxlength="100"
+                role="combobox" aria-expanded="false" aria-controls="cal-q-results" aria-autocomplete="list">
+            <kbd>/</kbd>
+            <div class="cal-pop cal-search-results" id="cal-q-results" role="listbox" aria-label="Matching events" hidden></div>
+        </div>
+        <div class="cal-seg cal-views" role="tablist" aria-label="View">
+            <button type="button" class="cal-seg-btn" role="tab" data-view="day" aria-selected="false" title="Day (D)">Day</button>
+            <button type="button" class="cal-seg-btn" role="tab" data-view="week" aria-selected="false" title="Week (W)">Week</button>
+            <button type="button" class="cal-seg-btn" role="tab" data-view="month" aria-selected="false" title="Month (M)">Month</button>
+        </div>
+        <button type="button" class="cal-icon-btn cal-help-btn" data-action="help" title="Keyboard shortcuts (?)" aria-label="Keyboard shortcuts">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 4h13v8h-13zM4 6.5h.01M6.5 6.5h.01M9 6.5h.01M11.5 6.5h.01M5 9.5h6"/></svg>
+        </button>
+        <button type="button" class="btn btn-primary btn-sm cal-new-btn" data-action="new-event" title="New event (C)">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
             <span class="cal-new-label">New event</span>
         </button>
-    </div>
+    </header>
 
     <div class="main-container">
         <div class="c-container wrapper">
@@ -109,6 +124,58 @@
     </div>
 </div>
 
+<aside class="cal-drawer noprint" id="cal-drawer" aria-label="Event" aria-labelledby="cal-drawer-title" hidden>
+    <div class="cal-drawer-head">
+        <h2 class="cal-drawer-title" id="cal-drawer-title"></h2>
+        <button type="button" class="cal-icon-btn" data-drawer-close title="Close (Esc)" aria-label="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"/></svg>
+        </button>
+    </div>
+    <div class="cal-drawer-body"></div>
+</aside>
+
+<dialog class="cal-dlg" id="cal-help" aria-labelledby="cal-help-title">
+    <div class="cal-dlg-head">
+        <h2 id="cal-help-title">Keyboard shortcuts</h2>
+        <button type="button" class="cal-icon-btn" data-dialog-close title="Close" aria-label="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"/></svg>
+        </button>
+    </div>
+    <div class="cal-dlg-body cal-help">
+        <section>
+            <h3>Navigate</h3>
+            <dl>
+                <dt><kbd>T</kbd></dt><dd>Today</dd>
+                <dt><kbd>J</kbd> <kbd>N</kbd></dt><dd>Next period</dd>
+                <dt><kbd>K</kbd> <kbd>P</kbd></dt><dd>Previous period</dd>
+                <dt><kbd>D</kbd> <kbd>W</kbd> <kbd>M</kbd></dt><dd>Day, week, month</dd>
+                <dt><kbd>Ctrl</kbd> <kbd>&larr;</kbd> <kbd>&rarr;</kbd></dt><dd>Previous / next</dd>
+                <dt><kbd>Ctrl</kbd> <kbd>Shift</kbd> <kbd>&larr;</kbd> <kbd>&rarr;</kbd></dt><dd>Previous / next year</dd>
+            </dl>
+        </section>
+        <section>
+            <h3>Create</h3>
+            <dl>
+                <dt><kbd>C</kbd></dt><dd>New event (next 15 minutes)</dd>
+                <dt><kbd>A</kbd></dt><dd>New all-day event</dd>
+                <dt><kbd>Q</kbd></dt><dd>Quick add a task</dd>
+                <dt><kbd>S</kbd></dt><dd>Create or subscribe to a calendar</dd>
+            </dl>
+        </section>
+        <section>
+            <h3>General</h3>
+            <dl>
+                <dt><kbd>/</kbd></dt><dd>Search events</dd>
+                <dt><kbd>?</kbd></dt><dd>Show shortcuts</dd>
+                <dt><kbd>[</kbd> <kbd>]</kbd></dt><dd>Toggle left / right sidebar</dd>
+                <dt><kbd>Esc</kbd></dt><dd>Close the panel</dd>
+            </dl>
+        </section>
+    </div>
+</dialog>
+
+<div class="cal-toasts" id="cal-toasts" role="status" aria-live="polite"></div>
+
 <div class="command-block" hidden>
     <input type="text" class="form-control" placeholder="Command" aria-label="Command" />
 </div>
@@ -118,7 +185,9 @@
 
 
 {% block left_sidebar %}
-<div class="my-selector-container">
+<div class="cal-mini" id="cal-mini" data-mini aria-label="Mini calendar"></div>
+
+<div class="my-selector-container" hidden>
     <select class="form-select" id="month" aria-label="Month">
         <option value=0>January</option>
         <option value=1>February</option>
@@ -137,7 +206,7 @@
 </div>
 
 <div class="sidebar-calendar-list">
-    <div class="calendarlist-mine-header">
+    <div class="calendarlist-mine-header cal-side-head">
         <span>My calendars</span>
         <button type="button" class="create-btn" data-bs-toggle="modal" data-bs-target="#modal"
             data-action="create-calendar" title="Create or subscribe to a calendar (S)" aria-label="Add calendar">
@@ -148,7 +217,7 @@
     </div>
     <div class="calendarlist-mine"></div>
 
-    <div class="calendarlist-other-header">
+    <div class="calendarlist-other-header cal-side-head">
         <span>Other calendars</span>
         <button type="button" class="create-btn" data-bs-toggle="modal" data-bs-target="#modal"
             data-action="create-calendar" title="Create or subscribe to a calendar (S)" aria-label="Add calendar">
@@ -183,68 +252,151 @@
 
 
 {% block right_sidebar %}
-<div class="todos">
-    <div class="nav" id="sidebar-tabs" role="tablist" aria-label="Sidebar">
-        <button type="button" class="nav-link" data-sidebar-tab=".sb-todos" role="tab" aria-selected="false" aria-controls="sb-todos" title="Tasks">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                <path fill-rule="evenodd" d="M2 2.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5V3a.5.5 0 0 0-.5-.5H2zM3 3H2v1h1V3z" />
-                <path d="M5 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zM5.5 7a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9zm0 4a.5.5 0 0 0 0 1h9a.5.5 0 0 0 0-1h-9z" />
-                <path fill-rule="evenodd" d="M1.5 7a.5.5 0 0 1 .5-.5h1a.5.5 0 0 1 .5.5v1a.5.5 0 0 1-.5.5H2a.5.5 0 0 1-.5-.5V7zM2 7h1v1H2V7zm0 3.5a.5.5 0 0 0-.5.5v1a.5.5 0 0 0 .5.5h1a.5.5 0 0 0 .5-.5v-1a.5.5 0 0 0-.5-.5H2zm1 .5H2v1h1v-1z" />
-            </svg>
-            Tasks
-        </button>
-        <button type="button" class="nav-link" data-sidebar-tab=".sb-upcoming" role="tab" aria-selected="false" aria-controls="sb-upcoming" title="Upcoming">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                <path d="M8 3.5a.5.5 0 0 0-1 0V8a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 7.71V3.5z"/>
-                <path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/>
-            </svg>
-            Upcoming
-        </button>
-        <button type="button" class="nav-link" data-sidebar-tab=".sb-insight" role="tab" aria-selected="false" aria-controls="sb-insight" title="Insight">
-            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true">
-                <path fill-rule="evenodd" d="M0 0h1v15h15v1H0V0Zm10 3.5a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v4a.5.5 0 0 1-1 0V4.9l-3.613 4.417a.5.5 0 0 1-.74.037L7.06 6.767l-3.656 5.027a.5.5 0 0 1-.808-.588l4-5.5a.5.5 0 0 1 .758-.06l2.609 2.61L13.445 4H10.5a.5.5 0 0 1-.5-.5Z" />
-            </svg>
-            Insight
+<div class="wg-side" id="wg-side">
+    <div class="wg-top">
+        <div class="cal-seg wg-tabs" id="wg-tabs" role="tablist" aria-label="Sidebar" hidden></div>
+        <span class="wg-top-title" id="wg-top-title">Today</span>
+        <button type="button" class="cal-icon-btn" id="wg-customize" title="Customize sidebar" aria-label="Customize sidebar" aria-expanded="false" aria-controls="wg-custom">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><circle cx="8" cy="8" r="2"/><path d="M8 1.5v1.75M8 12.75v1.75M1.5 8h1.75M12.75 8h1.75M3.4 3.4l1.24 1.24M11.36 11.36l1.24 1.24M3.4 12.6l1.24-1.24M11.36 4.64l1.24-1.24"/></svg>
         </button>
     </div>
-
-    <div class="sidebar-info sb-todos" id="sb-todos" role="tabpanel" hidden>
-        <form class="todo-quick" novalidate>
-            <label class="visually-hidden" for="todo-quick-input">Add a task</label>
-            <svg class="todo-quick-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 2a.75.75 0 0 1 .75.75v4.5h4.5a.75.75 0 0 1 0 1.5h-4.5v4.5a.75.75 0 0 1-1.5 0v-4.5h-4.5a.75.75 0 0 1 0-1.5h4.5v-4.5A.75.75 0 0 1 8 2z"/></svg>
-            <input type="text" class="form-control form-control-sm" id="todo-quick-input" maxlength="512" autocomplete="off"
-                placeholder="Add a task" title="Try: Pay rent tomorrow 5pm *bills +Home !3 every month" aria-describedby="todo-quick-msg">
-        </form>
-        <div class="todo-quick-msg" id="todo-quick-msg" aria-live="polite"></div>
-        <div class="todo-list"></div>
-        <div class="todo-footer">
-            <a href="/tasks/" class="todo-footer-link">Open Tasks</a>
-            <button type="button" class="todo-footer-link" data-bs-toggle="modal" data-bs-target="#modal" data-action="new-task">New task with details</button>
-        </div>
-    </div>
-    <div class="sidebar-info sb-upcoming" id="sb-upcoming" role="tabpanel" hidden>
-        <div class="agenda" aria-live="polite"></div>
-    </div>
-    <div class="sidebar-info sb-insight" id="sb-insight" role="tabpanel" hidden>
-        <div class="ins-head">
-            <div class="ins-seg" role="group" aria-label="Period">
-                <button type="button" class="ins-seg-btn" data-period="week" aria-pressed="true">Week</button>
-                <button type="button" class="ins-seg-btn" data-period="month" aria-pressed="false">Month</button>
-            </div>
-            <div class="ins-nav">
-                <button type="button" class="ins-nav-btn" data-shift="-1" title="Previous period" aria-label="Previous period">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
+    <div class="wg-custom" id="wg-custom" hidden></div>
+    <div class="wg-list" id="wg-list">
+        <section class="wg" data-widget="tasks" aria-labelledby="wg-t-tasks">
+            <header class="wg-head">
+                <button type="button" class="wg-toggle" aria-expanded="true" aria-controls="wg-b-tasks">
+                    <svg class="wg-chev" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+                    <span class="wg-title" id="wg-t-tasks">Tasks</span>
+                    <span class="wg-count" id="wg-count-tasks"></span>
                 </button>
-                <button type="button" class="ins-nav-btn" data-shift="1" title="Next period" aria-label="Next period">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
-                </button>
+                <a class="cal-icon-btn wg-act" href="/tasks/" title="Open Tasks" aria-label="Open Tasks"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 3h4v4M13 3 7.5 8.5M11 9.5V13H3V5h3.5"/></svg></a>
+            </header>
+            <div class="wg-body" id="wg-b-tasks">
+                <div class="sidebar-info sb-todos" id="sb-todos">
+                    <form class="todo-quick" novalidate>
+                        <label class="visually-hidden" for="todo-quick-input">Add a task</label>
+                        <svg class="todo-quick-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10"/></svg>
+                        <input type="text" class="form-control form-control-sm" id="todo-quick-input" maxlength="512" autocomplete="off"
+                            placeholder="Add a task" title="Try: Pay rent tomorrow 5pm *bills +Home !3 every month" aria-describedby="todo-quick-msg">
+                        <kbd class="todo-quick-kbd">Q</kbd>
+                    </form>
+                    <div class="todo-quick-msg" id="todo-quick-msg" aria-live="polite"></div>
+                    <div class="todo-list"></div>
+                    <div class="todo-footer">
+                        <a href="/tasks/" class="todo-footer-link" id="todo-open-link">Open Tasks</a>
+                        <button type="button" class="todo-footer-link" data-bs-toggle="modal" data-bs-target="#modal" data-action="new-task" title="New task with all fields">New task…</button>
+                    </div>
+                </div>
             </div>
-        </div>
-        <div class="ins-range">
-            <span class="ins-range-label"></span>
-            <button type="button" class="ins-reset" data-shift="0" hidden>Current</button>
-        </div>
-        <div class="ins-body" aria-live="polite"></div>
+        </section>
+        <section class="wg" data-widget="habits" aria-labelledby="wg-t-habits">
+            <header class="wg-head">
+                <button type="button" class="wg-toggle" aria-expanded="true" aria-controls="wg-b-habits">
+                    <svg class="wg-chev" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+                    <span class="wg-title" id="wg-t-habits">Habits</span>
+                    <span class="wg-count" id="wg-count-habits"></span>
+                </button>
+                <a class="cal-icon-btn wg-act" href="/habits/" title="Open Habits" aria-label="Open Habits"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 3h4v4M13 3 7.5 8.5M11 9.5V13H3V5h3.5"/></svg></a>
+            </header>
+            <div class="wg-body" id="wg-b-habits">
+                <div class="wg-habits" aria-live="polite"></div>
+            </div>
+        </section>
+        <section class="wg" data-widget="upcoming" aria-labelledby="wg-t-upcoming">
+            <header class="wg-head">
+                <button type="button" class="wg-toggle" aria-expanded="true" aria-controls="wg-b-upcoming">
+                    <svg class="wg-chev" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+                    <span class="wg-title" id="wg-t-upcoming">Upcoming</span>
+                    <span class="wg-count" id="wg-count-upcoming"></span>
+                </button>
+            </header>
+            <div class="wg-body" id="wg-b-upcoming">
+                <div class="sidebar-info sb-upcoming" id="sb-upcoming">
+                    <div class="agenda" aria-live="polite"></div>
+                </div>
+            </div>
+        </section>
+        <section class="wg" data-widget="insight" aria-labelledby="wg-t-insight">
+            <header class="wg-head">
+                <button type="button" class="wg-toggle" aria-expanded="true" aria-controls="wg-b-insight">
+                    <svg class="wg-chev" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+                    <span class="wg-title" id="wg-t-insight">Insight</span>
+                    <span class="wg-count" id="wg-count-insight"></span>
+                </button>
+                <button type="button" class="cal-icon-btn wg-act" data-ins-expand title="Open full insights" aria-label="Open full insights"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9 7M2.5 13.5 7 9"/></svg></button>
+            </header>
+            <div class="wg-body" id="wg-b-insight">
+                <div class="sidebar-info sb-insight" id="sb-insight">
+                    <div class="ins-head">
+                        <div class="ins-seg" role="group" aria-label="Period">
+                            <button type="button" class="ins-seg-btn" data-period="week" aria-pressed="true">Week</button>
+                            <button type="button" class="ins-seg-btn" data-period="month" aria-pressed="false">Month</button>
+                        </div>
+                        <div class="ins-nav">
+                            <button type="button" class="ins-nav-btn" data-shift="-1" title="Previous period" aria-label="Previous period">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/></svg>
+                            </button>
+                            <button type="button" class="ins-nav-btn" data-shift="1" title="Next period" aria-label="Next period">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/></svg>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="ins-range">
+                        <span class="ins-range-label"></span>
+                        <button type="button" class="ins-reset" data-shift="0" hidden>Current</button>
+                    </div>
+                    <div class="ins-body" aria-live="polite"></div>
+                    <button type="button" class="sb-link ins-expand" data-ins-expand>Show charts</button>
+                </div>
+            </div>
+        </section>
+        <section class="wg" data-widget="mini" aria-labelledby="wg-t-mini">
+            <header class="wg-head">
+                <button type="button" class="wg-toggle" aria-expanded="true" aria-controls="wg-b-mini">
+                    <svg class="wg-chev" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+                    <span class="wg-title" id="wg-t-mini">Mini month</span>
+                    <span class="wg-count" id="wg-count-mini"></span>
+                </button>
+            </header>
+            <div class="wg-body" id="wg-b-mini">
+                <div class="cal-mini" data-mini></div>
+            </div>
+        </section>
+        <section class="wg" data-widget="photos" aria-labelledby="wg-t-photos">
+            <header class="wg-head">
+                <button type="button" class="wg-toggle" aria-expanded="true" aria-controls="wg-b-photos">
+                    <svg class="wg-chev" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+                    <span class="wg-title" id="wg-t-photos">On this day</span>
+                    <span class="wg-count" id="wg-count-photos"></span>
+                </button>
+                <a class="cal-icon-btn wg-act" href="/photos/" title="Open Photos" aria-label="Open Photos"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="M9 3h4v4M13 3 7.5 8.5M11 9.5V13H3V5h3.5"/></svg></a>
+            </header>
+            <div class="wg-body" id="wg-b-photos">
+                <div class="wg-photos" aria-live="polite"></div>
+            </div>
+        </section>
+        <section class="wg" data-widget="notifications" aria-labelledby="wg-t-notifications">
+            <header class="wg-head">
+                <button type="button" class="wg-toggle" aria-expanded="true" aria-controls="wg-b-notifications">
+                    <svg class="wg-chev" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 6 4 4 4-4"/></svg>
+                    <span class="wg-title" id="wg-t-notifications">Notifications</span>
+                    <span class="wg-count" id="wg-count-notifications"></span>
+                </button>
+            </header>
+            <div class="wg-body" id="wg-b-notifications">
+                <div class="wg-notifs" aria-live="polite"></div>
+            </div>
+        </section>
     </div>
 </div>
+
+<dialog class="cal-dlg cal-dlg-wide" id="cal-insight-dlg" aria-labelledby="cal-insight-dlg-title">
+    <div class="cal-dlg-head">
+        <h2 id="cal-insight-dlg-title">Insight</h2>
+        <button type="button" class="cal-icon-btn" data-dialog-close title="Close" aria-label="Close">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" viewBox="0 0 16 16" aria-hidden="true"><path d="m4 4 8 8M12 4l-8 8"/></svg>
+        </button>
+    </div>
+    <div class="cal-dlg-body" id="cal-insight-dlg-body"></div>
+</dialog>
 {% endblock %}

@@ -35,25 +35,78 @@ function short_time(date) {
     return `${h12}${mi ? ':' + String(mi).padStart(2, '0') : ''}${h < 12 ? 'a' : 'p'}`;
 }
 
+// An event's own colour (when the server sends one) or its calendar's.
+function event_colour(ev) {
+    const cal = calendars[ev['calendar']];
+    return cal_hex(ev['display_colour']) || cal_hex(ev['colour']) || (cal ? cal['colour'] : 'var(--app-muted)');
+}
+
 // Legacy API: deadlines have enddate null (older code also checked the string "None").
 function has_end(ev) {
     return ev.enddate !== null && ev.enddate !== undefined && ev.enddate !== 'None';
+}
+
+// Right-hand drawer (event details and the event form), like the Tasks detail drawer
+// =======================================================================================================================================================================
+var _drawerReturnFocus = null;
+
+// Open the drawer with `html` (a compiled, escaped template) and return its body element.
+function drawer_open(title, html) {
+    const dr = document.getElementById('cal-drawer');
+    const body = dr.querySelector('.cal-drawer-body');
+    dr.querySelector('.cal-drawer-title').textContent = title;
+    body.innerHTML = html;
+    body.scrollTop = 0;
+    if (dr.hidden) {
+        _drawerReturnFocus = document.activeElement;
+        dr.hidden = false;
+        requestAnimationFrame(() => dr.classList.add('is-open'));
+        document.body.classList.add('cal-drawer-open');
+    }
+    return body;
+}
+
+function drawer_close() {
+    const dr = document.getElementById('cal-drawer');
+    if (dr.hidden) return;
+    dr.classList.remove('is-open');
+    document.body.classList.remove('cal-drawer-open');
+    const done = () => { if (!dr.classList.contains('is-open')) { dr.hidden = true; dr.querySelector('.cal-drawer-body').replaceChildren(); } };
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) done();
+    else setTimeout(done, 200);
+    if (_drawerReturnFocus && document.contains(_drawerReturnFocus)) _drawerReturnFocus.focus();
+    _drawerReturnFocus = null;
+}
+
+function drawer_is_open() { return !document.getElementById('cal-drawer').hidden; }
+
+// Small confirmation at the bottom of the screen (text only).
+function toast(message, error = false) {
+    const box = document.getElementById('cal-toasts');
+    const t = document.createElement('div');
+    t.className = 'cal-toast' + (error ? ' is-error' : '');
+    t.textContent = message;
+    box.appendChild(t);
+    setTimeout(() => { t.classList.add('is-leaving'); setTimeout(() => t.remove(), 200); }, 2600);
 }
 
 // Handlebars Templates
 // =======================================================================================================================================================================
 // Month chips. `icon` is a trusted static SVG; time and title are escaped text.
 const calendar_item = Handlebars.compile(`
-    <div class="event-button {{#if bg_color}}event-allday{{else}}event-timed{{/if}}{{#if modal}} event-open{{/if}}" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type="{{ type }}" {{#if modal}}data-bs-toggle="modal" data-bs-target="#modal" role="button" tabindex="0" {{/if}}title="{{ tip }}" style="--event-colour: {{#if bg_color}}{{ bg_color }}{{else}}{{ color }}{{/if}};"><span class="event-icon">{{{ icon }}}</span>{{#if time}}<span class="ev-time">{{ time }}</span>{{/if}}<span class="ev-title">{{#if del}}<del>{{ title }}</del>{{else}}{{ title }}{{/if}}</span></div>
+    <div class="event-button {{#if bg_color}}event-allday{{else}}event-timed{{/if}}{{#if modal}} event-open{{/if}}" data-calendar="{{ calendar }}" data-no="{{ i }}" data-type="{{ type }}" {{#if modal}}role="button" tabindex="0" {{/if}}title="{{ tip }}" style="--event-colour: {{#if bg_color}}{{ bg_color }}{{else}}{{ color }}{{/if}};"><span class="event-icon">{{{ icon }}}</span>{{#if time}}<span class="ev-time">{{ time }}</span>{{/if}}<span class="ev-title">{{#if del}}<del>{{ title }}</del>{{else}}{{ title }}{{/if}}</span></div>
 `);
 
 const todo_item = Handlebars.compile(`
     <div class="todo-item" data-todo-id="{{ id }}" data-i="{{ i }}">
-        <button type="button" class="todo-check" data-todo-action="complete" title="Mark complete" aria-label="Mark complete">
+        <button type="button" class="todo-check p{{ prio }}" data-todo-action="complete" title="Mark complete" aria-label="Mark &quot;{{ name }}&quot; complete">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-circle" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/></svg>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-check-circle" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M10.97 4.97a.235.235 0 0 0-.02.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-1.071-1.05z"/></svg>
         </button>
-        <div class="todo-name {{ cls }}">{{#if overdue}}<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16" aria-label="Overdue"><path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/></svg> {{/if}}{{ name }}</div>
+        <div class="todo-main">
+            <a class="todo-name" href="/tasks/?task={{ id }}" title="Open in Tasks">{{ name }}</a>
+            {{#if due}}<span class="todo-due-meta {{ cls }}">{{#if overdue}}<span class="visually-hidden">Overdue: </span>{{/if}}{{ due }}</span>{{/if}}
+        </div>
         <div class="todo-actions">
             <button type="button" class="todo-action" data-bs-toggle="modal" data-bs-target="#modal" data-todo-action="edit" title="Edit" aria-label="Edit">
                 <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/></svg>
@@ -68,6 +121,7 @@ const todo_item = Handlebars.compile(`
 const calendar_name = Handlebars.compile(`
     <div class="calendar-name-div" data-calendar="{{ calendar }}" data-calendar-type="{{ calendar_type }}" style="--cal-colour: {{ colour }};">
         <input type="checkbox" class="form-check-input{{#if inactive}} is-inactive{{/if}}" id="cal-cb-{{ id }}" {{ checked }} data-cal-action="toggle">
+        {{#if icon}}<span class="calendar-icon" aria-hidden="true">{{{ icon }}}</span>{{/if}}
         <label class="calendar-name-label{{#if inactive}} is-inactive{{/if}}" for="cal-cb-{{ id }}">{{#if admin}}<em>{{/if}}{{ name }}{{#if admin}}</em>{{/if}}</label>
         <button class="calendar-options-btn"
             type="button" id="dropdownMenu{{ id }}" data-bs-toggle="dropdown"
@@ -100,12 +154,14 @@ const calendar_create_form = Handlebars.compile(`
     <p class="text-danger small mt-1 mb-0 subscribe-warn"></p>
     <hr class="my-3 modal-divider">
     <label class="form-label" for="calendar-name">Create a calendar</label>
-    <div class="input-group input-group-sm">
-        <input type="text" class="form-control calendar-name" id="calendar-name" placeholder="Calendar name">
-        <input type="color" class="form-control form-control-color calendar-color" id="exampleColorInput" value="#000000" title="Calendar colour">
-        <button class="btn btn-primary calendar-submit" type="submit">Create</button>
+    <input type="text" class="form-control form-control-sm calendar-name" id="calendar-name" placeholder="Calendar name" maxlength="64">
+    <div class="pk-field"><span class="form-label">Colour</span><div class="calendar-colour-pick"></div></div>
+    <div class="pk-field calendar-icon-field" hidden><span class="form-label">Icon</span><div class="calendar-icon-pick"></div></div>
+    <p class="text-danger small mt-1 mb-0 calendar-warn" role="alert"></p>
+    <div class="modal-actions">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button class="btn btn-primary calendar-submit" type="submit">Create calendar</button>
     </div>
-    <p class="text-danger small mt-1 mb-0 calendar-warn"></p>
 `);
 
 const subscribe_confirm = Handlebars.compile(`
@@ -121,6 +177,15 @@ const subscribe_confirm = Handlebars.compile(`
 `);
 
 const calendar_info_template = Handlebars.compile(`
+    <div class="app-card cal-settings-section cal-appearance mb-3">
+        <h6 class="form-section-label">Appearance</h6>
+        <div class="pk-field"><span class="form-label">Colour</span><div class="cal-appearance-colour"></div></div>
+        <div class="pk-field cal-appearance-icon-field" hidden><span class="form-label">Icon</span><div class="cal-appearance-icon"></div></div>
+        <div class="d-flex justify-content-end align-items-center gap-2">
+            <span class="small app-muted cal-appearance-msg" aria-live="polite"></span>
+            <button type="button" class="btn btn-primary btn-sm cal-appearance-save">Save appearance</button>
+        </div>
+    </div>
     <div class="row g-3">
         <div class="col-md-6">
             <div class="app-card cal-settings-section">
@@ -200,28 +265,29 @@ const calendar_sync_template = Handlebars.compile(`
 // Event details. `description` is server-cleaned rich text run through parse_message();
 // everything else is escaped.
 const event_info_template = Handlebars.compile(`
-    <div class="ei-card" data-event-no="{{ event_no }}" data-event-id="{{ id }}">
-        <div class="ei-header">
-            <div class="ei-color-dot" style="--cal-colour: {{ cal_color }};"></div>
-            <div class="ei-calendar">{{ calendar }}{{#if category}} <span class="ei-category">· {{ category }}</span>{{/if}}</div>
-        </div>
-        <div class="ei-meta">
-            <div class="ei-meta-row">
-                <div class="ei-meta-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>
-                </div>
-                <div class="ei-meta-text">{{#if deadline}}Due {{/if}}{{ date }}</div>
-            </div>
+    <div class="ei-card" data-event-id="{{ id }}">
+        <h2 class="cal-dr-title">{{ title }}{{#if synced}} <span class="ei-synced" title="Synced from another calendar" aria-label="Synced">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/></svg></span>{{/if}}</h2>
+        <div class="cal-props ei-props">
+            <div class="cal-prop"><span class="cal-prop-k">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3.5a.5.5 0 0 0-1 0V8a.5.5 0 0 0 .252.434l3.5 2a.5.5 0 0 0 .496-.868L8 7.71V3.5z"/><path d="M8 16A8 8 0 1 0 8 0a8 8 0 0 0 0 16zm7-8A7 7 0 1 1 1 8a7 7 0 0 1 14 0z"/></svg>
+                {{#if deadline}}Due{{else}}When{{/if}}</span><span class="cal-prop-v">{{ date }}</span></div>
+            <div class="cal-prop"><span class="cal-prop-k">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/></svg>
+                Calendar</span><span class="cal-prop-v"><span class="ei-color-dot" style="--cal-colour: {{ cal_color }};" aria-hidden="true"></span><span class="ei-calendar">{{ calendar }}</span></span></div>
+            {{#if category}}
+            <div class="cal-prop"><span class="cal-prop-k">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M2 2a1 1 0 0 1 1-1h4.586a1 1 0 0 1 .707.293l7 7a1 1 0 0 1 0 1.414l-4.586 4.586a1 1 0 0 1-1.414 0l-7-7A1 1 0 0 1 2 6.586V2zm3.5 4a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/></svg>
+                Category</span><span class="cal-prop-v">{{ category }}</span></div>
+            {{/if}}
             {{#if location}}
-            <div class="ei-meta-row">
-                <div class="ei-meta-icon">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
-                </div>
-                <div class="ei-meta-text">{{ location }}</div>
-            </div>
+            <div class="cal-prop"><span class="cal-prop-k">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/></svg>
+                Location</span><span class="cal-prop-v ei-meta-text">{{ location }}</span></div>
             {{/if}}
         </div>
         {{#if description}}
+        <h3 class="cal-sec-h">Description</h3>
         <div class="ei-desc-block">{{{ description }}}</div>
         {{/if}}
         <div class="ei-countdown">
@@ -264,102 +330,81 @@ const event_info_template = Handlebars.compile(`
     </div>
 `);
 
+// New/edit event form, rendered in the right-hand drawer.
 const event_create_template = Handlebars.compile(`
-    <div class="event-form">
-        <div class="row g-4">
-            <div class="col-md-6">
-                <div class="field">
-                    <label class="form-label" for="event-name-input">Name</label>
-                    <input type="text" class="form-control form-control-sm event-name-input event-name-input-{{i}}" id="event-name-input" placeholder="Add a title">
-                </div>
-                <div class="field">
-                    <label class="form-label" for="event-calendar-input">Calendar</label>
-                    <select class="form-select form-select-sm form-calendar-input form-calendar-input-{{i}}" id="event-calendar-input">
-                    </select>
-                </div>
-                <div class="field">
-                    <span class="form-label">Type</span>
-                    <div class="btn-group btn-group-sm event-type-group" role="group" aria-label="Event type">
-                        <input type="radio" class="btn-check event-type-btn event-type-btn-event" name="event-type-{{i}}" id="event-type-event-{{i}}" data-event-type="event" autocomplete="off">
-                        <label class="btn btn-outline-primary" for="event-type-event-{{i}}">Event</label>
-                        <input type="radio" class="btn-check event-type-btn event-type-btn-ade" name="event-type-{{i}}" id="event-type-ade-{{i}}" data-event-type="ade" autocomplete="off">
-                        <label class="btn btn-outline-primary" for="event-type-ade-{{i}}">All day</label>
-                        <input type="radio" class="btn-check event-type-btn event-type-btn-assignment" name="event-type-{{i}}" id="event-type-assignment-{{i}}" data-event-type="assignment" autocomplete="off">
-                        <label class="btn btn-outline-primary" for="event-type-assignment-{{i}}">Assignment</label>
-                    </div>
-                </div>
-                <div class="event-datetime-wrapper">
-                    <div class="event-datetime event-datetime-event">
-                        <div class="field">
-                            <span class="form-label">Starts</span>
-                            <div class="input-group input-group-sm">
-                                <input type="date" class="form-control event-date-start event-date-start-event" aria-label="Start date">
-                                <input type="time" class="form-control event-time-start event-time-start-event" aria-label="Start time">
-                            </div>
-                        </div>
-                        <div class="field">
-                            <span class="form-label">Ends</span>
-                            <div class="input-group input-group-sm">
-                                <input type="date" class="form-control event-date-end event-date-end-event" aria-label="End date">
-                                <input type="time" class="form-control event-time-end event-time-end-event" aria-label="End time">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="event-datetime event-datetime-ade">
-                        <div class="field">
-                            <span class="form-label">Starts</span>
-                            <div class="input-group input-group-sm">
-                                <input type="date" class="form-control event-date-start event-date-start-ade" aria-label="Start date">
-                            </div>
-                        </div>
-                        <div class="field">
-                            <span class="form-label">Ends</span>
-                            <div class="input-group input-group-sm">
-                                <input type="date" class="form-control event-date-end event-date-end-ade" aria-label="End date">
-                            </div>
-                        </div>
-                    </div>
-                    <div class="event-datetime event-datetime-assignment">
-                        <div class="field">
-                            <span class="form-label">Due</span>
-                            <div class="input-group input-group-sm">
-                                <input type="date" class="form-control event-date-start event-date-start-assignment" aria-label="Due date">
-                                <input type="time" class="form-control event-time-start event-time-start-assignment" aria-label="Due time">
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
+    <form class="event-form cal-form" novalidate>
+        <label class="visually-hidden" for="event-name-input">Title</label>
+        <input type="text" class="cal-form-title event-name-input event-name-input-{{i}}" id="event-name-input" placeholder="Add title" maxlength="256" autocomplete="off" required>
 
-            <div class="col-md-6">
-                <div class="field">
-                    <label class="form-label" for="event-description-input">Description</label>
-                    <textarea class="form-control form-control-sm" id="event-description-input" rows="4" placeholder="Add details"></textarea>
+        <div class="cal-seg cal-seg-full event-type-group" role="radiogroup" aria-label="Event type">
+            <input type="radio" class="btn-check event-type-btn event-type-btn-event" name="event-type-{{i}}" id="event-type-event-{{i}}" data-event-type="event" autocomplete="off">
+            <label class="cal-seg-btn" for="event-type-event-{{i}}">Event</label>
+            <input type="radio" class="btn-check event-type-btn event-type-btn-ade" name="event-type-{{i}}" id="event-type-ade-{{i}}" data-event-type="ade" autocomplete="off">
+            <label class="cal-seg-btn" for="event-type-ade-{{i}}">All day</label>
+            <input type="radio" class="btn-check event-type-btn event-type-btn-assignment" name="event-type-{{i}}" id="event-type-assignment-{{i}}" data-event-type="assignment" autocomplete="off">
+            <label class="cal-seg-btn" for="event-type-assignment-{{i}}">Deadline</label>
+        </div>
+
+        <div class="cal-props">
+            <div class="event-datetime event-datetime-event">
+                <div class="cal-prop"><span class="cal-prop-k">Starts</span>
+                    <span class="cal-prop-v cal-dt">
+                        <input type="date" class="form-control form-control-sm event-date-start event-date-start-event" aria-label="Start date">
+                        <input type="time" class="form-control form-control-sm event-time-start event-time-start-event" aria-label="Start time">
+                    </span>
                 </div>
-                <div class="field">
-                    <label class="form-label" for="event-loc-input">Location</label>
-                    <input type="text" class="form-control form-control-sm event-loc-input event-loc-input-{{i}}" id="event-loc-input" placeholder="Add a location">
-                </div>
-                <div class="field">
-                    <label class="form-label" for="event-category-input">Category</label>
-                    <select class="form-select form-select-sm form-category-input form-category-input-{{i}}" id="event-category-input">
-                    </select>
-                </div>
-                <div class="field">
-                    <label for="form-event-priority-input" class="form-label">Priority</label>
-                    <input type="range" id="form-event-priority-input" class="form-range form-event-priority-input" min="0" max="20" step="1">
-                </div>
-                <div class="form-check">
-                    <input class="form-check-input" type="checkbox" id="event-public-check">
-                    <label class="form-check-label" for="event-public-check">Public</label>
+                <div class="cal-prop"><span class="cal-prop-k">Ends</span>
+                    <span class="cal-prop-v cal-dt">
+                        <input type="date" class="form-control form-control-sm event-date-end event-date-end-event" aria-label="End date">
+                        <input type="time" class="form-control form-control-sm event-time-end event-time-end-event" aria-label="End time">
+                    </span>
                 </div>
             </div>
+            <div class="event-datetime event-datetime-ade">
+                <div class="cal-prop"><span class="cal-prop-k">Starts</span>
+                    <span class="cal-prop-v cal-dt"><input type="date" class="form-control form-control-sm event-date-start event-date-start-ade" aria-label="Start date"></span>
+                </div>
+                <div class="cal-prop"><span class="cal-prop-k">Ends</span>
+                    <span class="cal-prop-v cal-dt"><input type="date" class="form-control form-control-sm event-date-end event-date-end-ade" aria-label="End date (exclusive)"></span>
+                </div>
+            </div>
+            <div class="event-datetime event-datetime-assignment">
+                <div class="cal-prop"><span class="cal-prop-k">Due</span>
+                    <span class="cal-prop-v cal-dt">
+                        <input type="date" class="form-control form-control-sm event-date-start event-date-start-assignment" aria-label="Due date">
+                        <input type="time" class="form-control form-control-sm event-time-start event-time-start-assignment" aria-label="Due time">
+                    </span>
+                </div>
+            </div>
+            <div class="cal-prop"><label class="cal-prop-k" for="event-calendar-input">Calendar</label>
+                <span class="cal-prop-v"><select class="form-select form-select-sm form-calendar-input form-calendar-input-{{i}}" id="event-calendar-input"></select></span>
+            </div>
+            <div class="cal-prop"><label class="cal-prop-k" for="event-loc-input">Location</label>
+                <span class="cal-prop-v"><input type="text" class="form-control form-control-sm event-loc-input event-loc-input-{{i}}" id="event-loc-input" placeholder="Add a location" maxlength="256"></span>
+            </div>
+            <div class="cal-prop"><label class="cal-prop-k" for="event-category-input">Category</label>
+                <span class="cal-prop-v"><select class="form-select form-select-sm form-category-input form-category-input-{{i}}" id="event-category-input"></select></span>
+            </div>
+            <input type="hidden" id="form-event-priority-input" class="form-event-priority-input">
+            <div class="cal-prop cal-prop-top event-appearance" hidden><span class="cal-prop-k">Colour</span><span class="cal-prop-v event-colour-pick"></span></div>
+            <div class="cal-prop cal-prop-top event-appearance" hidden><span class="cal-prop-k">Icon</span><span class="cal-prop-v event-icon-pick"></span></div>
+            <div class="cal-prop"><span class="cal-prop-k">Visibility</span>
+                <span class="cal-prop-v"><span class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" role="switch" id="event-public-check">
+                    <label class="form-check-label" for="event-public-check">Public</label>
+                </span></span>
+            </div>
         </div>
-        <div class="modal-actions">
-            <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
-            <button class="btn btn-primary create-event-btn">Create</button>
+
+        <label class="cal-sec-h" for="event-description-input">Description</label>
+        <textarea class="cal-textarea" id="event-description-input" rows="4" placeholder="Add details"></textarea>
+
+        <p class="cal-form-err" role="alert" hidden></p>
+        <div class="cal-drawer-foot">
+            <button type="button" class="cal-btn" data-drawer-close>Cancel</button>
+            <button type="submit" class="btn btn-primary btn-sm create-event-btn">Create</button>
         </div>
-    </div>
+    </form>
 `);
 
 const todo_create_template = Handlebars.compile(`
@@ -476,14 +521,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     bind_page_events();
 
-    // Restore sidebar tab from localStorage
-    const savedTab = localStorage.getItem('calendar_sidebar_tab') || '.sb-todos';
-    show_in_sidebar(savedTab);
-
     // Restore view mode from localStorage
     const savedView = localStorage.getItem('calendar_view') || 'month';
-    document.getElementById('calViewSelect').value = savedView;
-    currentView = savedView;
+    currentView = ['month', 'week', 'day'].includes(savedView) ? savedView : 'month';
 
     populate_calendar(m, y);
 
@@ -500,6 +540,7 @@ function bind_page_events() {
         'create-calendar': () => create_calendar(),
         'refresh': () => populate_calendar(m, y, true),
         'new-task': () => add_edit_todo(),
+        'help': () => document.dispatchEvent(new CustomEvent('calendar:help')),
     };
     document.addEventListener('click', (e) => {
         const btn = e.target.closest('[data-action]');
@@ -508,7 +549,7 @@ function bind_page_events() {
         if (tab) show_in_sidebar(tab.dataset.sidebarTab);
     });
 
-    document.getElementById('calViewSelect').addEventListener('change', (e) => switch_view(e.target.value));
+    document.querySelectorAll('[data-view]').forEach(b => b.addEventListener('click', () => switch_view(b.dataset.view)));
     document.getElementById('month').addEventListener('change', () => jump_());
     document.getElementById('year').addEventListener('change', () => jump_());
     document.querySelectorAll('.display-option').forEach(cb => cb.addEventListener('change', change_display));
@@ -516,10 +557,12 @@ function bind_page_events() {
     // Month grid: day number opens the day, "+" adds, camera opens photos, chips open details.
     const body = document.getElementById('calendar-body');
     body.addEventListener('click', (e) => {
+        const go = e.target.closest('[data-goto]');
+        if (go) { const [Y, M, D] = go.dataset.goto.split('-').map(Number); go_to_date(new Date(Y, M, D)); return; }
         const cell = e.target.closest('td.date-picker');
         if (!cell) return;
         const date = parseInt(cell.dataset.date);
-        if (e.target.closest('.add-on-day-btn')) { add_edit_event(date); return; }
+        if (e.target.closest('.add-on-day-btn')) { add_edit_event(date, parseInt(cell.dataset.month), parseInt(cell.dataset.year)); return; }
         if (e.target.closest('.day-images-btn')) { view_day_images(date); return; }
         if (e.target.closest('.date-span') || e.target.closest('.more-events')) {
             open_day(date, parseInt(cell.dataset.month), parseInt(cell.dataset.year));
@@ -560,18 +603,21 @@ function bind_page_events() {
         else if (el.dataset.todoAction === 'delete') delete_todo(i);
     });
 
-    // Modal content (event details, calendar settings).
-    document.getElementById('modal').addEventListener('click', (e) => {
+    // Drawer: close button, event-detail actions.
+    const drawer = document.getElementById('cal-drawer');
+    drawer.addEventListener('click', (e) => {
+        if (e.target.closest('[data-drawer-close]')) { drawer_close(); return; }
         const el = e.target.closest('[data-ei-action]');
         if (!el) return;
         const card = el.closest('.ei-card');
-        const no = card.dataset.eventNo;
+        const ev = find_event(card.dataset.eventId);
         const act = el.dataset.eiAction;
-        if (act === 'edit') { $('#modal').modal('hide'); $('#big-modal').modal('show'); add_edit_event(1, m + 1, y, 'edit', data['events'][no]); }
-        else if (act === 'photos') { view_event_images(data['events'][no]); }
-        else if (act === 'duplicate') duplicate_event(no);
-        else if (act === 'delete') delete_event(no);
-        else if (act === 'add-task') event_to_task(card.dataset.eventId, el);
+        if (act === 'add-task') { event_to_task(card.dataset.eventId, el); return; }
+        if (!ev) return;
+        if (act === 'edit') { add_edit_event(1, m + 1, y, 'edit', ev); }
+        else if (act === 'photos') { drawer_close(); $('#big-modal').modal('show'); view_event_images(ev); }
+        else if (act === 'duplicate') duplicate_event(ev);
+        else if (act === 'delete') delete_event(ev);
     });
     document.getElementById('big-modal').addEventListener('click', (e) => {
         const el = e.target.closest('[data-modal-action]');
@@ -667,33 +713,35 @@ function showCalendar(month, year) {
 
     tbl.innerHTML = "";
 
-    monthAndYear.innerHTML = months[month] + " " + year;
+    if (typeof currentView === 'undefined' || currentView === 'month') monthAndYear.textContent = months[month] + " " + year;
     selectYear.value = year;
     selectMonth.value = month;
 
     // creating all cells
     var date = 1;
+    let trailing = 1;
     for (var i = 0; i < 6; i++) {
         today = new Date();
 
         var row = document.createElement("tr");
 
         for (var j = 0; j < 7; j++) {
-            if (i === 0 && j < firstDay) {
+            if ((i === 0 && j < firstDay) || (date > daysInMonth(month, year) && row.childElementCount)) {
+                // Neighbouring month: muted day number that jumps there.
+                const d = i === 0 && j < firstDay ? new Date(year, month, j - firstDay + 1) : new Date(year, month + 1, trailing++);
                 cell = document.createElement("td");
-                cellText = document.createTextNode("");
-                cell.appendChild(cellText);
-                cell.className = `date-picker-dead`;
+                cell.className = 'date-picker-dead' + (vars["holidays"].includes(j) ? ' is-holiday' : '');
+                const num = document.createElement('button');
+                num.type = 'button';
+                num.className = 'dead-num';
+                num.dataset.goto = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+                num.textContent = d.getDate() === 1 ? moment(d).format('MMM D') : String(d.getDate());
+                num.setAttribute('aria-label', `Go to ${moment(d).format('dddd, MMMM D')}`);
+                cell.appendChild(num);
                 row.appendChild(cell);
             }
             else if (date > daysInMonth(month, year)) {
-                if (row.innerHTML != "") {
-                    cell = document.createElement("td");
-                    cellText = document.createTextNode("");
-                    cell.appendChild(cellText);
-                    cell.className = `date-picker-dead`;
-                    row.appendChild(cell);
-                }
+                // row not started: nothing
             }
             else {
                 cell = document.createElement("td");
@@ -708,7 +756,7 @@ function showCalendar(month, year) {
                     <div class='date-span'><button type="button" class="date-num" title="Open day" aria-label="Open ${label}">${date}</button></div>
                     <div class='day-events day-events-${date}'></div>
                     <div class='reg-events reg-events-${date}'></div>
-                    <span class="badge add-on-day-btn" data-bs-toggle="modal" data-bs-target="#big-modal" role="button" title="New event" aria-label="New event on ${label}">+</span>
+                    <span class="badge add-on-day-btn" role="button" tabindex="0" title="New event" aria-label="New event on ${label}">+</span>
                     <span class="badge day-images-btn day-images-btn-${date}" data-bs-toggle="modal" data-bs-target="#big-modal" role="button" title="Photos"></span>
                 `;
                 // Click empty cell space → open create form
@@ -716,8 +764,7 @@ function showCalendar(month, year) {
                 cell.addEventListener('click', function (e) {
                     // Only fire if click is on the cell itself (not on children like events)
                     if (e.target === this || e.target.classList.contains('day-events') || e.target.classList.contains('reg-events')) {
-                        add_edit_event(cellDate);
-                        $('#big-modal').modal('show');
+                        add_edit_event(cellDate, month + 1, year);
                     }
                 });
 
@@ -772,10 +819,17 @@ function change_display() {
     else { localStorage.setItem('calendar_show_birthdays', 0); }
     if (document.getElementById('displayTodosCb').checked) { localStorage.setItem('calendar_show_todos', 1); }
     else { localStorage.setItem('calendar_show_todos', 0); }
+    const showAllBefore = localStorage.getItem('calendar_show_all');
     if (document.getElementById('displayAllCb').checked) { localStorage.setItem('calendar_show_all', 1); }
     else { localStorage.setItem('calendar_show_all', 0); }
+    if (showAllBefore !== localStorage.getItem('calendar_show_all')) {
+        _extraMonths = {};
+        populate_calendar(m, y, true);  // inactive calendars come from the server
+        return;
+    }
     reload();
     reload_calendar();
+    _afterDataLoad();
 }
 
 window.addEventListener("focus", () => {
@@ -862,63 +916,43 @@ function tick() {
     setTimeout(tick, 1000);
 }
 
+// New/edit event form in the drawer. `date`/`month`/`year` prefill a new event's day.
 function add_edit_event(date, month = m + 1, year = y, command = "add", edit_event = null) {
     var curreventtype = null;
-    if (command == "add") { $('.modal-title').html("Create New Event") }
-    else if (command == "edit") {
-        $('.modal-title').text(`Edit ${plain(edit_event['name'])}`)
+    if (command == "edit") {
         if (edit_event['allday'] == true) { curreventtype = "ade" }
         else if (!has_end(edit_event)) { curreventtype = "assignment" }
         else { curreventtype = "event" }
     }
-    $('.big-modal-body').html(event_create_template({ 'i': '1' }));
-    $('.event-datetime').css({ 'display': 'none' });
-    $('.event-type-btn').click(function () {
-        $('.event-datetime').css({ 'display': 'none' });
-        $(`.event-datetime-${jQuery(this).data('event-type')}`).css({ 'display': 'block' });
-        curreventtype = jQuery(this).data('event-type');
-    });
+    const body = drawer_open(command == "edit" ? 'Edit event' : 'New event', event_create_template({ 'i': '1' }));
+    const form = body.querySelector('.event-form');
+    const err = form.querySelector('.cal-form-err');
+    const showType = (t) => {
+        curreventtype = t;
+        form.querySelectorAll('.event-datetime').forEach(el => { el.hidden = !el.classList.contains(`event-datetime-${t}`); });
+    };
+    form.querySelectorAll('.event-type-btn').forEach(btn => btn.addEventListener('change', () => showType(btn.dataset.eventType)));
+    const pick = (t) => { const btn = form.querySelector(`.event-type-btn-${t}`); btn.checked = true; showType(t); };
 
-    i = 0;
-    for (cat of ['Uncategorized', 'Meeting', 'Focus Time', 'Break Time', 'Study', 'Work', 'Personal', 'Tech Break', 'Test / Exam', 'Lecture', 'Other']) {
-        option = document.createElement('option');
-        option.text = cat;
-        option.value = i;
-        if (option.text == 'Other') {
-            option.value = 100;
-        }
-        document.querySelector('.form-category-input-1').add(option);
-        i++;
-    }
+    const catSelect = form.querySelector('.form-category-input-1');
+    for (const [value, label] of Object.entries(CATEGORY_LABELS)) catSelect.add(new Option(label, value));
 
+    const setAll = (sel, fn) => form.querySelectorAll(sel).forEach(fn);
     if (command == "add") {
-        document.querySelector('.event-type-btn-ade').click();
-        document.querySelectorAll('.event-date-start').forEach(function (e) {
-            e.valueAsDate = new Date(Date.UTC(year, month - 1, date));
-        });
-        document.querySelectorAll('.event-date-end-ade').forEach(function (e) {
-            e.valueAsDate = new Date(Date.UTC(year, month - 1, date + 1));
-        });
-        document.querySelectorAll('.event-date-end-event').forEach(function (e) {
-            e.valueAsDate = new Date(Date.UTC(year, month - 1, date));
-        });
-
+        pick('ade');
+        setAll('.event-date-start', e => { e.valueAsDate = new Date(Date.UTC(year, month - 1, date)); });
+        setAll('.event-date-end-ade', e => { e.valueAsDate = new Date(Date.UTC(year, month - 1, date + 1)); });
+        setAll('.event-date-end-event', e => { e.valueAsDate = new Date(Date.UTC(year, month - 1, date)); });
         const defaultStartTime = moment().add(1, "hours").format("HH:00");
-        const defaultEndTime = moment().add(3, "hours").format("HH:00");
-        document.querySelectorAll('.event-time-start').forEach(function (e) {
-            e.value = defaultStartTime;
-        });
-        document.querySelectorAll('.event-time-end-event').forEach(function (e) {
-            e.value = defaultEndTime;
-        });
+        const defaultEndTime = moment().add(2, "hours").format("HH:00");
+        setAll('.event-time-start', e => { e.value = defaultStartTime; });
+        setAll('.event-time-end-event', e => { e.value = defaultEndTime; });
+        form.querySelector('#form-event-priority-input').value = 10;
     }
-    else if (command == "edit") {
-        $('.create-event-btn').html('Edit')
-
-        esdate = new Date(edit_event['startdate']);
-        if (curreventtype == "assignment") { eedate = new Date(moment(esdate).add(1, "days").add(1, "hours")); }
-        else { eedate = new Date(edit_event['enddate']); }
-
+    else {
+        form.querySelector('.create-event-btn').textContent = 'Save';
+        let esdate = new Date(edit_event['startdate']);
+        let eedate = curreventtype == "assignment" ? new Date(moment(esdate).add(1, "days").add(1, "hours")) : new Date(edit_event['enddate']);
         if (curreventtype == "ade") {
             const sParts = getEasternDateParts(esdate);
             esdate = new Date(Date.UTC(sParts.year, sParts.month - 1, sParts.day));
@@ -930,94 +964,119 @@ function add_edit_event(date, month = m + 1, year = y, command = "add", edit_eve
             esdate = convertUTCDateToLocalDate(esdate);
             eedate = convertUTCDateToLocalDate(eedate);
         }
-        document.querySelector(`.event-type-btn-${curreventtype}`).click();
-        document.querySelectorAll('.event-date-start').forEach(function (e) {
-            e.valueAsDate = esdate;
-        });
-        document.querySelectorAll('.event-date-end-ade').forEach(function (e) {
-            e.valueAsDate = eedate;
-        });
-        document.querySelectorAll('.event-time-start').forEach(function (e) {
-            e.valueAsDate = esdate;
-        });
-        document.querySelectorAll('.event-date-end-event').forEach(function (e) {
-            e.valueAsDate = eedate;
-        });
-        document.querySelectorAll('.event-time-end-event').forEach(function (e) {
-            e.valueAsDate = eedate;
-        });
-
-        $('.event-name-input-1').val(plain(edit_event['name']))
-        $('.event-loc-input-1').val(plain(edit_event['location']))
-        $('#event-description-input').val(edit_event['description'])
-        $('#form-event-priority-input').val(edit_event['priority'])
-        document.querySelector('#event-public-check').checked = edit_event['public']
+        pick(curreventtype);
+        setAll('.event-date-start', e => { e.valueAsDate = esdate; });
+        setAll('.event-date-end-ade', e => { e.valueAsDate = eedate; });
+        setAll('.event-time-start', e => { e.valueAsDate = esdate; });
+        setAll('.event-date-end-event', e => { e.valueAsDate = eedate; });
+        setAll('.event-time-end-event', e => { e.valueAsDate = eedate; });
+        form.querySelector('.event-name-input-1').value = plain(edit_event['name']);
+        form.querySelector('.event-loc-input-1').value = plain(edit_event['location']);
+        form.querySelector('#event-description-input').value = edit_event['description'] || '';
+        form.querySelector('#form-event-priority-input').value = edit_event['priority'] ?? 10;
+        form.querySelector('#event-public-check').checked = !!edit_event['public'];
     }
 
-    for (c of data["calendars"]) {
-        if (c["subscribe_type"] == 0 || c["subscribe_type"] == 1) {
-            option = document.createElement('option');
-            option.text = c["calendar"]["name"];
-            option.value = c["calendar"]["id"];
-            document.querySelector('.form-calendar-input-1').add(option);
-        }
-
-        if (command == "edit") {
-            $('.form-calendar-input-1').val(edit_event['calendar'])
-            $('.form-category-input-1').val(edit_event['category'])
-        }
+    const calSelect = form.querySelector('.form-calendar-input-1');
+    for (const c of data["calendars"]) {
+        if (c["subscribe_type"] == 0 || c["subscribe_type"] == 1) calSelect.add(new Option(plain(c["calendar"]["name"]), c["calendar"]["id"]));
+    }
+    if (command == "edit") {
+        calSelect.value = edit_event['calendar'];
+        catSelect.value = edit_event['category'];
     }
 
-    $('.create-event-btn').click(function () {
-        valid = true;
+    // Legacy field (being retired): not shown, but kept as it was so saving doesn't change it.
+    const prio = form.querySelector('#form-event-priority-input');
 
-        result = {
+    // Optional event colour (overrides the calendar's) and icon, once the server has those fields.
+    let colourPick = null, iconPick = null;
+    CAL_APPEARANCE_READY.then(() => {
+        if (!CAL_APPEARANCE || !form.isConnected) return;
+        colourPick = colour_picker({ name: 'event-colour', value: (edit_event && edit_event['colour']) || '', allowNone: true });
+        iconPick = icon_picker({ name: 'event-icon', value: (edit_event && edit_event['icon']) || '', colour: colourPick.get() });
+        form.querySelector('.event-colour-pick').appendChild(colourPick.el);
+        form.querySelector('.event-icon-pick').appendChild(iconPick.el);
+        colourPick.el.addEventListener('change', () => iconPick.setColour(colourPick.get()));
+        form.querySelectorAll('.event-appearance').forEach(el => { el.hidden = false; });
+    });
+
+    form.addEventListener('submit', (ev) => {
+        ev.preventDefault();
+        const fail = (msg) => { err.textContent = msg; err.hidden = false; };
+        err.hidden = true;
+        const result = {
             "command": command,
-
             "type": curreventtype,
-            "calendar": $('.form-calendar-input-1').val(),
-            "category": $('.form-category-input-1').val(),
-            "name": $('.event-name-input-1').val(),
-            "location": $('.event-loc-input-1').val(),
-            "description": $('#event-description-input').val(),
-            "priority": $('#form-event-priority-input').val(),
-            "public": document.querySelector('#event-public-check').checked,
-        }
-
-        if (command == "edit") { result["old_id"] = edit_event["id"] }
-
+            "calendar": calSelect.value,
+            "category": catSelect.value,
+            "name": form.querySelector('.event-name-input-1').value.trim(),
+            "location": form.querySelector('.event-loc-input-1').value,
+            "description": form.querySelector('#event-description-input').value,
+            "priority": prio.value,
+            "public": form.querySelector('#event-public-check').checked,
+        };
+        if (!result.name) { fail('Add a title.'); form.querySelector('.event-name-input-1').focus(); return; }
+        if (!result.calendar) { fail('You have no calendar you can add events to.'); return; }
+        if (command == "edit") { result["old_id"] = edit_event["id"]; }
+        const val = (sel) => form.querySelector(sel).value;
         if (curreventtype == "ade") {
-            result["start"] = $('.event-date-start-ade').val();
-            result["end"] = $('.event-date-end-ade').val();
+            result["start"] = val('.event-date-start-ade');
+            result["end"] = val('.event-date-end-ade');
+            if (!result.start || !result.end) { fail('Pick the start and end dates.'); return; }
+            if (result.end <= result.start) { fail('The end date must be after the start date.'); return; }
         } else if (curreventtype == "assignment") {
-            result["start"] = `${$('.event-date-start-assignment').val()} ${$('.event-time-start-assignment').val()}`;
-        } else if (curreventtype == "event") {
-            result["start"] = `${$('.event-date-start-event').val()} ${$('.event-time-start-event').val()}`;
-            result["end"] = `${$('.event-date-end-event').val()} ${$('.event-time-end-event').val()}`;
+            result["start"] = new Date(`${val('.event-date-start-assignment')} ${val('.event-time-start-assignment')}`);
+            if (isNaN(result.start)) { fail('Pick the due date and time.'); return; }
+        } else {
+            result["start"] = new Date(`${val('.event-date-start-event')} ${val('.event-time-start-event')}`);
+            result["end"] = new Date(`${val('.event-date-end-event')} ${val('.event-time-end-event')}`);
+            if (isNaN(result.start) || isNaN(result.end)) { fail('Pick the start and end.'); return; }
+            if (result.end < result.start) { fail('The event ends before it starts.'); return; }
         }
 
-        if (curreventtype != "ade") {
-            result['start'] = new Date(result['start'])
-        }
-        if (curreventtype == "event") {
-            result['end'] = new Date(result['end'])
-        }
+        const submit = form.querySelector('.create-event-btn');
+        submit.disabled = true;
+        const look = colourPick ? { colour: colourPick.get() || null, icon: iconPick.get() } : null;
+        const saved = () => {
+            drawer_close();
+            toast(command == "edit" ? 'Event saved' : 'Event created');
+            populate_calendar(m, y, true);
+        };
+        const failed = (msg) => { submit.disabled = false; fail(msg || "Couldn't save the event."); };
+        const v2 = (method, path, body) => fetch(path, {
+            method, credentials: 'same-origin', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() }, body: JSON.stringify(body),
+        }).then(async res => { if (!res.ok) { const b = await res.json().catch(() => ({})); throw new Error(typeof b.detail === 'string' ? b.detail : ''); } return res.json(); });
 
-        r = new XMLHttpRequest();
+        // A new event with a colour/icon is created through V2 (the legacy endpoint has no such fields).
+        if (look && command == "add" && (look.colour || look.icon)) {
+            const iso = (d) => d instanceof Date ? d.toISOString() : `${d}T00:00:00`;
+            v2('POST', '/api/v2/calendar/events', {
+                calendar_id: parseInt(result.calendar), name: result.name, start: iso(result.start),
+                end: curreventtype == "assignment" ? null : iso(result.end), all_day: curreventtype == "ade",
+                category: parseInt(result.category) || 0, location: result.location || null, description: result.description || null,
+                priority: parseInt(result.priority) || 10, public: result.public, ...look,
+            }).then(saved).catch(err => failed(err.message));
+            return;
+        }
+        const r = new XMLHttpRequest();
         r.open("POST", URLS['create_edit_event']);
         r.setRequestHeader("X-CSRFToken", csrfToken());
         r.onload = () => {
-            res = JSON.parse(r.responseText)
+            let res = {};
+            try { res = JSON.parse(r.responseText); } catch (e) { }
             if (res['status'] == 'success') {
-                populate_calendar(m, y, true);
+                // Colour/icon of an existing event: V2 PATCH after the legacy save.
+                if (look && command == "edit") v2('PATCH', `/api/v2/calendar/events/${encodeURIComponent(edit_event['id'])}`, look).then(saved).catch(() => { saved(); toast("Saved, but the colour/icon didn't update.", true); });
+                else saved();
+            } else {
+                failed(res['data']);
             }
-            else {
-                alert(res['data']);
-            }
-        }
+        };
+        r.onerror = () => { submit.disabled = false; fail("Couldn't reach the server."); };
         r.send(JSON.stringify(result));
-        $('.btn-close').click();
     });
+    setTimeout(() => form.querySelector('.event-name-input-1').focus(), 30);
 }
 
 function add_edit_todo(command = "add", edit_todo = null) {
@@ -1089,12 +1148,11 @@ function delete_todo(todo_num) {
     r.send(JSON.stringify({ 'id': todo["id"] }));
 }
 
+// Holiday columns (CALENDAR_VARS.holidays, e.g. weekends) get a quiet tint.
 function make_holidays_red() {
-    document.querySelectorAll('.date-span').forEach(ds => {
-        if (vars["holidays"].includes(parseInt(ds.parentElement.dataset.day))) {
-            ds.style.color = "var(--app-danger)"
-        }
-    })
+    document.querySelectorAll('#calendar-body td.date-picker').forEach(td => {
+        td.classList.toggle('is-holiday', vars["holidays"].includes(parseInt(td.dataset.day)));
+    });
 }
 
 function change_height() {
@@ -1188,25 +1246,37 @@ function create_calendar() {
     $('.modal-body').html(calendar_create_form({}));
 
 
+    const colourPick = colour_picker({ name: 'new-cal-colour', value: CAL_COLOURS[1][0] });
+    document.querySelector('.calendar-colour-pick').appendChild(colourPick.el);
+    let iconPick = null;
+    CAL_APPEARANCE_READY.then(() => {
+        if (!CAL_APPEARANCE || !document.querySelector('.calendar-icon-pick')) return;
+        iconPick = icon_picker({ name: 'new-cal-icon', colour: colourPick.get() });
+        document.querySelector('.calendar-icon-pick').appendChild(iconPick.el);
+        document.querySelector('.calendar-icon-field').hidden = false;
+        colourPick.el.addEventListener('change', () => iconPick.setColour(colourPick.get()));
+    });
+
+    // Created through the V2 API (same result as the legacy endpoint; can also carry the icon).
     $('.calendar-submit').click(() => {
-        if ($('.calendar-name').val() === '') {
-            $('.calendar-warn').text("Please enter a calendar name");
-        }
-        else {
-            r = new XMLHttpRequest();
-            r.open("POST", URLS['calendar']);
-            r.setRequestHeader("X-CSRFToken", csrfToken());
-            r.onload = () => {
-                res = JSON.parse(r.responseText);
-                if (res["status"] == "success") {
-                    populate_calendar(m, y, true);
-                }
-                else {
-                    $('.calendar-warn').text(res["data"]);
-                }
-            }
-            r.send(JSON.stringify({ "name": $('.calendar-name').val(), "color": $('.calendar-color').val() }));
-        }
+        const name = $('.calendar-name').val().trim();
+        if (!name) { $('.calendar-warn').text("Please enter a calendar name"); return; }
+        const body = { name, colour: colourPick.get() || CAL_COLOURS[0][0] };
+        if (iconPick && iconPick.get()) body.icon = iconPick.get();
+        const btn = document.querySelector('.calendar-submit');
+        btn.disabled = true;
+        fetch('/api/v2/calendar/calendars', {
+            method: 'POST', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() }, body: JSON.stringify(body),
+        }).then(async r => {
+            if (!r.ok) { const b = await r.json().catch(() => ({})); throw new Error(typeof b.detail === 'string' ? b.detail : "Couldn't create the calendar."); }
+            $('#modal').modal('hide');
+            toast(`Created "${name}"`);
+            populate_calendar(m, y, true);
+        }).catch(err => {
+            btn.disabled = false;
+            $('.calendar-warn').text(err.message || "Couldn't create the calendar.");
+        });
     });
 
     var subscribeCode
@@ -1278,6 +1348,7 @@ class CalendarDayView {
         this.onEventClick = options.onEventClick || null;
         this.onSlotClick = options.onSlotClick || null;
         this.onDragCreate = options.onDragCreate || null;
+        this.onTodoCheck = options.onTodoCheck || complete_task;
         this.showHeader = options.showHeader || false;
         this._nowTimer = null;
     }
@@ -1356,23 +1427,64 @@ class CalendarDayView {
         const col = document.createElement('div');
         col.className = 'cv-allday-column';
 
-        if (allDayEvents && allDayEvents.length) {
-            allDayEvents.forEach(ev => {
-                const chip = document.createElement('div');
-                chip.className = 'cv-allday-event';
-                const cal = this.calendarMap[ev.calendar];
-                chip.style.backgroundColor = cal ? cal.colour : '#039be5';
-                chip.textContent = plain(ev.name);
-                if (this.onEventClick) {
-                    chip.addEventListener('click', () => this.onEventClick(ev));
-                }
-                col.appendChild(chip);
-            });
-        }
+        (allDayEvents || []).forEach(ev => col.appendChild(this._allDayChip(ev, this.date)));
 
         content.appendChild(col);
         bar.appendChild(content);
         return bar;
+    }
+
+    /** One chip of the all-day lane: an all-day event, or a task due at 23:59 that day. */
+    _allDayChip(ev, date) {
+        if (ev._todo) {
+            const today = date && new Date(date).toDateString() === new Date().toDateString();
+            return this._todoChip(ev, today ? 'due today' : 'due');
+        }
+        const chip = document.createElement('div');
+        chip.className = 'cv-allday-event';
+        chip.style.setProperty('--ev', event_colour(ev));
+        chip.tabIndex = 0;
+        chip.setAttribute('role', 'button');
+        chip.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); chip.click(); } });
+        chip.textContent = plain(ev.name);
+        chip.title = plain(ev.name);
+        if (this.onEventClick) {
+            chip.addEventListener('click', () => this.onEventClick(ev));
+        }
+        return chip;
+    }
+
+    /** Task chip: checkbox (completes it) + title (opens it in Tasks) + a short note. */
+    _todoChip(t, note) {
+        const name = plain(t.name);
+        const chip = document.createElement('div');
+        chip.className = 'cv-todo';
+        chip.dataset.todoId = t.id;
+        const check = document.createElement('button');
+        check.type = 'button';
+        check.className = 'cv-todo-check';
+        check.title = 'Mark complete';
+        check.setAttribute('aria-label', `Mark "${name}" complete`);
+        check.innerHTML = TODO_CHECK_ICON;  // static markup
+        check.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (this.onTodoCheck) this.onTodoCheck(t, chip, check);
+        });
+        const link = document.createElement('a');
+        link.className = 'cv-todo-title';
+        link.href = `/tasks/?task=${encodeURIComponent(t.id)}`;
+        link.textContent = name;
+        link.title = `${name} · due ${moment(new Date(t.startdate)).format('ddd MMM D, h:mm A')}`;
+        link.addEventListener('click', (e) => e.stopPropagation());
+        chip.append(check, link);
+        if (note) {
+            const n = document.createElement('span');
+            n.className = 'cv-todo-note';
+            n.textContent = note;
+            chip.appendChild(n);
+        }
+        chip.addEventListener('mousedown', (e) => e.stopPropagation());
+        return chip;
     }
 
     /** Build the left-side time gutter */
@@ -1564,17 +1676,27 @@ class CalendarDayView {
 
         // Render each event
         for (const item of items) {
+            const widthPct = 100 / totalCols;
+            if (item.ev._todo) {
+                const chip = this._todoChip(item.ev, short_time(new Date(item.ev.startdate)));
+                chip.classList.add('cv-todo-timed');
+                chip.style.top = Math.min(item.top, (this.endHour - this.startHour) * this.hourHeight - 22) + 'px';
+                chip.style.left = (item.col * widthPct) + '%';
+                chip.style.width = 'calc(' + widthPct + '% - 2px)';
+                col.appendChild(chip);
+                continue;
+            }
             const el = document.createElement('div');
             el.className = 'cv-event';
             const cal = this.calendarMap[item.ev.calendar];
-            const bgColor = cal ? cal.colour : '#039be5';
-            el.style.backgroundColor = bgColor;
-            el.style.color = this._contrastColor(bgColor);
+            el.style.setProperty('--ev', event_colour(item.ev));
+            el.tabIndex = 0;
+            el.setAttribute('role', 'button');
+            el.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); el.click(); } });
             el.style.top = item.top + 'px';
             el.style.height = item.height + 'px';
 
             // Width and left based on column
-            const widthPct = 100 / totalCols;
             el.style.left = (item.col * widthPct) + '%';
             el.style.width = 'calc(' + widthPct + '% - 2px)';
 
@@ -1706,6 +1828,7 @@ class CalendarWeekView {
         this.onEventClick = options.onEventClick || null;
         this.onSlotClick = options.onSlotClick || null;
         this.onDragCreate = options.onDragCreate || null;
+        this.onTodoCheck = options.onTodoCheck || complete_task;
         this._nowTimer = null;
         this._dayHelper = new CalendarDayView(document.createElement('div'), {
             hourHeight: this.hourHeight,
@@ -1760,6 +1883,13 @@ class CalendarWeekView {
         });
         wrapper.appendChild(header);
 
+        // Handlers for the shared day helper (all-day chips and day columns)
+        this._dayHelper.onEventClick = this.onEventClick;
+        this._dayHelper.onSlotClick = this.onSlotClick;
+        this._dayHelper.onDragCreate = this.onDragCreate;
+        this._dayHelper.onTodoCheck = this.onTodoCheck;
+        this._dayHelper.calendarMap = calendarMap;
+
         // All-day section
         wrapper.appendChild(this._buildAllDayWeek(dates, eventsByDay, calendarMap));
 
@@ -1778,11 +1908,6 @@ class CalendarWeekView {
         columns.className = 'cv-columns';
         this._dayCols = [];
 
-        // Set handlers before building columns
-        this._dayHelper.onEventClick = this.onEventClick;
-        this._dayHelper.onSlotClick = this.onSlotClick;
-        this._dayHelper.onDragCreate = this.onDragCreate;
-        this._dayHelper.calendarMap = calendarMap;
 
         dates.forEach((d, i) => {
             const dayEvents = eventsByDay[i] ? eventsByDay[i].timed || [] : [];
@@ -1819,17 +1944,7 @@ class CalendarWeekView {
             const col = document.createElement('div');
             col.className = 'cv-allday-column';
             const allDayEvts = eventsByDay[i] ? eventsByDay[i].allDay || [] : [];
-            allDayEvts.forEach(ev => {
-                const chip = document.createElement('div');
-                chip.className = 'cv-allday-event';
-                const cal = calendarMap[ev.calendar];
-                chip.style.backgroundColor = cal ? cal.colour : '#039be5';
-                chip.textContent = plain(ev.name);
-                if (this.onEventClick) {
-                    chip.addEventListener('click', () => this.onEventClick(ev));
-                }
-                col.appendChild(chip);
-            });
+            allDayEvts.forEach(ev => col.appendChild(this._dayHelper._allDayChip(ev, d)));
             content.appendChild(col);
         });
 
@@ -1883,7 +1998,7 @@ class CalendarWeekView {
 var _activeDayView = null;
 
 function open_day(dpd, dpMonth = m + 1, dpYear = y) {
-    if (!data || !events['events']) return;
+    if (!data) return;
     const viewDate = new Date(dpYear, dpMonth - 1, dpd);
     const modalEl = document.getElementById('big-modal');
     document.querySelector('.big-modal-title').textContent = moment(viewDate).format('dddd, MMMM D, YYYY');
@@ -1894,20 +2009,16 @@ function open_day(dpd, dpMonth = m + 1, dpYear = y) {
     _activeDayView = new CalendarDayView(container, {
         hourHeight: 60,
         onEventClick: function (ev) {
-            const idx = data['events'].indexOf(ev);
-            if (idx === -1) return;
             $('#big-modal').modal('hide');
-            open_event_index(idx);
+            open_event(ev);
         },
         onSlotClick: function (date) {
             $('#big-modal').modal('hide');
-            setTimeout(() => {
-                add_edit_event(date.getDate(), date.getMonth() + 1, date.getFullYear());
-                $('#big-modal').modal('show');
-            }, 300);
+            add_edit_event(date.getDate(), date.getMonth() + 1, date.getFullYear());
         }
     });
-    _activeDayView.render(viewDate, events['events'][dpd] || [], events['allday'][dpd] || [], calendars);
+    const day = items_for_day(viewDate);
+    _activeDayView.render(viewDate, day.timed, day.allDay, calendars);
 
     // The grid can only scroll once the modal is laid out.
     const view = _activeDayView;
@@ -1920,22 +2031,124 @@ function open_day(dpd, dpMonth = m + 1, dpYear = y) {
     }
 }
 
-// Open the details of data.events[idx] in the small modal.
-function open_event_index(idx) {
-    $('#modal').modal('show');
-    display_info({ dataset: { no: idx } });
+// =============================================================================================================
+// Events and tasks by date (day/week views). The month payload covers the loaded month; weeks that
+// cross into the next/previous month fetch that month too (same endpoint and options, cached).
+// =============================================================================================================
+var _extraMonths = {};   // "YYYY-M" -> events of that month
+var _extraPending = {};
+var _extraStale = new Set();  // cached months to refetch (kept on screen until the new copy arrives)
+var TODO_CHECK_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16" aria-hidden="true"><path class="ci-ring" d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path class="ci-tick" d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/></svg>';
+
+function month_key(yy, mm) { return `${yy}-${mm}`; }
+
+// Every event we have: the loaded month first, then cached neighbouring months (deduplicated).
+function loaded_events() {
+    const all = data ? data['events'].slice() : [];
+    const seen = new Set(all.map(e => e.id));
+    for (const [key, list] of Object.entries(_extraMonths)) {
+        if (key === month_key(y, m)) continue;  // the loaded month's own copy is authoritative
+        for (const e of list) if (!seen.has(e.id)) { seen.add(e.id); all.push(e); }
+    }
+    return all;
 }
 
-// Open an event by id. If it isn't in the loaded month, go to its month first.
+function find_event(id) {
+    return loaded_events().find(e => e.id === id) || null;
+}
+
+function eastern_day(iso) {
+    const p = getEasternDateParts(new Date(iso));
+    return new Date(p.year, p.month - 1, p.day);
+}
+
+// Items to draw on one day: timed events (incl. deadlines and multi-day pieces), all-day events,
+// and open tasks due that day (23:59 = "due that day", drawn in the all-day lane).
+function items_for_day(date, list = loaded_events()) {
+    const dayStart = new Date(date); dayStart.setHours(0, 0, 0, 0);
+    const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1);
+    const timed = [], allDay = [];
+    for (const ev of list) {
+        const cal = calendars[ev['calendar']];
+        if (cal && cal['visible'] === false) continue;
+        if (ev['allday']) {
+            const s = eastern_day(ev['startdate']);
+            let e = has_end(ev) ? eastern_day(ev['enddate']) : null;
+            if (!e || e <= s) { e = new Date(s); e.setDate(e.getDate() + 1); }
+            if (s <= dayStart && dayStart < e) allDay.push(ev);
+        } else if (!has_end(ev)) {
+            const s = new Date(ev['startdate']);
+            if (s >= dayStart && s < dayEnd) timed.push(ev);
+        } else if (new Date(ev['startdate']) < dayEnd && new Date(ev['enddate']) > dayStart) {
+            timed.push(ev);
+        }
+    }
+    if (data && localStorage.getItem('calendar_show_todos') == 1) {
+        for (const t of data['todos']) {
+            if (t['completed'] || !t['complete_by']) continue;
+            const due = new Date(t['complete_by']);
+            if (due < dayStart || due >= dayEnd) continue;
+            const item = { _todo: true, id: t['id'], name: t['name'], startdate: t['complete_by'], enddate: null };
+            (due.getHours() === 23 && due.getMinutes() === 59 ? allDay : timed).push(item);
+        }
+    }
+    return { timed, allDay };
+}
+
+// Fetch months (other than the loaded one) that the given dates fall in; re-render when they arrive.
+function ensure_months(dates) {
+    const wanted = new Map();
+    for (const d of dates) {
+        if (d.getMonth() === m && d.getFullYear() === y) continue;
+        const key = month_key(d.getFullYear(), d.getMonth());
+        if ((!_extraMonths[key] || _extraStale.has(key)) && !_extraPending[key]) wanted.set(key, [d.getFullYear(), d.getMonth()]);
+    }
+    wanted.forEach(([yy, mm], key) => {
+        _extraPending[key] = true;
+        const url = `${URLS['get_events']}?month=${mm + 1}&year=${yy}&show_all=${encodeURIComponent(localStorage.getItem('calendar_show_all') || 0)}&extra=${encodeURIComponent(localStorage.getItem('calendar_extra') || '')}&show_invisible=1`;
+        fetch(url, { credentials: 'same-origin' })
+            .then(r => r.text())
+            .then(text => {
+                const res = JSON.parse(text.replace(/&#x27;/g, '"'))["data"];
+                if (res && res.events) { _extraMonths[key] = res.events; _extraStale.delete(key); }
+            })
+            .catch(() => { })
+            .finally(() => {
+                delete _extraPending[key];
+                if (_extraMonths[key]) _afterDataLoad();
+            });
+    });
+}
+
+// Tick a task off from the day/week view (repeating tasks move to their next date).
+function complete_task(t, chip, btn) {
+    btn.disabled = true;
+    chip.classList.add('is-done');
+    fetch(`/api/v2/tasks/${encodeURIComponent(t.id)}/done`, {
+        method: 'POST', credentials: 'same-origin', headers: { 'X-CSRFToken': csrfToken() },
+    }).then(r => {
+        if (!r.ok) throw new Error(r.status);
+        populate_calendar(m, y, true);
+    }).catch(() => {
+        chip.classList.remove('is-done');
+        btn.disabled = false;
+        btn.title = "Couldn't complete it. Try again";
+    });
+}
+
+// Show one event's details in the small modal.
+function open_event(ev) {
+    if (!ev) return;
+    show_event(ev);
+}
+
+// Open an event by id. If we don't have it, go to its month first.
 function open_event_by_id(id, startIso) {
-    const idx = data ? data['events'].findIndex(e => e.id === id) : -1;
-    if (idx !== -1) { open_event_index(idx); return; }
+    const ev = find_event(id);
+    if (ev) { open_event(ev); return; }
     const d = new Date(startIso);
     if (isNaN(d)) return;
-    goto_month(d.getMonth(), d.getFullYear(), () => {
-        const j = data['events'].findIndex(e => e.id === id);
-        if (j !== -1) open_event_index(j);
-    });
+    goto_month(d.getMonth(), d.getFullYear(), () => open_event(find_event(id)));
 }
 
 function goto_month(month, year, after) {
@@ -1987,6 +2200,7 @@ function reload_calendar() {
             "colour": c['colour'], "owner": c["subscribe_type"] == 0, "inactive": c["calendar"]["active"] === false,
             "admin": c["subscribe_type"] == 1, "sync": c["calendar"]["calendar_type"] != "0",
             "c_owner": c["calendar"]["owner"] && c["calendar"]["owner"]["id"] == USER_ID,
+            "icon": cal_icon_svg(c["calendar"]["icon"] || c["icon"] || '', 14),  // static SVG for a known icon name
         });
         (c["subscribe_type"] == 0 ? mine : other).push(html);
     });
@@ -2006,7 +2220,7 @@ function reload_calendar() {
         const cal = calendars[ev['calendar']];
         // Skip events from hidden calendars
         if (cal && cal['visible'] === false) continue;
-        const colour = cal ? cal['colour'] : 'var(--app-muted)';
+        const colour = event_colour(ev);
 
         let sd = new Date(ev['startdate']);
         let ed = new Date(ev['enddate']);
@@ -2019,7 +2233,8 @@ function reload_calendar() {
             }
         }
 
-        const icon = ev['category'] == 100 ? "" : (ICONS[ev['category']] || "");
+        // The event's own icon (once the server has it) replaces the category icon.
+        const icon = (ev['icon'] && cal_icon_svg(ev['icon'], 12)) || (ev['category'] == 100 ? "" : (ICONS[ev['category']] || ""));
         const base = { 'modal': true, 'calendar': ev['calendar'], 'i': i, 'type': "event", 'icon': icon, 'title': ev['name'], 'location': ev['location'], 'del': ev['completed'] == true };
         const timed = { ...base, 'color': colour, 'time': short_time(sd) };    // dot + time + title
         const bar = { ...base, 'bg_color': colour, 'color': '#f0f0f0' };       // tinted all-day / multi-day bar
@@ -2073,27 +2288,44 @@ function reload_calendar() {
     }
 
     const now = new Date();
-    const items = [];
+    const sidebarTodos = [];
+    let openCount = 0;
+    const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0);
     for (let [num, todo] of data["todos"].entries()) {
-        let cls = "", overdue = false;
-        if (todo["complete_by"] == null) { cls = "text-muted"; }
-        else {
+        let cls = "", overdue = false, due = "";
+        if (todo["complete_by"] != null) {
             const cd = new Date(todo["complete_by"]);
-            const dc = cd.getTime() - now.getTime();
-            if (cd <= now) { cls = "todo-overdue"; overdue = true; }
-            else if (dc <= timediff1) { cls = "todo-due"; }
-            else if (dc <= timediff2) { cls = "todo-soon"; }
+            const untimed = cd.getHours() == 23 && cd.getMinutes() == 59;
+            const dayDiff = Math.round((new Date(cd).setHours(0, 0, 0, 0) - todayStart) / 86400000);
+            const dayLabel = dayDiff === 0 ? 'Today' : dayDiff === -1 ? 'Yesterday' : dayDiff === 1 ? 'Tomorrow'
+                : moment(cd).format(cd.getFullYear() === now.getFullYear() ? 'ddd MMM D' : 'MMM D, YYYY');
+            due = untimed ? dayLabel : `${dayLabel} ${moment(cd).format('h:mm A')}`;
+            if (cd <= now) { cls = "is-overdue"; overdue = true; }
+            else if (dayDiff === 0) { cls = "is-today"; }
+            else if (cd.getTime() - now.getTime() <= timediff2) { cls = "is-soon"; }
 
             if (localStorage.getItem("calendar_show_todos") == 1 && cd.getMonth() == m && cd.getFullYear() == y) {
-                const untimed = cd.getHours() == 23 && cd.getMinutes() == 59;
                 add_chip(`.day-events-${cd.getDate()}`, { 'modal': false, 'calendar': "", 'i': num, 'type': "event", 'bg_color': "", 'color': 'var(--app-muted)', 'icon': TASK_ICON, 'del': todo["completed"] == true, 'time': untimed ? "" : short_time(cd), 'title': todo.name });
             }
         }
         if (todo["completed"] == false) {
-            items.push(todo_item({ 'id': todo.id, 'name': plain(todo.name), 'cls': cls, 'overdue': overdue, 'i': num }));
+            openCount++;
+            // The sidebar lists what's overdue or due in the next 7 days; the rest live in Tasks.
+            if (todo["complete_by"] == null || new Date(todo["complete_by"]).getTime() - now.getTime() > 7 * 86400000) continue;
+            // Priority 0-20 -> the Tasks app's Low/Medium/High/Urgent ring colours
+            const pr = todo.priority ?? 10;
+            const prio = pr <= 5 ? 1 : pr <= 10 ? 2 : pr <= 15 ? 3 : 4;
+            sidebarTodos.push([new Date(todo["complete_by"]).getTime(), todo_item({ 'id': todo.id, 'name': plain(todo.name), 'cls': cls, 'overdue': overdue, 'due': due, 'prio': prio, 'i': num })]);
         }
     }
-    document.querySelector('.todo-list').innerHTML = items.join('');
+    sidebarTodos.sort((a, b) => a[0] - b[0]);
+    // Overdue and soonest first; the widget shows the first 8 (the count says how many are due).
+    document.querySelector('.todo-list').innerHTML = sidebarTodos.slice(0, 8).map(x => x[1]).join('')
+        + (sidebarTodos.length > 8 ? `<a class="todo-more" href="/tasks/?view=upcoming">${sidebarTodos.length - 8} more due this week</a>` : '');
+    const tasksCount = document.getElementById('wg-count-tasks');
+    if (tasksCount) tasksCount.textContent = sidebarTodos.length ? String(sidebarTodos.length) : '';
+    const openLink = document.getElementById('todo-open-link');
+    if (openLink) openLink.textContent = openCount ? `Open Tasks · ${openCount} open` : 'Open Tasks';
 
     for (const [day, count] of Object.entries(data["photos"])) { $(`.day-images-btn-${day}`).text(count); }
 
@@ -2120,7 +2352,7 @@ function populate_calendar(m, y, jumponload = false, after = null) {
 
         document.querySelector('.page-alert').style.display = "none";
 
-        if (jumponload) { reload() };
+        if (jumponload) { reload(); _extraStale = new Set(Object.keys(_extraMonths)); }
         reload_calendar();
         lastrefresh = new Date();
         $('#last-refresh').text(moment(lastrefresh).format('LTS'));
@@ -2161,10 +2393,12 @@ function complete_todo(todo_id) {
 
 var SYNC_ICON = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-arrow-repeat text-muted" viewBox="0 0 16 16" aria-label="Synced"><path d="M11.534 7h3.932a.25.25 0 0 1 .192.41l-1.966 2.36a.25.25 0 0 1-.384 0l-1.966-2.36a.25.25 0 0 1 .192-.41zm-11 2h3.932a.25.25 0 0 0 .192-.41L2.692 6.23a.25.25 0 0 0-.384 0L.342 8.59A.25.25 0 0 0 .534 9z"/><path fill-rule="evenodd" d="M8 3c-1.552 0-2.94.707-3.857 1.818a.5.5 0 1 1-.771-.636A6.002 6.002 0 0 1 13.917 7H12.9A5.002 5.002 0 0 0 8 3zM3.1 9a5.002 5.002 0 0 0 8.757 2.182.5.5 0 1 1 .771.636A6.002 6.002 0 0 1 2.083 9H3.1z"/></svg>';
 
-// Event details in the small modal. `button.dataset.no` is the index in data.events.
+// Event details in the small modal. Month chips carry `data-no` (index in data.events).
 function display_info(button) {
-    const no = button.dataset.no;
-    const event_ = data["events"][no];
+    show_event(data["events"][button.dataset.no]);
+}
+
+function show_event(event_) {
     if (!event_) return;
 
     let sd = new Date(event_["startdate"]);
@@ -2179,9 +2413,6 @@ function display_info(button) {
         }
     }
 
-    const titleEl = document.querySelector('#modal .modal-title');
-    titleEl.textContent = plain(event_['name']);
-    if (event_['sync_id'] != null) titleEl.insertAdjacentHTML('beforeend', SYNC_ICON);
 
     let date_;
     if (deadline) { date_ = moment(sd).format('LLLL'); }
@@ -2193,7 +2424,9 @@ function display_info(button) {
     else { date_ = moment(sd).format('LLL') + " – " + moment(ed).format('LLL'); }
 
     const cal = calendars[event_["calendar"]];
-    $('#modal .modal-body').html(event_info_template({
+    drawer_open(cal ? plain(cal.calendar.name) : 'Event', event_info_template({
+        "title": plain(event_['name']),
+        "synced": event_['sync_id'] != null,
         "id": event_["id"],
         "cal_color": cal ? cal.colour : '#039be5',
         "date": date_,
@@ -2204,7 +2437,6 @@ function display_info(button) {
         "description": event_["description"] ? parse_message(event_["description"]) : "",
         "location": plain(value_or_empty(event_["location"])),
         "dev_info": localStorage.getItem('debug') == 1,
-        "event_no": no,
         "owner": cal && (cal.subscribe_type == 0 || cal.subscribe_type == 1),
     }));
 }
@@ -2232,6 +2464,7 @@ function display_calendar_info(btn) {
 
             $('.big-modal-title').text(plain(calendar_["name"]));
             $('.big-modal-body').html(calendar_info_template());
+            setup_calendar_appearance(cal);
 
             if (calendar_["active"] == true) { $('.toggle-calendar-activation-btn').html("Disable"); }
             else { $('.toggle-calendar-activation-btn').html("Enable"); }
@@ -2289,6 +2522,38 @@ function display_calendar_info(btn) {
         $('.big-modal-title').text(plain(cal["calendar"]["name"]))
         $('.big-modal-body').text("You must be the owner of the calendar to view and change it's settings.")
     }
+}
+
+// Calendar colour (your colour for it, V2 PATCH) and, once the server supports it, its icon.
+function setup_calendar_appearance(sub) {
+    const calId = sub["calendar"]["id"];
+    const colourPick = colour_picker({ name: `cal-colour-${calId}`, value: sub["colour"] || sub["calendar"]["colour"] });
+    document.querySelector('.cal-appearance-colour').appendChild(colourPick.el);
+    let iconPick = null;
+    CAL_APPEARANCE_READY.then(() => {
+        const box = document.querySelector('.cal-appearance-icon');
+        if (!CAL_APPEARANCE || !box) return;
+        iconPick = icon_picker({ name: `cal-icon-${calId}`, value: sub["calendar"]["icon"] || '', colour: colourPick.get() });
+        box.appendChild(iconPick.el);
+        document.querySelector('.cal-appearance-icon-field').hidden = false;
+        colourPick.el.addEventListener('change', () => iconPick.setColour(colourPick.get()));
+    });
+    const msg = document.querySelector('.cal-appearance-msg');
+    document.querySelector('.cal-appearance-save').addEventListener('click', (e) => {
+        const body = { colour: colourPick.get() };
+        if (!body.colour) { msg.textContent = 'Pick a colour.'; return; }
+        if (iconPick) body.icon = iconPick.get();
+        e.currentTarget.disabled = true;
+        const btn = e.currentTarget;
+        fetch(`/api/v2/calendar/calendars/${encodeURIComponent(calId)}`, {
+            method: 'PATCH', credentials: 'same-origin',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken() }, body: JSON.stringify(body),
+        }).then(r => {
+            if (!r.ok) throw new Error(r.status);
+            msg.textContent = 'Saved';
+            populate_calendar(m, y, true);
+        }).catch(() => { msg.textContent = "Couldn't save."; }).finally(() => { btn.disabled = false; });
+    });
 }
 
 function sync_events(btn) {
@@ -2451,45 +2716,50 @@ function toggle_calendar_enable(e) {
     r.send();
 }
 
-function delete_event(event_no) {
-    ev = data["events"][event_no]
-    if (calendars[ev["calendar"]]["subscribe_type"] == 0 || calendars[ev["calendar"]]["subscribe_type"] == 1) {
-        var request = new XMLHttpRequest()
-        request.open('POST', URLS['delete_event'])
-        request.setRequestHeader("X-CSRFToken", csrfToken())
-        request.onload = () => {
-            res = JSON.parse(request.responseText);
-            if (res["status"] === "success") {
-                $("#modal").modal("hide");
-                data["events"].splice(event_no, 1)
-                reload_calendar();
-            }
-            else {
-                alert(res["data"])
-            }
-        }
-        request.send(ev["id"])
-    }
+function can_edit_event(ev) {
+    const cal = ev && calendars[ev["calendar"]];
+    return !!cal && (cal["subscribe_type"] == 0 || cal["subscribe_type"] == 1);
 }
 
-function duplicate_event(event_no) {
-    ev = data["events"][event_no]
-    if (calendars[ev["calendar"]]["subscribe_type"] == 0 || calendars[ev["calendar"]]["subscribe_type"] == 1) {
-        var request = new XMLHttpRequest()
-        request.open('POST', URLS['duplicate_event'])
-        request.setRequestHeader("X-CSRFToken", csrfToken())
-        request.onload = () => {
-            res = JSON.parse(request.responseText);
-            if (res["status"] === "success") {
-                $("#modal").modal("hide");
-                populate_calendar(m, y, true);
-            }
-            else {
-                alert(res["data"])
-            }
+function delete_event(ev) {
+    if (!can_edit_event(ev)) return;
+    if (!confirm(`Delete "${plain(ev['name'])}"?`)) return;
+    const request = new XMLHttpRequest();
+    request.open('POST', URLS['delete_event']);
+    request.setRequestHeader("X-CSRFToken", csrfToken());
+    request.onload = () => {
+        const res = JSON.parse(request.responseText);
+        if (res["status"] === "success") {
+            drawer_close();
+            toast('Event deleted');
+            populate_calendar(m, y, true);
         }
-        request.send(JSON.stringify({ "id": ev["id"], "days": $('#evDupDays').val() }))
-    }
+        else {
+            toast(res["data"] || "Couldn't delete the event.", true);
+        }
+    };
+    request.send(ev["id"]);
+}
+
+function duplicate_event(ev) {
+    if (!can_edit_event(ev)) return;
+    const days = parseInt($('#evDupDays').val());
+    if (!Number.isInteger(days) || Math.abs(days) > 3650) { toast("Enter a whole number of days (up to 3650).", true); return; }
+    const request = new XMLHttpRequest();
+    request.open('POST', URLS['duplicate_event']);
+    request.setRequestHeader("X-CSRFToken", csrfToken());
+    request.onload = () => {
+        const res = JSON.parse(request.responseText);
+        if (res["status"] === "success") {
+            drawer_close();
+            toast(`Duplicated ${days} day${Math.abs(days) === 1 ? '' : 's'} later`);
+            populate_calendar(m, y, true);
+        }
+        else {
+            toast(res["data"] || "Couldn't duplicate the event.", true);
+        }
+    };
+    request.send(JSON.stringify({ "id": ev["id"], "days": days }));
 }
 
 function view_day_images(date) {
@@ -2649,22 +2919,10 @@ function value_or_empty(str) {
     return str;
 }
 
+// Show one of the right-sidebar widgets (expands it / switches to its tab). See widgets.js.
 function show_in_sidebar(opt) {
-    if (!['.sb-todos', '.sb-upcoming', '.sb-insight'].includes(opt)) opt = '.sb-todos';
-    document.querySelectorAll('.sidebar-info').forEach((el) => {
-        el.hidden = !el.matches(opt);
-    });
-
-    // Highlight active tab
-    document.querySelectorAll('#sidebar-tabs .nav-link').forEach(link => {
-        const active = link.dataset.sidebarTab === opt;
-        link.classList.toggle('active', active);
-        link.setAttribute('aria-selected', active ? 'true' : 'false');
-    });
-
-    // Persist
-    try { localStorage.setItem('calendar_sidebar_tab', opt); } catch (e) { }
-    document.dispatchEvent(new CustomEvent('calendar:sidebar', { detail: { tab: opt } }));
+    const id = { '.sb-todos': 'tasks', '.sb-upcoming': 'upcoming', '.sb-insight': 'insight' }[opt] || opt;
+    if (window.CalWidgets) window.CalWidgets.reveal(id);
 }
 
 function hide_loading() {
@@ -2673,12 +2931,14 @@ function hide_loading() {
 
 // ===== View Switching =====
 function switch_view(view) {
+    if (!['month', 'week', 'day'].includes(view)) view = 'month';
     currentView = view;
     localStorage.setItem('calendar_view', view);
 
     document.querySelector('.view-month').hidden = view !== 'month';
     document.querySelector('.view-week').hidden = view !== 'week';
     document.querySelector('.view-day').hidden = view !== 'day';
+    document.querySelectorAll('.cal-views [data-view]').forEach(b => b.setAttribute('aria-selected', b.dataset.view === view ? 'true' : 'false'));
 
     if (view === 'month') {
         // Already populated by month
@@ -2688,11 +2948,54 @@ function switch_view(view) {
     } else if (view === 'day') {
         renderDayView();
     }
+    set_title();
+}
+
+// Toolbar title: "November 2026", "Nov 1 – 7, 2026" or "Thursday, November 5, 2026".
+function set_title() {
+    const el = document.getElementById('monthAndYear');
+    if (currentView === 'day') { el.textContent = moment(currentDayDate).format('dddd, MMMM D, YYYY'); }
+    else if (currentView === 'week') {
+        const s0 = new Date(currentDayDate); s0.setDate(s0.getDate() - s0.getDay());
+        const e0 = new Date(s0); e0.setDate(e0.getDate() + 6);
+        const sm = moment(s0), em = moment(e0);
+        el.textContent = s0.getFullYear() !== e0.getFullYear() ? `${sm.format('MMM D, YYYY')} – ${em.format('MMM D, YYYY')}`
+            : s0.getMonth() !== e0.getMonth() ? `${sm.format('MMM D')} – ${em.format('MMM D, YYYY')}` : `${sm.format('MMMM D')} – ${em.format('D, YYYY')}`;
+    }
+    else { el.textContent = `${months[m]} ${y}`; }
+    document.dispatchEvent(new CustomEvent('calendar:view', { detail: { view: currentView, date: new Date(currentDayDate) } }));
+}
+
+// Jump to a date (mini calendar, search): month view shows its month, week/day views its week/day.
+function go_to_date(date) {
+    currentDayDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    if (currentView === 'month' && (date.getMonth() !== m || date.getFullYear() !== y)) {
+        goto_month(date.getMonth(), date.getFullYear());
+        set_title();
+        return;
+    }
+    _syncMonthFromDate(currentDayDate);
+    set_title();
+}
+
+// Re-renders (e.g. the once-a-minute refresh) keep the grid where the user scrolled it.
+function _keepScroll(container, key) {
+    const sc = container.querySelector('.cv-scroll');
+    const keep = sc && container.dataset.viewKey === key ? sc.scrollTop : null;
+    container.dataset.viewKey = key;
+    return () => {
+        if (keep === null) return;
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+            const now = container.querySelector('.cv-scroll');
+            if (now) now.scrollTop = keep;
+        }));
+    };
 }
 
 function renderDayView() {
     if (!data) return;
     const container = document.querySelector('.view-day');
+    const restore = _keepScroll(container, currentDayDate.toDateString());
     if (_mainDayView) _mainDayView.destroy();
 
     _mainDayView = new CalendarDayView(container, {
@@ -2702,26 +3005,31 @@ function renderDayView() {
         onDragCreate: _handleDragCreate,
     });
 
-    const dayNum = currentDayDate.getDate();
-    const timedEvts = events['events'][dayNum] || [];
-    const allDayEvts = events['allday'][dayNum] || [];
-    _mainDayView.render(currentDayDate, timedEvts, allDayEvts, calendars);
+    const day = items_for_day(currentDayDate);
+    _mainDayView.render(currentDayDate, day.timed, day.allDay, calendars);
+    restore();
 
     // Photo count badge
-    _addPhotoBadge(container, dayNum);
+    if (currentDayDate.getMonth() === m && currentDayDate.getFullYear() === y) _addPhotoBadge(container, currentDayDate.getDate());
 }
 
 function renderWeekView() {
     if (!data) return;
     const container = document.querySelector('.view-week');
-    if (_mainWeekView) _mainWeekView.destroy();
 
     // Compute week start (Sunday) from currentDayDate
     const ws = new Date(currentDayDate);
     ws.setDate(ws.getDate() - ws.getDay());
     ws.setHours(0, 0, 0, 0);
     currentWeekStart = ws;
+    const dates = [];
+    for (let i = 0; i < 7; i++) { const d = new Date(ws); d.setDate(d.getDate() + i); dates.push(d); }
 
+    // A week that crosses into another month needs that month's events too.
+    ensure_months(dates);
+
+    const restore = _keepScroll(container, ws.toDateString());
+    if (_mainWeekView) _mainWeekView.destroy();
     _mainWeekView = new CalendarWeekView(container, {
         hourHeight: 60,
         onEventClick: _handleMainEventClick,
@@ -2729,34 +3037,27 @@ function renderWeekView() {
         onDragCreate: _handleDragCreate,
     });
 
-    // Build eventsByDay for the 7 days
+    const all = loaded_events();
     const eventsByDay = {};
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(ws);
-        d.setDate(d.getDate() + i);
-        const dayNum = d.getDate();
-        // Only include events from the current loaded month
-        if (d.getMonth() === m && d.getFullYear() === y) {
-            eventsByDay[i] = {
-                timed: events['events'][dayNum] || [],
-                allDay: events['allday'][dayNum] || [],
-            };
-        } else {
-            eventsByDay[i] = { timed: [], allDay: [] };
-        }
-    }
+    dates.forEach((d, i) => { const day = items_for_day(d, all); eventsByDay[i] = { timed: day.timed, allDay: day.allDay }; });
 
     _mainWeekView.render(ws, eventsByDay, calendars);
+    restore();
+    // Day names in the header open that day.
+    container.querySelectorAll('.cv-week-header-day').forEach((dh, i) => {
+        dh.tabIndex = 0;
+        dh.setAttribute('role', 'button');
+        dh.setAttribute('aria-label', `Open ${moment(dates[i]).format('dddd, MMMM D')}`);
+        const go = () => { currentDayDate = new Date(dates[i]); switch_view('day'); _syncMonthFromDate(currentDayDate); };
+        dh.addEventListener('click', go);
+        dh.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); go(); } });
+    });
 
     // Photo count badges for week view
     const cols = container.querySelectorAll('.cv-day-col');
-    for (let i = 0; i < 7; i++) {
-        const d = new Date(ws);
-        d.setDate(d.getDate() + i);
-        if (d.getMonth() === m && d.getFullYear() === y && cols[i]) {
-            _addPhotoBadgeToCol(cols[i], d.getDate());
-        }
-    }
+    dates.forEach((d, i) => {
+        if (d.getMonth() === m && d.getFullYear() === y && cols[i]) _addPhotoBadgeToCol(cols[i], d.getDate());
+    });
 }
 
 function _addPhotoBadge(container, dayNum) {
@@ -2778,27 +3079,16 @@ function _addPhotoBadgeToCol(col, dayNum) {
 }
 
 function _handleMainEventClick(ev) {
-    const idx = data['events'].indexOf(ev);
-    if (idx !== -1) {
-        $('#modal').modal('show');
-        const fakeBtn = document.createElement('div');
-        fakeBtn.dataset.no = idx;
-        fakeBtn.dataset.type = 'event';
-        fakeBtn.dataset.calendar = ev.calendar;
-        display_info(fakeBtn);
-    }
+    open_event(ev);
 }
 
 function _handleMainSlotClick(date, hour, minute) {
     add_edit_event(date.getDate(), date.getMonth() + 1, date.getFullYear());
-    $('#big-modal').modal('show');
 }
 
 function _handleDragCreate(date, startHour, startMin, endHour, endMin) {
     add_edit_event(date.getDate(), date.getMonth() + 1, date.getFullYear());
-    $('#big-modal').modal('show');
-    // Pre-fill time fields after modal renders
-    setTimeout(() => {
+    {
         const sTime = `${String(startHour).padStart(2, '0')}:${String(startMin).padStart(2, '0')}`;
         const eTime = `${String(endHour).padStart(2, '0')}:${String(endMin).padStart(2, '0')}`;
         // Switch to timed event type
@@ -2806,7 +3096,7 @@ function _handleDragCreate(date, startHour, startMin, endHour, endMin) {
         if (evtBtn) evtBtn.click();
         document.querySelectorAll('.event-time-start').forEach(e => e.value = sTime);
         document.querySelectorAll('.event-time-end-event').forEach(e => e.value = eTime);
-    }, 200);
+    }
 }
 
 // After data loads, re-render current view
@@ -2848,6 +3138,7 @@ function go_next() {
 }
 
 function _syncMonthFromDate(date) {
+    setTimeout(set_title, 0);
     const newM = date.getMonth();
     const newY = date.getFullYear();
     if (newM !== m || newY !== y) {
@@ -2893,6 +3184,7 @@ function today_() {
     } else {
         if (currentView === 'week') renderWeekView();
         else if (currentView === 'day') renderDayView();
+        set_title();
     }
 }
 
@@ -2926,34 +3218,38 @@ document.onkeydown = function (e) {
                 }
                 else if (e.key == '.') {
                     e.preventDefault();
-                    d__ = new Date();
-                    add_edit_event(d__.getDate(), d__.getMonth(), d__.getFullYear());
-                    $('#big-modal').modal('show');
+                    const d__ = new Date();
+                    add_edit_event(d__.getDate(), d__.getMonth() + 1, d__.getFullYear());
                 }
             }
         }
     }
 
-    // ===== Plain-key shortcuts (no modifier, no modal, no text input focused) =====
+    // ===== Plain-key shortcuts (no modifier, no modal, no text input focused). Same keys as
+    // Google Calendar, plus the Tasks app's / ? q [ ] and Esc.
     const tag = document.activeElement ? document.activeElement.tagName : '';
     const isTyping = tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || document.activeElement.isContentEditable;
-    const modalOpen = document.getElementById('modal').classList.contains('show') || document.getElementById('big-modal').classList.contains('show');
+    const modalOpen = document.getElementById('modal').classList.contains('show') || document.getElementById('big-modal').classList.contains('show') || !!document.querySelector('dialog[open]');
+
+    if (e.key === 'Escape' && drawer_is_open() && !modalOpen && !e.defaultPrevented) {
+        e.preventDefault();
+        drawer_close();
+        return;
+    }
 
     if (!e.ctrlKey && !e.altKey && !e.metaKey && !isTyping && !modalOpen) {
         const k = e.key.toLowerCase();
 
-        if (k === 'd') { e.preventDefault(); switch_view('day'); document.getElementById('calViewSelect').value = 'day'; }
-        else if (k === 'w') { e.preventDefault(); switch_view('week'); document.getElementById('calViewSelect').value = 'week'; }
-        else if (k === 'm') { e.preventDefault(); switch_view('month'); document.getElementById('calViewSelect').value = 'month'; }
+        if (k === 'd') { e.preventDefault(); switch_view('day'); }
+        else if (k === 'w') { e.preventDefault(); switch_view('week'); }
+        else if (k === 'm') { e.preventDefault(); switch_view('month'); }
         else if (k === 't') { e.preventDefault(); today_(); }
         else if (k === 'a') {
-            // All-day event for current day
+            // All-day event for today
             e.preventDefault();
             const now = new Date();
             add_edit_event(now.getDate(), now.getMonth() + 1, now.getFullYear());
-            $('#big-modal').modal('show');
-            // Auto-click the all-day-event type button after the form renders
-            setTimeout(() => { document.querySelector('[data-event-type="ade"]')?.click(); }, 100);
+            document.querySelector('.event-type-btn-ade')?.click();
         }
         else if (k === 'c') {
             // Timed event starting at the next 15-minute mark, 1 hour long
@@ -2963,7 +3259,6 @@ document.onkeydown = function (e) {
             start.setMinutes(Math.floor(start.getMinutes() / 15) * 15 + 15);
             const end = new Date(start.getTime() + 60 * 60000);
             add_edit_event(start.getDate(), start.getMonth() + 1, start.getFullYear());
-            $('#big-modal').modal('show');
             const hhmm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
             const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
             document.querySelector('.event-type-btn-event')?.click();
@@ -2972,13 +3267,23 @@ document.onkeydown = function (e) {
             document.querySelectorAll('.event-date-end-event').forEach(el => el.value = ymd(end));
             document.querySelectorAll('.event-time-end-event').forEach(el => el.value = hhmm(end));
         }
-        else if (k === '.' || k === 'n') { e.preventDefault(); go_next(); }
-        else if (k === ',' || k === 'p') { e.preventDefault(); go_prev(); }
+        else if (k === '.' || k === 'n' || k === 'j') { e.preventDefault(); go_next(); }
+        else if (k === ',' || k === 'p' || k === 'k') { e.preventDefault(); go_prev(); }
         else if (k === 's') {
             e.preventDefault();
             create_calendar();
             $('#modal').modal('show');
         }
+        else if (k === '/') { e.preventDefault(); document.getElementById('cal-q')?.focus(); }
+        else if (k === '?') { e.preventDefault(); document.dispatchEvent(new CustomEvent('calendar:help')); }
+        else if (k === 'q') {
+            e.preventDefault();
+            if (!right_sb) { right_sb = true; updateSidebars(left_sb, right_sb); }
+            show_in_sidebar('.sb-todos');
+            document.getElementById('todo-quick-input').focus();
+        }
+        else if (k === '[') { e.preventDefault(); toggleLeftSidebar(); }
+        else if (k === ']') { e.preventDefault(); toggleRightSidebar(); }
     }
 
     if (e.key == 'Escape' && !document.querySelector('.command-block').hidden) {
