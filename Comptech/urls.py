@@ -22,6 +22,7 @@ admin.site.site_header = admin.site.site_title = "AVNet Superapp admin"
 admin.site.index_title = "Administration"
 
 from Comptech.api_v2 import api as api_v2
+from Comptech import spa
 
 urlpatterns = [
     path("", include("mainsite.urls")),
@@ -32,7 +33,9 @@ urlpatterns = [
     path("map/", include("map.urls")),
     # path("social/", include("socialmedia.urls")),
 
+    path("tasks/", include("tasks.urls")),
     path("notifications/", include("notifications.urls")),
+    re_path(r"^app(?:/.*)?$", spa.index, name="spa"),  # new React UI (frontend/), client-side routes
     path("api/v2/", api_v2.urls),
 
     path('admin/', admin.site.urls),
