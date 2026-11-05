@@ -6,11 +6,11 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 
 | Thing | Action needed |
 |---|---|
-| New Python package `django-ninja` (V2 API) | `pip install -r requirements.txt` (step 4) |
+| New Python packages `django-ninja` (V2 API) and `icalendar` (replaces `ics`, which ignored repeating events) | `pip install -r requirements.txt` (step 4); `pip uninstall ics` is optional |
 | Bootstrap 5.3.3 and Leaflet.markercluster 1.5.3 added to `vendor.lock`; old Bootstrap 5.0-beta and 5.1.3 removed | Run `fetch_vendor.sh`, then delete the old folders (step 5) |
 | New apps: `tasks`, `apikeys`, `feeds`, `analytics`, `habits`, `contacts` | Nothing extra; they come with migrations (step 6) |
-| Migrations: notifications 0003–0004, scheduler 0032–0037, tasks 0001, photos 0024–0026, map 0004, users 0005, apikeys 0001, feeds 0001, analytics 0001, habits and contacts 0001 | `migrate` (step 6) |
-| **Calendar schema overhaul** (scheduler 0034–0037) | Converts every event: kind, all-day dates, your categories (from the old numbers), sync windows, visibility; old priority/completed values are kept in each event's metadata; ownership inconsistencies fixed. Check with `calendar_migration_report` afterwards (step 6) |
+| Migrations: notifications 0003–0004, scheduler 0032–0038, tasks 0001, photos 0024–0026, map 0004, users 0005, apikeys 0001, feeds 0001, analytics 0001, habits and contacts 0001 | `migrate` (step 6) |
+| **Calendar schema overhaul** (scheduler 0034–0038) | Converts every event: kind, all-day dates, your categories (from the old numbers), sync windows, visibility; old priority/completed values are kept in each event's metadata; ownership inconsistencies fixed. Check with `calendar_migration_report` afterwards (step 6) |
 | **Materialized views now live in migrations** (photos 0025, 0026) | 0025 drops your hand-made `photos_photo_location_cache` and recreates it (hidden photos left out, plus a unique index); 0026 adds `photos_photo_daily`. Runs as your DB user, which owns the view. Nothing manual any more |
 | `users 0005` removes the `dark_mode` column | None (dark mode is per device now) |
 | Celery beat schedules (reminders, notification clean-up, habits, contacts) | Restart beat (step 9); the schedules register themselves |
@@ -29,7 +29,7 @@ ls -lh ~/comptech-backup-*.sql            # should be non-empty
 git rev-parse HEAD > ~/comptech-previous-commit
 ```
 
-### 2. Stop the app
+### 2. Stop the app (including Celery worker and beat, so no sync runs mid-migration)
 ```bash
 tmux attach -t Comptech        # Ctrl-C in windows 0, 2 and 3, then detach (Ctrl-b d)
 ```
@@ -55,7 +55,8 @@ rm -rf static_files/static/css/bootstrap static_files/static/js/bootstrap static
 ### 6. Database
 ```bash
 python manage.py migrate
-python manage.py calendar_migration_report   # read-only: events by kind/category, fixes applied; every event should have a category
+python manage.py calendar_migration_report --json > ~/calendar-migration-report.json   # keep it: it records original values
+python manage.py calendar_migration_report   # read-only summary: look for "No inconsistencies found" and the normalisation counts
 ```
 
 ### 7. Static files and the one-off thumbnail fix

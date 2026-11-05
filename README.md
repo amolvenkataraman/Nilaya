@@ -27,7 +27,7 @@ My very own tech giant: a self-hosted personal and family platform for calendars
 | Notifications | `/notifications/` | Inbox and bell menu; delivery to ntfy, Gotify, email, Discord or any webhook (e.g. Home Assistant); automatic reminders for events, deadlines, todos and a morning agenda |
 | API keys and feeds | `/settings/api-keys/` | Per-app API keys, Markdown API guides for developers and AI agents, private ICS feeds for phone calendar apps |
 | Usage | `/analytics/` | Staff-only usage dashboard: page views and API calls per person, per app, per day |
-| New interface (beta) | `/app/` | React + Vite + TypeScript app on the V2 API, G Suite-style apps with their own toolbars |
+| New interface | `/app/` | React + Vite + TypeScript app on the V2 API, G Suite-style apps with their own toolbars. **All new features land here**; the classic pages are in maintenance mode |
 
 Dark mode is chosen per device (system, light or dark) from the user menu.
 
