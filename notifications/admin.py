@@ -14,3 +14,7 @@ class NotificationAdmin(admin.ModelAdmin):
 class NotificationChannelAdmin(admin.ModelAdmin):
     list_display = ("name", "kind", "user", "enabled", "min_priority", "last_sent_at", "last_error")
     list_filter = ("kind", "enabled")
+
+
+from .models import ReminderSettings  # noqa: E402
+admin.site.register(ReminderSettings)

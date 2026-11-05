@@ -191,3 +191,40 @@ def test_channel(request, channel_id: uuid.UUID):
     channel.last_error, channel.last_sent_at = "", timezone.now()
     channel.save(update_fields=["last_error", "last_sent_at"])
     return {"ok": True}
+
+
+# ---------------------------------------------------------------- automatic reminders
+
+class ReminderSettingsOut(Schema):
+    event_minutes: int
+    deadline_minutes: int
+    todo_minutes: int
+    daily_agenda: bool
+    agenda_time: datetime.time
+    deadlines_to_todos: bool
+
+
+class ReminderSettingsPatch(Schema):
+    event_minutes: Optional[int] = Field(None, ge=0, le=10080)
+    deadline_minutes: Optional[int] = Field(None, ge=0, le=10080)
+    todo_minutes: Optional[int] = Field(None, ge=0, le=10080)
+    daily_agenda: Optional[bool] = None
+    agenda_time: Optional[datetime.time] = None
+    deadlines_to_todos: Optional[bool] = None
+
+
+@router.get("/reminders", response=ReminderSettingsOut, summary="Automatic reminder settings (0 minutes = off)")
+def get_reminder_settings(request):
+    from .models import ReminderSettings
+    return ReminderSettings.for_user(request.user)
+
+
+@router.patch("/reminders", response=ReminderSettingsOut)
+def update_reminder_settings(request, payload: ReminderSettingsPatch):
+    from .models import ReminderSettings
+    st = ReminderSettings.for_user(request.user)
+    for key, value in payload.dict(exclude_unset=True).items():
+        if value is not None:
+            setattr(st, key, value)
+    st.save()
+    return st
