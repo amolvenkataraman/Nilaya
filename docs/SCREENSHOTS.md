@@ -28,7 +28,7 @@ Smart views, projects, labels and saved views in the sidebar; here as a table of
 
 ![Photos smart search for "three rivers july 2026"](screenshots/photos-search-light-desktop.webp)
 
-**Smart search:** free text read into removable terms. "three rivers july 2026" becomes Place: Three Rivers and Date: July 2026.
+**Smart search:** free text read into removable terms. "three rivers july 2026" becomes the chips city: Three Rivers and month: July 2026, with the match count.
 
 ![Photos viewer with the Details panel open](screenshots/photos-viewer-light-desktop.webp)
 
