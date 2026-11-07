@@ -14,6 +14,7 @@ uwaterloo_api_key.txt
 db_password.txt
 salt.txt
 photos_locate.json
+site.json
 nohup.out
 celerybeat-schedule.db
 data.json

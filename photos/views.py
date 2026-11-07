@@ -1964,7 +1964,7 @@ UPLOAD_TARGET_DIR = settings.UPLOADS_DIR
 
 def upload_photos(request):
     """Google Drive style uploader view for ingesting photos and videos with full metadata preservation."""
-    recipient_name = getattr(settings, 'PHOTOS_UPLOAD_RECIPIENT_NAME', 'Amol Venkataraman')
+    recipient_name = getattr(settings, 'PHOTOS_UPLOAD_RECIPIENT_NAME', 'the owner of this site')
 
     # Check if upload route is enabled in settings
     if not getattr(settings, 'ALLOW_PHOTO_UPLOADS', True):

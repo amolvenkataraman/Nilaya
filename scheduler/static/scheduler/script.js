@@ -630,7 +630,7 @@ if ('speechSynthesis' in window) {
     var speech_synthesis = new SpeechSynthesisUtterance();
 }
 
-//navigator.registerProtocolHandler("webcal", "https://app.example.org/calendar/?import_id=%s","Calendar");
+//navigator.registerProtocolHandler("webcal", location.origin + "/calendar/?import_id=%s","Calendar");
 
 var CATEGORY_LABELS = { 0: 'Uncategorized', 1: 'Meeting', 2: 'Focus Time', 3: 'Break Time', 4: 'Study', 5: 'Work', 6: 'Personal', 7: 'Tech Break', 8: 'Test / Exam', 9: 'Lecture', 100: 'Other' };
 

@@ -46,6 +46,13 @@ except ValueError:
 PHOTOS_LOCATE_PRESETS = _spots.get('presets', [])
 PHOTOS_LOCATE_FOCUS = _spots.get('focus', [])
 
+# This server's hostnames, addresses and names: an untracked JSON file next to the secrets, so the repo
+# carries only neutral defaults. Example and every key: docs/UPGRADE-phase-1.md ("Site settings").
+try:
+    _site = _json.loads(_read_secret('site.json', required=False) or '{}')
+except ValueError as e:
+    raise ValueError(f"{SECRETS_DIR / 'site.json'} is not valid JSON: {e}") from None
+
 # ---- Filesystem layout (server defaults; settings_local.py overrides all of these)
 PHOTOS_ROOT = '/mnt/data/Photos/'          # albums live under here; nginx /photo_cdn/ aliases it
 PRIVATE_ROOT = '/www/private/'             # nginx /private/ aliases it (thumbnail cache, ...)
@@ -55,7 +62,7 @@ SERVE_FILES_WITH_DJANGO = False            # True only for local testing (no ngi
 PHOTOS_INGEST_HARDLINK = False             # local testing: hardlink instead of copy on ingest
 
 # Absolute base URL, used for links in notifications pushed to phones/email.
-SITE_URL = 'https://app.example.com'
+SITE_URL = _site.get('site_url', 'https://example.com')
 
 # Email for notifications (optional). Leave EMAIL_HOST empty to disable email
 # delivery; the SMTP password goes in secrets (email_password.txt).
@@ -64,7 +71,7 @@ EMAIL_PORT = 587
 EMAIL_HOST_USER = ''
 EMAIL_HOST_PASSWORD = _read_secret('email_password.txt', required=False)
 EMAIL_USE_TLS = True
-DEFAULT_FROM_EMAIL = 'AVNet Superapp <noreply@example.com>'
+DEFAULT_FROM_EMAIL = _site.get('default_from_email', 'AVNet Superapp <noreply@example.com>')
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False # True in development, False in production
@@ -72,7 +79,7 @@ DEBUG = False # True in development, False in production
 ONLINE_MODE = True # Change to False to disable all external requests
 
 
-INTERNAL_IPS = ['127.0.0.1', '192.168.50.11']
+INTERNAL_IPS = _site.get('internal_ips', ['127.0.0.1'])
 
 
 # Application definition
@@ -212,9 +219,10 @@ AUTH_PASSWORD_VALIDATORS = [
 
 AUTH_USER_MODEL = 'users.ComptechUser'
 
-CSRF_TRUSTED_ORIGINS = ['http://192.168.50.11', 'https://192.168.50.11', 'http://app.home.lan', 'https://app.home.lan', 'https://app.example.com', 'https://lab.example.com']
+# Origins (scheme://host) people open the site at; from site.json ("csrf_trusted_origins").
+CSRF_TRUSTED_ORIGINS = _site.get('csrf_trusted_origins', [SITE_URL])
 # Hosts this site answers to: the ones above plus localhost (was '*', which
-# accepted any Host header). Add a hostname to CSRF_TRUSTED_ORIGINS to allow it.
+# accepted any Host header). Add an origin to csrf_trusted_origins in site.json to allow it.
 from urllib.parse import urlsplit as _urlsplit
 ALLOWED_HOSTS = sorted({_urlsplit(o).hostname for o in CSRF_TRUSTED_ORIGINS} | {'localhost', '127.0.0.1'})
 
@@ -292,7 +300,9 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Photos settings
 PHOTOS_AI_INDEX_ON_INGEST = True  # Set to False to disable automatic AI object detection during photo ingest
 ALLOW_PHOTO_UPLOADS = True        # Set to False to disable /photos/upload/ route
-PHOTOS_UPLOAD_RECIPIENT_NAME = "Amol Venkataraman"  # Name displayed on media share upload portal
+PHOTOS_UPLOAD_RECIPIENT_NAME = _site.get('upload_recipient_name', 'the owner of this site')  # shown on the media share upload portal
+# Duplicate clean-up (photos/importables.py) prefers copies in libraries whose name contains this (case-insensitive).
+PHOTOS_PREFERRED_LIBRARY_KEYWORD = _site.get('preferred_library_keyword', '')
 
 # Allow cross-origin requests to include the Referer header (required by OSM tile servers)
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"

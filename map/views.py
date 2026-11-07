@@ -188,8 +188,9 @@ def nominatim_search(request):
     url = f'https://nominatim.openstreetmap.org/search?{params}'
 
     req = urllib.request.Request(url, headers={
-        'User-Agent': 'AmolVenkataraman/example.com',
-        'Referer': 'https://example.com',
+        # Nominatim's policy: an identifying User-Agent and Referer (this site's own address).
+        'User-Agent': f'AVNet-Superapp/1.0 (+{settings.SITE_URL})',
+        'Referer': settings.SITE_URL,
     })
 
     try:

@@ -5,6 +5,7 @@ from collections import defaultdict
 from photos.models import Photo, Album, refresh_photo_matviews
 from django.db.models import Q
 from django.db import transaction
+from django.conf import settings
 
 def move_photo_to_album(photos, target_album: Album):
     """
@@ -151,11 +152,12 @@ def remove_duplicates(year=None, month=None, mode='all', dry_run=False):
     def process_duplicates(group, identifier=""):
         if len(group) <= 1:
             return
+        preferred = getattr(settings, "PHOTOS_PREFERRED_LIBRARY_KEYWORD", "").lower()
             
         def score(p):
             s = 0
             album_name_lower = p.album.name.lower()
-            if 'amol' in album_name_lower:
+            if preferred and preferred in album_name_lower:
                 s += 100
             if 'shared' in album_name_lower:
                 s += 50
