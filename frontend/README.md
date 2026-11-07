@@ -1,5 +1,7 @@
 # AVNet Superapp: the web app
 
+The interface of AVNet Superapp, a self-hosted life management and logging platform (see the [main README](../README.md)).
+
 The only interface: a React single-page app served at `/` (every page URL), built only on the typed V2
 JSON API (`/api/v2/`). Django serves just the API, admin, ICS feeds and files.
 Stack: React 19, React Router 7, TanStack Query 5, TypeScript, Vite 7 (Leaflet for Places). No UI kit,

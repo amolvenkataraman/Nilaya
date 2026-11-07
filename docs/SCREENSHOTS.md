@@ -1,6 +1,6 @@
 # Screenshots
 
-The current AVNet Superapp, the React app served at `/`. Every screenshot shows fictional data: a March 2026 calendar and task list for a made-up user, Alex Morgan, and 34 landscape photos from one day in Sequoia National Park. They were rendered from the app's own build with no backend (static files, with the API answered by mocked data), at 1440 × 900 in light mode.
+The current AVNet Superapp, a self-hosted life management and logging platform, as the React app served at `/`. Every screenshot shows fictional data: a March 2026 calendar and task list for a made-up user, Alex Morgan, and 34 landscape photos from one day in Sequoia National Park. They were rendered from the app's own build with no backend (static files, with the API answered by mocked data), at 1440 × 900 in light mode.
 
 ## Home
 

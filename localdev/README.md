@@ -1,6 +1,6 @@
 # Local testing
 
-A self-contained copy of Comptech that runs on this machine with **SQLite,
+A self-contained copy of the app (code name Comptech) that runs on this machine with **SQLite,
 no Redis, no nginx and no Celery worker**, filled with dummy data. Nothing
 here is used on the server.
 

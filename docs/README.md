@@ -1,6 +1,6 @@
 # AVNet Superapp (V1) — Technical Documentation
 
-This directory contains technical documentation for the AVNet Superapp (V1) platform.
+Technical documentation for AVNet Superapp (V1), a self-hosted life management and logging platform. The project overview is in the [main README](../README.md).
 
 ## Contents
 

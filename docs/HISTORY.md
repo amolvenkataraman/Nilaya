@@ -1,6 +1,6 @@
 # My Very Own Tech Giant: A History of AVNet Superapp (V1)
 
-*From a high-school homework planner to a self-hosted superapp, 2020 to 2026.*
+*From a high-school homework planner to a self-hosted life management and logging platform, 2020 to 2026.*
 
 ---
 

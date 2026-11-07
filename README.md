@@ -2,7 +2,8 @@
 
 # AVNet Superapp
 
-**A self-hosted Google Workspace for one family: calendar, tasks, habits, contacts, photos, places and notifications on one server, with one typed API.**
+**A self-hosted life management and logging platform.**<br>
+Calendar, tasks, habits, contacts, photos, places and notifications for a family, on a server you own, with ideas (and a lot of functionality) borrowed from Google Workspace apps.
 
 <!-- Badges: CI is a placeholder until a workflow exists -->
 ![CI](https://img.shields.io/badge/CI-TBD-lightgrey)
@@ -14,31 +15,37 @@
 
 </div>
 
-> Code name **Comptech**: the Django project, database, scripts and module names still use it. Only the visible product is called AVNet Superapp. [Why "Comptech"?](#why-comptech)
+> Inside the code it's still called **Comptech**: the Django project, the database and every module use the name I picked at 12. Only the name you see changed. [Why "Comptech"?](#why-comptech)
 
 ## What it is
 
-AVNet Superapp is one web app with nine apps inside, sharing one account, one design system (light and dark), one notification system and one JSON API. It's built for a **family or a small business** of a few to a few dozen people, on a server you own. It is not an enterprise suite and doesn't try to be.
+It started in 2020 as a calendar for my school deadlines, and it kept growing every time my family needed something new. Six years later it's nine apps in one: a calendar, a task manager, a habit tracker, a personal CRM, a photo library that handles hundreds of thousands of photos, a map of the places we've been, and one notification system tying it all together.
 
-The apps know about each other. Calendar days show the photos you took and your contacts' birthdays. An event turns into a task in one click. Places lists the photos taken nearby. Reminders from every app arrive through the channels you choose.
+It does two jobs. It helps you plan your days, and it quietly keeps the record of them: what you did, where you went, who you kept in touch with, and what you photographed along the way.
 
-### Provenance
+The part I care about most is that **the apps know about each other.** Open a day in the calendar and you see the photos you took that day and whose birthday it is. Turn an event into a task in one click. Open a place and see every photo you've taken nearby and when you were last there. Reminders from every app arrive in one inbox, on whichever channel you like.
 
-This isn't a weekend AI build with back-dated commits. It has run in production for a family since 2021, and the code shows it: decade-old naming decisions, 70+ schema migrations, data migrations written around real messy data, two recoveries from backups, and quirks that only exist because real people used it every day. Think of the history as proof of age on an art piece: [the full story](docs/HISTORY.md), and [why things look the way they do](#quirks-or-why-is-it-like-this).
+It's built for **a family or a small business**, a few people to a few dozen, on hardware you control. It isn't an enterprise suite and doesn't want to be.
+
+### Provenance (or: this is not a weekend AI project)
+
+This has been running in production for my family since 2021, and the code has the scars to prove it: naming decisions I made as a teenager, 70+ schema migrations, data migrations written around years of real, messy data, two recoveries from backups, and quirks that only exist because real people used it every single day.
+
+That history is the point. Think of it as proof of age on an art piece: here's [the full story](docs/HISTORY.md), and here's [why things look the way they do](#quirks-or-why-is-it-like-this).
 
 ## Apps
 
-| App | Standout features |
+| App | What it does |
 |---|---|
-| **Home** | Today's agenda, open tasks, habits due, unread notifications, a "this week" time breakdown and quick links, each card loading only when visible. |
-| **Calendar** | Month, week, day and agenda views; shared calendars with roles and invite codes; ICS and Google sync; private events shown to others as "Busy"; availability; a second time zone; Insights (where your time went, by category, weekday and hour). |
-| **Tasks** | Nested projects with list, board (WIP limits), table, calendar and Gantt timeline views; natural-language quick add (`Pay rent tomorrow 5pm *bills !3 every month`); repeating tasks, reminders, relations, bulk edits and sharing. Smooth at 5,000 tasks. |
-| **Habits** | Yes/no and measurable habits with daily, weekly or monthly goals, schedules, streaks, a Loop-style score, a backfill grid and a year heat map. |
-| **Contacts** | A personal CRM: vCard, Google, Outlook and LinkedIn imports, duplicate merging, an interaction log, keep-in-touch and birthday reminders. |
-| **Photos** | A justified timeline over hundreds of thousands of photos and videos; libraries and shared albums; RAW and originals; smart search (`dog toronto 2019`, `pixel 7 paris june 2023`) over places, cameras, dates and detected objects; map and heat map; stats, storage and superlatives; hidden photos; a Geoguessr game built from your own photos. |
-| **Places** | Saved places in groups, photos taken nearby with visit history, places suggested from photo GPS, want-to-go and visited lists, and GeoJSON, Takeout and KML import and export. |
-| **Notifications** | An inbox and bell menu, delivery to ntfy, Gotify, email, Discord or any webhook (e.g. Home Assistant), and automatic reminders for events, deadlines, tasks, habits, birthdays and a morning agenda. |
-| **Settings** | Profile, appearance and keyboard shortcuts; per-app API keys; private ICS feeds for phone calendar apps; API guides; and, for staff, a privacy-respecting usage dashboard. |
+| **Home** | Your day at a glance: today's agenda, open tasks, habits due, unread notifications, where your week went, and quick links. Each card loads only when you scroll to it. |
+| **Calendar** | Month, week, day and agenda views. Shared calendars with roles and invite codes, ICS and Google sync, private events that others only see as "Busy", availability, a second time zone, and Insights that show where your time actually went (by category, weekday and hour). |
+| **Tasks** | Nested projects with list, board (with WIP limits), table, calendar and Gantt views. Quick add understands plain language (`Pay rent tomorrow 5pm *bills !3 every month`). Repeating tasks, reminders, relations, bulk edits and sharing, and it stays smooth at 5,000 tasks. |
+| **Habits** | Yes/no or measurable habits with daily, weekly or monthly goals, schedules, streaks, a Loop-style score, a grid for filling in days you missed, and a year heat map. |
+| **Contacts** | A personal CRM: import from vCard, Google, Outlook or LinkedIn, merge duplicates, log interactions, and get nudged to keep in touch and to not forget birthdays. |
+| **Photos** | A justified timeline over hundreds of thousands of photos and videos. Camera libraries and shared albums, RAW files and originals, and smart search that reads `dog toronto 2019` or `pixel 7 paris june 2023` as objects, places, cameras and dates. Plus a map and heat map, stats, storage, superlatives, hidden photos, and a Geoguessr-style game built from your own pictures. |
+| **Places** | Your saved places in groups, the photos you took near each one and when you visited, places suggested from photo GPS, want-to-go and visited lists, and GeoJSON, Google Takeout and KML import and export. |
+| **Notifications** | An inbox and a bell menu, delivery to ntfy, Gotify, email, Discord or any webhook (Home Assistant, for example), and automatic reminders for events, deadlines, tasks, habits, birthdays and a morning agenda. |
+| **Settings** | Profile, appearance and keyboard shortcuts, per-app API keys, private ICS feeds for your phone's calendar app, API guides, and, for staff, a usage dashboard that respects privacy. |
 
 | Calendar | Tasks |
 |---|---|
@@ -48,69 +55,69 @@ This isn't a weekend AI build with back-dated commits. It has run in production 
 
 <sub>All screenshots show fictional data (a made-up user, Alex Morgan, and 34 photos from one day in Sequoia National Park), rendered from the app's own build with mocked API responses. **[More screenshots](docs/SCREENSHOTS.md)**, and **[every app through the years](docs/SCREENSHOTS-HISTORY.md)**.</sub>
 
-Everything works on a phone too: sidebars become drawers and toolbars compact.
+It all works on a phone too: sidebars turn into drawers and toolbars tuck themselves away.
 
 ## Across the apps
 
-- **Integrations:** photo counts on calendar days, birthdays from Contacts in Calendar, tasks from events, photos near a place and places from photo GPS, photos taken in Calendar Insights, and reminders from every app through one notification service.
-- **Privacy:** hidden photos are invisible to everyone, and their owner can reveal them only in a session-only mode that switches off after 30 minutes. Other people's private events show as "Busy" in feeds, tasks and insights. Usage analytics keeps only daily counts per person and app (no URLs, IPs or browser details).
-- **No surprise network calls:** outbound requests (calendar sync, map search, push channels) are gated by `ONLINE_MODE`. With it off, the server talks only to LAN addresses. Third-party JS and CSS are bundled or pinned by SHA-256, never loaded from a CDN.
-- **Built to be built on:** a typed V2 API for every app, per-app API keys and Markdown guides written for developers and AI agents (see [API](#api)).
-- **Keyboard first:** a Ctrl-K command palette, `G` then a letter to jump between apps, and per-app shortcuts.
+- **Everything connected:** photo counts on calendar days, birthdays from Contacts in the calendar, tasks made from events, photos near a place, places found from photo GPS, the photos you took in Calendar Insights, and reminders from every app through one notification service.
+- **Private by default:** hidden photos are invisible to everyone. Even their owner can only reveal them in a session-only mode that switches itself off after 30 minutes. Other people's private events show as "Busy" everywhere: feeds, tasks and insights. Usage analytics keeps only daily counts per person and app (no URLs, IPs or browser details).
+- **No surprise network calls:** anything that talks to the internet (calendar sync, map search, push channels) sits behind `ONLINE_MODE`. With it off, the server only talks to your LAN. Third-party JS and CSS are bundled or pinned by SHA-256, and nothing loads from a CDN.
+- **Made to be built on:** a typed V2 API for every app, per-app API keys, and Markdown guides written for both developers and AI agents (see [API](#api)).
+- **Keyboard first:** a Ctrl-K command palette, `G` then a letter to jump between apps, and shortcuts in every app.
 
 ## Is it for you? Read this first
 
-This is an **opinionated** project, shaped by one family's daily use.
+This is an **opinionated** project. It was shaped around how one family actually lives, so some choices will feel odd if you expect something else.
 
-- **Photos is for a fairly pro user.** It keeps RAW files and originals, separates camera *libraries* from shared *albums*, reports storage, and has tools for fixing locations. It doesn't make per-photo previews or edits: it was designed around a large library on a small disk.
-- **Calendar sync is archival, not two-way.** It imports ICS and Google calendars and keeps their history, the way you'd want for a personal record. It doesn't push changes back like an enterprise groupware server.
-- **Self-hosted, and built to fail gracefully.** It assumes you run it on your own hardware, and every part is designed so a failure stays small and recoverable. Photos live as plain files in folders on your disk, not in an object store like MinIO, so the library is still yours, readable and backed up, even if the app breaks. Caches, the summary tables and Redis can all disappear without losing data. The honest origin: 15-year-old me didn't trust my own code. The code and my trust in it have improved a lot since; the principle hasn't. More on that in my [build philosophy](https://amolven.com/build-philosophy).
-- **Other choices you inherit:** one React interface, self-hosted only, `ONLINE_MODE` off by default for outbound calls, a lean trust model (apps run in one trusted process), and API keys scoped per app.
+- **Photos is for people who care about their files.** It keeps RAW files and originals, separates camera *libraries* from shared *albums*, tells you exactly where your storage goes, and has tools for fixing locations. It never makes its own per-photo previews or edits, because it was designed around a huge library on a small disk.
+- **Calendar sync is for keeping a record, not two-way sync.** It imports ICS and Google calendars and keeps their history, the way you'd want for a personal archive. It doesn't push changes back the way an enterprise groupware server would.
+- **Self-hosted, and built to fail gracefully.** It assumes you run it on your own hardware, and every part is designed so that when something breaks, the damage stays small and recoverable. Photos are plain files in folders on your disk, not objects in something like MinIO, so your library stays yours, readable and backed up, even if the app dies. The caches, summary tables and Redis can all vanish without losing a thing. The honest origin of this: 15-year-old me didn't trust my own code. The code (and my trust in it) has come a long way since, but the principle stuck. More in my [build philosophy](https://amolven.com/build-philosophy).
+- **Other choices you inherit:** one React interface, self-hosted only, `ONLINE_MODE` off by default, a lean trust model (all apps run in one trusted process), and API keys scoped per app.
 
 ### Limitations
 
-May come later (no promises; PRs welcome):
+Things that may come later (no promises, but PRs are welcome):
 
-- **No native mobile app.** The web app works well on phones; location history through the OwnTracks app is planned, not built.
-- **Photo ingest is folder-based.** Files are expected to land in the Ingest folder, e.g. synced from phones with Syncthing. There's no automatic phone backup client like Google Photos has, and other ingest methods may come.
+- **No native mobile app yet.** The web app works well on phones. Location history through the OwnTracks app is planned but not built.
+- **Photo ingest is folder-based.** New files are expected to land in an Ingest folder, for example synced from your phone with Syncthing. There's no automatic phone backup like Google Photos has, though other ingest methods may come.
 
-Not planned, because they add too much overhead for a family or small-business server:
+Things that aren't planned, because they add too much overhead for a family or small-business server:
 
 - **One server.** No clustering or high availability.
-- **English only**, no translations.
-- **No end-to-end encryption**, and it will likely never be added. You run the server, so whoever runs it can read the data.
+- **English only.** No translations.
+- **No end-to-end encryption**, and it will most likely never be added. You run the server, so whoever runs it can read the data. That's the whole model.
 
 Also worth knowing:
 
-- **Postgres in production.** SQLite works for local testing only.
-- **Object detection is optional and heavy** (ultralytics/PyTorch, runs after each ingest).
+- **Postgres in production.** SQLite is only for local testing.
+- **Object detection is optional and heavy.** It uses ultralytics/PyTorch and runs after each ingest.
 
 ## Inspirations
 
-- **Google Workspace (G Suite)** for the breadth of apps and how well they work together, and for the look: compact toolbars, dense but calm pages.
-- **Nextcloud** is the obvious self-hosted comparison. I don't use it because it's built for organisations: admin consoles, groupware, enterprise sync. My use case is a family, and I wanted apps that fit how we actually live, connected the way we want.
+- **Google Workspace (G Suite):** the range of apps, how well they work together, and the look: compact toolbars and pages that are dense but calm. A lot of the functionality here started as "I like how Google does this, but I want it on my own server, connected my way."
+- **Nextcloud** is the obvious self-hosted comparison. I don't use it because it's built for organisations: admin consoles, groupware, enterprise sync. I needed something for a family, with apps that fit how we actually live.
 
 ## Origins
 
-Parts of this code were first written in **2020**, in high school, long before AI coding tools. During the COVID lockdowns, school moved online onto two unconnected platforms, Google Classroom and Brightspace, so I built **Docket**: one calendar where students could search for their deadlines, assignments and exam dates. Its `calendar.js` became Comptech's first calendar, and Docket grew into today's Calendar app. Comptech's first commit was in February 2021, and it has **run in production in some form for over five years**, through four calendar rewrites, an SSD failure and a recovered backup.
+Parts of this code go back to **2020**, written in high school, long before AI coding tools existed. When COVID moved school online, my classes ended up split across two platforms that didn't talk to each other, Google Classroom and Brightspace. So I built **Docket**: one calendar where students could find all their deadlines, assignments and exam dates in one place. Docket's `calendar.js` became Comptech's first calendar, and Docket slowly grew into today's Calendar app.
 
-The whole story, with commit hashes, is in **[docs/HISTORY.md](docs/HISTORY.md)**, *My Very Own Tech Giant*: a homework planner that grew into a superapp, the apps that didn't make it, and the commit-message hall of fame. The screenshots of every version are in **[docs/SCREENSHOTS-HISTORY.md](docs/SCREENSHOTS-HISTORY.md)**.
+Comptech's first commit landed in February 2021, and it has **run in production in some form for over five years**, through four calendar rewrites, an SSD failure and a backup restore.
+
+The whole story, with commit hashes, is in **[docs/HISTORY.md](docs/HISTORY.md)**, *My Very Own Tech Giant*: how a homework planner turned into a life management and logging platform, the apps that didn't make it, and the commit-message hall of fame. Screenshots of every version are in **[docs/SCREENSHOTS-HISTORY.md](docs/SCREENSHOTS-HISTORY.md)**.
 
 ### Why "Comptech"?
 
-When I was about 12, I wanted to build my own tech company. "Comptech", short for *Computer Technology*, was the best name 12-year-old me could come up with (I'm still not great at names, as my other repos will show). In 2020, when 15-year-old me set out to build "my own private tech-giant-scale platform", it was the first name that came to mind, and it stuck: it's in the package, the database and too many other places to be worth changing now.
+When I was about 12, I wanted to start my own tech company. "Comptech", short for *Computer Technology*, was the best name 12-year-old me could come up with (I'm still not great at names, as my other repos will show). In 2020, when 15-year-old me set out to build "my own private tech-giant-scale platform", it was the first name that came to mind, and it stuck. It's in the package, the database and far too many other places to be worth changing now.
 
-It's also a little poetic. A decade later, I've finally made 12-year-old me proud: a project built entirely on my own, at a scale that borrows its ambition from the tech giants I looked up to back then, and now open source. Let it stand as a hopeful beacon that one day there will be a company of my own behind the name too. (I'll update this README when that happens.)
+It's also a little poetic. A decade later, I think I've finally made 12-year-old me proud: a project built entirely on my own, borrowing its ambition from the tech giants I looked up to back then, and now open source. Let it stand as a hopeful beacon that one day there'll be a real company behind the name too. (I'll update this README when that happens.)
 
 ### How AI was (and wasn't) used
 
-- **2020 to early 2025: no AI.** Everything up to the SSD failure was hand-written.
-- **From the 2025 backup restore: Cursor, Windsurf and Google Antigravity**, three different tools, each used to some degree. The restored code was behind the spec I had already built and lost with the failed SSD, so AI helped bring it back up to that spec fast, and then sped up bug fixes and features.
-- **From November 2026: Claude Code.**
+- **2020 to early 2025: no AI at all.** Everything up to the SSD failure was written by hand.
+- **After the 2025 backup restore: Cursor, Windsurf and Google Antigravity**, three different tools, each used to some degree. The restored code was behind the version I'd already built and lost with the SSD, so AI helped me get it back to that point fast, and then sped up bug fixes and new features.
+- **From November 2026: Claude Code.** I used it to overhaul V1 end to end: security hardening (key handling, host checks, permissions), the V2 API, Tasks, Habits, Contacts, notifications, one design system with dark mode, the new React interface, and the performance work below.
 
-In November 2026 V1 was overhauled end to end with **Claude Code**: security hardening (key handling, host checks, permissions), the V2 API, Tasks, Habits, Contacts, notifications, a single design system with dark mode, a new React interface and the performance work below.
-
-AI wrote much of that code, but **every change was reviewed, tested and used in production by a real human** (me): deployed to the real server, rehearsed on a copy of the real database first, and fixed from bugs reported back from daily family use. That's more human review than the average SF AI startup.
+AI wrote a lot of that code, but **every change was reviewed, tested and used in production by a real human** (me). It was deployed to the real server, rehearsed on a copy of the real database first, and fixed from bugs my family hit in daily use. That's more human review than the average SF AI startup.
 
 ## Performance
 

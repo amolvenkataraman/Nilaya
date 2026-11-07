@@ -55,6 +55,8 @@ class Api(NinjaAPI):
 
 api = Api(
     title="AVNet Superapp API",
+    description="The typed V2 API of AVNet Superapp, a self-hosted life management and logging platform: "
+                "calendar, tasks, habits, contacts, photos, places and notifications.",
     version="2.0",
     urls_namespace="api-v2",
     auth=[BearerKey(), HeaderKey(), django_auth],
