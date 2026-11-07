@@ -1,6 +1,6 @@
 """Legacy-data torture test: data written by older versions of the app migrates cleanly.
 
-Migrates a fresh database to production's schema (master @ 3b9be79: scheduler 0031,
+Migrates a fresh database to production's schema (master @ 81b9982: scheduler 0031,
 photos 0023, map 0003, notifications 0002, users 0004; tasks, habits, contacts, apikeys,
 feeds and analytics don't exist yet), writes every odd shape old code could have stored
 through the historical models, migrates every app to the latest state, then checks the
