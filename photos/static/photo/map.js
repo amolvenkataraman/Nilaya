@@ -2,7 +2,7 @@
  * GPX track overlay, and "Photos in this area" (opens the timeline filtered by the map bounds).
  * ?style=dot switches to the older per-photo dot heatmap. */
 (function () {
-    const map = L.map('mapid').setView([43.6425662, -79.3870568], 10);
+    const map = L.map('mapid').setView([43.57, -79.98], 10);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 28,

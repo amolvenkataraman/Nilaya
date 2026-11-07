@@ -18,7 +18,7 @@ import { HeatLayer, realPoints, type HeatPoint } from './heat'
 import { closeness, distanceM, fmtDistance, score } from './game'
 
 type LatLng = { lat: number; lng: number }
-const START: [number, number] = [43.6425662, -79.3870568] // the classic pages' starting view
+const START: [number, number] = [43.57, -79.98] // starting view (southern Ontario)
 const WORLD = { south: -90, west: -180, north: 90, east: 180 }
 
 /** A Leaflet map with the same OSM tiles as the rest of the app; `onClick` gets wrapped coordinates. */

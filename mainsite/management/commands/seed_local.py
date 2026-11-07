@@ -105,7 +105,7 @@ class Command(BaseCommand):
         family = UserGroup.objects.create(name="Family", description="The household", priority=1)
         uni = UserGroup.objects.create(name="UWaterloo", description="Uni friends", priority=2, public=True)
         spec = [
-            ("amol", "Amol", "Venkataraman", dt.date(2000, 1, 1), True),
+            ("amol", "Amol", "Demo", dt.date(2000, 1, 1), True),
             ("alex", "Alex", "Rivera", dt.date(2002, 11, 3), False),
             ("sam", "Sam", "Chen", dt.date(2004, 2, 29), False),
         ]

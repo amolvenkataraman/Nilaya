@@ -87,10 +87,10 @@ def geotag_photos(gpx_file):
             i += 1
 
 # Example usage
-# geotag_photos("/home/user/walk 12.58.gpx")
+# geotag_photos("/path/to/track.gpx")
 
-import glob
-for f in glob.glob("/home/user/GPS/Trip/*.gpx"):
+import glob, os
+for f in glob.glob(os.path.expanduser(os.environ.get("GPX_GLOB", "~/GPS/Trip/*.gpx"))):
     print(f"Finding locations from file: {f}")
     try:
         geotag_photos(f)
