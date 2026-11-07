@@ -27,7 +27,7 @@ const toDjango: ProxyOptions = {
 function spaFallback(): Plugin {
   const own = /^\/(?:static\/app\/|@|src\/|node_modules\/|__)/
   return {
-    name: 'avnet-spa-fallback',
+    name: 'nilaya-spa-fallback',
     configureServer(server) {
       server.middlewares.use((req, _res, next) => {
         if (req.method === 'GET' && !own.test(req.url ?? '') && req.headers.accept?.includes('text/html')) req.url = '/static/app/index.html'

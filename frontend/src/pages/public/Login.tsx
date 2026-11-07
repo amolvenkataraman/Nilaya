@@ -48,7 +48,7 @@ export default function Login() {
         <div className="pub-auth-head">
           <span className="app-logo pub-auth-logo" aria-hidden="true"><Icon name="home" size={22} /></span>
           <h1>Sign in</h1>
-          <p className="muted small">to continue to AVNet Superapp</p>
+          <p className="muted small">to continue to Nilaya</p>
         </div>
         <form className="pub-form" onSubmit={submit} noValidate>
           <label className="field">

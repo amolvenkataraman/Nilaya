@@ -101,7 +101,7 @@ All three pipelines share the same **upsert pattern**: look up an existing `Even
 | presence of `'date'` key (no `'dateTime'`) | `allday = True` |
 
 ### Authentication
-- Public calendars: API key only (`GOOGLE_API_KEY` from `Comptech/api.py`)
+- Public calendars: API key only (`GOOGLE_API_KEY` in `Comptech/api.py`, read from the untracked `Comptech/google_api_key.txt`)
 - Private calendars: OAuth Bearer token passed as `token` parameter
 
 ---

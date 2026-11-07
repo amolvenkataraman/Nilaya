@@ -477,7 +477,7 @@ def geocode(request, q: str):
     req = urllib.request.Request(
         "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({"format": "json", "q": query}),
         # Nominatim's policy: an identifying User-Agent and Referer (this site's own address).
-        headers={"User-Agent": f"AVNet-Superapp/1.0 (+{settings.SITE_URL})", "Referer": settings.SITE_URL})
+        headers={"User-Agent": f"Nilaya/1.0 (+{settings.SITE_URL})", "Referer": settings.SITE_URL})
     try:
         with urllib.request.urlopen(req, timeout=10) as response:  # noqa: S310 - fixed https URL
             data = json.loads(response.read().decode("utf-8"))

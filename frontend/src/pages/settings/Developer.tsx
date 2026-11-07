@@ -106,7 +106,7 @@ function KeyRow({ k, label, onEdit }: { k: ApiKey; label: (app: string) => strin
       <div className="item-main">
         <div className="item-title"><span className="truncate">{k.name}</span>{expired && <span className="chip danger">Expired</span>}</div>
         <div className="item-meta">
-          <code>avn_{k.prefix}_…</code>
+          <code>nly_{k.prefix}_…</code>
           <span>Created {day(k.created_on)}</span>
           <span title={k.last_used_ip ? `From ${k.last_used_ip}` : undefined}>{k.last_used_on ? `Last used ${shortStamp(k.last_used_on)}` : 'Never used'}</span>
           {k.expires_on && !expired && <span>Expires {day(k.expires_on)}</span>}
@@ -375,7 +375,7 @@ export function GuidesSection() {
       const url = URL.createObjectURL(new Blob([await fetchGuide(app)], { type: 'text/markdown;charset=utf-8' }))
       const a = document.createElement('a')
       a.href = url
-      a.download = `avnet-${app}-guide.md`
+      a.download = `nilaya-${app}-guide.md`
       document.body.append(a)
       a.click()
       a.remove()

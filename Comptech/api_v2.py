@@ -3,7 +3,7 @@
 Usable from any platform:
 - Browser: the login session cookie; unsafe methods need the CSRF token (X-CSRFToken).
 - Scripts, phones, other servers: a personal API key, scoped per app and access level
-  (Settings -> API keys), sent as `Authorization: Bearer avn_...` or `X-API-Key: avn_...`.
+  (Settings -> API keys), sent as `Authorization: Bearer nly_...` or `X-API-Key: nly_...`.
   No cookies or CSRF involved. Keys can't manage keys.
 - JSON in and out, ISO 8601 datetimes with offsets, UUID ids, errors as {"detail": ...}.
 - OpenAPI schema: /api/v2/openapi.json, interactive docs: /api/v2/docs (signed-in users).
@@ -54,8 +54,8 @@ class Api(NinjaAPI):
 
 
 api = Api(
-    title="AVNet Superapp API",
-    description="The typed V2 API of AVNet Superapp, a self-hosted life management and logging platform: "
+    title="Nilaya API",
+    description="The typed V2 API of Nilaya, a self-hosted life management and logging platform: "
                 "calendar, tasks, habits, contacts, photos, places and notifications.",
     version="2.0",
     urls_namespace="api-v2",

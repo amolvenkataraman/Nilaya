@@ -1,4 +1,4 @@
-"""Ninja auth: an API key in `Authorization: Bearer avn_...` or `X-API-Key: avn_...`.
+"""Ninja auth: an API key in `Authorization: Bearer nly_...` or `X-API-Key: nly_...`.
 
 The app is taken from the URL (/api/v2/<app>/...) and the access level from the method
 (GET/HEAD/OPTIONS = read). Keys never work for /api/v2/keys/ (no key can mint keys)."""

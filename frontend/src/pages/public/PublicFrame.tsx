@@ -9,7 +9,7 @@ import './public.css'
 
 export function usePublicTitle(title: string) {
   useEffect(() => {
-    document.title = title ? `${title} · AVNet Superapp` : 'AVNet Superapp'
+    document.title = title ? `${title} · Nilaya` : 'Nilaya'
   }, [title])
 }
 
@@ -25,9 +25,9 @@ export function PublicFrame({ children, wide, bare }: { children: ReactNode; wid
   return (
     <div className="pub">
       <header className="pub-bar">
-        <a href="/" className="pub-brand" aria-label="AVNet Superapp home">
+        <a href="/" className="pub-brand" aria-label="Nilaya home">
           <span className="app-logo pub-logo" aria-hidden="true"><Icon name="home" size={15} /></span>
-          <span className="pub-brand-text">AVNet Superapp</span>
+          <span className="pub-brand-text">Nilaya</span>
         </a>
         <span className="grow" />
         {!onAuthPage && (inside

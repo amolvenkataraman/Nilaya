@@ -37,7 +37,7 @@ def safe_url(url):
     return url if parts.scheme.lower() in ("http", "https") and parts.hostname else ""
 
 
-def notify(user, title, body="", *, source="AVNet Superapp", priority=Priority.NORMAL, url="",
+def notify(user, title, body="", *, source="Nilaya", priority=Priority.NORMAL, url="",
            expires_in=None, deliver_now=True):
     n = Notification.objects.create(
         user=user, title=title[:128], description=body or None, source=source[:128],

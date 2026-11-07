@@ -1,5 +1,5 @@
 """
-WSGI config for Comptech project.
+WSGI config for Nilaya (Django project: Comptech).
 
 It exposes the WSGI callable as a module-level variable named ``application``.
 

@@ -35,14 +35,14 @@ def feed(request, token):
     for t in visible_tasks(f.user).filter(completed=False, complete_by__isnull=False,
                                          complete_by__gte=now - datetime.timedelta(days=30)).select_related("project"):
         local = timezone.localtime(t.complete_by, tz)
-        item = {"uid": f"task-{t.id}@avnet", "summary": t.name, "url": f"{site}/tasks?task={t.id}",
+        item = {"uid": f"task-{t.id}@nilaya", "summary": t.name, "url": f"{site}/tasks?task={t.id}",
                 "description": t.description, "categories": t.project.name if t.project_id else "Tasks"}
         if (local.hour, local.minute) == (23, 59):  # "due that day": an all-day entry reads better on phones
             item.update(all_day=True, start=local.date())
         else:
             item.update(start=t.complete_by, end=t.complete_by + datetime.timedelta(minutes=15))
         items.append(item)
-    name = "AVNet Tasks"
+    name = "Nilaya Tasks"
     resp = HttpResponse(ics.calendar(name, items), content_type="text/calendar; charset=utf-8")
     resp["Cache-Control"] = "private, max-age=300"
     resp["X-Robots-Tag"] = "noindex"
@@ -91,7 +91,7 @@ def _calendar_feed(f, now):
     header = []
     for name, (tz, first, _) in zones.items():
         header += ical.vtimezone(name, tz, first, now.year + 10)
-    resp = HttpResponse(ical.calendar_text("AVNet Calendar", header, bodies), content_type="text/calendar; charset=utf-8")
+    resp = HttpResponse(ical.calendar_text("Nilaya Calendar", header, bodies), content_type="text/calendar; charset=utf-8")
     resp["Cache-Control"] = "private, max-age=300"
     resp["X-Robots-Tag"] = "noindex"
     return resp

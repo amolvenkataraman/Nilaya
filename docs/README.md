@@ -1,6 +1,6 @@
-# AVNet Superapp (V1) — Technical Documentation
+# Nilaya (V1): technical documentation
 
-Technical documentation for AVNet Superapp (V1), a self-hosted life management and logging platform. The project overview is in the [main README](../README.md).
+Technical documentation for Nilaya (V1, code name Comptech), a self-hosted life management and logging platform. The project overview is in the [main README](../README.md).
 
 ## Contents
 
@@ -24,34 +24,44 @@ Technical documentation for AVNet Superapp (V1), a self-hosted life management a
 
 ```
 Browser: the React app (frontend/, served at /)
-      │  JSON API /api/v2/
+      │  JSON API /api/v2/ (Django Ninja), ICS feeds /feeds/
       ▼
-Django (Daphne + Channels for WebSocket)
+Django under Daphne (ASGI, HTTP only)
       │
-      ├── scheduler/    ← Calendar, Events, Todos
-      ├── photos/       ← Albums, Photos, Share Albums
-      ├── map/          ← Location Groups & Points
-      ├── users/        ← ComptechUser (custom AbstractUser)
-      ├── notifications/
+      ├── scheduler/      ← Calendar: calendars, subscribers, events, invites; Todo (the Tasks app's table)
+      ├── tasks/          ← Tasks API: projects, buckets, labels, saved views, comments, relations
+      ├── habits/         ← Habits and check-ins
+      ├── contacts/       ← People, groups, interactions, imports
+      ├── photos/         ← Albums (libraries), Photos, Share Albums, materialized views
+      ├── map/            ← Places: location groups and locations
+      ├── notifications/  ← Inbox, channels, automatic reminders
+      ├── feeds/          ← Private ICS feeds
+      ├── apikeys/        ← Per-app API keys
+      ├── analytics/      ← Daily usage counts
+      ├── users/          ← ComptechUser (custom AbstractUser)
+      └── mainsite/       ← Home and site-wide pieces
       │
       ▼
-PostgreSQL (Comptech database)
+PostgreSQL (Comptech database, psycopg 3 pool)
       │
-Redis  ←→  Celery workers (background tasks)
-             ├── autosync_calendars  (periodic)
-             └── ingest_all_photos   (on-demand / periodic)
+Redis  ←→  Celery worker + beat
+             ├── autosync_calendars    (every 30 minutes)
+             ├── ingest_all_photos     (on demand)
+             ├── refresh_photo_views   (coalesced matview refresh)
+             └── reminders and clean-ups
 ```
 
 ## Key Technology
 
 | Component | Technology |
 |-----------|-----------|
-| Web framework | Django 4.0.5 |
-| Database | PostgreSQL |
-| Task queue | Celery + Redis + Django Celery Beat |
-| Real-time | Django Channels + Daphne |
+| Web framework | Django 5.1, Django Ninja (V2 API) |
+| Frontend | React 19, TypeScript, Vite, TanStack Query |
+| Database | PostgreSQL (materialized views, connection pool) |
+| Task queue | Celery + Redis + django-celery-beat |
+| ASGI server | Daphne |
 | Image processing | Pillow, OpenCV |
-| EXIF reading | PIL, exifread, PyExifTool, GPSPhoto |
+| EXIF reading | Pillow, exifread, PyExifTool |
 | GPS geocoding | reverse_geocode (offline) |
-| AI object detection | YOLOv11 (ultralytics) |
-| Calendar parsing | ics, python-dateutil |
+| AI object detection | YOLO (ultralytics), optional |
+| Calendar parsing | icalendar, python-dateutil |

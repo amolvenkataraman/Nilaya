@@ -1,21 +1,19 @@
 <div align="center">
 
-# AVNet Superapp
+# Nilaya
 
 **A self-hosted life management and logging platform.**<br>
 Calendar, tasks, habits, contacts, photos, places and notifications for a family, on a server you own, with ideas (and a lot of functionality) borrowed from Google Workspace apps.
 
-<!-- Badges: CI is a placeholder until a workflow exists -->
-![CI](https://img.shields.io/badge/CI-TBD-lightgrey)
 [![Licence: AGPL v3](https://img.shields.io/badge/licence-AGPL--3.0-blue)](LICENSE)
 ![Python](https://img.shields.io/badge/Django-5.1-0c4b33)
 ![React](https://img.shields.io/badge/React-19-149eca)
 
-<img alt="AVNet Superapp home dashboard: today's agenda, tasks, a weekly time chart, habits and quick links" src="docs/screenshots/home-light-desktop.png" width="900">
+<img alt="Nilaya home dashboard: today's agenda, tasks, a weekly time chart, habits and quick links" src="docs/screenshots/home-light-desktop.png" width="900">
 
 </div>
 
-> Inside the code it's still called **Comptech**: the Django project, the database and every module use the name I picked at 12. Only the name you see changed. [Why "Comptech"?](#why-comptech)
+> **Nilaya** (निलय, *ni-LAI-yuh*) is Sanskrit for "home" or "abode": the place a family lives and keeps its things. Inside the code it's still called **Comptech**, the name I picked at 12, because it runs through the Django project, the database schema and every module. [Why "Nilaya"?](#why-nilaya) · [Why "Comptech"?](#why-comptech)
 
 ## What it is
 
@@ -105,9 +103,13 @@ Comptech's first commit landed in February 2021, and it has **run in production 
 
 The whole story, with commit hashes, is in **[docs/HISTORY.md](docs/HISTORY.md)**, *My Very Own Tech Giant*: how a homework planner turned into a life management and logging platform, the apps that didn't make it, and the commit-message hall of fame. Screenshots of every version are in **[docs/SCREENSHOTS-HISTORY.md](docs/SCREENSHOTS-HISTORY.md)**.
 
+### Why "Nilaya"?
+
+*Nilaya* (निलय) is Sanskrit for "home, abode, dwelling", from the same root as *ālaya*, as in *Himālaya*, "the abode of snow". That's the whole idea of this project: one private home for a family's calendar, tasks, photos, places and memories, on a server in your own house rather than someone else's cloud. I wanted a name with Indian roots that still sounds like a product you'd find anywhere in the world, and Nilaya was the one that stuck.
+
 ### Why "Comptech"?
 
-When I was about 12, I wanted to start my own tech company. "Comptech", short for *Computer Technology*, was the best name 12-year-old me could come up with (I'm still not great at names, as my other repos will show). In 2020, when 15-year-old me set out to build "my own private tech-giant-scale platform", it was the first name that came to mind, and it stuck. It's in the package, the database and far too many other places to be worth changing now.
+When I was about 12, I wanted to start my own tech company. "Comptech", short for *Computer Technology*, was the best name 12-year-old me could come up with (I'm still not great at names, as my other repos will show). In 2020, when 15-year-old me set out to build "my own private tech-giant-scale platform", it was the first name that came to mind, and it stuck. It's in the package, the database and far too many other places to be worth changing now, so the code still says Comptech while the app you see is Nilaya.
 
 It's also a little poetic. A decade later, I think I've finally made 12-year-old me proud: a project built entirely on my own, borrowing its ambition from the tech giants I looked up to back then, and now open source. Let it stand as a hopeful beacon that one day there'll be a real company behind the name too. (I'll update this README when that happens.)
 
@@ -178,7 +180,7 @@ flowchart LR
 
 Every app has a typed JSON API at `/api/v2/`, with interactive docs at `/api/v2/docs` and the schema at `/api/v2/openapi.json`.
 
-- **Per-app API keys** from **Settings → API keys**: read or write per app, optional expiry, shown once and stored hashed. Send `Authorization: Bearer avn_...`.
+- **Per-app API keys** from **Settings → API keys**: read or write per app, optional expiry, shown once and stored hashed. Send `Authorization: Bearer nly_...`.
 - **Guides for developers and AI agents** at `/api/v2/<app>/guide.md`: concepts, every endpoint and its JSON schema, generated from the live schema so they never drift. Point an agent at a guide and a key, and it can work with your tasks or calendar.
 - ISO 8601 datetimes with offsets, UUID ids, errors as `{"detail": ...}`, 600 requests per minute per key.
 
@@ -240,7 +242,7 @@ Six years of history leave fingerprints, and some go back further: a name picked
 - **Places is the `map` app.** Its models are still `LocationGroup` and `Location`.
 - **Photos' `Album` is a library** (a camera folder on disk); a shared album is a `ShareAlbum`. Naming is hard, renaming a database is harder.
 - **The Photos static folder is `photos/static/photo/`**, singular, because why not.
-- **Everything is `Comptech`:** the project package, `ComptechUser`, the database and `Comptech.sh`. Only the visible product is AVNet Superapp.
+- **Everything is `Comptech`:** the project package, `ComptechUser`, the database and `Comptech.sh`. Only the visible product is Nilaya.
 - **Task priority runs 0 to 20** (None, Low, Medium, High, Urgent in steps of 5), leaving room in between that nobody has used yet.
 - **Calendar categories were once numbers** (0–9 and 100). They're named per-owner categories now, and each remembers its old number in `legacy_id`.
 - **`date_taken` is the camera's wall clock**, stored as if it were in the server's time zone, because EXIF rarely says where you were.

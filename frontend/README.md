@@ -1,6 +1,6 @@
-# AVNet Superapp: the web app
+# Nilaya: the web app
 
-The interface of AVNet Superapp, a self-hosted life management and logging platform (see the [main README](../README.md)).
+The interface of Nilaya, a self-hosted life management and logging platform (see the [main README](../README.md)).
 
 The only interface: a React single-page app served at `/` (every page URL), built only on the typed V2
 JSON API (`/api/v2/`). Django serves just the API, admin, ICS feeds and files.
@@ -28,7 +28,7 @@ controls, an optional collapsible sidebar (a slide-over drawer on phones), and t
 Theme: per device, `localStorage["theme"]` = `light` | `dark` (absent = system); `public/theme.js` runs
 before first paint, `src/lib/theme.ts` does the same in the app.
 
-Routes: the server (`Comptech/spa.py`) writes `<meta name="avn-session" content="1|0">` into `index.html`;
+Routes: the server (`Comptech/spa.py`) writes `<meta name="nilaya-session" content="1|0">` into `index.html`;
 signed out, only the public routes exist (anything else goes to `/login?next=…`), so a signed-out visitor
 never triggers a signed-in API request.
 

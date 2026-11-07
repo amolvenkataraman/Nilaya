@@ -114,7 +114,7 @@ git show "$(cat ~/comptech-previous-commit)":Comptech/settings.py | grep -E "SIT
                            "http://app.home.lan", "https://app.home.lan",
                            "http://192.168.50.10", "https://192.168.50.10"],
   "internal_ips": ["127.0.0.1", "192.168.50.10"],
-  "default_from_email": "AVNet Superapp <noreply@example.com>"
+  "default_from_email": "Nilaya <noreply@example.com>"
 }
 ```
 - `csrf_trusted_origins`: every address people open the site with, as `scheme://host` (no port, no path). `ALLOWED_HOSTS` is built from these plus `localhost` and `127.0.0.1`; any other Host gets 400.

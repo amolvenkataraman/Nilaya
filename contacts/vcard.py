@@ -205,7 +205,7 @@ def _card(props):
             notes.append(_unescape(value))
         elif name == "CATEGORIES":
             R.add_tags(rec, [_unescape(x) for x in _split_escaped(value, ",")])
-        elif name == "X-AVNET-GROUPS":
+        elif name == "X-NILAYA-GROUPS":
             R.add_tags(rec, [_unescape(x) for x in _split_escaped(value, ",")], "groups")
         elif name == "URL":
             R.add_url(rec, _unescape(value), lbl if group in ab_labels else (params.get("TYPE") or [""])[0])
@@ -222,14 +222,14 @@ def _card(props):
             handle = v.split(":", 1)[1] if ":" in v else v
             if not (net and R.add_profile(rec, net, handle)):
                 R.add_custom(rec, service.title() or "IM", handle)
-        elif name == "X-AVNET-FIELD":
+        elif name == "X-NILAYA-FIELD":
             c = [_unescape(x) for x in _split_escaped(value, ";")] + [""]
             R.add_custom(rec, c[0], c[1])
-        elif name == "X-AVNET-KEEP-IN-TOUCH" and value.strip().isdigit():
+        elif name == "X-NILAYA-KEEP-IN-TOUCH" and value.strip().isdigit():
             rec["keep_in_touch_days"] = min(int(value), 3650) or None
-        elif name == "X-AVNET-FAVORITE":
+        elif name == "X-NILAYA-FAVORITE":
             rec["favorite"] = value.strip() == "1"
-        elif name == "X-AVNET-HOW-MET":
+        elif name == "X-NILAYA-HOW-MET":
             rec["how_met"] = R.text(_unescape(value), R.NOTES_MAX)
         elif name == "UID":
             rec["uid"] = R.text(value, 100)
@@ -320,7 +320,7 @@ def to_vcard(p, tags=(), groups=(), related=()):
     if tags:
         L.append("CATEGORIES:" + ",".join(_esc(t) for t in tags))
     if groups:
-        L.append("X-AVNET-GROUPS:" + ",".join(_esc(g) for g in groups))
+        L.append("X-NILAYA-GROUPS:" + ",".join(_esc(g) for g in groups))
     for key, h in p.profiles.items():
         if key in ("website", "blog"):
             L.append(f"URL;TYPE={key}:{h}")
@@ -329,13 +329,13 @@ def to_vcard(p, tags=(), groups=(), related=()):
     for link in p.links:
         L.append(f"URL;TYPE={_param(link.get('label') or 'other')}:{link['url']}")
     for c in p.custom_fields:
-        L.append(f"X-AVNET-FIELD:{_esc(c['key'])};{_esc(c['value'])}")
+        L.append(f"X-NILAYA-FIELD:{_esc(c['key'])};{_esc(c['value'])}")
     if p.keep_in_touch_days:
-        L.append(f"X-AVNET-KEEP-IN-TOUCH:{p.keep_in_touch_days}")
+        L.append(f"X-NILAYA-KEEP-IN-TOUCH:{p.keep_in_touch_days}")
     if p.favorite:
-        L.append("X-AVNET-FAVORITE:1")
+        L.append("X-NILAYA-FAVORITE:1")
     if p.how_met:
-        L.append(f"X-AVNET-HOW-MET:{_esc(p.how_met)}")
+        L.append(f"X-NILAYA-HOW-MET:{_esc(p.how_met)}")
     for kind, other_id in related:
         L.append(f"RELATED;TYPE={_param(kind)}:urn:uuid:{other_id}")
     if p.avatar:

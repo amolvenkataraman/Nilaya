@@ -1,4 +1,4 @@
-# My Very Own Tech Giant: A History of AVNet Superapp (V1)
+# My Very Own Tech Giant: A History of Nilaya (V1)
 
 *From a high-school homework planner to a self-hosted life management and logging platform, 2020 to 2026.*
 
@@ -14,7 +14,7 @@ A few ground rules for reading:
 
 - **Dates** come from `git log --date=short` (author dates). For the precursor projects without git history, I use file modification times, and I mark those dates as *inferred*.
 - **Hashes** are the 7-character short hashes from this repo. `git show <hash>` takes you to the moment.
-- **"Comptech"** is the original name. The visible product became **AVNet Superapp** on 2026-11-04 (`7f66355`). The code still says `Comptech` everywhere, and so does this book when it talks about the old days.
+- **"Comptech"** is the original name. The visible product got a working name on 2026-11-04 (`7f66355`) and became **Nilaya**, Sanskrit for "home, abode", on 2026-11-07, just before the public release. The code still says `Comptech` everywhere, and so does this book when it talks about the old days.
 - **Authorship.** Everything up to the 2025 backup restore I wrote entirely by hand, starting in high school, with no AI tools. After the restore I used three different AI editors, each to some degree: Cursor, Windsurf and Google Antigravity. From November 2026 the work was done with Claude Code. The chapters say which era is which.
 
 ---
@@ -71,14 +71,14 @@ Screenshots of every major version are in a companion file, [Screenshots through
 | 2026-04-06 | AI-assisted | First GitHub PRs authored by **Claude on the web** (OSM compliance, PR #1 and #2) |
 | 2026-05 → 09 | AI-assisted | Photos: AI indexing on ingest, video object detection, stats, storage, search, RAW, superlatives, upload page, nested albums |
 | 2026-11-04 | Claude Code | **Phase 1**: security hardening and local dev environment (PR #10) |
-| 2026-11-04 → 05 | Claude Code | **`improve/phase-1`**: theme and dark mode, notifications, V2 API, Tasks, Habits, Contacts, Places, Photos redesign, API keys, ICS feeds, analytics, React UI; product renamed **AVNet Superapp** |
+| 2026-11-04 → 05 | Claude Code | **`improve/phase-1`**: theme and dark mode, notifications, V2 API, Tasks, Habits, Contacts, Places, Photos redesign, API keys, ICS feeds, analytics, React UI; the visible product gets its first new name (code names unchanged) |
 | 2026-11-05 | Claude Code | PR #11 merged (`f0e27ec`): the React interface at full parity, measured speed-ups, review hardening |
-| 2026-11-07 | Claude Code | **The React app becomes the only interface**, at `/` (`bc1f4c2`); the classic Django-template UI and its legacy endpoints are deleted (`c95ad93`); Photos smart search (`6425482`); the biggest API files split up; public-release prep |
+| 2026-11-07 | Claude Code | **The React app becomes the only interface**, at `/` (`bc1f4c2`); the classic Django-template UI and its legacy endpoints are deleted (`c95ad93`); Photos smart search (`6425482`); the biggest API files split up; public-release prep; the product is renamed **Nilaya** |
 | Next | V2 | **Memex**, a modular rewrite being planned separately |
 
 ```mermaid
 gantt
-    title Comptech / AVNet Superapp lifeline
+    title Comptech / Nilaya lifeline
     dateFormat YYYY-MM-DD
     axisFormat %Y
     section Precursors
@@ -376,11 +376,11 @@ Everything below is on the `improve/phase-1` branch, dated 2026-11-04 or 2026-11
 - `427317f`, removed Bootstrap 5.0-beta and 5.1.3, the per-account `dark_mode` field from March 2021, and `base_old.html`. Dark mode is now chosen per device.
 - `7d0605f`, inline JS and CSS moved into static files; `16c8297`, each classic app remembers whether its sidebars are open.
 
-**The rename.** `7f66355`, "Rename the visible product name to AVNet Superapp (code names unchanged)". After five and a half years as Comptech, the product got its current name. The Django project, the database and `Comptech.sh` kept the old one.
+**The rename.** `7f66355` gave the visible product its first new name in five and a half years, a working name that lasted three days until Nilaya replaced it (see Chapter 7). The Django project, the database and `Comptech.sh` kept the old one.
 
 **Notifications.** `5e9b1a7` builds a real notifications system: an inbox, a bell menu with unread badges, and delivery to **ntfy, Gotify, email, Discord or any webhook**, with LAN-only destinations while `ONLINE_MODE` is off. `4004074` sends notifications from calendar subscriptions, album shares, ingest summaries and auto-sync failures. `59503ef` adds **automatic reminders** for events, deadlines and todos, plus a morning agenda.
 
-**The V2 API, take two.** `5e9b1a7` stands up `/api/v2/` on **Django Ninja**, and `9c0b9a0` adds `me`, calendar (calendars and events), photos (timeline, albums, on this day, summary) and places. `6721d0e` adds **per-app API keys** (`avn_…` tokens stored hashed and shown once, read/write scopes per app, expiry) and **Markdown API guides for AI agents** at `/api/v2/<app>/guide.md`, generated from the live schema. `8f73e8a` keys the rate limit (600 requests per minute) by user or key. Almost two years after the handwritten V2 API died with the SSD, a typed one shipped.
+**The V2 API, take two.** `5e9b1a7` stands up `/api/v2/` on **Django Ninja**, and `9c0b9a0` adds `me`, calendar (calendars and events), photos (timeline, albums, on this day, summary) and places. `6721d0e` adds **per-app API keys** (tokens stored hashed and shown once, read/write scopes per app, expiry) and **Markdown API guides for AI agents** at `/api/v2/<app>/guide.md`, generated from the live schema. `8f73e8a` keys the rate limit (600 requests per minute) by user or key. Almost two years after the handwritten V2 API died with the SSD, a typed one shipped.
 
 **Tasks.** Five years after the calendar's `Todo` model, Tasks became an app of its own:
 
@@ -449,7 +449,9 @@ By the end the suite had grown to 143 tests, and the upgrade guide covered a Pos
 
 **Smaller files.** The biggest API modules were split without changing behaviour, each checked against an identical OpenAPI schema: `scheduler/api_v2.py` (1,420 lines, `27dbb83`), `tasks/api.py` (1,403 lines, `4dc5abb`) and `photos/api_v2.py` (1,000 lines, `b465835`) became groups of smaller modules, and the Places file importers moved out of `map/api_v2.py` (`fe68d45`).
 
-**Going public.** The repository was prepared for publication: the one-off scripts in `scripts/` went with `c95ad93` and other unused one-off scripts followed; site-specific values moved into an untracked `Comptech/site.json` with `example.com` defaults (`0eb8434`); personal specifics in seed data, scripts and docs were made generic (`4499a34`, `290862e`); `nginx.conf` became a template (`786eba4`); the history itself was cleaned of private details; and the screenshots in [Screenshots through the years](SCREENSHOTS-HISTORY.md) were rendered offline from each version's own code with a fictional dataset.
+**Going public.** The repository was prepared for publication: the one-off scripts in `scripts/` went with `c95ad93` and other unused one-off scripts followed; site-specific values moved into an untracked `Comptech/site.json` with `example.com` defaults (`0eb8434`); personal specifics in seed data, scripts and docs were made generic (`4499a34`, `290862e`); `nginx.conf` became a template (`786eba4`); the history itself was cleaned of private details; and the screenshots in [Screenshots through the years](SCREENSHOTS-HISTORY.md) were rendered offline from each version's own code with a fictional dataset. The project was licensed under the AGPL-3.0 (`56ec0fe`), and the README was rewritten in my own voice, describing the project as what it had become: a self-hosted life management and logging platform.
+
+**Nilaya.** Just before going public, the product got its final name: **Nilaya**, Sanskrit for "home, abode". It has Indian roots but sounds at home anywhere, and it says what the project is: one private home for a family's life. Every visible trace of the working name went with it: page titles, the admin, emails, notifications, ICS feeds, vCard export fields and the API key prefix (new keys start with `nly_`; older keys keep working). The code name `Comptech` stays, because it runs through the Django project and the database schema.
 
 ---
 
@@ -638,7 +640,9 @@ Dates are author dates; hashes are short hashes from this repo. "Inferred" marks
 | Local dev environment (`localdev/`) | 2026-11-04 `e16bc3f` | |
 | `vendor.lock` and `fetch_vendor.sh` | 2026-11-04 `8b93680` | |
 | Bootstrap 5.3 app shell and dark mode | 2026-11-04 `e242d04` | |
-| Rename to AVNet Superapp | 2026-11-04 `7f66355` | |
+| First visible rename (a working name) | 2026-11-04 `7f66355` | |
+| AGPL-3.0 licence | 2026-11-07 `56ec0fe` | |
+| Rename to Nilaya | 2026-11-07 | |
 | V2 API on Django Ninja | 2026-11-04 `5e9b1a7`, `9c0b9a0` | |
 | Per-app API keys, agent guides | 2026-11-04 `6721d0e` | |
 | ICS feeds (`feeds/`) | 2026-11-04 `44cd184` | |

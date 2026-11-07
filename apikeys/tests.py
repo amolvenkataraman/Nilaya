@@ -36,7 +36,7 @@ class ApiKeyTests(TestCase):
 
     def test_token_is_shown_once_and_stored_hashed(self):
         key = ApiKey.objects.get()
-        self.assertTrue(self.token.startswith("avn_"))
+        self.assertTrue(self.token.startswith("nly_"))
         self.assertNotIn(self.token, key.hashed)
         self.client.force_login(self.user)
         listed = self.client.get("/api/v2/keys/").json()
@@ -49,6 +49,15 @@ class ApiKeyTests(TestCase):
         self.assertEqual(self.call("get", "/api/v2/calendar/calendars", self.token, header="x-api-key").status_code, 200)
         self.assertEqual(self.call("post", "/api/v2/calendar/calendars", self.token, name="X").status_code, 403)
         self.assertEqual(self.call("get", "/api/v2/photos/summary", self.token).status_code, 403)
+
+    def test_keys_made_before_the_rename_keep_working(self):
+        from apikeys.models import _digest
+        key = ApiKey.objects.get()
+        old = "old_" + self.token[4:]  # any earlier 3-letter prefix; the stored hash covers the whole token
+        key.hashed = _digest(old)
+        key.save(update_fields=["hashed"])
+        self.assertEqual(self.call("get", "/api/v2/tasks/overview", old).status_code, 200)
+        self.assertEqual(self.call("get", "/api/v2/tasks/overview", self.token).status_code, 401)
 
     def test_keys_cannot_manage_keys_and_bad_keys_are_rejected(self):
         self.assertEqual(self.call("get", "/api/v2/keys/", self.token).status_code, 401)

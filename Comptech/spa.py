@@ -128,7 +128,7 @@ def index(request):
                             status=503, content_type="text/plain")
     get_token(request)  # the CSRF cookie, for the sign-in form and every later write
     # The app reads this to pick its routes before any request (no inline script needed).
-    html = _index_html().replace("<head>", f'<head><meta name="avn-session" content="{int(signed_in)}">', 1)
+    html = _index_html().replace("<head>", f'<head><meta name="nilaya-session" content="{int(signed_in)}">', 1)
     response = HttpResponse(html, content_type="text/html")
     # index.html names the hashed bundles: never cache it, so a deploy is picked up on the next load.
     response["Cache-Control"] = "no-cache"

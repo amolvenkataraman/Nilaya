@@ -17,7 +17,7 @@ def built_app():
     """A stand-in for the built index.html (the real build isn't part of the repo)."""
     with tempfile.TemporaryDirectory() as tmp:
         index = Path(tmp) / "index.html"
-        index.write_text("<!doctype html><html><head><title>AVNet Superapp</title></head><body></body></html>")
+        index.write_text("<!doctype html><html><head><title>Nilaya</title></head><body></body></html>")
         with mock.patch.object(spa, "INDEX", index):
             yield
 
@@ -33,13 +33,13 @@ class SpaTests(TestCase):
                      "/calendar/availability/ann/", "/shared/albums/0b7e9d3c-1b5e-4c55-9a0e-6a1e2b3c4d5e"):
             r = self.client.get(path)
             self.assertEqual(r.status_code, 200, path)
-            self.assertContains(r, '<meta name="avn-session" content="0">')
+            self.assertContains(r, '<meta name="nilaya-session" content="0">')
         self.assertIn("csrftoken", r.cookies)  # the sign-in form posts with it
         self.assertEqual(r["Cache-Control"], "no-cache")
         self.assertIn("script-src 'self'", r["Content-Security-Policy"])
         self.assertEqual(self.client.get("/photos/upload/").status_code, 404)  # removed upload portal
         self.client.force_login(ComptechUser.objects.create_user("amy", password="pw"))
-        self.assertContains(self.client.get("/places"), '<meta name="avn-session" content="1">')
+        self.assertContains(self.client.get("/places"), '<meta name="nilaya-session" content="1">')
         self.assertEqual(self.client.get("/photos/upload").status_code, 404)
 
     def test_old_urls_redirect_to_their_routes_with_the_query(self):

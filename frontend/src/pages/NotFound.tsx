@@ -3,7 +3,7 @@ import { AppShell } from '../components/AppShell'
 
 export function NotFound() {
   return (
-    <AppShell app="home" title="AVNet Superapp" pageTitle="Not found">
+    <AppShell app="home" title="Nilaya" pageTitle="Not found">
       <div className="page">
         <div className="card card-body" style={{ maxWidth: '28rem', margin: '10vh auto', textAlign: 'center', display: 'grid', gap: '0.5rem' }}>
           <h1>Page not found</h1>

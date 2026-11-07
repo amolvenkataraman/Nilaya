@@ -17,7 +17,8 @@ ComptechUser
     │                                              │
     │                                    ShareAlbum_Subscriber (user)
     │
-    └── PhotoLocationCache  (read-only materialized view, not managed by Django)
+    ├── PhotoLocationCache  (materialized view: heat map and place lists)
+    └── PhotoDaily          (materialized view: per-library, per-day counts and sizes)
 ```
 
 ---
@@ -192,39 +193,54 @@ Connects a user to a share album with an access role.
 
 ### `PhotoLocationCache` (Materialized View)
 
-A PostgreSQL materialized view providing pre-aggregated GPS data for heatmap rendering. **Django does not manage this table** (`managed = False`).
+A PostgreSQL materialized view with pre-aggregated GPS points for the heat map and place lists. Django doesn't manage the table (`managed = False`); migrations create it (`0025`, changed in `0027` and `0029`). On SQLite (local testing) it's a plain view.
 
 | Field | Type | Notes |
 |-------|------|-------|
-| `album_id` | IntegerField | FK to Album (not enforced at DB level) |
+| `album_id` | IntegerField | Library album (not enforced at DB level) |
 | `lat` | FloatField | Latitude rounded to 5 decimal places |
 | `lng` | FloatField | Longitude rounded to 5 decimal places |
-| `on_plane` | BooleanField | True if altitude > 1000m |
-| `dt_year` | IntegerField | Year extracted from `date_taken` |
-| `cnt` | IntegerField | Number of photos at this location cluster |
+| `on_plane` | BooleanField | True if altitude ≥ 2,000 m (`PLANE_ALTITUDE_M`); left out of heat maps and place lists |
+| `dt_year` | IntegerField | Year of `date_taken` |
+| `cnt` | IntegerField | Number of photos at this point |
 
-**SQL definition** (`photos/sql/photo_location_cache.sql`):
+**Current definition** (migration `0029`):
 ```sql
 CREATE MATERIALIZED VIEW photos_photo_location_cache AS
-SELECT
-    album_id,
-    ROUND(latitude, 5)  AS lat,
-    ROUND(longitude, 5) AS lng,
-    (altitude > 1000)   AS on_plane,
-    EXTRACT(year FROM date_taken) AS dt_year,
-    COUNT(*) AS cnt
+SELECT album_id,
+       round(latitude::numeric, 5)  AS lat,
+       round(longitude::numeric, 5) AS lng,
+       altitude >= 2000             AS on_plane,
+       EXTRACT(year FROM date_taken) AS dt_year,
+       count(*) AS cnt
 FROM photos_photo
-WHERE latitude IS NOT NULL AND longitude IS NOT NULL
-GROUP BY
-    album_id,
-    ROUND(latitude, 5),
-    ROUND(longitude, 5),
-    EXTRACT(year FROM date_taken),
-    (altitude > 1000)
-HAVING ROUND(latitude, 5) <> 0 OR ROUND(longitude, 5) <> 0;
+WHERE NOT hidden
+  AND latitude IS NOT NULL AND longitude IS NOT NULL
+  AND latitude <> 0 AND longitude <> 0          -- a coordinate of exactly 0 is broken GPS
+GROUP BY album_id, lat, lng, on_plane, dt_year
+WITH DATA;
+CREATE UNIQUE INDEX photos_location_cache_uniq
+    ON photos_photo_location_cache (album_id, lat, lng, on_plane, dt_year);
 ```
 
-**Refresh:** Called automatically after each ingest via `refresh_photo_location_cache()`.
+Hidden photos and broken GPS (a latitude or longitude of exactly 0) are left out.
+
+---
+
+### `PhotoDaily` (Materialized View)
+
+One row per library album and local day, used for timeline day badges, Stats and Storage. Created by migration `0026`; since `0032` it counts every photo that isn't hidden, including ones flagged `file_not_available` (a stale flag: the files exist).
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | CharField (PK) | `"<album_id>-<day>"` |
+| `album_id` | IntegerField | Library album |
+| `day` | DateField | `date_taken` in the server's time zone |
+| `photos` / `videos` | IntegerField | Counts |
+| `size_kb` / `size_total_kb` | BigIntegerField | Optimized and original sizes |
+| `length_s` | BigIntegerField | Total video length |
+
+**Refresh (both views):** `REFRESH MATERIALIZED VIEW CONCURRENTLY`. Edits, hiding and deletes made in the app queue a coalesced refresh through the Celery task `refresh_photo_views` (`photos/cache.py`), so a burst of changes causes one refresh; ingest refreshes both views when it finishes.
 
 ---
 
@@ -286,7 +302,8 @@ Thumbnails are stored outside the Django media root:
 ## Database Notes
 
 - Database: PostgreSQL (`Comptech`)
-- Migrations in `photos/migrations/` (17 migrations)
+- Migrations in `photos/migrations/` (32 migrations)
 - `Photo.album` uses `on_delete=PROTECT` — an album cannot be deleted while it has photos
-- `PhotoLocationCache` must be created manually with the SQL in `photos/sql/photo_location_cache.sql` before the heatmap feature works
+- Both materialized views are created by migrations; nothing has to be run by hand
+- Indexes: `photo_date_taken_idx (date_taken, id)` for the timeline and keyset paging, `photo_lat_lng_idx (latitude, longitude)` for photos near a place
 - The GIN index on `ai_index_info__objects` must exist for AI object filtering to be performant

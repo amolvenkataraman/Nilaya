@@ -1,5 +1,5 @@
 """
-ASGI config for Comptech project.
+ASGI config for Nilaya (Django project: Comptech).
 
 It exposes the ASGI callable as a module-level variable named ``application``.
 

@@ -49,7 +49,7 @@ ROUTES = [
 ]
 for path in ROUTES:
     r = s.get(BASE + path, allow_redirects=False)
-    check(r.status_code == 200 and 'name="avn-session" content="1"' in r.text, f"{r.status_code} {path}")
+    check(r.status_code == 200 and 'name="nilaya-session" content="1"' in r.text, f"{r.status_code} {path}")
 
 REDIRECTS = {
     "/app/": "/", "/app/tasks?view=today": "/tasks?view=today", "/accounts/login/": "/login", "/map/": "/places",

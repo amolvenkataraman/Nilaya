@@ -1,4 +1,4 @@
-/* AVNet Superapp design system: one set of tokens for every page, light + dark.
+/* Nilaya design system: one set of tokens for every page, light + dark.
  * Loaded after Bootstrap 5.3. Bootstrap's own components follow data-bs-theme;
  * these tokens give the app its accent, surfaces, radius and type, and every
  * page/app stylesheet should use the --app-* variables instead of literal colours. */

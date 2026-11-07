@@ -1,10 +1,10 @@
-# Upgrade: new UI only, served at `/`
+# Upgrade: new UI only, served at `/`, and the rename to Nilaya
 
-The React app moves from `/app/` to the site root and becomes the only interface. The classic
+The React app moves from `/app/` to the site root and becomes the only interface, and the product is renamed **Nilaya**. The classic
 Django-template pages, their JS/CSS, the vendored third-party files and the legacy JSON endpoints are
 gone. Same setup as [UPGRADE-phase-1.md](UPGRADE-phase-1.md): code in `/opt/Comptech`, venv
 `CT_env`, tmux session `Comptech` (Daphne, Celery worker, Celery beat), nginx, Postgres `Comptech`.
-Time needed: about 15 minutes. **No database migrations**, so rolling back is just code.
+Time needed: about 15 minutes. At most **one small migration** (`photos.0032`, which only recreates the per-day photo view, if this server doesn't have it yet), so rolling back is just code.
 
 ## What changed for deployment
 
@@ -18,7 +18,12 @@ Time needed: about 15 minutes. **No database migrations**, so rolling back is ju
 | Python packages no longer used: `dateparser`, `whitenoise`, `piexif`, `django-import-export`, `django-crispy-forms`, `crispy-bootstrap4` | `pip install -r requirements.txt` adds nothing; uninstalling the old ones is optional (step 2) |
 | nginx | **No changes needed.** The three `location /static/…` blocks stay: `/static/app/assets/` (hashed, cached forever), `/static/app/` (theme.js and favicon, revalidated) and `/static/` (admin). `index.html` is served by Django with `Cache-Control: no-cache`, so a deploy is picked up on the next page load |
 | Celery tasks send notification links to the new routes (`/tasks?task=…`, `/contacts?person=…`, `/photos/albums/<id>`, `/settings#set-api`) | Restart the worker and beat with Daphne (step 5) |
-| ICS feeds (`/feeds/f_….ics`), API keys, signed photo URLs | Unchanged |
+| Feed URLs (`/feeds/f_….ics`), signed photo URLs | Unchanged |
+| The visible name is **Nilaya** everywhere: page titles, sign-in, the admin header, the default email sender, notification sources, ICS feed names ("Nilaya Calendar", "Nilaya Tasks"), the API docs and guides. Code names are unchanged: the `Comptech` package, the database, `Comptech.sh`, the tmux session and `/opt/Comptech` | If `default_from_email` in `Comptech/site.json` still names the old product, change it (step 4) |
+| API keys: new keys start with `nly_` | None. Existing keys keep working (the stored hash covers the whole token, whatever its prefix) |
+| ICS feeds: event and task UIDs now end in `@nilaya` | A calendar app subscribed to a feed would show every item once as new; re-subscribe if any exist |
+| Contacts vCard export writes its extra fields (groups, custom fields, keep-in-touch, favourite, how met) as `X-NILAYA-*` | vCards exported before this upgrade still import, without those extra fields |
+| The server marks each page with `<meta name="nilaya-session">`, which the app reads to pick its routes | None, as long as the build and the server come from the same commit (step 3 before step 5) |
 | The upload portal (`/photos/upload`, `POST /api/v2/photos/public/upload`) is removed, and so are the unused shell helpers `photos/importables.py` (duplicate clean-up, moving photos between libraries) and `photos/compressvideo.py`; `upload_recipient_name` and `preferred_library_keyword` in `Comptech/site.json` are no longer read | Delete those two keys from `site.json` (optional, step 4) |
 
 ### Behaviour changes people will notice
@@ -36,7 +41,7 @@ Time needed: about 15 minutes. **No database migrations**, so rolling back is ju
 ### 1. Back up and note the current commit
 ```bash
 cd /opt/Comptech
-pg_dump -h 127.0.0.1 -U postgres Comptech > ~/comptech-backup-$(date +%F).sql   # nothing migrates, but be safe
+pg_dump -h 127.0.0.1 -U postgres Comptech > ~/comptech-backup-$(date +%F).sql   # at most one small migration, but be safe
 git rev-parse HEAD > ~/comptech-previous-commit
 ```
 
@@ -47,7 +52,7 @@ source CT_env/bin/activate
 pip install -r requirements.txt
 pip uninstall -y dateparser whitenoise piexif django-import-export django-crispy-forms crispy-bootstrap4   # optional
 python manage.py check          # must not show mainsite.W001
-python manage.py migrate        # "No migrations to apply"
+python manage.py migrate        # applies photos.0032 if missing (a few seconds), otherwise "No migrations to apply"
 ```
 Don't restart yet: the running Daphne still serves the old code until step 5, and the new code needs the new build.
 
@@ -65,7 +70,7 @@ rm -rf static_files/static/css static_files/static/js static_files/static/vendor
 python manage.py collectstatic --noinput --clear   # --clear drops the classic files from /www/static; admin and the app are copied again
 ls /www/static/app/index.html /www/static/app/assets | head -3
 ```
-Optional: delete `upload_recipient_name` and `preferred_library_keyword` from `Comptech/site.json` (both are ignored now; keep the JSON valid, no trailing comma). Files the upload portal saved are still in `/mnt/data/Photos/Uploads/`.
+In `Comptech/site.json`: if `default_from_email` names the old product, change it to something like `"Nilaya <noreply@your.domain>"`. Optional: delete `upload_recipient_name` and `preferred_library_keyword` (both are ignored now). Keep the JSON valid (no trailing comma); `site.json` is read at start-up, so step 5 picks it up. Files the upload portal saved are still in `/mnt/data/Photos/Uploads/`.
 
 ### 5. Restart Daphne, the Celery worker and beat
 ```bash
@@ -76,14 +81,14 @@ tmux attach -t Comptech        # window 0: "Listening on TCP address 127.0.0.1:8
 
 ### 6. Check it
 Signed out, in a private window:
-- `https://<your-site>/` goes to `/login?next=/`; a wrong password shows an error; signing in lands on Home.
+- `https://<your-site>/` goes to `/login?next=/`, which says "to continue to Nilaya" and the tab title is Nilaya; a wrong password shows an error; signing in lands on Home.
 - `https://<your-site>/tasks?view=today` signed out goes to `/login?next=…` and, after signing in, back to Today.
 - `https://<your-site>/app/` and `/accounts/login/` redirect to `/` and `/login`.
 - A public calendar (`/calendar/public/<id>`), a countdown (from an event on it: Event → Countdown to start) and a public album (Photos › Albums › a public album › Copy link) open without signing in; `/photos/upload` answers 404.
 
 Signed in:
 - Open every app from the launcher; toggle dark mode; open the bell and click a notification from before the upgrade (old links redirect).
-- Settings › Developer: `curl -H "Authorization: Bearer <key>" https://<your-site>/api/v2/tasks/overview` still answers JSON.
+- Settings › Developer: `curl -H "Authorization: Bearer <key>" https://<your-site>/api/v2/tasks/overview` still answers JSON with an existing key, and a newly created key starts with `nly_`.
 - `https://<your-site>/admin/` signs in with Django's own page.
 - Photos › Superlatives › Longest videos loads; Photos › Map › "Photos in this area" opens a filtered timeline.
 - Log out from the account menu; the next page is `/login`.
@@ -92,7 +97,7 @@ On the server: `tail` Daphne's window for 500s while you click around, and check
 
 ## Removed endpoints and their V2 replacements (for Planner and other scripts)
 
-All V2 endpoints live under `/api/v2/`, take an API key (`Authorization: Bearer avn_…`, created in
+All V2 endpoints live under `/api/v2/`, take an API key (`Authorization: Bearer nly_…`, created in
 Settings › Developer with read or write access per app) or the browser session plus `X-CSRFToken`, and
 answer JSON with ISO 8601 datetimes. Each app's full reference is at `/api/v2/<app>/guide.md` and
 `/api/v2/docs`. Old endpoints that a script calls now get the app's HTML (a 302 to `/login` when signed

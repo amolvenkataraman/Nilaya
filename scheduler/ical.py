@@ -94,7 +94,7 @@ def _rule_lines(e, tz, tzid):
 def vevent(e, *, calendar_name, colour, tz, tzid, stamp, extra_exdates=(), masked=False):
     """VEVENT lines for a single event, a series (with RRULE) or an override (RECURRENCE-ID).
     masked: someone else's private event seen by a plain subscriber, sent as "Busy" with times only."""
-    uid = f"{e.recurrence_parent_id or e.id}@avnet"
+    uid = f"{e.recurrence_parent_id or e.id}@nilaya"
     recurring = bool(e.rrule) or bool(e.recurrence_parent_id)
     name = "Busy" if masked else e.name
     summary = name if e.kind != "deadline" else f"Due: {name}"
@@ -134,7 +134,7 @@ def vevent(e, *, calendar_name, colour, tz, tzid, stamp, extra_exdates=(), maske
 
 
 def calendar_text(name, header_extra, bodies):
-    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//AVNet Superapp//Feeds//EN", "CALSCALE:GREGORIAN",
+    lines = ["BEGIN:VCALENDAR", "VERSION:2.0", "PRODID:-//Nilaya//Feeds//EN", "CALSCALE:GREGORIAN",
              f"X-WR-CALNAME:{esc(name)}", "REFRESH-INTERVAL;VALUE=DURATION:PT30M", "X-PUBLISHED-TTL:PT30M"]
     lines += header_extra
     lines += bodies

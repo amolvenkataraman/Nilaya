@@ -1,4 +1,4 @@
-"""Comptech URL configuration.
+"""Nilaya URL configuration (Django project: Comptech).
 
 Everything a person opens in the browser is the React app (Comptech/spa.py): the catch-all at the
 end serves it for every path outside the reserved prefixes below, and redirects old URLs. The
@@ -14,7 +14,7 @@ from django.urls import include, path, re_path
 from Comptech import spa
 from Comptech.api_v2 import api as api_v2
 
-admin.site.site_header = admin.site.site_title = "AVNet Superapp admin"
+admin.site.site_header = admin.site.site_title = "Nilaya admin"
 admin.site.index_title = "Administration"
 admin.site.site_url = "/"
 

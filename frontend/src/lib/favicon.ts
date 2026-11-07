@@ -1,7 +1,7 @@
 // The browser tab icon follows the current app: its launcher tile (the app's colour, rounded) with the
 // navbar glyph in white, as an SVG data: URL (the SPA's CSP allows img-src data:). Solid colour reads in
 // light and dark browser chrome alike. Each app's SVG is built once and cached; outside an app the
-// AVNet icon from index.html comes back.
+// Nilaya icon from index.html comes back.
 import { Children, Fragment, isValidElement, useEffect, type ReactElement, type ReactNode } from 'react'
 import { iconShapes } from '../components/Icon'
 
@@ -43,7 +43,7 @@ export function faviconUrl(icon: string, hue: string): string {
 
 let fallback: { href: string; type: string } | null = null
 
-/** Point the tab icon at an app's tile, or (null) back at the default AVNet icon. */
+/** Point the tab icon at an app's tile, or (null) back at the default Nilaya icon. */
 export function setFavicon(app: { icon: string; hue: string } | null) {
   const link = document.querySelector<HTMLLinkElement>('link[rel~="icon"]')
   if (!link) return

@@ -86,8 +86,8 @@ COMMON = """## Authentication
 
 Send a personal API key with every request, in either header:
 
-    Authorization: Bearer avn_xxxxxxxx_...
-    X-API-Key: avn_xxxxxxxx_...
+    Authorization: Bearer nly_xxxxxxxx_...
+    X-API-Key: nly_xxxxxxxx_...
 
 Create keys in **Settings → API keys**. A key has per-app scopes: `{{app}}:read` allows GET, and
 `{{app}}:write` allows every method (write includes read). A missing or invalid key returns **401**;
@@ -157,7 +157,7 @@ def render(api, app, request):
     prefix = f"/api/v2/{app}"
     base = request.build_absolute_uri("/api/v2/")
     intro = INTRO.get(app) or getattr(_api_module(app), "GUIDE_INTRO", "")
-    out = [f"# AVNet Superapp API: {app}", "", intro.strip(), "", COMMON.format(base=base), "## Endpoints", ""]
+    out = [f"# Nilaya API: {app}", "", intro.strip(), "", COMMON.format(base=base), "## Endpoints", ""]
     used = set()
     for path, ops in spec["paths"].items():
         if not (path == prefix or path.startswith(prefix + "/")) or path.endswith("/guide.md"):

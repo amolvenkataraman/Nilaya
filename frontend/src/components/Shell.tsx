@@ -24,7 +24,7 @@ export async function logout() {
 
 export function usePageTitle(title: string) {
   useEffect(() => {
-    document.title = title ? `${title} · AVNet Superapp` : 'AVNet Superapp'
+    document.title = title ? `${title} · Nilaya` : 'Nilaya'
   }, [title])
 }
 

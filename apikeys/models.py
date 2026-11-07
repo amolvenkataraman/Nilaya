@@ -5,6 +5,7 @@ fast hash is fine and lets every request be checked in one indexed lookup)."""
 
 import hashlib
 import hmac
+import re
 import secrets
 import uuid
 
@@ -23,7 +24,10 @@ APPS = {
     "notifications": "Notifications",
 }
 SCOPES = {f"{app}:{level}" for app in APPS for level in ("read", "write")}
-TOKEN_PREFIX = "avn_"
+TOKEN_PREFIX = "nly_"
+# Tokens look like <3 letters>_<8 hex>_<secret>. Keys made before the rename to Nilaya used another
+# 3-letter prefix; they keep working because the stored hash covers the whole token.
+_TOKEN_RE = re.compile(r"^[a-z]{3}_([0-9a-f]{8})_.+$")
 
 
 def _digest(token):
@@ -60,9 +64,10 @@ class ApiKey(models.Model):
     @classmethod
     def from_token(cls, token):
         """The live key for a presented token, or None."""
-        if not token or not token.startswith(TOKEN_PREFIX) or token.count("_") < 2:
+        m = _TOKEN_RE.match(token or "")
+        if not m:
             return None
-        prefix = token[len(TOKEN_PREFIX):].split("_", 1)[0]
+        prefix = m.group(1)
         key = cls.objects.select_related("user").filter(prefix=prefix).first()
         if key is None or not hmac.compare_digest(key.hashed, _digest(token)):
             return None
