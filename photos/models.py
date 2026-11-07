@@ -9,7 +9,6 @@ from django.conf import settings
 from django.conf import settings as _settings
 SALT = _settings.SALT
 from GPSPhoto import gpsphoto
-import reverse_geocode as rg
 import exiftool
 
 
@@ -431,7 +430,7 @@ class Photo(models.Model):
 
     def update_info_photo(self):
         """Extract dimensions, megapixels, GPS data, and EXIF tags for photo files using PIL and GPSPhoto."""
-        from PIL import Image, ImageOps, UnidentifiedImageError
+        from PIL import Image, UnidentifiedImageError
         from PIL.ExifTags import TAGS
 
         f = self.get_filepath()
@@ -637,7 +636,6 @@ class ShareAlbum_Subscriber(models.Model):
 
 def generate_video_thumbnail(video_path, output_path, video_id):
     import cv2
-    import numpy as np
     from PIL import Image
 
     # Open video file

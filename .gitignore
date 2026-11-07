@@ -24,65 +24,7 @@ data.json
 .venv/
 localdev/data/
 
-# Third-party front-end files: downloaded by static_files/fetch_vendor.sh (see vendor.lock)
-static_files/static/css/bootstrap/bootstrap.css
-static_files/static/css/bootstrap/bootstrap.css.map
-static_files/static/css/bootstrap/bootstrap.min.css
-static_files/static/css/bootstrap/bootstrap.min.css.map
-static_files/static/css/bootstrap/bootstrap.rtl.css
-static_files/static/css/bootstrap/bootstrap.rtl.css.map
-static_files/static/css/bootstrap/bootstrap.rtl.min.css
-static_files/static/css/bootstrap/bootstrap.rtl.min.css.map
-static_files/static/css/bootstrap/bootstrap-grid.css
-static_files/static/css/bootstrap/bootstrap-grid.css.map
-static_files/static/css/bootstrap/bootstrap-grid.min.css
-static_files/static/css/bootstrap/bootstrap-grid.min.css.map
-static_files/static/css/bootstrap/bootstrap-grid.rtl.css
-static_files/static/css/bootstrap/bootstrap-grid.rtl.css.map
-static_files/static/css/bootstrap/bootstrap-grid.rtl.min.css
-static_files/static/css/bootstrap/bootstrap-grid.rtl.min.css.map
-static_files/static/css/bootstrap/bootstrap-reboot.css
-static_files/static/css/bootstrap/bootstrap-reboot.css.map
-static_files/static/css/bootstrap/bootstrap-reboot.min.css
-static_files/static/css/bootstrap/bootstrap-reboot.min.css.map
-static_files/static/css/bootstrap/bootstrap-reboot.rtl.css
-static_files/static/css/bootstrap/bootstrap-reboot.rtl.css.map
-static_files/static/css/bootstrap/bootstrap-reboot.rtl.min.css
-static_files/static/css/bootstrap/bootstrap-reboot.rtl.min.css.map
-static_files/static/css/bootstrap/bootstrap-utilities.css
-static_files/static/css/bootstrap/bootstrap-utilities.css.map
-static_files/static/css/bootstrap/bootstrap-utilities.min.css
-static_files/static/css/bootstrap/bootstrap-utilities.min.css.map
-static_files/static/css/bootstrap/bootstrap-utilities.rtl.css
-static_files/static/css/bootstrap/bootstrap-utilities.rtl.css.map
-static_files/static/css/bootstrap/bootstrap-utilities.rtl.min.css
-static_files/static/css/bootstrap/bootstrap-utilities.rtl.min.css.map
-static_files/static/js/bootstrap/bootstrap.bundle.min.js
-static_files/static/js/bootstrap/bootstrap.bundle.min.js.map
-static_files/static/js/popper/popper.js
-static_files/static/js/jquery/jquery.min.js
-static_files/static/js/moment/moment.min.js.map
-static_files/static/js/leaflet/leaflet.js
-static_files/static/js/leaflet/leaflet.js.map
-static_files/static/js/croppie/croppie.min.js
-static_files/static/css/croppie/croppie.css
-static_files/static/js/leaflet-heatmap/leaflet-heatmap.js
-static_files/static/vendor/bootstrap-5.1.3/bootstrap.min.css
-static_files/static/vendor/bootstrap-5.1.3/bootstrap.bundle.min.js
-static_files/static/vendor/chartjs-4.6.1/chart.umd.min.js
-static_files/static/vendor/leaflet-heat-0.2.0/leaflet-heat.min.js
-static_files/static/vendor/leaflet-gpx-1.7.0/gpx.min.js
-static_files/static/js/handlebars/handlebars.js
-static_files/static/js/heatmap/heatmap.min.js
-static_files/static/js/moment/moment.min.js
-static_files/static/css/leaflet/leaflet.css
-static_files/static/js/popper/popper.js.map
-static_files/static/vendor/bootstrap-5.3.3/bootstrap.min.css
-static_files/static/vendor/bootstrap-5.3.3/bootstrap.bundle.min.js
-static_files/static/vendor/leaflet-markercluster-1.5.3/leaflet.markercluster.js
-static_files/static/vendor/leaflet-markercluster-1.5.3/MarkerCluster.css
-
-# New React UI (frontend/): dependencies and build output (built by frontend/build.sh)
+# The React app (frontend/): dependencies and build output (built by frontend/build.sh)
 frontend/node_modules/
 static_files/static/app/
 

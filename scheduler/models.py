@@ -1,7 +1,6 @@
 import datetime as _dt
 import re
 
-from django.conf import settings as _settings
 from django.db import IntegrityError, models, transaction
 from django.db.models import Q
 from django.utils import timezone

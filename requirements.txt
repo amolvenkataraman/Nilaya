@@ -1,12 +1,8 @@
 Django>=5.1,<6     # 5.1: DB connection pool; 6 not tested yet
-django-crispy-forms
 channels
 channels_redis
 gpsphoto
 exifread
-piexif
-dateparser
-whitenoise
 Pillow
 bleach
 icalendar        # scheduler/sync.py: ICS import with RRULE/EXDATE/RECURRENCE-ID (replaces ics 0.7, which ignored RRULE)
@@ -18,9 +14,7 @@ daphne
 psycopg[pool]
 django_celery_beat
 django-ninja>=1.3,<2  # V2 API (/api/v2/); 1.x API (throttling, Schema resolvers)
-django-import-export
 requests
-crispy-bootstrap4
 reverse_geocode
 PyExifTool
 
@@ -31,6 +25,4 @@ python-dateutil  # scheduler: RRULE expansion (recurrence.py) and sync date pars
 # AI indexing
 ultralytics      # photos/AI/objects.py (object detection)
 
-# Only needed by one-off tools in scripts/
-# gpxpy
 redis

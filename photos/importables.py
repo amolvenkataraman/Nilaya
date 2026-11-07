@@ -3,7 +3,6 @@ import shutil
 import random
 from collections import defaultdict
 from photos.models import Photo, Album, refresh_photo_matviews
-from django.db.models import Q
 from django.db import transaction
 from django.conf import settings
 
@@ -138,8 +137,6 @@ def remove_duplicates(year=None, month=None, mode='all', dry_run=False):
     :param dry_run: If True, prints what would be deleted without actually deleting.
     """
     import re
-    from collections import defaultdict
-    import random
 
     print(f"Starting duplicate removal process (Mode: {mode}, Year: {year}, Month: {month}, Dry Run: {dry_run})...")
 

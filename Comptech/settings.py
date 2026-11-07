@@ -12,7 +12,6 @@ https://docs.djangoproject.com/en/3.1/ref/settings/
 
 import os
 from pathlib import Path
-from django.urls import reverse
 from celery.schedules import crontab
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -97,14 +96,12 @@ INSTALLED_APPS = [
     # Other Python libraries
     'channels',
     'ninja',  # V2 API; listed so its docs use bundled (not CDN) assets
-    'crispy_forms',
-    'crispy_bootstrap4',
     'django_celery_beat',
 
     # Important apps (necessary for others)
     'users',
     'mainsite',
-    'static_files',
+    'static_files',  # static_files/static/app/: the React app's build (frontend/)
     'notifications',
     'tasks',
     'apikeys',
@@ -132,8 +129,7 @@ MIDDLEWARE = [
     'analytics.middleware.AnalyticsMiddleware',  # usage per person, app and day (analytics/models.py)
 ]
 
-# Other sites can't frame us (clickjacking); our own pages can (the calendar shows
-# a day's / an event's photos in an iframe).
+# Other sites can't frame us (clickjacking).
 X_FRAME_OPTIONS = 'SAMEORIGIN'
 
 ROOT_URLCONF = 'Comptech.urls'
@@ -141,7 +137,7 @@ ROOT_URLCONF = 'Comptech.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR / 'templates'],
+        'DIRS': [],  # only Django admin's and the API docs' own templates
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -247,25 +243,14 @@ USE_TZ = True
 STATIC_ROOT = '/www/static'
 STATIC_URL = '/static/'
 # Hashed names (Comptech/storage.py): nginx serves /static/ with `expires max`, so without them
-# browsers kept old CSS/JS after an upgrade. Templates must use {% static %} (they all do).
+# browsers kept old CSS/JS after an upgrade.
 STORAGES = {
     'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
     'staticfiles': {'BACKEND': 'Comptech.storage.LenientManifestStorage'},
 }
 
 
-# Tell Crispyforms (the form styling app) to use Bootstrap 4
-CRISPY_TEMPLATE_PACK = 'bootstrap4'
-
 LOGIN_URL = '/login'  # the app's sign-in page (Comptech/spa.py)
-
-CALENDAR_VARS = {
-    "use_day_schedule": "True",
-    "day_prefix": "DAY",
-    "days": 4,
-
-    "holidays": [0, 6],
-}
 
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 30 # 30 days
 

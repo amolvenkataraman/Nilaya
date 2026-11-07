@@ -11,7 +11,7 @@ from django.db import transaction
 from django.db.models import Q
 
 from . import recurrence as rec
-from .models import Calendar, Event, EventAttendee, EventReminder, Subscriber
+from .models import Event, EventAttendee, EventReminder, Subscriber
 
 log = logging.getLogger(__name__)
 

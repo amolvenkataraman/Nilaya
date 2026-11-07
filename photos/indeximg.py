@@ -1,26 +1,13 @@
-from django.shortcuts import render
-from django.http import HttpResponse, JsonResponse, FileResponse
-from django.contrib.auth.decorators import login_required
 from django.conf import settings
 from django.utils import timezone
 from photos.models import *
-from photos.models import _reverse_geocode_city
-from django.db.models import Q
 from users.models import *
 
-import exifread
-from PIL import Image, ExifTags, ImageOps
-from PIL.ExifTags import TAGS, GPSTAGS
-from GPSPhoto import gpsphoto
+from PIL import Image
 import datetime
 import os
 import glob
 import shutil
-import hashlib
-import datetime
-from pathlib import Path
-from PIL import Image, UnidentifiedImageError
-import reverse_geocode as rg
 
 def _extract_date_taken(filepath) -> datetime.datetime:
     import re

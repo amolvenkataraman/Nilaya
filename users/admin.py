@@ -1,6 +1,4 @@
 from django.contrib import admin
-from django.db import models
-import django.contrib.auth.forms
 from django.contrib.auth.admin import UserAdmin
 from .models import *
 

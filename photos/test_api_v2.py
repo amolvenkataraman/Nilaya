@@ -75,8 +75,18 @@ class PhotosApiTests(TestCase):
         st = self.client.get("/api/v2/photos/storage").json()
         self.assertEqual((st["video"]["count"], st["video"]["total_kb"], st["video"]["length_s"]), (1, 1500, 30))
 
-    def test_storage_tables_match_the_classic_breakdown_for_every_year(self):
-        from .views import get_storage_breakdown
+    def test_storage_tables_add_up_for_every_year_and_library(self):
+        def get_storage_breakdown(qs):  # straight sums over the rows, to check the tables against
+            from django.db.models import Count, Sum
+
+            def part(rows, length=False):
+                t = rows.aggregate(opt=Sum("size"), tot=Sum("size_total"), cnt=Count("id"), length=Sum("length"))
+                out = {"opt": t["opt"] or 0, "tot": t["tot"] or 0, "cnt": t["cnt"]}
+                out["overhead"] = out["tot"] - out["opt"]
+                if length:
+                    out["length"] = t["length"] or 0
+                return out
+            return {"all": part(qs), "photo": part(qs.filter(video=False)), "video": part(qs.filter(video=True), True)}
         album = self.photos[0].album
         other = Album.objects.create(name="Old scans", owner=self.user, location="/tmp/scans/")
         Album_Subscriber.objects.create(album=other, user=self.user, subscribe_type=0)

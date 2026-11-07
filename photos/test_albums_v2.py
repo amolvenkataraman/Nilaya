@@ -9,7 +9,7 @@ from django.utils import timezone
 from notifications.models import Notification
 from users.models import ComptechUser
 
-from .models import Album, Album_Subscriber, Photo, ShareAlbum, ShareAlbum_Photo
+from .models import Album, Album_Subscriber, Photo, ShareAlbum_Photo
 
 
 class AlbumParityTests(TestCase):
