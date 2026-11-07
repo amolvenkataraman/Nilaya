@@ -195,7 +195,9 @@ export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBe
   // Per-day totals ("10 photos · 1 video · 56.6 MB"): one /photos/days request per loaded page, cached.
   const pageRanges = useMemo(() => (q.data?.pages ?? []).map((pg) => {
     const ds = pg.items.map((p) => p.date_taken).filter(Boolean) as string[]
-    return ds.length ? [dayKey(new Date(ds[ds.length - 1])), dayKey(new Date(ds[0]))] as const : null
+    if (!ds.length) return null
+    const a = dayKey(new Date(ds[0])), b = dayKey(new Date(ds[ds.length - 1])) // newest or oldest first
+    return (a < b ? [a, b] : [b, a]) as readonly [string, string]
   }).filter(Boolean) as (readonly [string, string])[], [q.data])
   const dayQs = useQueries({
     queries: dayInfo ? pageRanges.map(([start, end]) => ({

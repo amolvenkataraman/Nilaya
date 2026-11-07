@@ -51,10 +51,10 @@ def ingest_all_photos(user_id=None):
     for who, parts in per_user.items():
         total = sum(int(p.split(" ", 1)[0]) for p in parts)
         notify(who, f"Ingest finished: {total} new photo{'s' if total != 1 else ''}", ", ".join(parts),
-               source="Photos", url="/photos/")
+               source="Photos", url="/photos")
     if user_id and not per_user:
         notify(user, "Ingest finished: nothing new", "No new files were found in your Ingest folders.",
-               source="Photos", url="/photos/", priority=0)
+               source="Photos", url="/photos", priority=0)
 
     logger.info("Photo ingestion and location cache refresh complete.")
 

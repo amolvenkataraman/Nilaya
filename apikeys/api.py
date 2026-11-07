@@ -68,7 +68,7 @@ def create_key(request, payload: KeyIn):
     key, token = ApiKey.issue(request.user, payload.name.strip(), payload.scopes, payload.expires_on)
     notify(request.user, f"New API key \"{key.name}\" created",
            f"Access: {', '.join(key.scopes)}. If this wasn't you, revoke it in Settings → API keys.",
-           source="Security", url="/settings/api-keys/", priority=Priority.HIGH)
+           source="Security", url="/settings#set-api", priority=Priority.HIGH)
     return 201, {"key": key, "token": token}
 
 

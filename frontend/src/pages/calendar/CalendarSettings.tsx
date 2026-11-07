@@ -219,7 +219,7 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
                   <div className="row" style={{ gap: '0.25rem' }}>
                     <code className="cal-code grow truncate" title={publicUrl(d.id)}>{publicUrl(d.id)}</code>
                     <button className="btn ghost icon sm" onClick={() => copyText(publicUrl(d.id), 'Public link copied')} aria-label="Copy public link" title="Copy link"><Icon name="copy" size={14} /></button>
-                    <a className="btn ghost icon sm" href={`/calendar/public/${d.id}/`} target="_blank" rel="noopener noreferrer" aria-label="Open public page" title="Open"><Icon name="external" size={14} /></a>
+                    <a className="btn ghost icon sm" href={`/calendar/public/${d.id}`} target="_blank" rel="noopener noreferrer" aria-label="Open public page" title="Open"><Icon name="external" size={14} /></a>
                   </div>
                 </div>
               )}

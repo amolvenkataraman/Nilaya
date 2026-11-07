@@ -92,7 +92,7 @@ def event_reminders(now, cache):
                 name = "Busy" if masked else e.name
                 title = f"Due {_when(e.startdate, user)}: {name}" if deadline else f"{name} · {_when(e.startdate, user)}"
                 body = " · ".join(filter(None, [e.calendar.name, None if masked else e.location]))
-                notify(user, title, body, source="Calendar", url="/calendar/",
+                notify(user, title, body, source="Calendar", url="/calendar",
                        priority=Priority.HIGH if deadline or e.priority >= 15 else Priority.NORMAL)
                 sent += 1
     return sent
@@ -106,7 +106,7 @@ def todo_reminders(now, cache):
         lead = _settings(cache, t.user_id).todo_minutes
         if lead and t.complete_by - datetime.timedelta(minutes=lead) <= now and \
                 _once(t.user, f"todo:{t.id}:{t.complete_by.isoformat()}"):
-            notify(t.user, f"Due {_when(t.complete_by, t.user)}: {t.name}", source="Tasks", url=f"/tasks/?task={t.id}",
+            notify(t.user, f"Due {_when(t.complete_by, t.user)}: {t.name}", source="Tasks", url=f"/tasks?task={t.id}",
                    priority=Priority.HIGH if t.priority >= 15 else Priority.NORMAL)
             sent += 1
     return sent

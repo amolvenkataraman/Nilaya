@@ -39,6 +39,7 @@ class MeOut(Schema):
 
 
 class MePatch(Schema):
+    username: Optional[str] = Field(None, min_length=1, max_length=150)
     first_name: Optional[str] = Field(None, max_length=150)
     last_name: Optional[str] = Field(None, max_length=150)
     description: Optional[str] = Field(None, max_length=512)
@@ -57,6 +58,16 @@ def update_me(request, payload: MePatch):
     data = {k: v for k, v in payload.dict(exclude_unset=True).items() if v is not None or k == "birthday"}
     if "timezone" in data and data["timezone"] not in pytz.all_timezones_set:
         raise HttpError(400, "Unknown time zone")
+    if "username" in data:
+        from django.core.exceptions import ValidationError
+        from .models import ComptechUser
+        data["username"] = data["username"].strip()
+        try:
+            ComptechUser.username_validator(data["username"])
+        except ValidationError as exc:
+            raise HttpError(400, "Usernames may contain only letters, digits and @ . + - _") from exc
+        if ComptechUser.objects.filter(username__iexact=data["username"]).exclude(pk=user.pk).exists():
+            raise HttpError(400, "That username is already taken")
     for key, value in data.items():
         setattr(user, key, value)
     user.save(update_fields=list(data) or None)
@@ -143,6 +154,7 @@ class PersonOut(Schema):
     name: str
     description: str
     profile_picture: str
+    is_staff: bool
     groups: list[GroupOut]
 
     @staticmethod
@@ -158,9 +170,14 @@ class PersonOut(Schema):
         return list(obj.user_groups.filter(public=True))
 
 
-@people.get("/{username}", response=PersonOut, summary="Someone's public profile (name, picture, description, public groups)")
+@people.get("/{username}", response=PersonOut, summary="Someone's profile (name, picture, description, public groups); username or id")
 def person(request, username: str):
     from django.shortcuts import get_object_or_404
 
     from .models import ComptechUser
-    return get_object_or_404(ComptechUser, username=username, is_active=True)
+    lookup = {"username": username}
+    try:
+        lookup = {"id": uuid.UUID(username)}
+    except ValueError:
+        pass
+    return get_object_or_404(ComptechUser, is_active=True, **lookup)

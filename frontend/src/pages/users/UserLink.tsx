@@ -1,4 +1,4 @@
-// Link to someone's profile page (/app/users/<username>). Use wherever a person's name is shown.
+// Link to someone's profile page (/users/<username>). Use wherever a person's name is shown.
 //   <UserLink username={u.username}>{u.name}</UserLink>   (children default to "@username")
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'

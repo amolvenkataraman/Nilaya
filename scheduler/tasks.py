@@ -39,4 +39,4 @@ def _autosync():
         if not was_failing:  # once per failure streak, not every run
             notify(cal.owner, f"Couldn't sync {cal.name}",
                    "The calendar's source didn't respond or returned an error. Its events weren't updated.",
-                   source="Calendar", url="/calendar/", priority=Priority.HIGH)
+                   source="Calendar", url="/calendar", priority=Priority.HIGH)

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { useSearchParams } from 'react-router'
+import { Link, useSearchParams } from 'react-router'
 import { AppShell, SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
 import { Confirm, Dialog, ErrorBox, Menu, MenuItem, SkeletonRows, Switch, useDebounced, useHotkey } from '../../components/ui'
@@ -8,13 +8,14 @@ import {
   STATUSES, VISIBLE_KEY, categoryIcon, importPlaces, useDeleteGroup, useDeletePlace, useGroupVisibility, usePlaceCategories, usePlaceGroups, useSaveGroup, useSavePlace,
   useShowOnlyGroup, useSuggestions, useVisiblePlaces, distanceM, fetchVisiblePins, placeQuery, usePlace, useVisibleTextMatches, type Group, type Pin, type ImportResult, type Place, type PlaceInput, type PlaceStatus, type Suggestion,
 } from './api'
-import { PlaceDetail, PlaceRow, StatsTab, SuggestedTab, SuggestionDetail, photosInBox, type Tab } from './PlacePanel'
+import { PlaceDetail, PlaceRow, StatsTab, SuggestedTab, SuggestionDetail, type Tab } from './PlacePanel'
+import { photosInArea } from '../photos/util'
+import { HeatFilterControls, heatParams, useHeatFilter } from '../photos/HeatFilters'
 import { PlaceSearch } from './Search'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { get } from '../../lib/api'
 import { userKey } from '../../lib/owner'
 import { useMe } from '../../lib/queries'
-import { photoSummaryQuery } from '../../lib/photoQueries'
 import { realPoints, type HeatPoint } from '../photos/heat'
 import { toast } from '../../components/toast'
 import { PlaceMap, type MapFocus } from './PlaceMap'
@@ -45,8 +46,7 @@ export default function PlacesPage() {
   const [pos, setPos] = useState<{ lat: number; lon: number } | null>(null)
   // Photo heat map: on/off, year and "include photos taken on planes" remembered per device.
   const [heatOn, setHeatOn] = useState(() => { try { return localStorage.getItem('app.places.heat') === '1' } catch { return false } })
-  const [heatYear, setHeatYear] = useState('')
-  const [planes, setPlanes] = useState(false)
+  const [heatFilter, setHeatFilter] = useHeatFilter()
   const [box, setBox] = useState<{ south: number; west: number; north: number; east: number } | null>(null)
   const boxTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onBounds = (b: { south: number; west: number; north: number; east: number }) => {
@@ -58,14 +58,13 @@ export default function PlacesPage() {
     }, 350)
   }
   const heat = useQuery({
-    queryKey: ['photos', 'points', box, heatYear, planes],
-    queryFn: ({ signal }) => get<HeatPoint[]>('photos/points', { ...box!, year: heatYear || undefined, include_planes: planes || undefined }, signal),
+    queryKey: ['photos', 'points', box, heatParams(heatFilter)],
+    queryFn: ({ signal }) => get<HeatPoint[]>('photos/points', { ...box!, ...heatParams(heatFilter) }, signal),
     select: realPoints,
     enabled: heatOn && !!box,
     staleTime: 30 * 60_000,
     placeholderData: keepPreviousData,
   })
-  const years = useQuery({ ...photoSummaryQuery<{ per_year: { year: number; count: number }[] }>(), enabled: heatOn }).data?.per_year ?? []
   const toggleHeat = () => setHeatOn((v) => { try { localStorage.setItem('app.places.heat', v ? '0' : '1') } catch { /* ignore */ } return !v })
 
   // Groups are hidden by default (per person, on the server): the map loads only the groups turned on.
@@ -282,20 +281,16 @@ export default function PlacesPage() {
             <div className="pl-heat-panel" role="group" aria-label="Photo heat map">
               <strong className="xsmall">Photo heat map</strong>
               {heat.isFetching && <span className="spinner" aria-label="Loading" />}
-              <select className="select sm-select" value={heatYear} onChange={(e) => setHeatYear(e.target.value)} aria-label="Year">
-                <option value="">All years</option>
-                {years.map((y) => <option key={y.year} value={y.year}>{y.year} · {y.count.toLocaleString()}</option>)}
-              </select>
-              <label className="row xsmall" style={{ gap: '0.375rem' }}><input type="checkbox" checked={planes} onChange={(e) => setPlanes(e.target.checked)} />Include photos taken on planes</label>
+              <HeatFilterControls f={heatFilter} set={setHeatFilter} enabled={heatOn} />
               <span className="muted xsmall tabular">{(heat.data ?? []).reduce((t, p) => t + p.count, 0).toLocaleString()} photos in view</span>
             </div>
           )}
           <p className={'pl-hint' + (addMode ? ' on' : '')}>{addMode ? <>Click the map to place the pin · <button className="pl-hint-x" onClick={() => setAddMode(false)}>Cancel (Esc)</button></>
             : groups.data && !anyVisible && groups.data.length ? 'Turn on a group to see its places' : 'Click the map to add a place'}</p>
           {box && (
-            <a className="btn sm pl-photos-area" href={photosInBox(box.north, box.south, box.east, box.west)} target="_blank" rel="noopener noreferrer" title="Photos taken in the visible area (opens Photos)">
+            <Link className="btn sm pl-photos-area" to={photosInArea(box.north, box.south, box.east, box.west)} title="Photos taken in the visible area">
               <Icon name="photo" size={14} /><span>Photos in this area</span>
-            </a>
+            </Link>
           )}
         </div>
         <section className="pl-list" aria-label="Places">

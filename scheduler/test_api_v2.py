@@ -189,13 +189,32 @@ class ReviewFixTests(TestCase):
         self.assertEqual(r.status_code, 200, r.content)
         return r.json()
 
-    def test_countdown_and_public_calendar_mask_private_events_without_a_creator(self):
+    def test_public_countdown_and_calendar_mask_private_events_and_hide_private_calendars(self):
         e = self.private()
-        self.assertNotContains(self.client.get(f"/calendar/countdown/{e.id}/start/"), "Doctor")  # anonymous
-        r = self.client.get("/calendar/api/calendarevents/", {"calendar": self.cal.id, "timespan": "month", "time": "2026-11"})
-        self.assertEqual([(x["name"], x["location"]) for x in r.json()["events"]], [("Busy", None)])
+        countdown = f"/api/v2/calendar/public/countdown/{e.id}?which=start"
+        self.assertEqual(self.client.get(countdown).json()["name"], "Busy")  # anonymous
+        r = self.client.get(f"/api/v2/calendar/public/calendars/{self.cal.id}/events",
+                            {"start": at(1, 0).isoformat(), "end": at(30, 0).isoformat()})
+        self.assertEqual([(x["name"], x["location"], x["busy"]) for x in r.json()], [("Busy", None, True)])
+        self.assertIsNone(self.client.get(f"/api/v2/calendar/public/calendars/{self.cal.id}").json()["subscribed"])
         self.client.force_login(self.owner)
-        self.assertContains(self.client.get(f"/calendar/countdown/{e.id}/start/"), "Doctor")
+        self.assertEqual(self.client.get(countdown).json()["name"], "Doctor")
+        self.client.logout()
+        Calendar.objects.filter(id=self.cal.id).update(public=False)
+        self.assertEqual(self.client.get(f"/api/v2/calendar/public/calendars/{self.cal.id}").status_code, 404)
+        self.assertEqual(self.client.get(countdown).status_code, 404)  # private event, private calendar
+        self.client.force_login(self.sub)  # a plain subscriber neither
+        self.assertEqual(self.client.get(countdown).status_code, 404)
+
+    def test_subscribing_to_a_public_calendar_by_id(self):
+        other = ComptechUser.objects.create_user("lea", password="pw")
+        self.client.force_login(other)
+        url = f"/api/v2/calendar/public/calendars/{self.cal.id}/subscribe"
+        self.assertEqual(self.client.post(url).status_code, 201)
+        self.assertTrue(self.client.get(f"/api/v2/calendar/public/calendars/{self.cal.id}").json()["subscribed"])
+        Calendar.objects.filter(id=self.cal.id).update(public=False)
+        self.client.force_login(ComptechUser.objects.create_user("max", password="pw"))
+        self.assertEqual(self.client.post(url).status_code, 404)
 
     def test_search_and_tag_never_match_a_masked_event(self):
         self.private(tags=["health"])
@@ -243,8 +262,10 @@ class ReviewFixTests(TestCase):
         # a 7-day step from a Thursday never lands on a Monday: stored anyway (e.g. by an old client)
         Event.objects.create(calendar=self.cal, name="Never", startdate=at(5, 9), enddate=at(5, 10),
                              rrule="FREQ=DAILY;INTERVAL=7;BYDAY=MO")
+        Subscriber.objects.filter(calendar=self.cal, user=self.owner).update(display_busy=2)
         t = time.monotonic()
-        self.assertEqual(self.client.get("/calendar/block/", {"user": "ivy"}).status_code, 200)
+        r = self.client.get("/api/v2/calendar/availability/ivy", {"date": "2026-11-09"})  # anyone, signed out too
+        self.assertEqual((r.status_code, r.json()["busy"]), (200, []))
         self.client.force_login(self.owner)
         self.assertEqual(self.events(), [])
         self.assertLess(time.monotonic() - t, 0.3)
@@ -281,12 +302,14 @@ class ReviewFixTests(TestCase):
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(Event.objects.get(name="Class 2").rrule, "FREQ=DAILY;COUNT=3")  # Nov 4, 5, 6
 
-    def test_only_the_owner_can_reactivate_an_admin_invite_in_the_legacy_api(self):
+    def test_only_the_owner_can_reactivate_an_admin_invite(self):
         from .models import Invite
         admin = ComptechUser.objects.create_user("kim", password="pw")
         Subscriber.objects.create(calendar=self.cal, user=admin, subscribe_type=1)
         inv = Invite.objects.create(calendar=self.cal, code="ADM00001", role=1, active=False)
         self.client.force_login(admin)
-        self.assertEqual(self.client.post(f"/calendar/api/invite/?option=active&invite={inv.id}").status_code, 401)
+        r = self.client.patch(f"/api/v2/calendar/calendars/{self.cal.id}/invites/{inv.id}", {"active": True},
+                              content_type="application/json")
+        self.assertEqual(r.status_code, 403)
         inv.refresh_from_db()
         self.assertFalse(inv.active)

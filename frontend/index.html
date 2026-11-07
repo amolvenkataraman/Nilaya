@@ -6,13 +6,13 @@
     <meta name="color-scheme" content="light dark" />
     <meta name="referrer" content="strict-origin-when-cross-origin" />
     <title>AVNet Superapp</title>
-    <!-- Shared per-device theme (localStorage "theme"): applied before first paint, same as the classic UI. -->
+    <!-- Per-device theme (localStorage "theme"): applied before first paint (public/theme.js). -->
     <script src="/static/app/theme.js"></script>
     <link rel="icon" href="/static/app/favicon.ico" />
   </head>
   <body>
     <div id="root"></div>
-    <noscript>AVNet Superapp needs JavaScript. The classic interface is at <a href="/">/</a>.</noscript>
+    <noscript>AVNet Superapp needs JavaScript.</noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

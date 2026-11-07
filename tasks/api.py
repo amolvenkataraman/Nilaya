@@ -858,7 +858,7 @@ def add_member(request, project_id: uuid.UUID, payload: MemberIn):
     m, _ = ProjectMember.objects.update_or_create(project=p, user=user, defaults={"role": payload.role})
     from notifications.service import notify
     notify(user, f"{request.user.get_full_name() or request.user.username} shared the project \"{p.name}\" with you",
-           source="Tasks", url=f"/tasks/?project={p.id}")
+           source="Tasks", url=f"/tasks?project={p.id}")
     return 201, m
 
 
@@ -1055,7 +1055,7 @@ def _create(user, data, parsed_labels=()):
         from notifications.service import notify
         for a in t.assignees.exclude(id=user.id):
             notify(a, f"{user.get_full_name() or user.username} assigned you \"{t.name}\"", source="Tasks",
-                   url=f"/tasks/?task={t.id}")
+                   url=f"/tasks?task={t.id}")
     return _task(user, t.id)
 
 
@@ -1273,7 +1273,7 @@ def update_task(request, task_id: uuid.UUID, payload: TaskPatch):
         from notifications.service import notify
         for a in t.assignees.exclude(id__in=old_assignees | {request.user.id}):
             notify(a, f"{request.user.get_full_name() or request.user.username} assigned you \"{t.name}\"",
-                   source="Tasks", url=f"/tasks/?task={t.id}")
+                   source="Tasks", url=f"/tasks?task={t.id}")
     return _task(request.user, t.id)
 
 
@@ -1362,7 +1362,7 @@ def add_comment(request, task_id: uuid.UUID, payload: CommentIn):
         from notifications.service import notify
         for u in ComptechUser.objects.filter(id__in=people):
             notify(u, f"{request.user.get_full_name() or request.user.username} commented on \"{t.name}\"",
-                   c.body[:200], source="Tasks", url=f"/tasks/?task={t.id}")
+                   c.body[:200], source="Tasks", url=f"/tasks?task={t.id}")
     return 201, c
 
 

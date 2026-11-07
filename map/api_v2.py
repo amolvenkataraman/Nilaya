@@ -622,8 +622,28 @@ def photos_near(request, latitude: float = Query(..., ge=-90, le=90), longitude:
 
 @router.get("/geocode", summary="Search addresses and places on OpenStreetMap (Nominatim); off when ONLINE_MODE is off")
 def geocode(request, q: str):
-    from .views import nominatim_search
-    return nominatim_search(request)  # the classic proxy: ONLINE_MODE check, proper User-Agent, 503 when off
+    import json
+    import urllib.parse
+    import urllib.request
+
+    from django.conf import settings
+    from django.http import JsonResponse
+
+    query = q.strip()[:200]
+    if not query:
+        raise HttpError(400, "Type something to search for")
+    if not getattr(settings, "ONLINE_MODE", True):  # same switch as scheduler/notifications
+        raise HttpError(503, "Place search is off on this server (offline mode)")
+    req = urllib.request.Request(
+        "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({"format": "json", "q": query}),
+        # Nominatim's policy: an identifying User-Agent and Referer (this site's own address).
+        headers={"User-Agent": f"AVNet-Superapp/1.0 (+{settings.SITE_URL})", "Referer": settings.SITE_URL})
+    try:
+        with urllib.request.urlopen(req, timeout=10) as response:  # noqa: S310 - fixed https URL
+            data = json.loads(response.read().decode("utf-8"))
+    except Exception as exc:
+        raise HttpError(502, "Place search is unavailable right now") from exc
+    return JsonResponse(data, safe=False)
 
 
 class PinOut(Schema):

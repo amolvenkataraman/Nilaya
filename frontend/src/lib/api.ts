@@ -48,7 +48,7 @@ export function apiUrl(path: string, query?: Query): string {
 }
 
 export function loginUrl(loc: { pathname: string; search: string } = window.location): string {
-  return '/accounts/login/?next=' + encodeURIComponent(loc.pathname + loc.search)
+  return '/login?next=' + encodeURIComponent(loc.pathname + loc.search)
 }
 
 /** Ninja errors look like {"detail": "..."} or {"detail": [{"msg": ...}]} (validation). */
@@ -129,13 +129,15 @@ export function safeHref(url: string | null | undefined): string | null {
   return null
 }
 
-/** Map an old-UI path to the matching new-UI route when one exists (e.g. /tasks/?task=x). */
+/** The in-app route for a link on this site ("/tasks?task=x"), or null when it must be a full page load:
+ *  other sites, server paths (API, admin, files, feeds) and old URLs the server redirects (it owns that
+ *  mapping, Comptech/spa.py). Old notifications keep their stored URLs, so those must keep working. */
 export function appRoute(url: string): string | null {
   const href = safeHref(url)
   if (!href || !href.startsWith('/')) return null
   const [path, search = ''] = href.split('?')
-  const map: Record<string, string> = { '/': '/', '/tasks/': '/tasks', '/calendar/': '/calendar', '/photos/': '/photos', '/map/': '/places', '/notifications/': '/notifications', '/photos/geoguessr/': '/photos/geoguessr', '/photos/geoguessr_ent/': '/photos/locate' }
-  if (path.startsWith('/app/')) return path.slice(4) + (search ? '?' + search : '')
-  if (path in map) return map[path] + (search ? '?' + search : '')
-  return null
+  if (/^\/(?:api|admin|static|media|private|photo_cdn|feeds|\.well-known|dav)(?:\/|$)/.test(path)) return null
+  if (/^\/(?:app(?:\/|$)|accounts\/|apps\/$|map\/$|analytics\/$|settings\/api-keys\/$|photos\/(?:map_new|search|day|view-photo|superlatives\/.+|geoguessr_ent)\/)/.test(path)) return null
+  if ((path === '/photos/' && /(?:^|&)album=/.test(search)) || (path === '/contacts/' && /(?:^|&)id=/.test(search))) return null
+  return href
 }

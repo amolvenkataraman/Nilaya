@@ -10,17 +10,14 @@ import { HBars } from '../../components/charts'
 import { toast } from '../../components/toast'
 import { get, safeHref } from '../../lib/api'
 import { fmtDate, parseDayKey, shortStamp } from '../../lib/dates'
+import { photosInArea } from '../photos/util'
 import { STATUSES, distanceM, fmtDistance, useDeletePlace, usePlacePhotos, usePlaceStats, useSavePlace, type Group, type Pin, type PlacePhotos, type PlaceStatus, type Place, type Suggestion } from './api'
 
 const PHOTO_RADIUS_M = 150
-/** The classic Photos page filtered to a box (it takes ?bounds=base64("north,south,east,west")). */
-export function photosInBox(north: number, south: number, east: number, west: number): string {
-  return `/photos/?bounds=${encodeURIComponent(btoa([north, south, east, west].map((v) => v.toFixed(5)).join(',')))}`
-}
 const photosNear = (lat: number, lng: number, r = PHOTO_RADIUS_M) => {
   const dLat = r / 111320
   const dLng = r / (111320 * Math.max(Math.cos((lat * Math.PI) / 180), 0.01))
-  return photosInBox(lat + dLat, lat - dLat, lng + dLng, lng - dLng)
+  return photosInArea(lat + dLat, lat - dLat, lng + dLng, lng - dLng)
 }
 
 export type Tab = 'places' | 'suggested' | 'stats'
@@ -147,7 +144,7 @@ function PhotosHere({ data: ph, pending, error, retry, lat, lng }: { data?: Plac
                 </Link>
               )
             })}
-            {ph.count > 12 && <a className="pl-thumb pl-more" href={photosNear(lat, lng)} target="_blank" rel="noopener noreferrer" title="All of them in Photos">+{(ph.count - 11).toLocaleString()}</a>}
+            {ph.count > 12 && <Link className="pl-thumb pl-more" to={photosNear(lat, lng)} title="All of them in Photos">+{(ph.count - 11).toLocaleString()}</Link>}
           </div>
         </>
       )}

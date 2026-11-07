@@ -12,8 +12,8 @@ export type Person = { id: string; username: string; first_name?: string; last_n
 export const personName = (u: Person) => u.name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username
 export const CAL_COLOURS = ['#3b82f6', '#0891b2', '#10b981', '#16a34a', '#f59e0b', '#ea580c', '#ef4444', '#db2777', '#8b5cf6', '#64748b']
 
-/** The classic public page (read-only month view, anyone with the link). */
-export const publicUrl = (id: number) => `${window.location.origin}/calendar/public/${id}/`
+/** The public page (read-only month view, anyone with the link, signed in or not). */
+export const publicUrl = (id: number) => `${window.location.origin}/calendar/public/${id}`
 export function copyText(text: string, done = 'Copied') {
   navigator.clipboard?.writeText(text).then(() => toast.show(done), () => toast.show(text))
 }

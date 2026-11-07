@@ -140,7 +140,7 @@ export function EventPeek({ event, calendar, anchor, onClose, onEdit }: {
   const upcoming = new Date(e.start) > new Date() ? relTime(new Date(e.start)) : null
   // Photos taken during the event (all-day events: their whole days).
   const photosHref = `/photos?${new URLSearchParams({ after: new Date(e.start).toISOString(), before: new Date(e.end ? e.end : new Date(e.start).getTime() + 3600_000).toISOString(), title: e.name })}`
-  // The classic countdown page (/calendar/countdown/<id>/start|end/) opens for editors and public calendars.
+  // The countdown page (/calendar/countdown/<id>/start|end, works signed out) opens for editors and public calendars.
   const countdown = canEdit || calendar?.public ? `/calendar/countdown/${encodeURIComponent(event.id)}/` : null
 
   const row = (icon: string, children: ReactNode, key?: string) => (
@@ -228,12 +228,12 @@ export function EventPeek({ event, calendar, anchor, onClose, onEdit }: {
           {(e.transparency === 'free' || (e.visibility && e.visibility !== 'default')) && row('info', [e.transparency === 'free' ? 'Shows as free' : '', e.visibility === 'private' ? 'Private' : e.visibility === 'public' ? 'Public' : ''].filter(Boolean).join(' · '), 'vis')}
           {row('calendar', <span className="row" style={{ gap: '0.375rem' }}><span className="dot" style={{ background: calendar?.colour || colour }} />{calendar?.name ?? 'Calendar'}{!canEdit && <span className="chip">View only</span>}</span>, 'cal')}
           <div className="peek-links">
-            <a className="btn ghost sm" href={`/app${photosHref}`} onClick={(ev) => { ev.preventDefault(); navigate(photosHref) }}><Icon name="photo" size={13} />Photos from this event</a>
-            <a className="btn ghost sm" href={`/app/photos?date=${eventDayKey(e)}`} onClick={(ev) => { ev.preventDefault(); navigate(`/photos?date=${eventDayKey(e)}`) }}>This day</a>
+            <a className="btn ghost sm" href={photosHref} onClick={(ev) => { ev.preventDefault(); navigate(photosHref) }}><Icon name="photo" size={13} />Photos from this event</a>
+            <a className="btn ghost sm" href={`/photos?date=${eventDayKey(e)}`} onClick={(ev) => { ev.preventDefault(); navigate(`/photos?date=${eventDayKey(e)}`) }}>This day</a>
           {countdown && (
             <>
-              <a className="btn ghost sm" href={`${countdown}start/`} target="_blank" rel="noopener noreferrer"><Icon name="clock" size={13} />{e.kind === 'deadline' ? 'Countdown' : 'Countdown to start'}</a>
-              {e.kind === 'event' && e.end && <a className="btn ghost sm" href={`${countdown}end/`} target="_blank" rel="noopener noreferrer">To end</a>}
+              <a className="btn ghost sm" href={`${countdown}start`} target="_blank" rel="noopener noreferrer"><Icon name="clock" size={13} />{e.kind === 'deadline' ? 'Countdown' : 'Countdown to start'}</a>
+              {e.kind === 'event' && e.end && <a className="btn ghost sm" href={`${countdown}end`} target="_blank" rel="noopener noreferrer">To end</a>}
             </>
           )}
           </div>

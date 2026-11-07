@@ -2,17 +2,18 @@
 // debounced, cached per box/year) with count clusters on top (pixel grid, like Places; click to zoom
 // in), "photos near here" when you click the map, and GPX tracks read locally from files.
 import { useEffect, useRef, useState } from 'react'
-import { Link } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { get, safeHref } from '../../lib/api'
-import { photoSummaryQuery } from '../../lib/photoQueries'
 import { fmtDate } from '../../lib/dates'
 import type { Photo } from '../../lib/types'
 import { HeatLayer, realPoints, type HeatPoint } from './heat'
+import { HeatFilterControls, heatParams, useHeatFilter } from './HeatFilters'
+import { photosInArea } from './util'
 
 type Box = { south: number; west: number; north: number; east: number }
 const CLUSTER_PX = 72
@@ -106,8 +107,8 @@ export function PhotoMapPage() {
     try { localStorage.setItem(CLUSTER_KEY, v ? '1' : '0') } catch { /* ignore */ }
   }
   const [box, setBox] = useState<Box | null>(null)
-  const [year, setYear] = useState('')
-  const [planes, setPlanes] = useState(false)
+  const [heatFilter, setHeatFilter] = useHeatFilter()
+  const navigate = useNavigate()
   const [at, setAt] = useState<{ lat: number; lng: number } | null>(null)
 
   useEffect(() => {
@@ -152,8 +153,8 @@ export function PhotoMapPage() {
   }, [])
 
   const points = useQuery({
-    queryKey: ['photos', 'points', box, year, planes],
-    queryFn: ({ signal }) => get<HeatPoint[]>('photos/points', { ...box!, year: year || undefined, include_planes: planes || undefined }, signal),
+    queryKey: ['photos', 'points', box, heatParams(heatFilter)],
+    queryFn: ({ signal }) => get<HeatPoint[]>('photos/points', { ...box!, ...heatParams(heatFilter) }, signal),
     select: realPoints,
     enabled: !!box,
     staleTime: 30 * 60_000,
@@ -200,13 +201,11 @@ export function PhotoMapPage() {
     setTrackCount(g.getLayers().length)
     if (!added) toast.error('No track points found in that file.')
   }
-  const areaLink = () => {
+  const showArea = () => {
     const b = map.current?.getBounds()
-    if (!b) return '/photos/'
-    return '/photos/?bounds=' + encodeURIComponent(btoa(`${b.getNorth().toFixed(5)},${b.getSouth().toFixed(5)},${b.getEast().toFixed(5)},${b.getWest().toFixed(5)}`))
+    if (b) navigate(photosInArea(b.getNorth(), b.getSouth(), b.getEast(), b.getWest()))
   }
 
-  const years = useQuery(photoSummaryQuery<{ per_year: { year: number; count: number }[] }>()).data?.per_year ?? []
   const near = useQuery({
     queryKey: ['places', 'photos-near', at && at.lat.toFixed(4), at && at.lng.toFixed(4)],
     queryFn: () => get<Near>('places/photos-near', { latitude: at!.lat, longitude: at!.lng, limit: 24 }),
@@ -222,16 +221,12 @@ export function PhotoMapPage() {
       <div className="pl-heat-panel ph-map-panel" role="group" aria-label="Map options">
         <strong className="xsmall">Where your photos were taken</strong>
         {points.isFetching && <span className="spinner" aria-label="Loading" />}
-        <select className="select sm-select" value={year} onChange={(e) => setYear(e.target.value)} aria-label="Year">
-          <option value="">All years</option>
-          {years.map((y) => <option key={y.year} value={y.year}>{y.year} · {y.count.toLocaleString()}</option>)}
-        </select>
-        <label className="row xsmall" style={{ gap: '0.375rem' }}><input type="checkbox" checked={planes} onChange={(e) => setPlanes(e.target.checked)} />Include photos taken on planes</label>
+        <HeatFilterControls f={heatFilter} set={setHeatFilter} />
         <label className="row xsmall" style={{ gap: '0.375rem' }}><input type="checkbox" checked={clusters} onChange={(e) => setClusters(e.target.checked)} />Show counts (click one to zoom in)</label>
         <div className="row" style={{ gap: '0.375rem', flexWrap: 'wrap' }}>
           <button className="btn sm" onClick={() => fileInput.current?.click()} title="Draw GPX tracks from files on this device (nothing is uploaded)"><Icon name="run" size={14} />Add GPX track</button>
           {trackCount > 0 && <button className="btn ghost sm" onClick={() => (tracks.current?.clearLayers(), setTrackCount(0))}>Clear tracks</button>}
-          <a className="btn ghost sm" href={areaLink()} onClick={(e) => (e.currentTarget.href = areaLink())} title="The new API can't filter by map area yet: opens the classic timeline for this area">Photos in this area<Icon name="external" size={12} /></a>
+          <button className="btn ghost sm" onClick={showArea} title="The timeline, filtered to the area in view"><Icon name="photo" size={14} />Photos in this area</button>
           <input ref={fileInput} type="file" accept=".gpx,application/gpx+xml" multiple hidden onChange={(e) => (addTracks(e.target.files), (e.target.value = ''))} />
         </div>
         <span className="muted xsmall tabular">{total.toLocaleString()} {total === 1 ? 'photo' : 'photos'} in view · click the map for photos near a spot</span>

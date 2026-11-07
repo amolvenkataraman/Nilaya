@@ -6,7 +6,8 @@ import { appRoute, safeHref } from '../lib/api'
 import { fmtStamp, shortStamp } from '../lib/dates'
 import type { Notification } from '../lib/types'
 
-/** Open what a notification points at: a new-UI route when one exists, else the classic page. */
+/** Open what a notification points at: in the app when it's an app route, else a full page load
+ *  (old URLs are redirected by the server; other sites open as links). */
 export function useOpenNotification() {
   const navigate = useNavigate()
   const mark = useMarkRead()

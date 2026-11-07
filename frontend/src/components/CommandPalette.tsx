@@ -52,7 +52,6 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
     const ql = q.trim().toLowerCase()
     const go = (to: string) => () => (onClose(), navigate(to))
     const pages: Item[] = NAV.map((n) => ({ id: 'p' + n.to, group: 'Pages', label: n.label, icon: n.icon, hint: `G ${n.key.toUpperCase()}`, run: go(n.to) }))
-    pages.push({ id: 'classic', group: 'Pages', label: 'Classic view', icon: 'classic', run: () => window.location.assign('/') })
     const actions: Item[] = [
       { id: 'a-task', group: 'Actions', label: 'New task', icon: 'plus', hint: 'Q', run: onQuickAdd },
       { id: 'a-event', group: 'Actions', label: 'New event', icon: 'calendar', run: go('/calendar?new=1') },

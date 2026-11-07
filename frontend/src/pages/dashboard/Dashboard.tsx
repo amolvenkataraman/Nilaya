@@ -369,10 +369,6 @@ function LinksCard({ className, onTask }: { className: string; onTask: () => voi
             <button key={l.label} className="link-tile" onClick={l.run}>{inner}</button>
           )
         })}
-        <a href="/" className="link-tile">
-          <AppLogo app={{ id: 'classic', to: '/', label: 'Classic', icon: 'classic', hue: '#64748b' }} size={2} />
-          <span className="link-text"><span>Classic view</span><span className="muted xsmall">All apps</span></span>
-        </a>
       </div>
     </section>
   )

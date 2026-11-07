@@ -10,7 +10,7 @@ export interface Me {
   id: UUID; username: string; first_name: string; last_name: string; email: string; description: string
   birthday: ISODate | null; timezone: string; profile_picture: string; is_staff: boolean; groups: GroupBrief[]
 }
-export type MePatch = Partial<Pick<Me, 'first_name' | 'last_name' | 'description' | 'birthday' | 'timezone'>>
+export type MePatch = Partial<Pick<Me, 'username' | 'first_name' | 'last_name' | 'description' | 'birthday' | 'timezone'>>
 
 export interface Notification {
   id: UUID; title: string; body: string; source: string; priority: number; url: string; read: boolean; created_on: ISODateTime
@@ -149,7 +149,11 @@ export interface PhotoSummary {
   countries: { name: string; count: number }[]; cities: { name: string; count: number }[]; per_year: { year: number; count: number }[]
 }
 export interface Library { id: number; name: string; role: string; visible: boolean; count: number }
-export interface Album { id: UUID; name: string; description: string | null; public: boolean; mine: boolean; count: number; cover: Photo | null; size_kb?: number }
+export interface Album {
+  id: UUID; name: string; description: string | null; public: boolean; mine: boolean; count: number; cover: Photo | null; size_kb?: number
+  /** Owner's username; videos among `count`; oldest and newest photo. */
+  owner?: string; videos?: number; first?: string | null; last?: string | null
+}
 
 // ---------- places
 export interface PlaceGroup { id: number; name: string; description: string; is_public: boolean; mine: boolean; count: number }

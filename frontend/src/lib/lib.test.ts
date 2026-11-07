@@ -36,10 +36,10 @@ describe('api client', () => {
 
   it('redirects to login on 401', async () => {
     const assign = vi.fn()
-    vi.stubGlobal('window', { location: { pathname: '/app/tasks', search: '?view=done', assign } })
+    vi.stubGlobal('window', { location: { pathname: '/tasks', search: '?view=done', assign } })
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response('', { status: 401 })))
     await expect(api('me')).rejects.toBeInstanceOf(ApiError)
-    expect(assign).toHaveBeenCalledWith('/accounts/login/?next=%2Fapp%2Ftasks%3Fview%3Ddone')
+    expect(assign).toHaveBeenCalledWith('/login?next=%2Ftasks%3Fview%3Ddone')
   })
 
   it('formats validation errors', () => {
@@ -52,8 +52,10 @@ describe('api client', () => {
     expect(safeHref('javascript:alert(1)')).toBeNull()
     expect(safeHref('//evil.example')).toBeNull()
     expect(safeHref('/\\evil.example')).toBeNull()
-    expect(appRoute('/tasks/?task=abc')).toBe('/tasks?task=abc')
-    expect(appRoute('/accounts/profile/')).toBeNull()
+    expect(appRoute('/tasks/?task=abc')).toBe('/tasks/?task=abc') // the router ignores the trailing slash
+    expect(appRoute('/contacts?person=1')).toBe('/contacts?person=1')
+    for (const serverSide of ['/accounts/profile/', '/app/tasks', '/map/', '/photos/?album=x', '/api/v2/me', '//evil.example', 'https://example.com/'])
+      expect(appRoute(serverSide)).toBeNull()
   })
 })
 

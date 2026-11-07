@@ -177,6 +177,7 @@ function Sidebar() {
   const city = params.get('city')
   const country = params.get('country')
   const plain = onTimeline && !kind && !city && !country && !params.get('camera') && !params.get('objects') && !params.get('after')
+    && !['camera_make', 'north', 'min_blur', 'max_blur', 'order'].some((k) => params.get(k))
   const canIngest = !!libs?.some((l) => l.role === 'owner' || l.role === 'editor')
   const at = (p: string) => location.pathname === `/photos/${p}`
   return (
@@ -228,7 +229,7 @@ function Sidebar() {
       )}
       <SideSection title="More">
         {canIngest && <SideItem icon="refresh" label="Ingest new photos" onClick={startIngest} />}
-        <a className="side-item" href="/photos/upload/"><Icon name="arrowUp" size={16} /><span className="grow truncate">Upload</span><Icon name="external" size={12} /></a>
+        <Link className="side-item" to="/photos/upload"><Icon name="arrowUp" size={16} /><span className="grow truncate">Upload</span></Link>
         <label className="side-item ph-hidden-toggle" title="Shift+H. Only your own hidden photos; turns itself off after 30 minutes.">
           <Icon name="ban" size={16} />
           <span className="grow truncate">Show hidden photos</span>
@@ -295,32 +296,48 @@ function TimelinePage({ zoom }: { zoom: Zoom }) {
   const country = (params.get('country') ?? '').slice(0, 64)
   const camera = (params.get('camera') ?? '').slice(0, 128)
   const objects = (params.get('objects') ?? '').slice(0, 256)
+  const make = (params.get('camera_make') ?? '').slice(0, 64)
+  const num = (k: string) => { const v = params.get(k); return v && Number.isFinite(Number(v)) ? Number(v) : undefined }
+  const [north, south, east, west] = (['north', 'south', 'east', 'west'] as const).map(num)
+  const area = north !== undefined && south !== undefined && east !== undefined && west !== undefined
+  const minBlur = num('min_blur'), maxBlur = num('max_blur')
+  const sharpness = minBlur !== undefined || maxBlur !== undefined
+  const oldest = params.get('order') === 'oldest'
   // ?after=<ISO>&before=<ISO>&title=… (an event's photos, linked from Calendar) or ?from=YYYY-MM-DD (filters).
   const after = validIso(params.get('after'))
   const before = validIso(params.get('before'))
   const eventTitle = (params.get('title') ?? '').trim().slice(0, 200)
   const fromKey = /^\d{4}-\d{2}-\d{2}$/.test(params.get('from') ?? '') ? params.get('from')! : ''
-  const filter: Record<string, string | boolean | undefined> = {}
+  const filter: Record<string, string | number | boolean | undefined> = {}
   if (kind === 'videos') filter.video = true
   if (city) filter.city = city
   if (country) filter.country = country
   if (camera) filter.camera = camera
   if (objects) filter.objects = objects
+  if (make) filter.camera_make = make
+  if (area) Object.assign(filter, { north, south, east, west })
+  if (minBlur !== undefined) filter.min_blur = minBlur
+  if (maxBlur !== undefined) filter.max_blur = maxBlur
+  if (oldest) filter.order = 'oldest'
   const rangeStart = after ?? (fromKey ? parseDayKey(fromKey) : null)
   if (rangeStart) filter.after = rangeStart.toISOString()
-  const place = [city || country, camera && `Camera: ${camera}`, objects && objects.split(',').join(', ')].filter(Boolean).join(' · ')
+  const sharpLabel = sharpness ? `Sharpness ${minBlur !== undefined && maxBlur !== undefined ? `${minBlur}–${maxBlur}` : minBlur !== undefined ? `over ${minBlur}` : `under ${maxBlur}`}` : ''
+  const place = [city || country, camera && `Camera: ${camera}`, make && `Make: ${make}`, objects && objects.split(',').join(', '),
+    area && 'In this map area', sharpLabel].filter(Boolean).join(' · ')
   // ?date=YYYY-MM-DD (from Calendar's photo badges / filters): start the timeline at the end of that day.
   const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(params.get('date') ?? '') ? params.get('date')! : ''
   const day = dateKey ? parseDayKey(dateKey) : null
   const ranged = !!(after || before)
-  const startBefore = before ? before.toISOString() : day ? addDays(day, 1).toISOString() : undefined
+  // Oldest first pages forward in time from the start of the range (the cursor is the last item shown).
+  const startBefore = oldest ? undefined : before ? before.toISOString() : day ? addDays(day, 1).toISOString() : undefined
   const fromLabel = fromKey ? `From ${fmtDate(parseDayKey(fromKey), { month: 'short', day: 'numeric', year: 'numeric' })}` : ''
   const title = ranged
     ? `Photos from ${eventTitle || fmtRange(after, before)}`
-    : place || (kind === 'videos' ? 'Videos' : day ? fmtDate(day, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : fromLabel || 'Timeline')
+    : place || (kind === 'videos' ? 'Videos' : oldest && !day && !fromKey ? 'Oldest first' : day ? fmtDate(day, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : fromLabel || 'Timeline')
   const sub = ranged ? (eventTitle ? fmtRange(after, before) : 'Photos taken in this time range')
-    : place ? <>Filtered photos{fromLabel ? ` · ${fromLabel.toLowerCase()}` : ''}</> : kind === 'videos' ? 'All your videos, newest first' : day ? (fromKey ? `${fromLabel} to this day` : 'This day and earlier') : fromKey ? 'This day and later' : <Summary />
-  const filtered = !!(place || kind === 'videos' || day || ranged || fromKey)
+    : place ? <>Filtered photos{fromLabel ? ` · ${fromLabel.toLowerCase()}` : ''}{oldest ? ' · oldest first' : ''}</> : kind === 'videos' ? `All your videos, ${oldest ? 'oldest' : 'newest'} first`
+    : oldest && !day && !fromKey ? 'Your whole library from the first photo on' : day ? (fromKey ? `${fromLabel} to this day` : 'This day and earlier') : fromKey ? 'This day and later' : <Summary />
+  const filtered = !!(place || kind === 'videos' || day || ranged || fromKey || oldest)
   return (
     <div className="page ph-page">
       <PageHead title={title} sub={sub}>
@@ -329,7 +346,7 @@ function TimelinePage({ zoom }: { zoom: Zoom }) {
         )}
       </PageHead>
       {!filtered && <OnThisDay />}
-      {!place && !ranged && !fromKey && kind === 'all' && <ScrubberFromSummary />}
+      {!place && !ranged && !fromKey && !oldest && kind === 'all' && <ScrubberFromSummary />}
       <PhotoStream
         dayInfo={!place && kind === 'all'}
         startBefore={startBefore}

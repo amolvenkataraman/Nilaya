@@ -122,8 +122,12 @@ class ShareAlbumOut(Schema):
     description: Optional[str]
     public: bool
     mine: bool
+    owner: str = ""  # username
     count: int
+    videos: int = 0
     size_kb: int = 0
+    first: Optional[datetime.datetime] = None  # oldest and newest photo
+    last: Optional[datetime.datetime] = None
     cover: Optional[PhotoOut]
 
 
@@ -175,29 +179,67 @@ def _random_pick(qs):
     return qs.filter(id__gte=pivot).order_by("id").first() or qs.filter(id__lt=pivot).order_by("-id").first()
 
 
-def _page(qs, before, limit, before_id=None):
-    """Newest first, keyset-paged on (date_taken, id) so photos with the same timestamp aren't skipped."""
+def _page(qs, before, limit, before_id=None, oldest=False):
+    """Newest first (or oldest first), keyset-paged on (date_taken, id) so photos with the same timestamp
+    aren't skipped. The cursor (next_before, next_before_id) is the last item returned either way."""
     qs = qs.exclude(date_taken__isnull=True)
     anchor = qs.filter(id=before_id).values_list("date_taken", flat=True).first() if before_id else None
+    past = "gt" if oldest else "lt"
     if anchor:  # the exact stored timestamp (JSON rounds to milliseconds, so don't trust the echoed one)
-        qs = qs.filter(Q(date_taken__lt=anchor) | Q(date_taken=anchor, id__lt=before_id))
+        qs = qs.filter(Q(**{f"date_taken__{past}": anchor}) | Q(date_taken=anchor, **{f"id__{past}": before_id}))
     elif before:
-        qs = qs.filter(date_taken__lt=before)
+        qs = qs.filter(**{f"date_taken__{past}": before})
     limit = max(1, min(limit, 300))
-    items = list(qs.select_related("album").order_by("-date_taken", "-id")[: limit + 1])
+    order = ("date_taken", "id") if oldest else ("-date_taken", "-id")
+    items = list(qs.select_related("album").order_by(*order)[: limit + 1])
     more = len(items) > limit
     items = items[:limit]
     last = items[-1] if more and items else None
     return {"items": items, "next_before": last.date_taken if last else None, "next_before_id": last.id if last else None}
 
 
-@router.get("/timeline", response=PageOut, summary="Newest first; pass next_before to get the next page")
+def _blur_range(qs, min_blur, max_blur):
+    """Sharpness (blur score, normalised to 12 MP so big and small photos compare), photos only."""
+    from django.db.models import Case, FloatField, Value, When
+    from django.db.models.fields.json import KeyTextTransform
+    from django.db.models.functions import Cast
+    mp = Case(When(megapixels__gt=0, then=F("megapixels")), default=Value(12.0), output_field=FloatField())
+    qs = qs.filter(video=False, ai_index_info__blur_score__isnull=False).annotate(
+        sharp=Cast(KeyTextTransform("blur_score", "ai_index_info"), output_field=FloatField()) * (12.0 / mp))
+    if min_blur is not None:
+        qs = qs.filter(sharp__gte=min_blur)
+    if max_blur is not None:
+        qs = qs.filter(sharp__lte=max_blur)
+    return qs
+
+
+@router.get("/timeline", response=PageOut,
+            summary="Newest first (order=oldest: oldest first); pass next_before and next_before_id back to get the next page")
 def timeline(request, before: Optional[datetime.datetime] = None, limit: int = 120,
              video: Optional[bool] = None, country: str = "", city: str = "", before_id: Optional[uuid.UUID] = None,
-             camera: str = "", objects: str = "", after: Optional[datetime.datetime] = None):
+             camera: str = "", objects: str = "", after: Optional[datetime.datetime] = None,
+             q: str = "", camera_make: str = "", north: Optional[float] = None, south: Optional[float] = None,
+             east: Optional[float] = None, west: Optional[float] = None, min_blur: Optional[float] = None,
+             max_blur: Optional[float] = None, order: Literal["newest", "oldest"] = "newest"):
     qs = library(request.user, request, listing=True)
     if after:
         qs = qs.filter(date_taken__gte=after)  # with before: a time range (e.g. an event's photos)
+    if q.strip():  # free text: a place, a camera or a detected object
+        text = q.strip()[:128]
+        match = (Q(location_city__icontains=text) | Q(location_country__icontains=text)
+                 | Q(camera_make__icontains=text) | Q(camera_model__icontains=text))
+        ids = browse.object_ids([text])
+        if ids:
+            match |= Q(id__in=browse.with_objects(qs, ids).values("id"))
+        qs = qs.filter(match)
+    if camera_make:
+        qs = qs.filter(camera_make__icontains=camera_make)
+    if None not in (north, south, east, west):  # a map area ("Photos in this area")
+        qs = qs.filter(latitude__gte=south, latitude__lte=north)
+        qs = qs.filter(longitude__gte=west, longitude__lte=east) if west <= east else \
+            qs.filter(Q(longitude__gte=west) | Q(longitude__lte=east))
+    if min_blur is not None or max_blur is not None:
+        qs = _blur_range(qs, min_blur, max_blur)
     if camera:
         qs = qs.filter(camera_model=camera)
     if objects:
@@ -208,6 +250,8 @@ def timeline(request, before: Optional[datetime.datetime] = None, limit: int = 1
         qs = qs.filter(location_country=country)
     if city:
         qs = qs.filter(location_city=city)
+    if order == "oldest":  # `before` is then the cursor of the previous page (it pages forward in time)
+        return _page(qs, before, limit, before_id, oldest=True)
     return _page(qs, before, limit, before_id)
 
 
@@ -247,15 +291,17 @@ def on_this_day(request, per_year: int = 12):
 
 @router.get("/summary", response=SummaryOut)
 def summary(request):
-    return photo_cache.cached(request, "summary", lambda: _summary(request))
+    return photo_cache.cached(request, "summary:v2", lambda: _summary(request))  # v2: places leave out plane photos
 
 
 def _summary(request):
     qs = library(request.user, request, listing=True)
     agg = qs.aggregate(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True)),
                        size=Sum("size_total"), first=Min("date_taken"), last=Max("date_taken"))
+    from .models import PLANE_ALTITUDE_M
+    ground = qs.exclude(altitude__gte=PLANE_ALTITUDE_M)  # a flyover city isn't a place visited (NULL altitude = ground)
     top = lambda field: [{"name": r[field], "count": r["n"]} for r in
-                         qs.exclude(**{f"{field}__isnull": True}).values(field).annotate(n=Count("id")).order_by("-n")[:8]]
+                         ground.exclude(**{f"{field}__isnull": True}).values(field).annotate(n=Count("id")).order_by("-n")[:8]]
     per_year = [{"year": r["date_taken__year"], "count": r["n"]} for r in
                 qs.exclude(date_taken__isnull=True).values("date_taken__year").annotate(n=Count("id")).order_by("date_taken__year")]
     return {"photos": agg["photos"], "videos": agg["videos"], "size_kb": agg["size"] or 0,
@@ -283,15 +329,22 @@ def counts(request, start: datetime.date, end: datetime.date):
 
 @router.get("/points", summary="Photo locations in a map box, pre-aggregated (for heatmaps); [{lat, lng, count}]")
 def points(request, south: float, west: float, north: float, east: float, year: Optional[int] = None,
-           include_planes: bool = False):
+           include_planes: bool = False, until_year: bool = False, max_alt: Optional[float] = None,
+           library_id: Optional[int] = None):
+    """year with until_year: every year up to and including it. max_alt: only photos taken at or below
+    that altitude (metres; unknown altitude counts). library_id: one library only."""
     from .models import PhotoLocationCache
-    if hidden_mode.show_hidden(request):  # the view leaves hidden photos out: use the live table
+    if hidden_mode.show_hidden(request) or max_alt is not None:  # the view has no altitudes or hidden photos
         qs = library(request.user, request).exclude(latitude__isnull=True).exclude(longitude__isnull=True).exclude(BROKEN_GPS)
         qs = qs.filter(latitude__gte=south, latitude__lte=north)
         qs = qs.filter(longitude__gte=west, longitude__lte=east) if west <= east else \
             qs.filter(Q(longitude__gte=west) | Q(longitude__lte=east))
         if year:
-            qs = qs.filter(date_taken__year=year)
+            qs = qs.filter(date_taken__year__lte=year) if until_year else qs.filter(date_taken__year=year)
+        if library_id:
+            qs = qs.filter(album_id=library_id)
+        if max_alt is not None:
+            qs = qs.filter(Q(altitude__lte=max_alt) | Q(altitude__isnull=True))
         if not include_planes:
             from .models import PLANE_ALTITUDE_M
             qs = qs.exclude(altitude__gte=PLANE_ALTITUDE_M)
@@ -301,7 +354,9 @@ def points(request, south: float, west: float, north: float, east: float, year: 
     qs = PhotoLocationCache.objects.filter(album_id__in=albums, lat__gte=south, lat__lte=north)
     qs = qs.filter(lng__gte=west, lng__lte=east) if west <= east else qs.filter(Q(lng__gte=west) | Q(lng__lte=east))
     if year:
-        qs = qs.filter(dt_year=year)
+        qs = qs.filter(dt_year__lte=year) if until_year else qs.filter(dt_year=year)
+    if library_id:
+        qs = qs.filter(album_id=library_id)
     if not include_planes:
         qs = qs.filter(Q(on_plane=False) | Q(on_plane__isnull=True))  # NULL altitude = unknown, not "on a plane"
     rows = qs.values("lat", "lng").annotate(n=Sum("cnt"))[:20000]
@@ -361,13 +416,16 @@ def _album_totals(request):
     rows = hidden_mode.visible(ShareAlbum_Photo.objects.filter(sharealbum=OuterRef("pk")), request, prefix="photo__") \
         .order_by().values("sharealbum")
     return {"count": Coalesce(Subquery(rows.annotate(n=Count("id")).values("n")), 0),
-            "size_kb": Coalesce(Subquery(rows.annotate(s=Sum("photo__size_total")).values("s")), 0)}
+            "videos": Coalesce(Subquery(rows.annotate(n=Count("id", filter=Q(photo__video=True))).values("n")), 0),
+            "size_kb": Coalesce(Subquery(rows.annotate(s=Sum("photo__size_total")).values("s")), 0),
+            "first": Subquery(rows.annotate(d=Min("photo__date_taken")).values("d")),
+            "last": Subquery(rows.annotate(d=Max("photo__date_taken")).values("d"))}
 
 
 @router.get("/albums", response=list[ShareAlbumOut], summary="Shared albums you own or were added to")
 def albums(request):
     qs = (ShareAlbum.objects.filter(Q(owner=request.user) | Q(sharealbum_users_subscribed__user=request.user))
-          .distinct().select_related("cover_photo__album").annotate(**_album_totals(request))
+          .distinct().select_related("cover_photo__album", "owner").annotate(**_album_totals(request))
           .order_by("name"))
     out = []
     for a in qs:
@@ -375,7 +433,8 @@ def albums(request):
             Photo.objects.filter(photo_in_sharealbum__sharealbum=a, hidden=False)
             .select_related("album").order_by("-date_taken").first())
         out.append({"id": a.id, "name": a.name, "description": a.description, "public": a.public,
-                    "mine": a.owner_id == request.user.id, "count": a.count, "size_kb": a.size_kb or 0, "cover": cover})
+                    "mine": a.owner_id == request.user.id, "owner": a.owner.username, "count": a.count,
+                    "videos": a.videos, "size_kb": a.size_kb or 0, "first": a.first, "last": a.last, "cover": cover})
     return out
 
 
@@ -409,9 +468,13 @@ def _album_out(a, request):
     photos = Photo.objects.filter(photo_in_sharealbum__sharealbum=a)
     cover = a.cover_photo if a.cover_photo_id and not a.cover_photo.hidden else \
         photos.filter(hidden=False).select_related("album").order_by("-date_taken").first()
-    agg = hidden_mode.visible(photos, request).aggregate(n=Count("id"), size=Sum("size_total"))  # same as /albums
+    agg = hidden_mode.visible(photos, request).aggregate(  # same as /albums
+        n=Count("id"), videos=Count("id", filter=Q(video=True)), size=Sum("size_total"),
+        first=Min("date_taken"), last=Max("date_taken"))
     return {"id": a.id, "name": a.name, "description": a.description, "public": a.public,
-            "mine": a.owner_id == request.user.id, "count": agg["n"], "size_kb": agg["size"] or 0, "cover": cover}
+            "mine": a.owner_id == request.user.id, "owner": a.owner.username, "count": agg["n"],
+            "videos": agg["videos"], "size_kb": agg["size"] or 0, "first": agg["first"], "last": agg["last"],
+            "cover": cover}
 
 
 def _own_share_album(user, album_id):
@@ -475,7 +538,7 @@ def add_album_member(request, album_id: uuid.UUID, payload: MemberIn):
     m = ShareAlbum_Subscriber.objects.create(album=a, user=target, subscribe_type=ROLE_TO_TYPE[payload.role])
     notify(target, f"{request.user.get_full_name() or request.user.username} shared \"{a.name}\" with you",
            f"You can {'edit' if payload.role == 'editor' else 'view'} this album.", source="Photos",
-           url=f"/photos/?album={a.id}")
+           url=f"/photos/albums/{a.id}")
     return 201, {"id": m.id, "username": target.username, "role": payload.role}
 
 
@@ -529,11 +592,37 @@ def ingest(request):
 
 @router.post("/{uuid:photo_id}/delete-original", summary="Delete the original/RAW kept next to a photo (owners/editors, browser only)")
 def delete_original(request, photo_id: uuid.UUID):
+    import os
+
+    from django.db import transaction
+
     from apikeys.models import ApiKey
-    from .views import delete_photo_original
     if isinstance(getattr(request, "auth", None), ApiKey):
         raise HttpError(403, "Deleting files needs a signed-in browser session")
-    return delete_photo_original(request, str(photo_id))  # classic logic: safety checks + owner/editor only
+    p = Photo.objects.select_related("album").filter(id=photo_id).first()
+    if p is None:
+        raise HttpError(404, "Not found")
+    if not request.user.is_superuser and not _editable_library(request.user).filter(id=p.id).exists():
+        raise HttpError(403, "Only owners and editors of this library can delete originals.")
+    freed_kb = 0
+    # Only a separate original: never the optimized file the app shows (same path, or resolving to it).
+    if p.orig_filepath and p.orig_filepath != p.filepath:
+        if p.album and p.album.location:
+            orig = os.path.normpath(os.path.join(p.album.location, p.orig_filepath))
+            shown = os.path.normpath(os.path.join(p.album.location, p.filepath))
+            if orig != shown and os.path.exists(orig):
+                try:
+                    freed_kb = os.path.getsize(orig) // 1024
+                    os.remove(orig)
+                except OSError:
+                    pass
+        # The original's own row (if it was ever imported as an item); never p itself.
+        Photo.objects.filter(album=p.album, filepath=p.orig_filepath).exclude(id=p.id).delete()
+        p.orig_filepath = None
+        p.update_file_sizes()
+        p.save()
+        transaction.on_commit(photo_cache.schedule_matview_refresh)  # sizes per day
+    return {"size": p.size, "size_total": p.size_total, "freed_kb": freed_kb}
 
 
 @router.get("/albums/{uuid:album_id}/photos", response=PageOut)
@@ -806,14 +895,26 @@ def set_location(request, photo_id: uuid.UUID, payload: LocationIn):
     return p
 
 
+def _viewable(request, photo_id):
+    """One photo from your libraries, or from a shared album you own or were added to."""
+    p = library(request.user, request).select_related("album").filter(id=photo_id).first()
+    if p is None:
+        albums = ShareAlbum.objects.filter(Q(owner=request.user) | Q(sharealbum_users_subscribed__user=request.user))
+        p = hidden_mode.visible(Photo.objects.filter(id=photo_id, photo_in_sharealbum__sharealbum__in=albums), request) \
+            .select_related("album").first()
+    if p is None:
+        raise HttpError(404, "Not found")
+    return p
+
+
 @router.get("/{uuid:photo_id}/details", response=PhotoDetailOut, summary="Everything known about one photo (info panel)")
 def photo_details(request, photo_id: uuid.UUID):
-    return get_object_or_404(library(request.user, request).select_related("album"), id=photo_id)
+    return _viewable(request, photo_id)
 
 
-@router.get("/{uuid:photo_id}", response=PhotoOut)
+@router.get("/{uuid:photo_id}", response=PhotoOut, summary="One photo (from your libraries or a shared album you're in)")
 def photo(request, photo_id: uuid.UUID):
-    return get_object_or_404(library(request.user, request).select_related("album"), id=photo_id)
+    return _viewable(request, photo_id)
 
 
 # ---------------------------------------------------------------- hidden photos

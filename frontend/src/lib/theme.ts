@@ -1,4 +1,4 @@
-// Per-device theme, identical to static_files/static/js/theme.js (copied into the build and run
+// Per-device theme, identical to public/theme.js (served next to the bundles and run
 // before first paint): localStorage "theme" = "light" | "dark", absent = "system".
 import { useSyncExternalStore } from 'react'
 

@@ -7,8 +7,8 @@ export function NotFound() {
       <div className="page">
         <div className="card card-body" style={{ maxWidth: '28rem', margin: '10vh auto', textAlign: 'center', display: 'grid', gap: '0.5rem' }}>
           <h1>Page not found</h1>
-          <p className="muted small">That page doesn't exist in the new interface.</p>
-          <p><Link to="/">Go home</Link> · <a href="/">Classic view</a></p>
+          <p className="muted small">That page doesn't exist. It may have moved, or the link may be wrong.</p>
+          <p><Link to="/">Go home</Link></p>
         </div>
       </div>
     </AppShell>
@@ -34,7 +34,7 @@ export function RouteError() {
       <div className="card card-body" style={{ maxWidth: '30rem', margin: '10vh auto', display: 'grid', gap: '0.5rem' }}>
         <h1>Something went wrong</h1>
         <p className="muted small">{err?.message || 'An unexpected error happened.'}</p>
-        <p className="row"><button className="btn" onClick={() => window.location.reload()}>Reload</button><a className="btn ghost" href="/">Classic view</a></p>
+        <p className="row"><button className="btn" onClick={() => window.location.reload()}>Reload</button><a className="btn ghost" href="/">Go home</a></p>
       </div>
     </div>
   )

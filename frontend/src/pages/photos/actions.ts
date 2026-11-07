@@ -1,7 +1,7 @@
 // Photos: shared queries and write actions (albums, libraries/Sources, hidden mode, ingest, originals).
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { photoAlbumsQuery, photoHiddenModeQuery, photoLibrariesQuery } from '../../lib/photoQueries'
-import { ApiError, api, errorMessage, patch, post, readCookie } from '../../lib/api'
+import { ApiError, api, patch, post } from '../../lib/api'
 import type { Album, Library } from '../../lib/types'
 import { toast } from '../../components/toast'
 
@@ -20,7 +20,7 @@ export function canEditLibrary(libs: Library[] | undefined, name: string | undef
 }
 
 // Keys whose data depends on which libraries are visible / whether hidden photos show.
-const LISTING = new Set(['timeline', 'summary', 'stats', 'storage', 'browse', 'days', 'on-this-day', 'libraries', 'counts'])
+const LISTING = new Set(['timeline', 'summary', 'stats', 'storage', 'browse', 'superlatives', 'days', 'on-this-day', 'libraries', 'counts'])
 /** Refetch everything that lists the library (timeline, totals, stats…), not albums or single photos. */
 export function refreshListings(qc: QueryClient) {
   return qc.invalidateQueries({ predicate: (q) => q.queryKey[0] === 'photos' && LISTING.has(String(q.queryKey[1])) })
@@ -96,24 +96,12 @@ export async function startIngest() {
 }
 
 // ---------------------------------------------------------------- originals
-/**
- * POST /photos/{id}/delete-original. The endpoint reuses the classic view, which answers a viewer with
- * 401 (not 403): the shared client would treat that as "signed out" and redirect, so this call is raw.
- */
-export async function deleteOriginal(id: string): Promise<{ freed_kb: number; size: number; size_total: number }> {
-  const res = await fetch(`/api/v2/photos/${encodeURIComponent(id)}/delete-original`, {
-    method: 'POST',
-    credentials: 'same-origin',
-    headers: { Accept: 'application/json', 'X-CSRFToken': readCookie('csrftoken') },
+/** POST /photos/{id}/delete-original (owners/editors of the library; a viewer gets 403). */
+export function deleteOriginal(id: string): Promise<{ freed_kb: number; size: number; size_total: number }> {
+  return post<{ freed_kb: number; size: number; size_total: number }>(`photos/${encodeURIComponent(id)}/delete-original`).catch((e) => {
+    if (e instanceof ApiError && e.status === 403) throw new ApiError(403, 'Only owners and editors of this library can delete originals.')
+    throw e
   })
-  let data: unknown = null
-  try { data = await res.json() } catch { /* empty */ }
-  if (res.status === 401 || res.status === 403) throw new ApiError(403, 'Only owners and editors of this library can delete originals.')
-  if (!res.ok) {
-    const d = (data as { data?: unknown } | null)?.data
-    throw new ApiError(res.status, typeof d === 'string' && d ? d : errorMessage(res.status, data))
-  }
-  return data as { freed_kb: number; size: number; size_total: number }
 }
 
 // ---------------------------------------------------------------- albums

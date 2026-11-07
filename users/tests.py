@@ -42,3 +42,44 @@ class ProfileApiTests(TestCase):
         self.assertEqual(self.client.get("/api/v2/me").status_code, 200)  # session kept
         self.me.refresh_from_db()
         self.assertTrue(self.me.check_password("N3w-strong-pass!"))
+
+    def test_username_change_checks_format_and_clashes(self):
+        patch = lambda name: self.client.patch("/api/v2/me", {"username": name}, content_type="application/json")
+        self.assertEqual(patch("DAN").status_code, 400)  # taken (case-insensitively)
+        self.assertEqual(patch("no spaces").status_code, 400)
+        self.assertEqual(patch("cat.2").json()["username"], "cat.2")
+        me = self.client.get(f"/api/v2/users/{self.me.id}").json()  # by id too
+        self.assertEqual((me["username"], me["is_staff"]), ("cat.2", False))
+
+
+class SignInTests(TestCase):
+    """POST /api/v2/auth/login and /logout: CSRF, safe next, failure limit."""
+
+    def setUp(self):
+        from django.core.cache import cache
+        from django.test import Client
+        cache.clear()
+        ComptechUser.objects.create_user("eve", password="right-pass-1")
+        self.client = Client(enforce_csrf_checks=True)
+        self.client.get("/login")  # sets the CSRF cookie
+
+    def post(self, path, body=None, csrf=True):
+        headers = {"HTTP_X_CSRFTOKEN": self.client.cookies["csrftoken"].value} if csrf else {}
+        return self.client.post(path, body or {}, content_type="application/json", **headers)
+
+    def test_sign_in_needs_csrf_and_only_goes_to_paths_on_this_site(self):
+        creds = {"username": "eve", "password": "right-pass-1"}
+        self.assertEqual(self.post("/api/v2/auth/login", creds, csrf=False).status_code, 403)
+        for nxt, expected in (("/tasks?view=today", "/tasks?view=today"), ("//evil.example/x", "/"),
+                              ("https://evil.example/", "/"), ("javascript:alert(1)", "/")):
+            r = self.post("/api/v2/auth/login", {**creds, "next": nxt})
+            self.assertEqual((r.status_code, r.json()["next"]), (200, expected), nxt)
+        self.assertEqual(self.client.get("/api/v2/me").status_code, 200)
+        self.assertEqual(self.post("/api/v2/auth/logout").status_code, 204)
+        self.assertEqual(self.client.get("/api/v2/me").status_code, 401)
+
+    def test_wrong_passwords_are_400_and_limited_per_username(self):
+        for _ in range(10):
+            self.assertEqual(self.post("/api/v2/auth/login", {"username": "eve", "password": "x"}).status_code, 400)
+        r = self.post("/api/v2/auth/login", {"username": "EVE", "password": "right-pass-1"})
+        self.assertEqual(r.status_code, 429)

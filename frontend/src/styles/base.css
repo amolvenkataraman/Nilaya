@@ -1,7 +1,7 @@
 /* AVNet Superapp, new UI. Colours, radii and fonts come from the shared tokens in
-   static_files/static/css/theme.css (--app-*), the single source of truth for both UIs.
+   theme.css (--app-*), also used by the pre-paint public/theme.js.
    Sizes are in rem so the 4K rules in theme.css (html font-size 18-24px) scale everything. */
-@import '../../../static_files/static/css/theme.css';
+@import './theme.css';
 
 :root {
   --fs-xs: 0.75rem;   /* 12px */

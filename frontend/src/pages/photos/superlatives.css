@@ -1,0 +1,29 @@
+/* Photos › Superlatives (the list and tile basics are .ph-sup-* in photos.css). */
+.sup-cats { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; margin-bottom: 0.5rem; }
+.sup-cats .chip { height: 1.75rem; padding: 0 0.75rem; font-size: var(--fs-sm); cursor: pointer; }
+.sup-group { font-size: var(--fs-xs); font-weight: 600; color: var(--app-muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 0 0.125rem 0 0.25rem; }
+.sup-group:not(:first-child) { margin-left: 0.75rem; }
+.sup-desc { margin: 0 0 0.75rem; }
+
+.sup-bar { display: flex; align-items: center; gap: 0.5rem; max-width: 64rem; min-height: 2.25rem; padding: 0 0.5rem; margin-bottom: 0.25rem; border-radius: var(--r); }
+.sup-bar.on { background: var(--app-accent-soft); }
+.sup-check { display: inline-flex; align-items: center; gap: 0.5rem; font-size: var(--fs-sm); cursor: pointer; }
+.sup-check input, .sup-row-check { width: 1rem; height: 1rem; margin: 0; accent-color: var(--app-accent); cursor: pointer; flex: none; }
+
+.sup-items li.picked { background: var(--app-accent-soft); }
+.sup-main { flex: 1; min-width: 0; display: grid; gap: 0.125rem; }
+.sup-name { font-weight: 500; }
+a.sup-name { color: var(--app-fg); }
+.sup-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.125rem 0.625rem; }
+.sup-meta .chip { height: 1.125rem; padding: 0 0.375rem; font-size: 0.6875rem; font-weight: 600; }
+.sup-metric { display: grid; justify-items: end; gap: 0.125rem; text-align: right; flex: none; max-width: 12rem; }
+.sup-metric strong { font-size: var(--fs-md); }
+.sup-items .ph-sup-thumb .ph-video { display: inline-flex; align-items: center; gap: 0.125rem; font-size: 0.625rem; }
+
+@media (max-width: 760px) {
+  .sup-group:not(:first-child) { margin-left: 0; flex-basis: 100%; margin-top: 0.25rem; }
+  .sup-metric { max-width: 7rem; }
+  .sup-metric strong { font-size: var(--fs-sm); }
+  .sup-day-btn { display: none; }
+  .sup-items .ph-rank { display: none; }
+}

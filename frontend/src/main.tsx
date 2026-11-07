@@ -1,6 +1,6 @@
 import { StrictMode, type ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
-import { createBrowserRouter, RouterProvider } from 'react-router'
+import { createBrowserRouter, Navigate, RouterProvider, useLocation, type RouteObject } from 'react-router'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ApiError } from './lib/api'
 import { initTheme } from './lib/theme'
@@ -9,6 +9,7 @@ import { Shell } from './components/Shell'
 import { Toaster } from './components/toast'
 import { persistCache, restoreCache } from './components/resilience'
 import { checkOwnerAtBoot, claimOwner } from './lib/owner'
+import { signedIn } from './lib/session'
 import type { Me } from './lib/types'
 import { NotFound, RouteError } from './pages/NotFound'
 import './styles/base.css'
@@ -49,9 +50,13 @@ queryClient.getQueryCache().subscribe((e) => {
 // ~300 ms before revealing, while the router renders as soon as the chunk arrives.
 const page = (load: () => Promise<{ default: ComponentType }>) => async () => ({ Component: (await load()).default })
 const Dashboard = page(() => import('./pages/dashboard/Dashboard'))
-// Landing on Home: fetch its data in parallel with its code.
-if (/^\/app\/?$/.test(window.location.pathname)) prefetchDashboard(queryClient)
-prefetchShell(queryClient)
+// Signed out, only the public pages exist (and nothing may call the signed-in API: a 401 means "go sign in").
+const authed = signedIn()
+if (authed) {
+  // Landing on Home: fetch its data in parallel with its code.
+  if (window.location.pathname === '/') prefetchDashboard(queryClient)
+  prefetchShell(queryClient)
+}
 // A loader starts the page's main requests while its chunk downloads (it returns at once; hooks pick them up).
 const warm = (fn: (qc: QueryClient) => void) => () => (fn(queryClient), null)
 const never = () => false // only on entering the page; the queries keep themselves fresh
@@ -65,29 +70,52 @@ const UserProfile = page(() => import('./pages/users/UserPage'))
 const Habits = page(() => import('./pages/habits/HabitsPage'))
 const Contacts = page(() => import('./pages/contacts/ContactsPage'))
 
-const router = createBrowserRouter(
-  [
-    {
-      element: <Shell />,
-      errorElement: <RouteError />,
-      hydrateFallbackElement: <div className="app-loading" aria-busy="true" />,
-      children: [
-        { index: true, lazy: Dashboard },
-        { path: 'tasks', lazy: Tasks, loader: warm(prefetchTasks), shouldRevalidate: never },
-        { path: 'calendar/*', lazy: Calendar, loader: warm(prefetchCalendar), shouldRevalidate: never },
-        { path: 'photos/*', lazy: Photos, loader: warm(prefetchPhotos), shouldRevalidate: never },
-        { path: 'places', lazy: Places },
-        { path: 'notifications', lazy: Notifications },
-        { path: 'settings/*', lazy: Settings },
-        { path: 'users/:username', lazy: UserProfile },
-        { path: 'habits/*', lazy: Habits },
-        { path: 'contacts', lazy: Contacts },
-        { path: '*', element: <NotFound /> },
-      ],
-    },
+// Standalone pages anyone may open (Comptech/spa.py lets signed-out visitors load exactly these).
+const PUBLIC: RouteObject[] = [
+  { path: 'login', lazy: page(() => import('./pages/public/Login')) },
+  { path: 'register', lazy: page(() => import('./pages/public/Register')) },
+  { path: 'photos/upload', lazy: page(() => import('./pages/public/Upload')) },
+  { path: 'calendar/public/:id', lazy: page(() => import('./pages/public/PublicCalendar')) },
+  { path: 'calendar/countdown/:id/:which?', lazy: page(() => import('./pages/public/Countdown')) },
+  { path: 'shared/albums/:id', lazy: page(() => import('./pages/public/SharedAlbum')) },
+]
+
+function ToLogin() {
+  const loc = useLocation()
+  return <Navigate to={'/login?next=' + encodeURIComponent(loc.pathname + loc.search)} replace />
+}
+
+const app: RouteObject = {
+  element: <Shell />,
+  errorElement: <RouteError />,
+  hydrateFallbackElement: <div className="app-loading" aria-busy="true" />,
+  children: [
+    { index: true, lazy: Dashboard },
+    { path: 'tasks', lazy: Tasks, loader: warm(prefetchTasks), shouldRevalidate: never },
+    { path: 'calendar/*', lazy: Calendar, loader: warm(prefetchCalendar), shouldRevalidate: never },
+    { path: 'photos/*', lazy: Photos, loader: warm(prefetchPhotos), shouldRevalidate: never },
+    { path: 'places', lazy: Places },
+    { path: 'notifications', lazy: Notifications },
+    { path: 'settings/*', lazy: Settings },
+    { path: 'users/:username', lazy: UserProfile },
+    { path: 'habits/*', lazy: Habits },
+    { path: 'contacts', lazy: Contacts },
+    { path: '*', element: <NotFound /> },
   ],
-  { basename: '/app' },
-)
+}
+const signedOut: RouteObject[] = [
+  // Someone's busy times: public, shown without the app's chrome when signed out.
+  { path: 'calendar/availability/:username', lazy: page(() => import('./pages/calendar/PublicAvailability')) },
+  { path: '*', element: <ToLogin /> },
+]
+
+const router = createBrowserRouter([
+  {
+    errorElement: <RouteError />,
+    hydrateFallbackElement: <div className="app-loading" aria-busy="true" />,
+    children: [...PUBLIC, ...(authed ? [app] : signedOut)],
+  },
+])
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

@@ -1,4 +1,4 @@
-// Someone's profile (GET /users/{username}): picture, name, public groups, description.
+// Someone's profile (GET /users/{username}, also by user id): picture, name, staff badge, public groups, description.
 // Your own profile shows all your groups and links to Settings to edit it.
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
@@ -13,7 +13,7 @@ import { PictureDialog } from '../settings/PictureDialog'
 import '../settings/settings.css'
 import './users.css'
 
-interface Person { id: UUID; username: string; name: string; description: string; profile_picture: string; groups: GroupBrief[] }
+interface Person { id: UUID; username: string; name: string; description: string; profile_picture: string; is_staff: boolean; groups: GroupBrief[] }
 
 export default function UserPage() {
   const { username = '' } = useParams()
@@ -29,7 +29,7 @@ export default function UserPage() {
   const [picture, setPicture] = useState(false)
   // Your own card reads from /me so edits show at once (and every group, not only public ones).
   const p: Person | undefined = mine && me
-    ? { id: me.id, username: me.username, name: [me.first_name, me.last_name].filter(Boolean).join(' ') || me.username, description: me.description, profile_picture: me.profile_picture, groups: me.groups }
+    ? { id: me.id, username: me.username, name: [me.first_name, me.last_name].filter(Boolean).join(' ') || me.username, description: me.description, profile_picture: me.profile_picture, is_staff: me.is_staff, groups: me.groups }
     : q.data
   const topbar = (
     <button className="btn ghost sm" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}>
@@ -63,7 +63,7 @@ export default function UserPage() {
               <h1 className="user-name">{p.name}</h1>
               <div className="user-handle">
                 <span>@{p.username}</span>
-                {mine && me?.is_staff && <span className="chip accent"><Icon name="shield" size={12} />Staff</span>}
+                {p.is_staff && <span className="chip accent"><Icon name="shield" size={12} />Staff</span>}
               </div>
               {p.groups.length > 0 && (
                 <div className="user-groups" aria-label="Groups">

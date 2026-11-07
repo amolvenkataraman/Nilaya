@@ -68,7 +68,7 @@ def birthday_reminders(today, settings, local):
             title = f"{p.name} turns {nb.year - p.birthday_year} {when}"
         else:
             title = f"{p.name}'s birthday is {when}"
-        notify(p.owner, title, nb.strftime("%A, %B %-d"), source="Contacts", url=f"/contacts/?id={p.id}",
+        notify(p.owner, title, nb.strftime("%A, %B %-d"), source="Contacts", url=f"/contacts?person={p.id}",
                priority=Priority.NORMAL)
         sent += 1
     return sent
@@ -92,13 +92,13 @@ def keep_in_touch_reminders(today, settings, local):
         if len(people) > DIGEST_OVER:
             names = ", ".join(p.name for p in people[:5]) + (f" and {len(people) - 5} more" if len(people) > 5 else "")
             notify(user, f"{len(people)} people to catch up with", names, source="Contacts",
-                   url="/contacts/?filter=overdue", priority=Priority.LOW)
+                   url="/contacts?filter=overdue", priority=Priority.LOW)
             sent += 1
             continue
         for p in people:
             last = f"Last in touch {p.last_contacted:%b %-d, %Y}" if p.last_contacted else "No contact logged yet"
             notify(user, f"Catch up with {p.name}", f"{last} · every {p.keep_in_touch_days} days", source="Contacts",
-                   url=f"/contacts/?id={p.id}", priority=Priority.LOW)
+                   url=f"/contacts?person={p.id}", priority=Priority.LOW)
             sent += 1
     return sent
 

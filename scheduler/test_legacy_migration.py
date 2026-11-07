@@ -216,21 +216,16 @@ class LegacyDataMigrationTests(TransactionTestCase):
         self.assertEqual(names.count("repeats"), 5)  # Nov 2, 9, 16, 23, 30 (repeat_end is inclusive)
         self.assertEqual(names.count("repeats forever"), 29)  # Nov 2 … 30
         self.assertNotIn("inactive", names)
-        for month, year in ((3, 2026), (11, 2026)):
-            r = get("/calendar/api/events/", month=month, year=year)
-            self.assertEqual(r.status_code, 200)
-        cals = get("/calendar/api/events/", month=11, year=2026).json()["data"]["calendars"]
-        self.assertEqual(len(cals), len({c["calendar"]["id"] for c in cals}))
-        march = [x["name"] for x in get("/calendar/api/events/", month=3, year=2026).json()["data"]["events"]]
+        march = [x["name"] for x in get("/api/v2/calendar/events", start="2026-03-01T00:00:00-05:00",
+                                         end="2026-04-01T00:00:00-04:00").json()]
         self.assertIn("utc midnight allday", march)
         v2cals = get("/api/v2/calendar/calendars", include_inactive="true").json()
         self.assertEqual(len(v2cals), 6)
         self.assertEqual({c["name"]: c["role"] for c in v2cals}["Ben's"], "admin")
         for url in ("/api/v2/calendar/agenda?days=60", "/api/v2/calendar/insights?period=month&date=2026-11-10",
                     f"/api/v2/calendar/calendars/{self.c_ics.id}", "/api/v2/tasks/overview", "/api/v2/tasks/",
-                    "/api/v2/notifications/", "/api/v2/photos/summary", "/calendar/block/?user=amy",
-                    "/calendar/api/availability/amy/?date=2026-11-04", "/recent_events", "/calendar/",
-                    "/api/v2/calendar/categories"):
+                    "/api/v2/notifications/", "/api/v2/photos/summary",
+                    "/api/v2/calendar/availability/amy?date=2026-11-04", "/api/v2/calendar/categories"):
             self.assertEqual(self.client.get(url).status_code, 200, url)
         ins = get("/api/v2/calendar/insights", period="month", date="2026-11-10").json()
         self.assertIn("Category 42", {c["name"] for c in ins["by_category"]})

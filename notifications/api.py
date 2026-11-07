@@ -210,7 +210,7 @@ def test_channel(request, channel_id: uuid.UUID):
     _session_only(request)
     channel = get_object_or_404(NotificationChannel, id=channel_id, user=request.user)
     sample = Notification(user=request.user, title="Test notification", source="AVNet Superapp",
-                          description="If you can read this, this channel works.", url="/notifications/",
+                          description="If you can read this, this channel works.", url="/notifications",
                           priority=Priority.NORMAL, created_on=timezone.now())
     try:
         send(channel, sample)

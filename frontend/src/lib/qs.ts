@@ -1,4 +1,4 @@
-// Query-string state for the Tasks page: /app/tasks?view=today&layout=board&task=<id>
+// Query-string state for the Tasks page: /tasks?view=today&layout=board&task=<id>
 // Defaults are left out of the URL so links stay short and stable.
 
 export const SMART_VIEWS = ['inbox', 'today', 'upcoming', 'overdue', 'nodate', 'favorites', 'assigned', 'done', 'all'] as const

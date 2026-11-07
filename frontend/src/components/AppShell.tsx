@@ -8,7 +8,7 @@ import { Link, useLocation, useNavigate } from 'react-router'
 import { Icon } from './Icon'
 import { Avatar, Menu, MenuItem, useMediaQuery } from './ui'
 import { NotificationBell } from './NotificationBell'
-import { APPS, CLASSIC, STAFF_APPS, type AppDef } from './nav'
+import { APPS, STAFF_APPS, type AppDef } from './nav'
 import { logout, useGlobals, usePageTitle } from './Shell'
 import { useMe } from '../lib/queries'
 import { Boundary, NetworkBanner } from './resilience'
@@ -181,12 +181,6 @@ function GlobalItems() {
                         <span className="truncate">{a.label}</span>
                       </Link>
                     ))}
-                    {g === 'System' && (
-                      <a href={CLASSIC.to} role="menuitem" className="launcher-app">
-                        <AppLogo app={CLASSIC} size={2} />
-                        <span className="truncate">Classic view</span>
-                      </a>
-                    )}
                   </div>
                 </div>
               )
@@ -216,7 +210,6 @@ function GlobalItems() {
             {me?.is_staff && <MenuItem icon="chart" onClick={() => (close(), navigate('/settings/usage'))}>Usage</MenuItem>}
             {me?.is_staff && <MenuItem icon="wrench" href="/admin/" end={<Icon name="external" size={12} />}>Admin</MenuItem>}
             <MenuItem icon={themeIcon} onClick={cycleTheme}>{themeLabel}</MenuItem>
-            <MenuItem icon="classic" href="/">Classic view</MenuItem>
             <div className="menu-sep" />
             <MenuItem icon="logout" onClick={logout}>Log out</MenuItem>
           </>

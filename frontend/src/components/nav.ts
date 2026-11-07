@@ -18,7 +18,6 @@ export const STAFF_APPS: AppDef[] = [
   { id: 'usage', to: '/settings/usage', label: 'Usage', icon: 'chart', hue: '#0f766e', group: 'System', staff: true },
   { id: 'admin', to: '/admin/', label: 'Admin', icon: 'wrench', hue: '#475569', group: 'System', staff: true, external: true },
 ]
-export const CLASSIC: AppDef = { id: 'classic', to: '/', label: 'Classic view', icon: 'classic', hue: '#475569', external: true }
 
 /** Back-compat for the palette and hotkeys. */
 export const NAV = APPS.filter((a) => a.key).map((a) => ({ to: a.to, label: a.label, icon: a.icon, key: a.key! }))

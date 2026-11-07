@@ -20,7 +20,7 @@ from . import service
 from .models import Habit, HabitSettings
 
 WINDOW = dt.timedelta(hours=2)
-URL = "/habits/"
+URL = "/habits"
 
 
 def _local_moment(now, tz, local_date, at):

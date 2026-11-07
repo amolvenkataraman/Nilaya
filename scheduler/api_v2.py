@@ -15,7 +15,7 @@ from typing import Literal, Optional
 import bleach
 from django.conf import settings
 from django.db import transaction
-from django.db.models import Count, Q
+from django.db.models import Q
 from django.shortcuts import get_object_or_404
 from ninja import Field, Router, Schema
 from ninja.errors import HttpError
@@ -348,7 +348,7 @@ def subscribe(request, code: str):
         raise HttpError(404 if err == "Invite code is not active" else 410, err)
     if not existed and invite.calendar.owner_id != request.user.id:
         notify(invite.calendar.owner, f"{request.user.get_full_name() or request.user.username} "
-               f"subscribed to {invite.calendar.name}", source="Calendar", url="/calendar/")
+               f"subscribed to {invite.calendar.name}", source="Calendar", url="/calendar")
     return _calendar_out(Subscriber.objects.select_related("calendar").get(pk=sub.pk))
 
 
@@ -1204,7 +1204,8 @@ def _user_tz(user):
     return pytz.timezone(user.timezone) if user.timezone in pytz.all_timezones_set else tz_.get_current_timezone()
 
 
-@router.get("/availability/{username}", summary="Someone's busy times on a day, only from calendars they share as busy (times only)")
+@router.get("/availability/{username}", auth=None,
+            summary="Someone's busy times on a day, only from calendars they share as busy (times only; no sign-in needed)")
 def availability(request, username: str, date: datetime.date):
     import pytz
     from django.db.models import Q
@@ -1220,7 +1221,8 @@ def availability(request, username: str, date: datetime.date):
     evs = svc_.events_in_range(some + every, day, day + datetime.timedelta(days=1), related=("calendar",), extra=(
         Q(transparency="busy", enddate__isnull=False, kind="event")  # timed events only: not all-day or deadlines
         & (Q(calendar__in=every) | Q(calendar__in=some, category__in=busy_categories))))
-    return {"username": user.username, "date": date, "busy": [{"start": e.startdate, "end": e.enddate} for e in evs]}
+    return {"username": user.username, "name": user.get_full_name() or user.username, "date": date,
+            "busy": [{"start": e.startdate, "end": e.enddate} for e in evs]}
 
 
 @router.get("/agenda", response=list[AgendaItem], summary="Upcoming events, deadlines and due todos, merged")

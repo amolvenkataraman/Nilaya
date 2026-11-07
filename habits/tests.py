@@ -1,6 +1,5 @@
 import datetime as dt
 import json
-import re
 from unittest import mock
 
 import pytz
@@ -212,7 +211,8 @@ class ApiTests(TestCase):
         mk(self.u, name="Off", schedule="weekdays", weekdays=not_today)
         mk(self.u, name="Paused", paused=True)
         mk(self.u, name="Gone", archived=True)
-        weekly = mk(self.u, name="Weekly", target=3, period="week", start_date=self.today)
+        weekly = mk(self.u, name="Weekly", target=3, period="week",
+                    start_date=self.today - dt.timedelta(days=7))  # a full week before: no prorated first week
         log(weekly, self.today)
         mk(self.u, name="Limit", kind="measurable", unit="cups", goal="at_most", target=2,
            start_date=self.today - dt.timedelta(days=30))  # relative to the real today, not the fixed WED
@@ -253,14 +253,3 @@ class ReminderTests(TestCase):
         reminders.run(self.at(20, 0))
         reminders.run(self.at(20, 1))
         self.assertEqual(list(Notification.objects.values_list("title", flat=True)), ["2 habits left today"])
-
-
-class PageTests(TestCase):
-    def test_page_requires_login_and_boots_with_local_today(self):
-        self.assertEqual(self.client.get("/habits/").status_code, 302)
-        u = ComptechUser.objects.create_user("pg", password="pw", timezone="Asia/Tokyo")
-        self.client.force_login(u)
-        html = self.client.get("/habits/").content.decode()
-        boot = json.loads(re.search(r'<script id="hb-boot" type="application/json">(.*?)</script>', html, re.S).group(1))
-        self.assertEqual(boot["today"]["date"], str(service.local_today(u)))
-        self.assertIn("Habits · AVNet Superapp", html)

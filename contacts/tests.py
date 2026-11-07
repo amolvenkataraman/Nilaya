@@ -310,17 +310,8 @@ class ReminderTests(Base):
         self.assertEqual(Notification.objects.filter(user=self.me, title="4 people to catch up with").count(), 1)
 
 
-class PageTests(Base):
-    def test_page_boots(self):
-        r = self.client.get("/contacts/")
-        self.assertContains(r, "contacts/contacts.js")
-        self.assertContains(r, 'id="ct-boot"')
-
-
-
 class BirthdaysTests(TestCase):
     def test_birthdays_in_range_with_age_and_leap_day(self):
-        import datetime
         user = ComptechUser.objects.create_user("bday", password="pw")
         Person.objects.create(owner=user, first_name="Ada", birthday_year=1990, birthday_month=3, birthday_day=10)
         Person.objects.create(owner=user, first_name="Leap", birthday_month=2, birthday_day=29)

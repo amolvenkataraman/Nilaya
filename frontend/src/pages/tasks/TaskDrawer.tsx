@@ -92,7 +92,7 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
         <Menu align="end" label="Task actions" trigger={(p) => <button {...p} className="btn ghost icon sm" aria-label="Task actions"><Icon name="more" /></button>}>
           {(close) => (
             <>
-              <MenuItem icon="link" onClick={() => { close(); navigator.clipboard?.writeText(`${location.origin}/app/tasks?view=all&task=${task.id}`).then(() => toast.show('Link copied')) }}>Copy link</MenuItem>
+              <MenuItem icon="link" onClick={() => { close(); navigator.clipboard?.writeText(`${location.origin}/tasks?view=all&task=${task.id}`).then(() => toast.show('Link copied')) }}>Copy link</MenuItem>
               {canEdit && <MenuItem icon="copy" onClick={() => (close(), duplicate.mutate(task.id, { onSuccess: (t) => (toast.show('Task duplicated'), onOpen(t.id)) }))}>Duplicate</MenuItem>}
               {canEdit && task.parent_id && <MenuItem icon="arrowUp" onClick={() => (close(), save({ parent_id: null }))}>Make top-level task</MenuItem>}
               {canEdit && <><div className="menu-sep" /><MenuItem icon="trash" danger end="Del" onClick={() => (close(), remove())}>Delete task</MenuItem></>}

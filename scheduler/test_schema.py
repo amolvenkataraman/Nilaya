@@ -87,11 +87,6 @@ class RecurrenceTests(Base):
         self.assertEqual(got[1]["id"], f"{s.id}:2026-11-03T14:00:00Z")
         self.assertTrue(all(e["series_id"] == str(s.id) and e["recurring"] for e in got))
         self.assertEqual(got[0]["recurrence_text"], "Every week")
-        # the legacy month payload expands too
-        r = self.client.get("/calendar/api/events/", {"month": 11, "year": 2026}).json()["data"]["events"]
-        self.assertEqual(len(r), 3)
-        self.assertTrue({"id", "name", "startdate", "enddate", "allday", "category", "location", "description",
-                         "completed", "public", "priority", "calendar"} <= set(r[0]))
 
     def test_this_following_and_all_edits(self):
         s = self.weekly(rrule="FREQ=WEEKLY;COUNT=6")  # Oct 20 … Nov 24
@@ -177,11 +172,11 @@ class InviteAndAvailabilityTests(Base):
     def test_invite_expiry_max_uses_and_role_in_both_flows(self):
         inv = Invite.objects.create(calendar=self.cal, code="ONE", max_uses=1, role=1)
         self.client.force_login(self.bob)
-        self.assertEqual(self.client.post("/calendar/api/subscribe/?code=ONE").json()["status"], "success")
+        self.assertEqual(self.client.post("/api/v2/calendar/subscribe?code=ONE").status_code, 200)
         self.assertEqual(Subscriber.objects.get(user=self.bob, calendar=self.cal).subscribe_type, 1)
         carl = ComptechUser.objects.create_user("carl", password="pw")
         self.client.force_login(carl)
-        self.assertIn("used up", self.client.post("/calendar/api/subscribe/?code=ONE").json()["data"])
+        self.assertIn("used up", self.client.post("/api/v2/calendar/subscribe?code=ONE").json()["detail"])
         Invite.objects.create(calendar=self.cal, code="OLD", expires_on=timezone.now() - dt.timedelta(minutes=1))
         r = self.client.post("/api/v2/calendar/subscribe?code=OLD")
         self.assertEqual((r.status_code, r.json()["detail"]), (410, "Invite code has expired"))
@@ -197,8 +192,8 @@ class InviteAndAvailabilityTests(Base):
         mk(11, transparency="free")
         mk(13, status="cancelled")
         mk(15, status="tentative")
-        busy = self.client.get("/calendar/api/availability/ann/?date=2026-11-05").json()["data"]["busy"]
-        self.assertEqual([dt.datetime.fromisoformat(b[0]).astimezone(TZ).hour for b in busy], [9, 15])
+        busy = self.client.get("/api/v2/calendar/availability/ann?date=2026-11-05").json()["busy"]
+        self.assertEqual([dt.datetime.fromisoformat(b["start"]).astimezone(TZ).hour for b in busy], [9, 15])
 
 
 class CalendarManagementTests(Base):
@@ -297,24 +292,3 @@ class FeedTests(Base):
         self.assertIn("COLOR:#abcdef", body)
         self.assertIn("BEGIN:VTIMEZONE", body)
         self.assertEqual(body.count("BEGIN:VEVENT"), 2)
-
-
-class LegacyApiTests(Base):
-    def test_old_ui_create_edit_occurrence_and_delete(self):
-        post = lambda path, body: self.client.post(path, json.dumps(body) if not isinstance(body, str) else body,
-                                                   content_type="application/json").json()
-        base = {"calendar": self.cal.id, "category": 5, "name": "Shift", "description": "", "public": False,
-                "priority": 12, "type": "event", "start": "2026-11-05T14:00:00Z", "end": "2026-11-05T15:00:00Z"}
-        self.assertEqual(post("/calendar/api/create/", {**base, "command": "add"})["status"], "success")
-        e = Event.objects.get(name="Shift")
-        self.assertEqual((e.kind, e.event_category.name, e.priority, e.created_by_id), ("event", "Work", 12, self.ann.id))
-        s = self.weekly()
-        occ = f"{s.id}:2026-11-03T14:00:00Z"
-        r = post("/calendar/api/create/", {**base, "command": "edit", "old_id": occ, "name": "Standup (late)",
-                                           "start": "2026-11-03T15:00:00Z", "end": "2026-11-03T16:00:00Z"})
-        self.assertEqual(r["status"], "success")
-        self.assertEqual(post("/calendar/api/delete/", f"{s.id}:2026-11-10T14:00:00Z")["status"], "success")
-        evs = self.client.get("/calendar/api/events/", {"month": 11, "year": 2026}).json()["data"]["events"]
-        standups = [(x["name"], x["startdate"][:10]) for x in evs if x.get("series_id") == str(s.id)]
-        self.assertEqual(standups, [("Standup (late)", "2026-11-03"), ("Standup", "2026-11-17"), ("Standup", "2026-11-24")])
-        self.assertEqual(Event.objects.get(id=s.id).name, "Standup")  # the series itself is untouched

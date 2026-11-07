@@ -257,7 +257,7 @@ STORAGES = {
 # Tell Crispyforms (the form styling app) to use Bootstrap 4
 CRISPY_TEMPLATE_PACK = 'bootstrap4'
 
-LOGIN_URL = '/accounts/login/'
+LOGIN_URL = '/login'  # the app's sign-in page (Comptech/spa.py)
 
 CALENDAR_VARS = {
     "use_day_schedule": "True",
@@ -299,7 +299,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Photos settings
 PHOTOS_AI_INDEX_ON_INGEST = True  # Set to False to disable automatic AI object detection during photo ingest
-ALLOW_PHOTO_UPLOADS = True        # Set to False to disable /photos/upload/ route
+ALLOW_PHOTO_UPLOADS = True        # False turns off the upload portal (/photos/upload, POST /api/v2/photos/public/upload)
 PHOTOS_UPLOAD_RECIPIENT_NAME = _site.get('upload_recipient_name', 'the owner of this site')  # shown on the media share upload portal
 # Duplicate clean-up (photos/importables.py) prefers copies in libraries whose name contains this (case-insensitive).
 PHOTOS_PREFERRED_LIBRARY_KEYWORD = _site.get('preferred_library_keyword', '')

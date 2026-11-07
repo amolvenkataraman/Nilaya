@@ -13,13 +13,14 @@ import { rangeTitle, stepDate, viewRange } from './util'
 import './calendar.css'
 
 interface Busy { start: string; end: string }
-interface Avail { username: string; date: string; busy: Busy[] }
+interface Avail { username: string; name?: string; date: string; busy: Busy[] }
 interface Profile { id: string; username: string; name: string; profile_picture: string; description: string }
 
 const hourFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric' })
 const HOURS = Array.from({ length: 24 }, (_, h) => h)
 
-export default function AvailabilityPage() {
+/** bare: signed out (PublicAvailability.tsx): no app chrome, and no profile request (that needs sign-in). */
+export default function AvailabilityPage({ bare = false }: { bare?: boolean }) {
   const { username = '' } = useParams()
   const [params, setParams] = useSearchParams()
   const phone = useMediaQuery('(max-width: 760px)')
@@ -30,13 +31,14 @@ export default function AvailabilityPage() {
   const { days } = viewRange('week', date, n)
   const now = useNow(60_000)
 
-  const profile = useQuery({ queryKey: ['users', username], queryFn: () => get<Profile>(`users/${encodeURIComponent(username)}`), staleTime: 10 * 60_000, retry: false })
+  const profile = useQuery({ queryKey: ['users', username], queryFn: () => get<Profile>(`users/${encodeURIComponent(username)}`), staleTime: 10 * 60_000, retry: false, enabled: !bare })
   const results = useQueries({
     queries: days.map((d) => ({
       queryKey: ['calendar', 'availability', username, dayKey(d)],
       queryFn: ({ signal }: { signal: AbortSignal }) => get<Avail>(`calendar/availability/${encodeURIComponent(username)}`, { date: dayKey(d) }, signal),
       staleTime: 2 * 60_000,
-      enabled: profile.isSuccess,
+      enabled: bare || profile.isSuccess,
+      retry: (n: number, e: unknown) => !(e instanceof ApiError && e.status === 404) && n < 2,
     })),
   })
   const loading = results.some((r) => r.isFetching)
@@ -67,7 +69,8 @@ export default function AvailabilityPage() {
     if (el) el.scrollTop = (el.scrollHeight / 24) * 7.5
   }, [username])
 
-  const name = profile.data?.name || username
+  const name = profile.data?.name || results.find((r) => r.data?.name)?.data?.name || username
+  const missing = bare ? results.find((r) => r.error instanceof ApiError && r.error.status === 404)?.error : profile.error
   const title = rangeTitle('week', date, n)
   const nav = (
     <>
@@ -80,16 +83,8 @@ export default function AvailabilityPage() {
       <input className="input avail-date" type="date" value={dayKey(date)} onChange={(e) => e.target.value && setDate(parseDayKey(e.target.value))} aria-label="Go to date" />
     </>
   )
-  return (
-    <AppShell app="calendar" pageTitle={`${name}: availability`} fullHeight topbar={
-      <>
-        <Link to="/calendar" className="btn ghost sm"><Icon name="chevronLeft" size={14} />Calendar</Link>
-        {!phone && nav}
-        <span className="spacer" />
-        {loading && <span className="spinner" aria-label="Loading" />}
-      </>
-    }>
-      <div className="cal avail">
+  const body = (
+      <div className={'cal avail' + (bare ? ' avail-bare' : '')}>
         <div className="avail-head">
           <Avatar name={name} src={profile.data?.profile_picture} size={2.25} />
           <div className="grow" style={{ minWidth: 0 }}>
@@ -97,9 +92,9 @@ export default function AvailabilityPage() {
             <p className="muted xsmall">Busy times only, from the calendars {profile.data ? `${name.split(' ')[0]} shares` : 'they share'} as busy. Free time is blank.</p>
           </div>
         </div>
-        {phone && <div className="cal-subbar"><div className="row">{nav}</div></div>}
-        {profile.error ? (
-          <div className="agenda"><ErrorBox error={profile.error instanceof ApiError && profile.error.status === 404 ? new Error(`No one has the username "${username}".`) : profile.error} /></div>
+        {(phone || bare) && <div className="cal-subbar"><div className="row">{nav}{bare && loading && <span className="spinner" aria-label="Loading" />}</div></div>}
+        {missing ? (
+          <div className="agenda"><ErrorBox error={missing instanceof ApiError && missing.status === 404 ? new Error(`No one has the username "${username}".`) : missing} /></div>
         ) : (
           <>
             {failed && <div style={{ padding: '0.5rem 1rem' }}><ErrorBox error={failed} retry={() => results.forEach((r) => r.refetch())} /></div>}
@@ -139,6 +134,18 @@ export default function AvailabilityPage() {
           </>
         )}
       </div>
+  )
+  if (bare) return body
+  return (
+    <AppShell app="calendar" pageTitle={`${name}: availability`} fullHeight topbar={
+      <>
+        <Link to="/calendar" className="btn ghost sm"><Icon name="chevronLeft" size={14} />Calendar</Link>
+        {!phone && nav}
+        <span className="spacer" />
+        {loading && <span className="spinner" aria-label="Loading" />}
+      </>
+    }>
+      {body}
     </AppShell>
   )
 }

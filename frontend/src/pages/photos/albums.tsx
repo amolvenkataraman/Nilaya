@@ -13,8 +13,34 @@ import { albumContext } from './select'
 import { copyLinks, deleteAlbum, useAlbumMutations, useAlbums, type AlbumMember } from './actions'
 import { PageHead, plural } from './parts'
 import { fmtBytes } from './util'
+import { fmtDate } from '../../lib/dates'
 
-type Sort = 'name' | 'items' | 'size' | 'mine'
+type Sort = 'name' | 'items' | 'size' | 'mine' | 'last-desc' | 'last-asc' | 'first-asc' | 'first-desc'
+const SORTS: [Sort, string][] = [['name', 'Name'], ['last-desc', 'Latest photo, newest first'], ['last-asc', 'Latest photo, oldest first'],
+  ['first-asc', 'First photo, oldest first'], ['first-desc', 'First photo, newest first'], ['items', 'Most items'], ['size', 'Largest'],
+  ['mine', 'Mine first']]
+const time = (iso: string | null | undefined) => (iso ? new Date(iso).getTime() : NaN)
+/** Newest/oldest photo date (albums without dated photos last either way). */
+function byDate(a: Album, b: Album, field: 'first' | 'last', dir: 1 | -1): number {
+  const x = time(a[field]), y = time(b[field])
+  if (isNaN(x) || isNaN(y)) return isNaN(x) ? (isNaN(y) ? a.name.localeCompare(b.name) : 1) : -1
+  return (x - y) * dir
+}
+/** "12 photos · 3 videos · 1.2 GB · by @ann" */
+export function albumMeta(a: Album, withOwner = true): string {
+  const videos = a.videos ?? 0
+  return [plural(a.count - videos, 'photo'), videos ? plural(videos, 'video') : '', a.size_kb ? fmtBytes(a.size_kb) : '',
+    withOwner && a.owner ? `by @${a.owner}` : ''].filter(Boolean).join(' · ')
+}
+const shortDate = (iso: string) => fmtDate(new Date(iso), { month: 'short', day: 'numeric', year: 'numeric' })
+/** "Mar 2, 2019 – Aug 30, 2024" (one date when they're the same day). */
+export function albumSpan(a: { first?: string | null; last?: string | null }): string {
+  if (!a.first || !a.last) return ''
+  const x = shortDate(a.first), y = shortDate(a.last)
+  return x === y ? x : `${x} – ${y}`
+}
+/** The album's public page: anyone with the link if it's public, members either way. */
+export const publicAlbumUrl = (id: string) => `${window.location.origin}/shared/albums/${id}`
 const SORT_KEY = 'app.photos.albumSort'
 const VIEW_KEY = 'app.photos.albumView'
 const ls = {
@@ -25,23 +51,24 @@ const ls = {
 export function AlbumsPage() {
   const q = useAlbums()
   const [creating, setCreating] = useState(false)
-  const [sort, setSortState] = useState<Sort>(() => (['name', 'items', 'size', 'mine'].includes(ls.get(SORT_KEY) ?? '') ? ls.get(SORT_KEY) as Sort : 'name'))
+  const [sort, setSortState] = useState<Sort>(() => (SORTS.some(([k]) => k === ls.get(SORT_KEY)) ? ls.get(SORT_KEY) as Sort : 'name'))
   const [view, setViewState] = useState<'grid' | 'list'>(() => (ls.get(VIEW_KEY) === 'list' ? 'list' : 'grid'))
   const setSort = (s: Sort) => (setSortState(s), ls.set(SORT_KEY, s))
   const setView = (v: 'grid' | 'list') => (setViewState(v), ls.set(VIEW_KEY, v))
   const navigate = useNavigate()
   const list = [...(q.data ?? [])].sort((a, b) =>
-    sort === 'items' ? b.count - a.count : sort === 'size' ? (b.size_kb ?? 0) - (a.size_kb ?? 0) : sort === 'mine' ? Number(b.mine) - Number(a.mine) || a.name.localeCompare(b.name) : a.name.localeCompare(b.name))
+    sort === 'items' ? b.count - a.count : sort === 'size' ? (b.size_kb ?? 0) - (a.size_kb ?? 0)
+      : sort === 'mine' ? Number(b.mine) - Number(a.mine) || a.name.localeCompare(b.name)
+      : sort === 'last-desc' ? byDate(a, b, 'last', -1) : sort === 'last-asc' ? byDate(a, b, 'last', 1)
+      : sort === 'first-asc' ? byDate(a, b, 'first', 1) : sort === 'first-desc' ? byDate(a, b, 'first', -1)
+      : a.name.localeCompare(b.name))
   return (
     <div className="page ph-page">
       <PageHead title="Albums" sub={q.data ? plural(q.data.length, 'album') : undefined}>
         {!!q.data?.length && (
           <>
             <select className="select sm-select" value={sort} onChange={(e) => setSort(e.target.value as Sort)} aria-label="Sort albums">
-              <option value="name">Name</option>
-              <option value="items">Most items</option>
-              <option value="size">Largest</option>
-              <option value="mine">Mine first</option>
+              {SORTS.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
             </select>
             <div className="seg" role="group" aria-label="View">
               <button aria-pressed={view === 'grid'} onClick={() => setView('grid')} title="Grid"><Icon name="apps" size={14} /><span className="sr-only">Grid</span></button>
@@ -81,7 +108,7 @@ export function AlbumsPage() {
                   </span>
                   {a.public && <span className="chip accent">Public</span>}
                   {!a.mine && <span className="chip">Shared with you</span>}
-                  <span className="muted xsmall tabular ph-alblist-meta">{plural(a.count, 'item')}{a.size_kb ? ` · ${fmtBytes(a.size_kb)}` : ''}</span>
+                  <span className="muted xsmall tabular ph-alblist-meta" title={albumSpan(a)}>{albumMeta(a)}</span>
                 </Link>
               </li>
             )
@@ -98,8 +125,8 @@ export function AlbumsPage() {
                 </span>
                 <span className="album-name truncate">{a.name}</span>
                 {a.description && <span className="album-desc truncate" title={a.description}>{a.description}</span>}
-                <span className="album-meta">
-                  {plural(a.count, 'item')}{a.size_kb ? ` · ${fmtBytes(a.size_kb)}` : ''}
+                <span className="album-meta tabular" title={albumSpan(a)}>
+                  {albumMeta(a)}
                   {a.public && <span className="chip accent">Public</span>}
                   {!a.mine && <span className="chip">Shared with you</span>}
                 </span>
@@ -140,7 +167,7 @@ export function AlbumDialog({ album, onClose, onSaved }: { album?: Album; onClos
         <label className="field"><span>Name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={64} required autoFocus placeholder="e.g. Summer vacation" /></label>
         <label className="field"><span>Description</span><textarea className="textarea" value={desc} onChange={(e) => setDesc(e.target.value)} rows={3} maxLength={2000} placeholder="What's this album about?" /></label>
         <Switch checked={pub} onChange={setPub} label="Public album" />
-        <p className="help" style={{ margin: 0 }}>{pub ? 'Anyone signed in to this site who has the link can view it.' : 'Only you and the people you share it with can see it.'}</p>
+        <p className="help" style={{ margin: 0 }}>{pub ? 'Anyone with the link can view it, signed in or not (hidden photos never show).' : 'Only you and the people you share it with can see it.'}</p>
         <button type="submit" hidden />
       </form>
     </Dialog>
@@ -163,7 +190,15 @@ export function AlbumPage({ zoom }: { zoom: Zoom }) {
     return () => albumContext.set(null)
   }, [album])
   const cover = album?.cover ? safeHref(album.cover.thumb_url) : null
-  const link = `/app/photos/albums/${id}`
+  const link = publicAlbumUrl(id)
+  // A public album you aren't in isn't in your list: its name and owner come from the public endpoint.
+  const outside = useQuery({
+    queryKey: ['photos', 'public-album', id],
+    queryFn: () => get<{ name: string; owner: string; description: string; photos: number; videos: number; first: string | null; last: string | null }>(`photos/public/albums/${id}`),
+    enabled: valid && albums.isSuccess && !album,
+    staleTime: 10 * 60_000,
+    retry: false,
+  }).data
   return (
     <div className="page ph-page">
       {album ? (
@@ -178,7 +213,7 @@ export function AlbumPage({ zoom }: { zoom: Zoom }) {
             </div>
             {album.description && <p className="ph-banner-desc">{album.description}</p>}
             <p className="ph-banner-meta tabular">
-              {[plural(album.count, 'item'), album.size_kb ? fmtBytes(album.size_kb) : '', album.mine && me ? `by @${me.username}` : ''].filter(Boolean).join(' · ')}
+              {[albumMeta({ ...album, owner: album.owner ?? (album.mine ? me?.username : undefined) }), albumSpan(album)].filter(Boolean).join(' · ')}
             </p>
           </div>
           <div className="ph-banner-actions">
@@ -200,7 +235,11 @@ export function AlbumPage({ zoom }: { zoom: Zoom }) {
           </div>
         </header>
       ) : (
-        <PageHead back="/photos/albums" title={albums.isPending ? <span className="sk" style={{ display: 'inline-block', width: '10rem', height: '1rem' }} /> : 'Album'} />
+        <PageHead back="/photos/albums"
+          title={albums.isPending ? <span className="sk" style={{ display: 'inline-block', width: '10rem', height: '1rem' }} /> : outside?.name ?? 'Album'}
+          sub={outside ? [`Public album by ${outside.owner}`, plural(outside.photos, 'photo'), outside.videos ? plural(outside.videos, 'video') : '', albumSpan(outside)].filter(Boolean).join(' · ') : undefined}>
+          {outside && <button className="btn sm" onClick={() => copyLinks([link])}><Icon name="link" size={14} /><span>Copy link</span></button>}
+        </PageHead>
       )}
       {valid ? (
         <PhotoStream queryKey={['photos', 'album', id]} path={`photos/albums/${id}/photos`} zoom={zoom}

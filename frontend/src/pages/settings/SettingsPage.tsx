@@ -15,9 +15,10 @@ import { ApiKeysSection, FeedsSection, GuidesSection } from './Developer'
 import { UsagePage } from './Usage'
 import './settings.css'
 
-type Form = { first_name: string; last_name: string; description: string; birthday: string; timezone: string }
+type Form = { username: string; first_name: string; last_name: string; description: string; birthday: string; timezone: string }
 
 const toForm = (me: Me): Form => ({
+  username: me.username ?? '',
   first_name: me.first_name ?? '',
   last_name: me.last_name ?? '',
   description: me.description ?? '',
@@ -155,13 +156,17 @@ export default function SettingsPage() {
 function Profile({ me }: { me: Me }) {
   const update = useUpdateMe()
   const [picture, setPicture] = useState(false)
+  const [nameError, setNameError] = useState('')
   const initial = useMemo(() => toForm(me), [me])
   const [form, setForm] = useState<Form>(initial)
   useEffect(() => setForm(initial), [initial])
   const zones = useMemo(() => timezones(me.timezone), [me.timezone])
   const dirtyKeys = (Object.keys(form) as (keyof Form)[]).filter((k) => form[k] !== initial[k])
   const dirty = dirtyKeys.length > 0
-  const set = (k: keyof Form) => (e: { target: { value: string } }) => setForm((f) => ({ ...f, [k]: e.target.value }))
+  const set = (k: keyof Form) => (e: { target: { value: string } }) => {
+    if (k === 'username') setNameError('')
+    setForm((f) => ({ ...f, [k]: e.target.value }))
+  }
   const name = [me.first_name, me.last_name].filter(Boolean).join(' ') || me.username
 
   const save = () => {
@@ -170,9 +175,14 @@ function Profile({ me }: { me: Me }) {
       if (k === 'birthday') body.birthday = form.birthday || null
       else body[k] = k === 'description' ? form[k] : form[k].trim()
     }
+    if (body.username === '') return setNameError('Choose a username')
     update.mutate(body, {
-      onSuccess: () => toast.show('Profile saved'),
-      onError: (e) => toast.error((e as Error).message),
+      onSuccess: () => toast.show(body.username ? `Profile saved. You're now @${body.username}` : 'Profile saved'),
+      onError: (e) => {
+        const msg = (e as Error).message
+        if (body.username && /username/i.test(msg)) setNameError(msg)  // shown under the field
+        else toast.error(msg)
+      },
     })
   }
 
@@ -230,9 +240,13 @@ function Profile({ me }: { me: Me }) {
             </select>
           </div>
         </div>
-        <div className="set-row">
-          <span className="set-label">Username</span>
-          <span className="set-value">{me.username}</span>
+        <div className="set-row top">
+          <label className="set-label" htmlFor="pf-user">Username<small>Your profile and availability links use it</small></label>
+          <div className="set-control fill">
+            <input id="pf-user" className={'input' + (nameError ? ' invalid' : '')} value={form.username} onChange={set('username')} maxLength={150}
+              autoComplete="username" spellCheck={false} pattern="[\w.@+\-]+" aria-invalid={!!nameError || undefined} aria-describedby={nameError ? 'pf-user-err' : undefined} />
+            {nameError && <p id="pf-user-err" className="field-error" role="alert">{nameError}</p>}
+          </div>
         </div>
         <div className="set-row">
           <span className="set-label">Email</span>
@@ -273,7 +287,7 @@ function Appearance() {
       <div className="set-section-head">
         <div>
           <h2 id="set-appearance">Appearance</h2>
-          <p>Saved in this browser only, so each device can have its own theme. Shared with the classic view.</p>
+          <p>Saved in this browser only, so each device can have its own theme.</p>
         </div>
       </div>
       <div className="set-card">
@@ -368,12 +382,6 @@ function Links({ username }: { username?: string }) {
             <span className="end small">As others see it</span>
           </Link>
         )}
-        <a className="set-link" href="/">
-          <Icon name="classic" />
-          <span>Open the classic view</span>
-          <span className="end small" />
-          <Icon name="external" size={14} />
-        </a>
       </div>
     </section>
   )

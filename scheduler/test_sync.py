@@ -63,8 +63,6 @@ class SyncTests(TestCase):
                                                            "end": "2027-04-01T00:00:00-04:00"}).json()
         self.assertEqual([(b["name"], b["start_date"], b["transparency"]) for b in bday],
                          [("Sam's birthday", "2027-03-15", "free")])
-        legacy = self.client.get("/calendar/api/events/", {"month": 11, "year": 2026}).json()["data"]["events"]
-        self.assertEqual(sorted(x["name"] for x in legacy), ["Dentist", "Standup", "Standup (moved)"])  # Nov 3, 5, 17
         self.assertEqual(self.cal.sync_etag, '"v1"')
 
         # later: the dentist was deleted at the source and the move was undone
