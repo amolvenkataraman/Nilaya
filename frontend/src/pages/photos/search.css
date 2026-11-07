@@ -1,0 +1,71 @@
+/* Smart search: top-bar box and how the query was read. */
+.ph-search.ph-smart { width: min(26rem, 100%); }
+.ph-search-kbd {
+  display: inline-grid; place-items: center; min-width: 1.125rem; height: 1.125rem; padding: 0 0.25rem; border-radius: 4px;
+  border: var(--hairline); background: var(--app-surface); color: var(--app-muted); font: 500 0.6875rem/1 var(--app-font);
+}
+.ph-search:focus-within .ph-search-kbd { visibility: hidden; }
+.ph-search-clear {
+  display: inline-grid; place-items: center; width: 1.375rem; height: 1.375rem; margin-right: -0.375rem; flex: none;
+  border: 0; border-radius: 50%; background: none; color: var(--app-muted); cursor: pointer;
+}
+.ph-search-clear:hover { background: var(--hover); color: var(--app-fg); }
+/* Phones: the top bar has no room, so the box sits at the top of the timeline and results instead. */
+.ph-search.ph-inline { display: none; }
+@media (max-width: 760px) {
+  .ph-search.ph-inline { display: flex; width: 100%; height: 2.5rem; margin: 0 0 0.875rem; border-color: var(--app-border); background: var(--app-surface); }
+  .ph-search.ph-inline input { font-size: 1rem; /* no iOS zoom on focus */ }
+  .ph-search-kbd { display: none; }
+}
+
+.ph-sq-title::before { content: '“'; color: var(--app-muted); }
+.ph-sq-title::after { content: '”'; color: var(--app-muted); }
+
+.ph-sq { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem 0.5rem; margin: -0.25rem 0 0.5rem; }
+.ph-sq-group, .ph-sq-or { display: inline-flex; align-items: center; gap: 0.375rem; min-width: 0; max-width: 100%; }
+.ph-sq-group { flex-wrap: wrap; }
+.ph-sq-group + .ph-sq-group::before { content: ''; width: 1px; height: 1rem; background: var(--app-border); margin-right: 0.125rem; }
+.ph-sq-join { font-size: var(--fs-xs); color: var(--app-muted); }
+.ph-term {
+  --tc: var(--app-accent);
+  display: inline-flex; align-items: center; gap: 0.3125rem; height: 1.75rem; padding: 0 0.25rem 0 0.5625rem; min-width: 0; max-width: 100%;
+  border-radius: 999px; font-size: var(--fs-xs); white-space: nowrap;
+  background: color-mix(in srgb, var(--tc) 10%, var(--app-surface)); color: var(--app-fg);
+  border: 1px solid color-mix(in srgb, var(--tc) 22%, transparent);
+}
+.ph-term > svg { color: var(--tc); flex: none; }
+.ph-term-kind { color: var(--app-muted); font-weight: 500; }
+.ph-term-kind::after { content: ':'; }
+.ph-term-val { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.ph-term-more { color: var(--app-muted); }
+.ph-term button {
+  display: inline-grid; place-items: center; width: 1.25rem; height: 1.25rem; flex: none; border: 0; border-radius: 50%;
+  background: none; color: var(--app-muted); cursor: pointer;
+}
+.ph-term button:hover { background: color-mix(in srgb, var(--tc) 18%, transparent); color: var(--app-fg); }
+.ph-term.t-place { --tc: #0f9d58; }
+.ph-term.t-object { --tc: #e8710a; }
+.ph-term.t-camera { --tc: #7c4dff; }
+.ph-term.t-date { --tc: var(--app-accent); }
+.ph-term.t-media { --tc: #d93025; }
+.ph-term.t-album, .ph-term.t-library { --tc: #00897b; }
+.ph-term.t-text { --tc: var(--app-muted); }
+[data-bs-theme='dark'] .ph-term.t-place { --tc: #34c47c; }
+[data-bs-theme='dark'] .ph-term.t-object { --tc: #ff9a3d; }
+[data-bs-theme='dark'] .ph-term.t-camera { --tc: #a78bfa; }
+[data-bs-theme='dark'] .ph-term.t-media { --tc: #f87171; }
+[data-bs-theme='dark'] .ph-term.t-album, [data-bs-theme='dark'] .ph-term.t-library { --tc: #2dd4bf; }
+
+.ph-sq-note { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; margin: 0 0 0.75rem; font-size: var(--fs-xs); color: var(--app-muted); }
+
+.empty:has(> .ph-sq-empty) { padding: 0; }
+.ph-sq-empty {
+  display: flex; gap: 0.875rem; align-items: flex-start; max-width: 36rem; margin-top: 0.75rem; padding: 1rem 1.125rem;
+  border: var(--hairline); border-radius: var(--r); background: var(--app-surface); color: var(--app-fg); text-align: left;
+}
+.ph-sq-empty > svg { flex: none; color: var(--app-muted); margin-top: 0.125rem; }
+.ph-sq-empty strong { font-size: var(--fs-sm); }
+.ph-sq-empty p { margin: 0.25rem 0 0; color: var(--app-muted); font-size: var(--fs-sm); line-height: 1.45; }
+.ph-sq-try { display: flex; flex-wrap: wrap; align-items: center; gap: 0.375rem; margin-top: 0.75rem; font-size: var(--fs-xs); color: var(--app-muted); }
+.ph-sq-try .chip { height: 1.5rem; padding: 0 0.625rem; color: var(--app-fg); }
+.ph-sq-try .chip:hover { border-color: var(--app-accent); color: var(--app-accent); text-decoration: none; }

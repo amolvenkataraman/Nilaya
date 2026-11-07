@@ -1,5 +1,5 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react'
-import { Link, Route, Routes, useLocation, useNavigate, useSearchParams } from 'react-router'
+import { Suspense, lazy, useEffect, useState } from 'react'
+import { Link, Route, Routes, useLocation, useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { get, safeHref } from '../../lib/api'
 import { photoSummaryQuery } from '../../lib/photoQueries'
@@ -15,6 +15,7 @@ import { LabelMenu, SelectToggle } from './select'
 import { FiltersButton, Scrubber } from './Filters'
 import { AlbumPage, AlbumsPage } from './albums'
 import { DayPage } from './DayPage'
+import { SearchBox, SearchResults } from './Search'
 import { SuperlativesPage } from './Superlatives'
 import { startIngest, useAlbums, useHiddenMode, useLibraries, useLibraryVisibility, useToggleHidden } from './actions'
 import { PageHead } from './parts'
@@ -93,45 +94,9 @@ export default function PhotosPage() {
 
 // ---------------------------------------------------------------- top bar
 function Toolbar({ zoom, setZoom, showZoom }: { zoom: Zoom; setZoom: (z: Zoom) => void; showZoom: boolean }) {
-  const s = useSummary().data
-  const navigate = useNavigate()
-  const [text, setText] = useState('')
-  const input = useRef<HTMLInputElement>(null)
-  useHotkey((e) => e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey, (e) => {
-    if (!input.current || input.current.offsetParent === null || document.querySelector('.dialog,.viewer,.drawer')) return
-    e.preventDefault()
-    input.current.focus()
-  })
-  const submit = () => {
-    const t = text.trim()
-    if (!t) return navigate('/photos')
-    const lc = t.toLowerCase()
-    const country = s?.countries.find((c) => c.name.toLowerCase() === lc)
-    const city = s?.cities.find((c) => c.name.toLowerCase() === lc)
-    const p = new URLSearchParams()
-    if (country && !city) p.set('country', country.name)
-    else p.set('city', city?.name ?? t)
-    setText('')
-    navigate('/photos?' + p.toString())
-  }
   return (
     <>
-      <form className="ph-search" role="search" onSubmit={(e) => (e.preventDefault(), submit())}>
-        <Icon name="search" />
-        <input
-          ref={input}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Search by place  ( / )"
-          aria-label="Search photos by city or country"
-          list="ph-places"
-          maxLength={128}
-        />
-        <datalist id="ph-places">
-          {s?.cities.map((c) => <option key={'c' + c.name} value={c.name} />)}
-          {s?.countries.map((c) => <option key={'n' + c.name} value={c.name} />)}
-        </datalist>
-      </form>
+      <SearchBox />
       {showZoom && <FiltersButton />}
       {showZoom && <SelectToggle />}
       {showZoom && <LabelMenu />}
@@ -176,7 +141,7 @@ function Sidebar() {
   const kind = params.get('kind')
   const city = params.get('city')
   const country = params.get('country')
-  const plain = onTimeline && !kind && !city && !country && !params.get('camera') && !params.get('objects') && !params.get('after')
+  const plain = onTimeline && !kind && !city && !country && !params.get('q') && !params.get('camera') && !params.get('objects') && !params.get('after')
     && !['camera_make', 'north', 'min_blur', 'max_blur', 'order'].some((k) => params.get(k))
   const canIngest = !!libs?.some((l) => l.role === 'owner' || l.role === 'editor')
   const at = (p: string) => location.pathname === `/photos/${p}`
@@ -291,6 +256,11 @@ function fmtRange(a: Date | null, b: Date | null): string {
 
 function TimelinePage({ zoom }: { zoom: Zoom }) {
   const [params] = useSearchParams()
+  if (params.get('q')?.trim()) return <SearchResults zoom={zoom} />
+  return <Timeline zoom={zoom} params={params} />
+}
+
+function Timeline({ zoom, params }: { zoom: Zoom; params: URLSearchParams }) {
   const kind = params.get('kind') === 'videos' ? 'videos' : 'all'
   const city = (params.get('city') ?? '').slice(0, 128)
   const country = (params.get('country') ?? '').slice(0, 64)
@@ -340,6 +310,7 @@ function TimelinePage({ zoom }: { zoom: Zoom }) {
   const filtered = !!(place || kind === 'videos' || day || ranged || fromKey || oldest)
   return (
     <div className="page ph-page">
+      <SearchBox inline />
       <PageHead title={title} sub={sub}>
         {filtered && (
           <Link to="/photos" className="btn sm"><Icon name="x" size={14} />{ranged ? 'Clear' : day && !place ? 'Back to latest' : 'Clear filter'}</Link>

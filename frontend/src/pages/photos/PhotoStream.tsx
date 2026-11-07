@@ -1,5 +1,5 @@
 // An infinite, day-grouped, justified photo stream (timeline or one album) + the viewer.
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from 'react'
+import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
 import { useInfiniteQuery, useQueries } from '@tanstack/react-query'
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
 import { get, safeHref } from '../../lib/api'
@@ -163,11 +163,11 @@ const DayGroup = memo(function DayGroup({ date, dayKeyStr, items, width, target,
 
 type Cursor = { before?: string; before_id?: string }
 
-export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBefore, dayInfo = false, dayLinks = true, onItems }: {
+export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBefore, dayInfo = false, dayLinks = true, onItems, onFirstPage }: {
   queryKey: readonly unknown[]
   path: string
   params?: Record<string, string | number | boolean | undefined>
-  empty: string
+  empty: ReactNode
   zoom?: Zoom
   /** Start the stream at this moment (photos taken before it), e.g. a day picked in Calendar. */
   startBefore?: string
@@ -177,6 +177,8 @@ export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBe
   dayLinks?: boolean
   /** Told about the loaded items (e.g. the day page's places). */
   onItems?: (items: Photo[]) => void
+  /** Told about the first page as the API sent it (e.g. search's interpretation and count). */
+  onFirstPage?: (page: PhotoPage) => void
 }) {
   const q = useInfiniteQuery({
     queryKey: [...queryKey, params ?? {}, startBefore ?? ''],
@@ -192,6 +194,10 @@ export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBe
   const onItemsRef = useRef(onItems)
   onItemsRef.current = onItems
   useEffect(() => onItemsRef.current?.(items), [items])
+  const onFirstRef = useRef(onFirstPage)
+  onFirstRef.current = onFirstPage
+  const first = q.data?.pages[0]
+  useEffect(() => { if (first) onFirstRef.current?.(first) }, [first])
   // Per-day totals ("10 photos · 1 video · 56.6 MB"): one /photos/days request per loaded page, cached.
   const pageRanges = useMemo(() => (q.data?.pages ?? []).map((pg) => {
     const ds = pg.items.map((p) => p.date_taken).filter(Boolean) as string[]
