@@ -40,7 +40,18 @@ class PerPrincipalThrottle(AuthRateThrottle):
         return self.cache_format % {"scope": self.scope, "ident": f"{auth.__class__.__name__}:{auth.pk}"}
 
 
-api = NinjaAPI(
+class Api(NinjaAPI):
+    # Modules split out of a bigger one keep the operation ids (module_function) they had, so the schema,
+    # generated clients and guides don't change when code moves.
+    SPLIT_FROM = {"scheduler.api_calendars": "scheduler.api_v2", "scheduler.api_events": "scheduler.api_v2",
+                  "scheduler.api_insights": "scheduler.api_v2"}
+
+    def get_openapi_operation_id(self, operation):
+        module = operation.view_func.__module__
+        return (self.SPLIT_FROM.get(module, module) + "_" + operation.view_func.__name__).replace(".", "_")
+
+
+api = Api(
     title="AVNet Superapp API",
     version="2.0",
     urls_namespace="api-v2",
