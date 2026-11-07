@@ -46,7 +46,7 @@ This isn't a weekend AI build with back-dated commits. It has run in production 
 | **Photos** | **Photos smart search** |
 | ![Photos timeline](docs/screenshots/photos-light-desktop.webp) | ![Photos smart search for "three rivers july 2026"](docs/screenshots/photos-search-light-desktop.webp) |
 
-<sub>All screenshots show fictional data (a made-up user, Alex Morgan, and 34 photos from one day in Sequoia National Park), rendered from the app's own build with mocked API responses. **[More screenshots](docs/SCREENSHOTS.md)**, including every app through the years.</sub>
+<sub>All screenshots show fictional data (a made-up user, Alex Morgan, and 34 photos from one day in Sequoia National Park), rendered from the app's own build with mocked API responses. **[More screenshots](docs/SCREENSHOTS.md)**, and **[every app through the years](docs/SCREENSHOTS-HISTORY.md)**.</sub>
 
 Everything works on a phone too: sidebars become drawers and toolbars compact.
 
@@ -94,7 +94,7 @@ Also worth knowing:
 
 Parts of this code were first written in **2020**, in high school, long before AI coding tools. During the COVID lockdowns, school moved online onto two unconnected platforms, Google Classroom and Brightspace, so I built **Docket**: one calendar where students could search for their deadlines, assignments and exam dates. Its `calendar.js` became Comptech's first calendar, and Docket grew into today's Calendar app. Comptech's first commit was in February 2021, and it has **run in production in some form for over five years**, through four calendar rewrites, an SSD failure and a recovered backup.
 
-The whole story, with commit hashes, is in **[docs/HISTORY.md](docs/HISTORY.md)**, *My Very Own Tech Giant*: a homework planner that grew into a superapp, the apps that didn't make it, and the commit-message hall of fame.
+The whole story, with commit hashes, is in **[docs/HISTORY.md](docs/HISTORY.md)**, *My Very Own Tech Giant*: a homework planner that grew into a superapp, the apps that didn't make it, and the commit-message hall of fame. The screenshots of every version are in **[docs/SCREENSHOTS-HISTORY.md](docs/SCREENSHOTS-HISTORY.md)**.
 
 ### Why "Comptech"?
 
@@ -215,7 +215,8 @@ V1 is being kept fast, safe and pleasant until its successor is ready. **Everyth
 | Doc | What's in it |
 |---|---|
 | [docs/HISTORY.md](docs/HISTORY.md) | The history of the project, 2020 to 2026 |
-| [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) | Screenshots of the current app, and links to every version through the years |
+| [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) | Screenshots of the current app |
+| [docs/SCREENSHOTS-HISTORY.md](docs/SCREENSHOTS-HISTORY.md) | Screenshots of every major version, 2020 to today |
 | [docs/README.md](docs/README.md) | Technical docs: calendar and photos data models and pipelines |
 | [docs/UPGRADE-new-ui-only.md](docs/UPGRADE-new-ui-only.md) | Latest production upgrade: the app at `/`, removed endpoints for API clients |
 | [docs/UPGRADE-phase-1.md](docs/UPGRADE-phase-1.md) | Phase-1 production upgrade guide |

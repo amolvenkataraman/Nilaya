@@ -44,9 +44,9 @@ Smart views, projects, labels and saved views in the sidebar; here as a table of
 
 ## Through the years
 
-Each app has changed a lot since 2020. [Appendix F of the history](HISTORY.md#appendix-f-screenshots-through-the-years) shows every major version, rendered from its own commit with the same fictional data:
+Each app has changed a lot since 2020. [Screenshots through the years](SCREENSHOTS-HISTORY.md) shows every major version, rendered from its own commit with the same fictional data:
 
-- [Calendar](HISTORY.md#calendar), from Docket, the 2020 school scheduler it grew out of, to today's React calendar;
-- [Tasks](HISTORY.md#tasks), a page of its own only since November 2026;
-- [Home](HISTORY.md#home), from a giant clock with link cards in 2021 to today's dashboard;
-- [Photos](HISTORY.md#photos), from PikPic, the Hack the North 2021 project that was the original Photos, to smart search.
+- [Calendar](SCREENSHOTS-HISTORY.md#calendar), from Docket, the 2020 school scheduler it grew out of, to today's React calendar;
+- [Tasks](SCREENSHOTS-HISTORY.md#tasks), a page of its own only since November 2026;
+- [Home](SCREENSHOTS-HISTORY.md#home), from a giant clock with link cards in 2021 to today's dashboard;
+- [Photos](SCREENSHOTS-HISTORY.md#photos), from PikPic, the Hack the North 2021 project that was the original Photos, to smart search.
