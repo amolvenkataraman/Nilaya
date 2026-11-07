@@ -25,6 +25,10 @@ AVNet Superapp is one web app with nine apps inside, sharing one account, one de
 
 The apps know about each other. Calendar days show the photos you took and your contacts' birthdays. An event turns into a task in one click. Places lists the photos taken nearby. Reminders from every app arrive through the channels you choose.
 
+### Provenance
+
+This isn't a weekend AI build with back-dated commits. It has run in production for a family since 2021, and the code shows it: decade-old naming decisions, 70+ schema migrations, data migrations written around real messy data, two recoveries from backups, and quirks that only exist because real people used it every day. Think of the history as proof of age on an art piece: [the full story](docs/HISTORY.md), and [why things look the way they do](#quirks-or-why-is-it-like-this).
+
 ## Apps
 
 | | App | Standout features |
