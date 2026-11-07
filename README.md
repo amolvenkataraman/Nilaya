@@ -17,7 +17,7 @@
 
 </div>
 
-> Code name **Comptech**: the Django project, database, scripts and module names still use it. Only the visible product is called AVNet Superapp.
+> Code name **Comptech**: the Django project, database, scripts and module names still use it. Only the visible product is called AVNet Superapp. [Why "Comptech"?](#why-comptech)
 
 ## What it is
 
@@ -83,6 +83,12 @@ This is an **opinionated** project, shaped by one family's daily use.
 Parts of this code were first written in **2020**, in high school, long before AI coding tools: a school task scheduler called Docket and a YMCA group calendar, whose `calendar.js` became Comptech's first calendar. Comptech's first commit was in February 2021, and it has **run in production in some form for over five years**, through four calendar rewrites, an SSD failure and a recovered backup.
 
 The whole story, with commit hashes, is in **[docs/HISTORY.md](docs/HISTORY.md)**, *My Very Own Tech Giant*: a homework planner that grew into a superapp, the apps that didn't make it, and the commit-message hall of fame.
+
+### Why "Comptech"?
+
+When I was about 12, I wanted to build my own tech company. "Comptech", short for *Computer Technology*, was the best name 12-year-old me could come up with (I'm still not great at names, as my other repos will show). In 2020, when 15-year-old me set out to build "my own private tech-giant-scale platform", it was the first name that came to mind, and it stuck: it's in the package, the database and too many other places to be worth changing now.
+
+It's also a little poetic. A decade later, I've finally made 12-year-old me proud: a project built entirely on my own, at a scale that borrows its ambition from the tech giants I looked up to back then, and now open source. Let it stand as a hopeful beacon that one day there will be a company of my own behind the name too. (I'll update this README when that happens.)
 
 ### How AI was (and wasn't) used
 
