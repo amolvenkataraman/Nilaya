@@ -5,7 +5,6 @@ Media URLs are the signed nginx paths the old UI uses (/private/... thumbnails,
 """
 
 import datetime
-import os
 import uuid
 from typing import Literal, Optional
 
@@ -789,24 +788,18 @@ def locate_next(request, year: Optional[int] = None, month: Optional[int] = None
 
 
 class LocationIn(Schema):
-    """Both null clears the location (the classic tool's Clear)."""
+    """Both null clears the location."""
     lat: Optional[float] = Field(..., ge=-90, le=90)
     lng: Optional[float] = Field(..., ge=-180, le=180)
 
 
 @router.post("/{uuid:photo_id}/location", response=PhotoOut, summary="Set a photo's location (library owners/editors)")
 def set_location(request, photo_id: uuid.UUID, payload: LocationIn):
-    from django.conf import settings
     from django.db import transaction
     if (payload.lat is None) != (payload.lng is None):
         raise HttpError(422, "Give both lat and lng, or both null to clear")
     p = get_object_or_404(_editable_library(request.user).select_related("album").distinct(), id=photo_id)
     p.set_location(payload.lat, payload.lng)
-    try:  # same audit trail as the classic tool
-        with open(os.path.join(settings.BASE_DIR, "photo_gg_ent_log.txt"), "a") as f:
-            f.write(f"{p.id} --> ({payload.lat}, {payload.lng}) [{request.user.username}]\n")
-    except OSError:
-        pass
     # Only the heat-map view has locations (photos_photo_daily doesn't change). Queued and coalesced:
     # saving one location after another refreshes the view once per burst, not once per save.
     transaction.on_commit(lambda: photo_cache.schedule_matview_refresh(("photos_photo_location_cache",)))
