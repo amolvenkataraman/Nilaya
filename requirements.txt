@@ -2,6 +2,7 @@ Django>=5.1,<6     # 5.1: DB connection pool; 6 not tested yet
 channels
 channels_redis
 gpsphoto
+piexif           # gpsphoto imports it but doesn't declare it (photos/models.py)
 exifread
 Pillow
 bleach

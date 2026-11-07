@@ -15,7 +15,7 @@ Time needed: about 15 minutes. At most **one small migration** (`photos.0032`, w
 | Sign-in is the app's `/login` page on `POST /api/v2/auth/login`; `LOGIN_URL` is `/login` | None. Django admin keeps its own sign-in at `/admin/login/` |
 | Old URLs (`/app/…`, `/accounts/login/`, `/map/`, `/settings/api-keys/`, `/analytics/`, `/photos/day/y/m/d/`, `/photos/?album=<id>`, `/contacts/?id=<id>`, …) answer **301** to the new routes, query string kept | None. Bookmarks and old notification links keep working |
 | Third-party front-end files (`static_files/vendor.lock`, `fetch_vendor.sh`) are gone: nothing uses Bootstrap, jQuery, moment, Handlebars, croppie, Chart.js or the old Leaflet copies | Delete the downloaded folders (step 4); `fetch_vendor.sh` no longer exists |
-| Python packages no longer used: `dateparser`, `whitenoise`, `piexif`, `django-import-export`, `django-crispy-forms`, `crispy-bootstrap4` | `pip install -r requirements.txt` adds nothing; uninstalling the old ones is optional (step 2) |
+| Python packages no longer used: `dateparser`, `whitenoise`, `django-import-export`, `django-crispy-forms`, `crispy-bootstrap4` | `pip install -r requirements.txt` adds nothing; uninstalling the old ones is optional (step 2) |
 | nginx | **No changes needed.** The three `location /static/…` blocks stay: `/static/app/assets/` (hashed, cached forever), `/static/app/` (theme.js and favicon, revalidated) and `/static/` (admin). `index.html` is served by Django with `Cache-Control: no-cache`, so a deploy is picked up on the next page load |
 | Celery tasks send notification links to the new routes (`/tasks?task=…`, `/contacts?person=…`, `/photos/albums/<id>`, `/settings#set-api`) | Restart the worker and beat with Daphne (step 5) |
 | Feed URLs (`/feeds/f_….ics`), signed photo URLs | Unchanged |
@@ -50,7 +50,7 @@ git rev-parse HEAD > ~/comptech-previous-commit
 git fetch && git checkout master && git pull
 source CT_env/bin/activate
 pip install -r requirements.txt
-pip uninstall -y dateparser whitenoise piexif django-import-export django-crispy-forms crispy-bootstrap4   # optional
+pip uninstall -y dateparser whitenoise django-import-export django-crispy-forms crispy-bootstrap4   # optional; keep piexif (gpsphoto needs it)
 python manage.py check          # must not show mainsite.W001
 python manage.py migrate        # applies photos.0032 if missing (a few seconds), otherwise "No migrations to apply"
 ```
