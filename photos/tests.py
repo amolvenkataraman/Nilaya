@@ -141,11 +141,11 @@ class DeletePermissionTests(TestCase):
         self.assertEqual(r.json(), {"deleted": 1})
         self.assertFalse(Photo.objects.filter(id=self.photo.id).exists())
 
-    def test_deletes_and_classic_location_saves_refresh_the_summary_views(self):
+    def test_deletes_and_location_saves_refresh_the_summary_views(self):
         Photo.objects.filter(id=self.photo.id).update(latitude=48.85, longitude=2.35, location_city="Paris", location_country="FR")
         self.client.force_login(self.owner)
         with mock.patch("photos.cache.schedule_matview_refresh") as refresh, self.captureOnCommitCallbacks(execute=True):
-            self.client.post("/photos/geoguessr_ent/", {"photo": str(self.photo.id), "lat": None, "lng": None},
+            self.client.post(f"/api/v2/photos/{self.photo.id}/location", {"lat": None, "lng": None},
                              content_type="application/json")
             self.photo.refresh_from_db()
             self.assertEqual((self.photo.latitude, self.photo.location_city), (None, None))  # the place went too
@@ -189,18 +189,21 @@ class GeoGamesTests(TestCase):
         self.assertEqual(self.client.get("/api/v2/photos/locate/next?zero=true").json()["id"], str(broken.id))
         self.assertEqual(self.client.get("/api/v2/photos/points", {"south": 40, "west": -1, "north": 50, "east": 1}).json(), [])
 
+    def test_classic_game_urls_redirect_to_the_react_pages(self):
+        for old, new in (("/photos/geoguessr/", "/app/photos/geoguessr"), ("/photos/geoguessr_ent/", "/app/photos/locate")):
+            self.assertRedirects(self.client.get(old), new, status_code=301, fetch_redirect_response=False)
+
     def test_only_owners_and_editors_can_set_a_location(self):
         body = {"lat": 48.85, "lng": 2.35}
         self.client.force_login(self.viewer)
         r = self.client.post(f"/api/v2/photos/{self.untagged.id}/location", body, content_type="application/json")
         self.assertEqual(r.status_code, 404)
-        self.client.post("/photos/geoguessr_ent/", {"photo": str(self.untagged.id), **body}, content_type="application/json")
         self.untagged.refresh_from_db()
-        self.assertIsNone(self.untagged.latitude)  # the classic tool no longer lets viewers write either
+        self.assertIsNone(self.untagged.latitude)
         self.client.force_login(self.owner)
         r = self.client.post(f"/api/v2/photos/{self.untagged.id}/location", body, content_type="application/json")
         self.assertEqual((r.status_code, round(r.json()["lat"], 2)), (200, 48.85))
         bad = self.client.post(f"/api/v2/photos/{self.untagged.id}/location", {"lat": 95, "lng": 0}, content_type="application/json")
         self.assertEqual(bad.status_code, 422)
         r = self.client.post(f"/api/v2/photos/{self.untagged.id}/location", {"lat": None, "lng": None}, content_type="application/json")
-        self.assertEqual((r.status_code, r.json()["lat"]), (200, None))  # cleared, like the classic Clear button
+        self.assertEqual((r.status_code, r.json()["lat"]), (200, None))  # cleared

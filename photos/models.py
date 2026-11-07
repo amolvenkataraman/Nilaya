@@ -207,12 +207,6 @@ class Photo(models.Model):
             "height": self.height
         }
 
-    def get_gps_data(self):
-        return {
-            "lat": self.latitude,
-            "lon": self.longitude
-        }
-
     def getinfo(self):
         raw_blur = None
         normalized_blur = None

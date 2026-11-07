@@ -1,4 +1,5 @@
 from django.urls import include, path
+from django.views.generic import RedirectView
 from . import views
 
 # URL patterns for photos app
@@ -7,8 +8,9 @@ urlpatterns = [
     path("albums/", views.my_albums_page, name='my_albums_page'),
     path("map/", views.map, name='photos_map'),
     path("map_new/", views.map_new, name='photos_map_new'),
-    path("geoguessr/", views.geoguessr, name='geoguessr'),
-    path("geoguessr_ent/", views.geoguessr_ent, name='geoguessr_ent'),
+    # The classic games moved to the React app; old links and bookmarks keep working.
+    path("geoguessr/", RedirectView.as_view(url="/app/photos/geoguessr", permanent=True)),
+    path("geoguessr_ent/", RedirectView.as_view(url="/app/photos/locate", permanent=True)),
     path("day/<int:year>/<int:month>/<int:day>/", views.day, name='day_photos'),
     path("event/<slug:event_id>/", views.event, name='event_photos'),
     path("view-photo/<slug:photo_id>/", views.view_photo, name="view_photo"),

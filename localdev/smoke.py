@@ -21,7 +21,7 @@ PAGES = [
     f"/calendar/api/availability/amol/?date={dt.date.today()}", "/calendar/block/?user=amol",
     "/photos/", "/photos/albums/", "/photos/albums/json-list/", "/photos/map/", "/photos/map_new/",
     "/photos/stats/", "/photos/storage/", "/photos/superlatives/", "/photos/search/",
-    "/photos/search/cameras/", "/photos/geoguessr/", "/photos/geoguessr_ent/",
+    "/photos/search/cameras/",
     "/photos/date/?date=2026-12-31&nphotos=20", "/map/", "/map/location-groups/", "/map/locations/?group=1",
     "/tasks/", "/habits/", "/contacts/", "/notifications/", "/settings/api-keys/", "/analytics/",
     "/api/v2/me", "/api/v2/tasks/overview", "/api/v2/habits/today", "/api/v2/calendar/agenda?days=7",

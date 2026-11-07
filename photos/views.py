@@ -28,7 +28,7 @@ import base64
 from collections import Counter
 from django.db import transaction
 from . import cache as photo_cache
-from .models import Album, BROKEN_GPS
+from .models import Album
 
 def get_bounds_from_request(request):
     bounds_b64 = request.GET.get('bounds')
@@ -444,62 +444,6 @@ def map_new(request):
             "coords": [[float(i['lat']), float(i['lng']), i['total_cnt']] for i in locs],
             "left_sidebar": True, "right_sidebar": False, "active_page": "map",
         })
-
-@login_required
-def geoguessr(request):
-    album_subs = request.user.album_subscribed.filter(visible=True)
-    albums = [i.album for i in album_subs]
-
-    photo = visible(Photo.objects.filter(album__in=albums, latitude__isnull=False, longitude__isnull=False), request).exclude(BROKEN_GPS).order_by("?").first()
-    if photo is None:
-        return error_response("No geotagged photos available", 404)
-
-    return render(request, 'photos/geoguessr.html', { 'photo': {**photo.getinfo_zip(), **photo.get_gps_data()} })
-
-@login_required
-def geoguessr_ent(request):
-    if request.method == "GET":
-        album_subs = request.user.album_subscribed.filter(visible=True)
-        albums = [i.album for i in album_subs]
-
-        oq = Q()
-
-        if request.GET.get('year'):
-            oq = oq & Q(date_taken__year=request.GET.get('year'))
-        if request.GET.get('month'):
-            oq = oq & Q(date_taken__month=request.GET.get('month'))
-
-        if request.GET.get('zero'):
-            photo = visible(Photo.objects.filter(oq & Q(album__in=albums) & BROKEN_GPS), request).order_by('-date_taken').first()
-        else:
-            photo = visible(Photo.objects.filter(oq & Q(album__in=albums) & (Q(latitude__isnull=True) | Q(longitude__isnull=True))), request).order_by("?").first()
-
-        if photo is None:
-            return error_response("No photos without a location", 404)
-
-        return render(request, 'photos/geoguessr_ent.html', { 'photo': photo.getinfo_zip() })
-
-    elif request.method == "POST":
-        try:
-            b = json.loads(request.body.decode('utf8'))
-            p = Photo.objects.get(id=b['photo'])
-        except (ValueError, KeyError):
-            return error_response("Malformed request")
-        except Photo.DoesNotExist:
-            return error_response("Photo does not exist", 404)
-
-        # Changing a photo's location is an edit: library owners/editors only (viewers could write before).
-        album_subs = request.user.album_subscribed.filter(subscribe_type__in=[0, 1])
-        albums = [i.album for i in album_subs]
-
-        if p.album in albums:
-            p.set_location(b['lat'], b['lng'])  # clears city/country for null or broken (0) coordinates
-            transaction.on_commit(lambda: photo_cache.schedule_matview_refresh(("photos_photo_location_cache",)))
-            print(f"Saved location ({b['lat']}, {b['lng']}) for photo {b['photo']}")
-            with open(os.path.join(BASE_DIR, "photo_gg_ent_log.txt"), "a") as f:
-                f.write(f"{b['photo']} --> ({b['lat']}, {b['lng']}) [{request.user.username}]\n")
-            return success_response("Success!")
-        else: return error_response("Not authorized", 401)
 
 @login_required
 def day(request, year, month, day):
