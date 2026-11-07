@@ -21,7 +21,7 @@ from ninja.errors import HttpError
 from ninja.utils import check_csrf
 
 from . import hidden as hidden_mode
-from .api_v2 import PageOut, _page
+from .api_common import PageOut, _page
 from .models import Photo, ShareAlbum
 
 router = Router(tags=["photos"])

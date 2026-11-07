@@ -44,7 +44,9 @@ class Api(NinjaAPI):
     # Modules split out of a bigger one keep the operation ids (module_function) they had, so the schema,
     # generated clients and guides don't change when code moves.
     SPLIT_FROM = {"scheduler.api_calendars": "scheduler.api_v2", "scheduler.api_events": "scheduler.api_v2",
-                  "scheduler.api_insights": "scheduler.api_v2"}
+                  "scheduler.api_insights": "scheduler.api_v2", "tasks.api_projects": "tasks.api",
+                  "tasks.api_tasks": "tasks.api", "photos.api_albums": "photos.api_v2",
+                  "photos.api_insights": "photos.api_v2"}
 
     def get_openapi_operation_id(self, operation):
         module = operation.view_func.__module__
@@ -71,7 +73,6 @@ api.add_router("/photos/", "photos.api_v2.router")
 api.add_router("/photos/locate/", "photos.api_presets.router")
 api.add_router("/photos/search", "photos.api_search.router")
 api.add_router("/photos/public/", "photos.api_public.router")
-api.add_router("/photos/", "photos.api_insights.router")
 api.add_router("/places/", "map.api_v2.router")
 api.add_router("/tasks/", "tasks.api.router")
 api.add_router("/contacts/", "contacts.api.router")

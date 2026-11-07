@@ -8,194 +8,33 @@ import datetime
 import uuid
 from typing import Literal, Optional
 
-from django.db.models import Count, F, Max, Min, OuterRef, Q, Subquery, Sum
-from django.db.models.functions import Coalesce
+from django.db.models import Count, F, Max, Min, Q, Sum
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from ninja import Query, Router, Schema
-
-from ninja import Field
+from ninja import Field, Query, Router, Schema
 from ninja.errors import HttpError
 
-from . import browse
+from . import api_albums, api_insights, browse
 from . import cache as photo_cache
 from . import hidden as hidden_mode
+from .api_albums import albums
+from .api_common import (
+    IdsIn,
+    LibraryOut,
+    PageOut,
+    PhotoOut,
+    ShareAlbumOut,
+    SummaryOut,
+    YearGroup,
+    _editable_library,
+    _page,
+    _random_pick,
+    daily,
+    library,
+)
 from .models import BROKEN_GPS, Album_Subscriber, Photo, ShareAlbum
 
 router = Router(tags=["photos"])
-
-
-class PhotoOut(Schema):
-    id: uuid.UUID
-    thumb_url: str
-    url: str
-    width: Optional[int]
-    height: Optional[int]
-    aspect: float
-    date_taken: Optional[datetime.datetime]
-    video: bool
-    length: Optional[int]
-    city: Optional[str]
-    country: Optional[str]
-    lat: Optional[float]
-    lon: Optional[float]
-    camera: Optional[str]
-    album_id: int
-    size_kb: Optional[int] = None        # optimized file (what the app serves)
-    size_total_kb: Optional[int] = None  # including originals/RAW
-    megapixels: Optional[float] = None
-    has_raw: bool = False
-    has_orig: bool = False
-    blur: Optional[float] = None
-
-    @staticmethod
-    def resolve_thumb_url(obj):
-        return f"/private/{obj.thumbnail_hash}/photo_cache/thumbnail/{obj.id}.webp"
-
-    @staticmethod
-    def resolve_url(obj):
-        return f"/photo_cdn/{obj.photo_hash}/{obj.get_path()}"
-
-    @staticmethod
-    def resolve_aspect(obj):
-        return round((obj.thumbnail_width or 200) / (obj.thumbnail_height or 200), 4)
-
-    @staticmethod
-    def resolve_city(obj):
-        return obj.location_city
-
-    @staticmethod
-    def resolve_country(obj):
-        return obj.location_country
-
-    @staticmethod
-    def resolve_lat(obj):
-        return obj.latitude
-
-    @staticmethod
-    def resolve_lon(obj):
-        return obj.longitude
-
-    @staticmethod
-    def resolve_camera(obj):
-        return " ".join(filter(None, (obj.camera_make, obj.camera_model))) or None
-
-    @staticmethod
-    def resolve_size_kb(obj):
-        return obj.size
-
-    @staticmethod
-    def resolve_size_total_kb(obj):
-        return obj.size_total
-
-    @staticmethod
-    def resolve_has_raw(obj):
-        return bool(obj.raw_filepath)
-
-    @staticmethod
-    def resolve_has_orig(obj):
-        return bool(obj.orig_filepath)
-
-    @staticmethod
-    def resolve_blur(obj):
-        info = obj.ai_index_info or {}
-        return round(info["blur_score"], 1) if isinstance(info, dict) and info.get("blur_score") is not None else None
-
-
-class PageOut(Schema):
-    items: list[PhotoOut]
-    next_before: Optional[datetime.datetime]
-    next_before_id: Optional[uuid.UUID] = None  # pass both back: photos can share a timestamp
-
-
-class LibraryOut(Schema):
-    id: int
-    name: str
-    role: str
-    visible: bool
-    count: int
-
-
-class ShareAlbumOut(Schema):
-    id: uuid.UUID
-    name: str
-    description: Optional[str]
-    public: bool
-    mine: bool
-    owner: str = ""  # username
-    count: int
-    videos: int = 0
-    size_kb: int = 0
-    first: Optional[datetime.datetime] = None  # oldest and newest photo
-    last: Optional[datetime.datetime] = None
-    cover: Optional[PhotoOut]
-
-
-class YearGroup(Schema):
-    year: int
-    items: list[PhotoOut]
-
-
-class SummaryOut(Schema):
-    photos: int
-    videos: int
-    size_kb: int
-    first: Optional[datetime.datetime]
-    last: Optional[datetime.datetime]
-    countries: list[dict]
-    cities: list[dict]
-    per_year: list[dict]
-
-
-def library(user, request=None, listing=False):
-    """Every photo the user can see through the library albums they subscribe to.
-    Hidden photos are left out unless the owner has show-hidden mode on (pass the request).
-    listing=True also leaves out libraries switched off in Sources (like the classic timeline);
-    direct access to a photo ignores that switch."""
-    subs = Album_Subscriber.objects.filter(user=user)
-    if listing:
-        subs = subs.filter(visible=True)
-    # file_not_available is a stale flag from old scripts; those files exist (owner, 2026-11-05), so they
-    # count and show like on the classic pages.
-    qs = Photo.objects.filter(album_id__in=subs.values("album_id"))
-    return hidden_mode.visible(qs, request)
-
-
-def daily(request):
-    """The per-day rollup view for this user's libraries, or None when it can't be used
-    (show-hidden mode needs the live table; the view's days are in settings.TIME_ZONE)."""
-    from django.conf import settings
-    from .models import PhotoDaily
-    if hidden_mode.show_hidden(request) or request.user.timezone not in ("", settings.TIME_ZONE, "Canada/Eastern", "America/Toronto"):
-        return None
-    albums = Album_Subscriber.objects.filter(user=request.user, visible=True).values("album_id")  # Sources switch, like listing=True
-    return PhotoDaily.objects.filter(album_id__in=albums)
-
-
-def _random_pick(qs):
-    """A random row without ORDER BY random() (which sorts the whole library): photo ids are random
-    UUIDs, so take the first one at or after a random UUID, wrapping around."""
-    pivot = uuid.uuid4()
-    return qs.filter(id__gte=pivot).order_by("id").first() or qs.filter(id__lt=pivot).order_by("-id").first()
-
-
-def _page(qs, before, limit, before_id=None, oldest=False):
-    """Newest first (or oldest first), keyset-paged on (date_taken, id) so photos with the same timestamp
-    aren't skipped. The cursor (next_before, next_before_id) is the last item returned either way."""
-    qs = qs.exclude(date_taken__isnull=True)
-    anchor = qs.filter(id=before_id).values_list("date_taken", flat=True).first() if before_id else None
-    past = "gt" if oldest else "lt"
-    if anchor:  # the exact stored timestamp (JSON rounds to milliseconds, so don't trust the echoed one)
-        qs = qs.filter(Q(**{f"date_taken__{past}": anchor}) | Q(date_taken=anchor, **{f"id__{past}": before_id}))
-    elif before:
-        qs = qs.filter(**{f"date_taken__{past}": before})
-    limit = max(1, min(limit, 300))
-    order = ("date_taken", "id") if oldest else ("-date_taken", "-id")
-    items = list(qs.select_related("album").order_by(*order)[: limit + 1])
-    more = len(items) > limit
-    items = items[:limit]
-    last = items[-1] if more and items else None
-    return {"items": items, "next_before": last.date_taken if last else None, "next_before_id": last.id if last else None}
 
 
 def _blur_range(qs, min_blur, max_blur):
@@ -267,6 +106,7 @@ def on_this_day(request, per_year: int = 12):
         # Month/day filters can't use an index (every call scanned the library): find the matching
         # days in the small per-day view, then read each day's photos by date range (indexed).
         from zoneinfo import ZoneInfo
+
         from django.conf import settings
         server_tz = ZoneInfo(settings.TIME_ZONE)
         days = sorted(set(rollup.filter(day__month=today.month, day__day=today.day, day__year__lt=today.year)
@@ -409,157 +249,6 @@ def sidebar(request):
             "hidden_mode": get_hidden_mode(request)}
 
 
-def _album_totals(request):
-    """count and size_kb of a shared album (OuterRef "pk") as subqueries: joining photos and members in one
-    query multiplied the size by the number of members. Hidden photos count only in show-hidden mode."""
-    from .models import ShareAlbum_Photo
-    rows = hidden_mode.visible(ShareAlbum_Photo.objects.filter(sharealbum=OuterRef("pk")), request, prefix="photo__") \
-        .order_by().values("sharealbum")
-    return {"count": Coalesce(Subquery(rows.annotate(n=Count("id")).values("n")), 0),
-            "videos": Coalesce(Subquery(rows.annotate(n=Count("id", filter=Q(photo__video=True))).values("n")), 0),
-            "size_kb": Coalesce(Subquery(rows.annotate(s=Sum("photo__size_total")).values("s")), 0),
-            "first": Subquery(rows.annotate(d=Min("photo__date_taken")).values("d")),
-            "last": Subquery(rows.annotate(d=Max("photo__date_taken")).values("d"))}
-
-
-@router.get("/albums", response=list[ShareAlbumOut], summary="Shared albums you own or were added to")
-def albums(request):
-    qs = (ShareAlbum.objects.filter(Q(owner=request.user) | Q(sharealbum_users_subscribed__user=request.user))
-          .distinct().select_related("cover_photo__album", "owner").annotate(**_album_totals(request))
-          .order_by("name"))
-    out = []
-    for a in qs:
-        cover = a.cover_photo if a.cover_photo and not a.cover_photo.hidden else (
-            Photo.objects.filter(photo_in_sharealbum__sharealbum=a, hidden=False)
-            .select_related("album").order_by("-date_taken").first())
-        out.append({"id": a.id, "name": a.name, "description": a.description, "public": a.public,
-                    "mine": a.owner_id == request.user.id, "owner": a.owner.username, "count": a.count,
-                    "videos": a.videos, "size_kb": a.size_kb or 0, "first": a.first, "last": a.last, "cover": cover})
-    return out
-
-
-class AlbumIn(Schema):
-    name: str = Field(..., min_length=1, max_length=64)
-    description: str = ""
-    public: bool = False
-
-
-class AlbumPatch(Schema):
-    name: Optional[str] = Field(None, min_length=1, max_length=64)
-    description: Optional[str] = None
-    public: Optional[bool] = None
-    cover_photo_id: Optional[uuid.UUID] = None
-
-
-class MemberIn(Schema):
-    username: str
-    role: Literal["editor", "viewer"] = "viewer"
-
-
-class MemberPatch(Schema):
-    role: Literal["editor", "viewer"]
-
-
-ROLE_TO_TYPE = {"editor": 1, "viewer": 2}
-TYPE_TO_ROLE = {0: "owner", 1: "editor", 2: "viewer"}
-
-
-def _album_out(a, request):
-    photos = Photo.objects.filter(photo_in_sharealbum__sharealbum=a)
-    cover = a.cover_photo if a.cover_photo_id and not a.cover_photo.hidden else \
-        photos.filter(hidden=False).select_related("album").order_by("-date_taken").first()
-    agg = hidden_mode.visible(photos, request).aggregate(  # same as /albums
-        n=Count("id"), videos=Count("id", filter=Q(video=True)), size=Sum("size_total"),
-        first=Min("date_taken"), last=Max("date_taken"))
-    return {"id": a.id, "name": a.name, "description": a.description, "public": a.public,
-            "mine": a.owner_id == request.user.id, "owner": a.owner.username, "count": agg["n"],
-            "videos": agg["videos"], "size_kb": agg["size"] or 0, "first": agg["first"], "last": agg["last"],
-            "cover": cover}
-
-
-def _own_share_album(user, album_id):
-    return get_object_or_404(ShareAlbum, id=album_id, owner=user)
-
-
-@router.post("/albums", response={201: ShareAlbumOut}, summary="Create a shared album")
-def create_album(request, payload: AlbumIn):
-    from .models import ShareAlbum_Subscriber
-    import bleach
-    a = ShareAlbum.objects.create(owner=request.user, name=bleach.clean(payload.name),
-                                  description=bleach.clean(payload.description), public=payload.public)
-    ShareAlbum_Subscriber.objects.create(album=a, user=request.user, subscribe_type=0)
-    return 201, _album_out(a, request)
-
-
-@router.patch("/albums/{uuid:album_id}", response=ShareAlbumOut, summary="Rename, describe, make public, set the cover (owner)")
-def update_album(request, album_id: uuid.UUID, payload: AlbumPatch):
-    from .models import ShareAlbum_Photo
-    import bleach
-    a = _own_share_album(request.user, album_id)
-    data = payload.dict(exclude_unset=True)
-    if data.get("name") is not None:
-        a.name = bleach.clean(data["name"])
-    if "description" in data:
-        a.description = bleach.clean(data["description"] or "")
-    if data.get("public") is not None:
-        a.public = data["public"]
-    if data.get("cover_photo_id"):
-        if not ShareAlbum_Photo.objects.filter(sharealbum=a, photo_id=data["cover_photo_id"]).exists():
-            raise HttpError(400, "That photo isn't in this album")
-        a.cover_photo_id = data["cover_photo_id"]
-    a.save()
-    return _album_out(a, request)
-
-
-@router.delete("/albums/{uuid:album_id}", response={204: None}, summary="Delete a shared album (owner); the photos stay")
-def delete_album(request, album_id: uuid.UUID):
-    _own_share_album(request.user, album_id).delete()
-    return 204, None
-
-
-@router.get("/albums/{uuid:album_id}/members", summary="People an album is shared with (owner)")
-def album_members(request, album_id: uuid.UUID):
-    from .models import ShareAlbum_Subscriber
-    a = _own_share_album(request.user, album_id)
-    return [{"id": m.id, "username": m.user.username, "name": m.user.get_full_name() or m.user.username,
-             "role": TYPE_TO_ROLE.get(m.subscribe_type, "viewer")}
-            for m in ShareAlbum_Subscriber.objects.filter(album=a).exclude(subscribe_type=0).select_related("user")]
-
-
-@router.post("/albums/{uuid:album_id}/members", response={201: dict}, summary="Share an album with someone (owner)")
-def add_album_member(request, album_id: uuid.UUID, payload: MemberIn):
-    from .models import ShareAlbum_Subscriber
-    from users.models import ComptechUser
-    from notifications.service import notify
-    a = _own_share_album(request.user, album_id)
-    target = get_object_or_404(ComptechUser, username=payload.username)
-    if target.id == request.user.id or ShareAlbum_Subscriber.objects.filter(album=a, user=target).exists():
-        raise HttpError(400, "They already have access")
-    m = ShareAlbum_Subscriber.objects.create(album=a, user=target, subscribe_type=ROLE_TO_TYPE[payload.role])
-    notify(target, f"{request.user.get_full_name() or request.user.username} shared \"{a.name}\" with you",
-           f"You can {'edit' if payload.role == 'editor' else 'view'} this album.", source="Photos",
-           url=f"/photos/albums/{a.id}")
-    return 201, {"id": m.id, "username": target.username, "role": payload.role}
-
-
-@router.patch("/albums/{uuid:album_id}/members/{int:member_id}", summary="Change someone's role (owner)")
-def update_album_member(request, album_id: uuid.UUID, member_id: int, payload: MemberPatch):
-    from .models import ShareAlbum_Subscriber
-    a = _own_share_album(request.user, album_id)
-    m = get_object_or_404(ShareAlbum_Subscriber.objects.exclude(subscribe_type=0), id=member_id, album=a)
-    m.subscribe_type = ROLE_TO_TYPE[payload.role]
-    m.save(update_fields=["subscribe_type"])
-    return {"id": m.id, "role": payload.role}
-
-
-@router.delete("/albums/{uuid:album_id}/members/{int:member_id}", response={204: None}, summary="Stop sharing with someone (owner)")
-def remove_album_member(request, album_id: uuid.UUID, member_id: int):
-    from .models import ShareAlbum_Subscriber
-    a = _own_share_album(request.user, album_id)
-    get_object_or_404(ShareAlbum_Subscriber.objects.exclude(subscribe_type=0), id=member_id, album=a).delete()
-    return 204, None
-
-
 class LibraryPatch(Schema):
     visible: bool
 
@@ -625,15 +314,6 @@ def delete_original(request, photo_id: uuid.UUID):
     return {"size": p.size, "size_total": p.size_total, "freed_kb": freed_kb}
 
 
-@router.get("/albums/{uuid:album_id}/photos", response=PageOut)
-def album_photos(request, album_id: uuid.UUID, before: Optional[datetime.datetime] = None, limit: int = 120,
-                 before_id: Optional[uuid.UUID] = None):
-    album = get_object_or_404(ShareAlbum.objects.filter(
-        Q(owner=request.user) | Q(sharealbum_users_subscribed__user=request.user) | Q(public=True)).distinct(),
-        id=album_id)
-    return _page(hidden_mode.visible(Photo.objects.filter(photo_in_sharealbum__sharealbum=album), request), before, limit, before_id)
-
-
 class ObjectOut(Schema):
     id: int
     name: str
@@ -691,162 +371,6 @@ class PhotoDetailOut(PhotoOut):
     @staticmethod
     def resolve_mine(o, context): return hidden_mode.can_control(o, context["request"].user)  # may hide/unhide
 
-
-@router.get("/browse/{category}", summary="Cities, countries, cameras or objects with counts (for search pages)")
-def browse_category(request, category: str):
-    if category not in ("cities", "countries", "cameras", "objects"):
-        raise HttpError(404, "Unknown category")
-    return photo_cache.cached(request, "browse", lambda: browse.browse_items(library(request.user, request, listing=True), category), category)
-
-
-def _local_now(request):
-    import pytz
-    tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
-    return tz, timezone.localtime(timezone.now(), tz)
-
-
-@router.get("/stats", summary="Library statistics (counts, activity, when you take photos, equipment, places)")
-def stats(request):
-    return photo_cache.cached(request, "stats:v2", lambda: _stats(request))  # :v2 = response shape; never serve an old one
-
-
-def _by_type(rows, key, size):
-    """Aggregated (key, photos, videos, length_s) rows -> {"photos": [...], "videos": [...], "length_s": [...]} over 1..size
-    (or 0..size-1 for hours), so every activity chart can switch between all / photos / videos / video duration."""
-    base = 0 if key == "h" else 1
-    out = {"photos": [0] * size, "videos": [0] * size, "length_s": [0] * size}
-    for r in rows:
-        if r[key] is None:
-            continue
-        i = int(r[key]) - base
-        if 0 <= i < size:
-            out["photos"][i] += r["photos"] or 0
-            out["videos"][i] += r["videos"] or 0
-            out["length_s"][i] += r["length_s"] or 0
-    return out
-
-
-def _stats(request):
-    from django.db.models import Avg
-    from django.db.models.functions import ExtractDay, ExtractHour, ExtractIsoWeekDay, ExtractMonth, TruncMonth
-    qs = library(request.user, request, listing=True)
-    tz, now = _local_now(request)
-    agg = qs.aggregate(total=Count("id"), videos=Count("id", filter=Q(video=True)), mp=Avg("megapixels", filter=Q(video=False)),
-                       length_s=Sum("length", filter=Q(video=True)), first=Min("date_taken"), last=Max("date_taken"))
-    periods = {}
-    for key, days in (("week", 7), ("month", 30), ("year", 365)):
-        cur = qs.filter(date_taken__gte=now - datetime.timedelta(days=days)).count()
-        prev = qs.filter(date_taken__gte=now - datetime.timedelta(days=2 * days), date_taken__lt=now - datetime.timedelta(days=days)).count()
-        periods[key] = {"count": cur, "previous": prev}
-    ytd_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-    year_ago = now.replace(year=now.year - 1, day=28) if (now.month, now.day) == (2, 29) else now.replace(year=now.year - 1)
-    periods["ytd"] = {"count": qs.filter(date_taken__gte=ytd_start).count(),
-                      "previous": qs.filter(date_taken__gte=ytd_start.replace(year=now.year - 1),
-                                            date_taken__lt=year_ago).count()}
-    dated = qs.exclude(date_taken__isnull=True)
-    live = dict(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True)),
-                length_s=Sum("length", filter=Q(video=True)))
-    # Hour of day needs the live table (the rollup is per day); in the viewer's time zone.
-    by_hour = _by_type(dated.annotate(h=ExtractHour("date_taken", tzinfo=tz)).values("h").annotate(**live), "h", 24)
-    rollup = daily(request)
-    if rollup is not None:  # per-day rollup: day of month, weekday, month of year and months without touching photos
-        summed = dict(photos=Sum("photos"), videos=Sum("videos"), length_s=Sum("length_s"))
-        by_day = lambda fn, k: rollup.annotate(**{k: fn("day")}).values(k).annotate(**summed)
-        month_rows = rollup.annotate(m=TruncMonth("day")).values("m").annotate(**summed).order_by("m")
-    else:
-        by_day = lambda fn, k: dated.annotate(**{k: fn("date_taken", tzinfo=tz)}).values(k).annotate(**live)
-        month_rows = dated.annotate(m=TruncMonth("date_taken", tzinfo=tz)).values("m").annotate(**live).order_by("m")
-    months = [{"month": r["m"].strftime("%Y-%m"), "photos": r["photos"] or 0, "videos": r["videos"] or 0,
-               "length_s": r["length_s"] or 0} for r in month_rows if r["m"] is not None]
-    cams = (qs.exclude(camera_model__isnull=True).exclude(camera_model="").values("camera_make", "camera_model")
-            .annotate(n=Count("id")).order_by("-n")[:10])
-    top = lambda field: [{"name": r[field], "count": r["n"]} for r in qs.exclude(**{f"{field}__isnull": True})
-                         .exclude(**{field: ""}).values(field).annotate(n=Count("id")).order_by("-n")[:10]]
-    return {
-        "totals": {"total": agg["total"], "photos": agg["total"] - agg["videos"], "videos": agg["videos"],
-                   "video_length_s": agg["length_s"] or 0,
-                   "avg_megapixels": round(agg["mp"], 1) if agg["mp"] else None,
-                   "first": agg["first"], "last": agg["last"]},
-        "periods": periods,
-        "by_hour": by_hour,                                            # 0..23
-        "by_weekday": _by_type(by_day(ExtractIsoWeekDay, "d"), "d", 7),   # Monday first
-        "by_day_of_month": _by_type(by_day(ExtractDay, "d"), "d", 31),    # 1..31
-        "by_month_of_year": _by_type(by_day(ExtractMonth, "d"), "d", 12),  # Jan..Dec
-        "by_month": months,  # every month with photos, oldest first (upload history: months and years)
-        "cameras": [{"make": c["camera_make"], "model": c["camera_model"], "count": c["n"]} for c in cams],
-        "countries": top("location_country"), "cities": top("location_city"),
-    }
-
-
-# Storage breakdown, the classic Storage page's definitions: optimized = size, total = size_total (KB),
-# RAW = photos' total - optimized, originals = videos' total - optimized, duration = sum of video length (s).
-_P, _V = Q(video=False), Q(video=True)
-_BREAKDOWN = dict(photo_count=Count("id", filter=_P), photo_kb=Sum("size", filter=_P), photo_total=Sum("size_total", filter=_P),
-                  video_count=Count("id", filter=_V), video_kb=Sum("size", filter=_V), video_total=Sum("size_total", filter=_V),
-                  video_s=Sum("length", filter=_V))
-
-
-def _breakdown(r):
-    """One aggregated row -> photo/video counts, optimized, RAW/original, duration and totals (all KB / seconds)."""
-    v = {k: r.get(k) or 0 for k in _BREAKDOWN}
-    return {"photo_count": v["photo_count"], "photo_kb": v["photo_kb"], "raw_kb": v["photo_total"] - v["photo_kb"],
-            "video_count": v["video_count"], "video_kb": v["video_kb"], "original_kb": v["video_total"] - v["video_kb"],
-            "video_s": v["video_s"], "count": v["photo_count"] + v["video_count"],
-            "optimized_kb": v["photo_kb"] + v["video_kb"], "total_kb": v["photo_total"] + v["video_total"]}
-
-
-def _add(a, b):
-    return {k: a.get(k, 0) + b[k] for k in b}
-
-
-@router.get("/storage", summary="Storage used: optimized vs total (originals/RAW) by library, year and month, camera and type")
-def storage(request):
-    return photo_cache.cached(request, "storage:v2", lambda: _storage(request))  # :v2 = response shape
-
-
-def _storage(request):
-    from django.db.models import Value
-    from django.db.models.functions import NullIf, TruncMonth
-    qs = library(request.user, request, listing=True)
-    tz, _ = _local_now(request)
-    t = _breakdown(qs.aggregate(**_BREAKDOWN))
-    bucket = lambda count, opt, total, length=0: {"count": count, "optimized_kb": opt, "total_kb": total,
-                                                  "overhead_kb": total - opt, "length_s": length}
-    # By library: every visible library (empty ones too, like the classic page), biggest first.
-    libs = {r["album_id"]: r for r in qs.values("album_id").annotate(**_BREAKDOWN)}
-    subs = Album_Subscriber.objects.filter(user=request.user, visible=True).values_list("album_id", "album__name")
-    by_library = sorted(({"id": aid, "name": name, **_breakdown(libs.get(aid, {}))} for aid, name in subs),
-                        key=lambda r: (-r["total_kb"], r["name"].lower()))
-    # By month in the viewer's time zone (one grouped query); years are sums of their months. No limit.
-    by_month = [{"month": r["m"].strftime("%Y-%m"), **_breakdown(r)} for r in
-                qs.exclude(date_taken__isnull=True).annotate(m=TruncMonth("date_taken", tzinfo=tz)).values("m")
-                .annotate(**_BREAKDOWN).order_by("-m") if r["m"] is not None]
-    years = {}
-    for m in by_month:
-        y = int(m["month"][:4])
-        years[y] = _add(years.get(y, {}), {k: v for k, v in m.items() if k != "month"})
-    by_year = [{"year": y, **years[y]} for y in sorted(years, reverse=True)]
-    undated = _breakdown(qs.filter(date_taken__isnull=True).aggregate(**_BREAKDOWN))
-
-    def group(field, n=12):
-        """Top n by total size; blank and missing values are one "not recorded" row (name None), with its photo/video split."""
-        rows = (qs.annotate(g=NullIf(field, Value(""))).values("g")
-                .annotate(count=Count("id"), videos=Count("id", filter=_V), total=Sum("size_total"), opt=Sum("size"))
-                .order_by(F("total").desc(nulls_last=True))[:n])  # Postgres sorts NULL first
-        return [{"name": r["g"], "count": r["count"], "videos": r["videos"], "total_kb": r["total"] or 0,
-                 "optimized_kb": r["opt"] or 0} for r in rows]
-    largest = list(qs.filter(size_total__gt=0).select_related("album").order_by("-size_total")[:12])
-    return {"all": bucket(t["count"], t["optimized_kb"], t["total_kb"], t["video_s"]),
-            "photo": bucket(t["photo_count"], t["photo_kb"], t["photo_kb"] + t["raw_kb"]),
-            "video": bucket(t["video_count"], t["video_kb"], t["video_kb"] + t["original_kb"], t["video_s"]),
-            "by_library": by_library, "by_year": by_year, "by_month": by_month,
-            "undated": undated if undated["count"] else None,
-            "by_camera": group("camera_model"), "by_type": group("mimetype"),
-            "largest": [{"id": str(p.id), "thumb_url": PhotoOut.resolve_thumb_url(p), "size_kb": p.size_total or 0,
-                         "video": p.video, "date_taken": p.date_taken} for p in largest]}
-
-
-# ---------------------------------------------------------------- Geoguessr and location entry
 
 @router.get("/game/round", response=PhotoOut, summary="Geoguessr: a random geotagged photo from your libraries")
 def game_round(request):
@@ -919,6 +443,7 @@ def photo(request, photo_id: uuid.UUID):
 
 # ---------------------------------------------------------------- hidden photos
 
+
 class HideIn(Schema):
     ids: list[uuid.UUID] = Field(..., max_length=1000)
     hidden: bool = True
@@ -928,13 +453,6 @@ class HiddenModeIn(Schema):
     show: bool
 
 
-class IdsIn(Schema):
-    ids: list[uuid.UUID] = Field(..., min_length=1, max_length=1000)
-
-
-def _editable_library(user):
-    """Photos in libraries the user owns or edits (viewers can't change or delete)."""
-    return Photo.objects.filter(album__users_subscribed__user=user, album__users_subscribed__subscribe_type__in=[0, 1])
 
 
 @router.post("/delete", summary="Delete photos (removes the files; library owners/editors only)")
@@ -949,32 +467,6 @@ def delete_photos(request, payload: IdsIn):
         from django.db import transaction
         transaction.on_commit(photo_cache.schedule_matview_refresh)  # per-day counts and the heat map
     return {"deleted": len(photos)}
-
-
-def _writable_share_album(user, album_id):
-    from .models import ShareAlbum_Subscriber
-    return get_object_or_404(ShareAlbum.objects.filter(
-        Q(owner=user) | Q(id__in=ShareAlbum_Subscriber.objects.filter(user=user, subscribe_type__in=[0, 1]).values("album_id"))),
-        id=album_id)
-
-
-@router.post("/albums/{uuid:album_id}/photos", summary="Add photos you can see to a shared album you own or edit")
-def add_to_album(request, album_id: uuid.UUID, payload: IdsIn):
-    from .models import ShareAlbum_Photo
-    album = _writable_share_album(request.user, album_id)
-    visible = set(library(request.user, request).filter(id__in=payload.ids).values_list("id", flat=True))
-    existing = set(ShareAlbum_Photo.objects.filter(sharealbum=album, photo_id__in=visible).values_list("photo_id", flat=True))
-    new = [pid for pid in payload.ids if pid in visible and pid not in existing]
-    ShareAlbum_Photo.objects.bulk_create([ShareAlbum_Photo(sharealbum=album, photo_id=pid) for pid in new])
-    return {"added": [str(pid) for pid in new]}
-
-
-@router.delete("/albums/{uuid:album_id}/photos", summary="Remove photos from a shared album you own or edit")
-def remove_from_album(request, album_id: uuid.UUID, payload: IdsIn):
-    from .models import ShareAlbum_Photo
-    album = _writable_share_album(request.user, album_id)
-    removed, _ = ShareAlbum_Photo.objects.filter(sharealbum=album, photo_id__in=payload.ids).delete()
-    return {"removed": removed}
 
 
 @router.post("/hide", summary="Hide or unhide photos you imported or that are in a library you own")
@@ -998,3 +490,8 @@ def set_hidden_mode(request, payload: HiddenModeIn):
     if isinstance(getattr(request, "auth", None), ApiKey):
         raise HttpError(403, "Show-hidden mode can only be turned on from a signed-in browser")
     return {"show": hidden_mode.set_show_hidden(request, payload.show)}
+
+
+# Shared albums and browse/stats/storage/superlatives live in their own modules.
+router.add_router("", api_albums.router)
+router.add_router("", api_insights.router)
