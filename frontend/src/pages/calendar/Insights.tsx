@@ -1,7 +1,8 @@
 // Calendar insights (week / month) from /calendar/insights, drawn as plain SVG sized in real pixels
 // (measured), so marks stay crisp: thin columns with rounded data ends, a one-hue heat map,
 // bars in calendar colours for identity. Text always uses text tokens; marks carry the colour.
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
+import { ChartTooltip, PlotColumns as Columns, useSize, type ChartTip } from '../../components/charts'
 import { Icon } from '../../components/Icon'
 import { ErrorBox } from '../../components/ui'
 import { addDays, dayKey, fmtDate, parseDayKey } from '../../lib/dates'
@@ -9,81 +10,11 @@ import { useInsights } from '../../lib/queries'
 import type { Insights as InsightsData } from '../../lib/types'
 import { delta, hours } from './util'
 
-function useSize<T extends HTMLElement>() {
-  const ref = useRef<T>(null)
-  const [size, setSize] = useState({ w: 0, h: 0 })
-  useLayoutEffect(() => {
-    const el = ref.current
-    if (!el) return
-    const ro = new ResizeObserver(([e]) => setSize({ w: Math.floor(e.contentRect.width), h: Math.floor(e.contentRect.height) }))
-    ro.observe(el)
-    return () => ro.disconnect()
-  }, [])
-  return [ref, size] as const
-}
-
-/** Rect with only the data end (top) rounded; anchored square to the baseline. */
-function colPath(x: number, y: number, w: number, h: number, r = 3): string {
-  if (h <= 0) return ''
-  const rr = Math.min(r, w / 2, h)
-  return `M${x},${y + h}V${y + rr}Q${x},${y} ${x + rr},${y}H${x + w - rr}Q${x + w},${y} ${x + w},${y + rr}V${y + h}Z`
-}
 /** Horizontal bar with the right (data) end rounded. */
 function barPath(x: number, y: number, w: number, h: number, r = 3): string {
   if (w <= 0) return ''
   const rr = Math.min(r, h / 2, w)
   return `M${x},${y}H${x + w - rr}Q${x + w},${y} ${x + w},${y + rr}V${y + h - rr}Q${x + w},${y + h} ${x + w - rr},${y + h}H${x}Z`
-}
-
-interface Tip { x: number; y: number; text: string }
-function Tooltip({ tip }: { tip: Tip | null }) {
-  if (!tip) return null
-  return <div className="ins-tip" style={{ left: tip.x, top: tip.y }} role="tooltip">{tip.text}</div>
-}
-
-function Columns({ values, labels, tips, highlight, labelEvery = 1 }: { values: number[]; labels: string[]; tips: string[]; highlight?: number; labelEvery?: number }) {
-  const [ref, { w, h }] = useSize<HTMLDivElement>()
-  const [tip, setTip] = useState<Tip | null>(null)
-  const [hover, setHover] = useState<number | null>(null)
-  const max = Math.max(1, ...values)
-  const n = values.length
-  const slot = n ? w / n : 0
-  const bw = Math.max(2, Math.min(18, slot * (n > 14 ? 0.62 : 0.5)))
-  const plotH = Math.max(0, h - 4)
-  return (
-    <div className="ins-cols-wrap">
-      <div ref={ref} className="ins-cols" onMouseLeave={() => (setTip(null), setHover(null))}>
-        {w > 0 && (
-          <svg width={w} height={h} role="img" aria-label={tips.join('; ')}>
-            <line x1={0} x2={w} y1={plotH + 0.5} y2={plotH + 0.5} className="ins-base" />
-            {values.map((v, i) => {
-              const bh = (v / max) * (plotH - 2)
-              const x = i * slot + (slot - bw) / 2
-              return (
-                <g key={i}>
-                  <path d={colPath(x, plotH - bh, bw, bh)} className={'ins-mark' + (i === highlight ? ' strong' : '') + (hover != null && hover !== i ? ' dim' : '')} />
-                  <rect
-                    x={i * slot}
-                    y={0}
-                    width={slot}
-                    height={h}
-                    fill="transparent"
-                    onMouseEnter={() => (setHover(i), setTip({ x: i * slot + slot / 2, y: Math.max(0, plotH - bh - 6), text: tips[i] }))}
-                  >
-                    <title>{tips[i]}</title>
-                  </rect>
-                </g>
-              )
-            })}
-          </svg>
-        )}
-        <Tooltip tip={tip} />
-      </div>
-      <div className="ins-xlabels" style={{ gridTemplateColumns: `repeat(${n}, 1fr)` }} aria-hidden="true">
-        {labels.map((l, i) => <span key={i}>{i % labelEvery === 0 ? l : ''}</span>)}
-      </div>
-    </div>
-  )
 }
 
 function Bars({ rows }: { rows: { label: string; value: number; colour?: string; tip: string }[] }) {
@@ -117,7 +48,7 @@ const hourFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric' })
 
 function Heat({ heat, labels }: { heat: number[][]; labels: string[] }) {
   const [ref, { w }] = useSize<HTMLDivElement>()
-  const [tip, setTip] = useState<Tip | null>(null)
+  const [tip, setTip] = useState<ChartTip | null>(null)
   const max = Math.max(0.0001, ...heat.flat())
   const gap = 2
   const cw = w ? (w - gap * 23) / 24 : 0
@@ -156,7 +87,7 @@ function Heat({ heat, labels }: { heat: number[][]; labels: string[] }) {
               )}
             </svg>
           )}
-          <Tooltip tip={tip} />
+          <ChartTooltip tip={tip} width={w} />
         </div>
         <div className="ins-heat-hours" aria-hidden="true">
           {[0, 6, 12, 18].map((h) => <span key={h} style={{ left: `${(h / 24) * 100}%` }}>{hourFmt.format(new Date(2000, 0, 1, h))}</span>)}

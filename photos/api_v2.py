@@ -152,7 +152,9 @@ def library(user, request=None, listing=False):
     subs = Album_Subscriber.objects.filter(user=user)
     if listing:
         subs = subs.filter(visible=True)
-    qs = Photo.objects.filter(album_id__in=subs.values("album_id"), file_not_available=False)  # files that are gone
+    # file_not_available is a stale flag from old scripts; those files exist (owner, 2026-11-05), so they
+    # count and show like on the classic pages.
+    qs = Photo.objects.filter(album_id__in=subs.values("album_id"))
     return hidden_mode.visible(qs, request)
 
 
@@ -617,16 +619,32 @@ def _local_now(request):
 
 @router.get("/stats", summary="Library statistics (counts, activity, when you take photos, equipment, places)")
 def stats(request):
-    return photo_cache.cached(request, "stats", lambda: _stats(request))
+    return photo_cache.cached(request, "stats:v2", lambda: _stats(request))  # :v2 = response shape; never serve an old one
+
+
+def _by_type(rows, key, size):
+    """Aggregated (key, photos, videos, length_s) rows -> {"photos": [...], "videos": [...], "length_s": [...]} over 1..size
+    (or 0..size-1 for hours), so every activity chart can switch between all / photos / videos / video duration."""
+    base = 0 if key == "h" else 1
+    out = {"photos": [0] * size, "videos": [0] * size, "length_s": [0] * size}
+    for r in rows:
+        if r[key] is None:
+            continue
+        i = int(r[key]) - base
+        if 0 <= i < size:
+            out["photos"][i] += r["photos"] or 0
+            out["videos"][i] += r["videos"] or 0
+            out["length_s"][i] += r["length_s"] or 0
+    return out
 
 
 def _stats(request):
     from django.db.models import Avg
-    from django.db.models.functions import ExtractHour, ExtractIsoWeekDay, TruncMonth
+    from django.db.models.functions import ExtractDay, ExtractHour, ExtractIsoWeekDay, ExtractMonth, TruncMonth
     qs = library(request.user, request, listing=True)
     tz, now = _local_now(request)
     agg = qs.aggregate(total=Count("id"), videos=Count("id", filter=Q(video=True)), mp=Avg("megapixels", filter=Q(video=False)),
-                       first=Min("date_taken"), last=Max("date_taken"))
+                       length_s=Sum("length", filter=Q(video=True)), first=Min("date_taken"), last=Max("date_taken"))
     periods = {}
     for key, days in (("week", 7), ("month", 30), ("year", 365)):
         cur = qs.filter(date_taken__gte=now - datetime.timedelta(days=days)).count()
@@ -638,64 +656,104 @@ def _stats(request):
                       "previous": qs.filter(date_taken__gte=ytd_start.replace(year=now.year - 1),
                                             date_taken__lt=year_ago).count()}
     dated = qs.exclude(date_taken__isnull=True)
-    hours = dict(dated.annotate(h=ExtractHour("date_taken", tzinfo=tz)).values_list("h").annotate(n=Count("id")))
-    weekdays = dict(dated.annotate(d=ExtractIsoWeekDay("date_taken", tzinfo=tz)).values_list("d").annotate(n=Count("id")))
+    live = dict(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True)),
+                length_s=Sum("length", filter=Q(video=True)))
+    # Hour of day needs the live table (the rollup is per day); in the viewer's time zone.
+    by_hour = _by_type(dated.annotate(h=ExtractHour("date_taken", tzinfo=tz)).values("h").annotate(**live), "h", 24)
     rollup = daily(request)
-    if rollup is not None:
-        months = [{"month": r["m"].strftime("%Y-%m"), "photos": r["photos"], "videos": r["videos"]} for r in
-                  rollup.annotate(m=TruncMonth("day")).values("m").annotate(photos=Sum("photos"), videos=Sum("videos")).order_by("m")]
+    if rollup is not None:  # per-day rollup: day of month, weekday, month of year and months without touching photos
+        summed = dict(photos=Sum("photos"), videos=Sum("videos"), length_s=Sum("length_s"))
+        by_day = lambda fn, k: rollup.annotate(**{k: fn("day")}).values(k).annotate(**summed)
+        month_rows = rollup.annotate(m=TruncMonth("day")).values("m").annotate(**summed).order_by("m")
     else:
-        months = [{"month": r["m"].strftime("%Y-%m"), "photos": r["photos"], "videos": r["videos"]} for r in
-                  dated.annotate(m=TruncMonth("date_taken", tzinfo=tz)).values("m")
-                  .annotate(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True))).order_by("m")]
+        by_day = lambda fn, k: dated.annotate(**{k: fn("date_taken", tzinfo=tz)}).values(k).annotate(**live)
+        month_rows = dated.annotate(m=TruncMonth("date_taken", tzinfo=tz)).values("m").annotate(**live).order_by("m")
+    months = [{"month": r["m"].strftime("%Y-%m"), "photos": r["photos"] or 0, "videos": r["videos"] or 0,
+               "length_s": r["length_s"] or 0} for r in month_rows if r["m"] is not None]
     cams = (qs.exclude(camera_model__isnull=True).exclude(camera_model="").values("camera_make", "camera_model")
             .annotate(n=Count("id")).order_by("-n")[:10])
     top = lambda field: [{"name": r[field], "count": r["n"]} for r in qs.exclude(**{f"{field}__isnull": True})
                          .exclude(**{field: ""}).values(field).annotate(n=Count("id")).order_by("-n")[:10]]
     return {
         "totals": {"total": agg["total"], "photos": agg["total"] - agg["videos"], "videos": agg["videos"],
+                   "video_length_s": agg["length_s"] or 0,
                    "avg_megapixels": round(agg["mp"], 1) if agg["mp"] else None,
                    "first": agg["first"], "last": agg["last"]},
         "periods": periods,
-        "by_hour": [hours.get(h, 0) for h in range(24)],
-        "by_weekday": [weekdays.get(d, 0) for d in range(1, 8)],  # Monday first
-        "by_month": months,
+        "by_hour": by_hour,                                            # 0..23
+        "by_weekday": _by_type(by_day(ExtractIsoWeekDay, "d"), "d", 7),   # Monday first
+        "by_day_of_month": _by_type(by_day(ExtractDay, "d"), "d", 31),    # 1..31
+        "by_month_of_year": _by_type(by_day(ExtractMonth, "d"), "d", 12),  # Jan..Dec
+        "by_month": months,  # every month with photos, oldest first (upload history: months and years)
         "cameras": [{"make": c["camera_make"], "model": c["camera_model"], "count": c["n"]} for c in cams],
         "countries": top("location_country"), "cities": top("location_city"),
     }
 
 
-@router.get("/storage", summary="Storage used: optimized vs total (originals/RAW), by type, year, library and camera")
+# Storage breakdown, the classic Storage page's definitions: optimized = size, total = size_total (KB),
+# RAW = photos' total - optimized, originals = videos' total - optimized, duration = sum of video length (s).
+_P, _V = Q(video=False), Q(video=True)
+_BREAKDOWN = dict(photo_count=Count("id", filter=_P), photo_kb=Sum("size", filter=_P), photo_total=Sum("size_total", filter=_P),
+                  video_count=Count("id", filter=_V), video_kb=Sum("size", filter=_V), video_total=Sum("size_total", filter=_V),
+                  video_s=Sum("length", filter=_V))
+
+
+def _breakdown(r):
+    """One aggregated row -> photo/video counts, optimized, RAW/original, duration and totals (all KB / seconds)."""
+    v = {k: r.get(k) or 0 for k in _BREAKDOWN}
+    return {"photo_count": v["photo_count"], "photo_kb": v["photo_kb"], "raw_kb": v["photo_total"] - v["photo_kb"],
+            "video_count": v["video_count"], "video_kb": v["video_kb"], "original_kb": v["video_total"] - v["video_kb"],
+            "video_s": v["video_s"], "count": v["photo_count"] + v["video_count"],
+            "optimized_kb": v["photo_kb"] + v["video_kb"], "total_kb": v["photo_total"] + v["video_total"]}
+
+
+def _add(a, b):
+    return {k: a.get(k, 0) + b[k] for k in b}
+
+
+@router.get("/storage", summary="Storage used: optimized vs total (originals/RAW) by library, year and month, camera and type")
 def storage(request):
-    return photo_cache.cached(request, "storage", lambda: _storage(request))
+    return photo_cache.cached(request, "storage:v2", lambda: _storage(request))  # :v2 = response shape
 
 
 def _storage(request):
-    from django.db.models.functions import ExtractYear
+    from django.db.models import Value
+    from django.db.models.functions import NullIf, TruncMonth
     qs = library(request.user, request, listing=True)
-    part = lambda q: q.aggregate(count=Count("id"), optimized_kb=Sum("size"), total_kb=Sum("size_total"), length_s=Sum("length"))
-    def block(q):
-        a = part(q)
-        a = {k: (v or 0) for k, v in a.items()}
-        a["overhead_kb"] = a["total_kb"] - a["optimized_kb"]
-        return a
-    group = lambda field, n=12: [{"name": r[field] if r[field] is not None else "Unknown", "count": r["count"],
-                                  "total_kb": r["total"] or 0, "optimized_kb": r["opt"] or 0}
-                                 for r in qs.values(field).annotate(count=Count("id"), total=Sum("size_total"), opt=Sum("size"))
-                                 .order_by(F("total").desc(nulls_last=True))[:n]]  # Postgres sorts NULL first
-    rollup = daily(request)
-    if rollup is not None:
-        years = [{"year": r["y"], "count": r["count"] or 0, "total_kb": r["total"] or 0} for r in
-                 rollup.annotate(y=ExtractYear("day")).values("y")
-                 .annotate(count=Sum("photos") + Sum("videos"), total=Sum("size_total_kb")).order_by("y")]
-    else:
-        years = [{"year": r["y"], "count": r["count"], "total_kb": r["total"] or 0} for r in
-                 qs.exclude(date_taken__isnull=True).annotate(y=ExtractYear("date_taken")).values("y")
-                 .annotate(count=Count("id"), total=Sum("size_total")).order_by("y")]
+    tz, _ = _local_now(request)
+    t = _breakdown(qs.aggregate(**_BREAKDOWN))
+    bucket = lambda count, opt, total, length=0: {"count": count, "optimized_kb": opt, "total_kb": total,
+                                                  "overhead_kb": total - opt, "length_s": length}
+    # By library: every visible library (empty ones too, like the classic page), biggest first.
+    libs = {r["album_id"]: r for r in qs.values("album_id").annotate(**_BREAKDOWN)}
+    subs = Album_Subscriber.objects.filter(user=request.user, visible=True).values_list("album_id", "album__name")
+    by_library = sorted(({"id": aid, "name": name, **_breakdown(libs.get(aid, {}))} for aid, name in subs),
+                        key=lambda r: (-r["total_kb"], r["name"].lower()))
+    # By month in the viewer's time zone (one grouped query); years are sums of their months. No limit.
+    by_month = [{"month": r["m"].strftime("%Y-%m"), **_breakdown(r)} for r in
+                qs.exclude(date_taken__isnull=True).annotate(m=TruncMonth("date_taken", tzinfo=tz)).values("m")
+                .annotate(**_BREAKDOWN).order_by("-m") if r["m"] is not None]
+    years = {}
+    for m in by_month:
+        y = int(m["month"][:4])
+        years[y] = _add(years.get(y, {}), {k: v for k, v in m.items() if k != "month"})
+    by_year = [{"year": y, **years[y]} for y in sorted(years, reverse=True)]
+    undated = _breakdown(qs.filter(date_taken__isnull=True).aggregate(**_BREAKDOWN))
+
+    def group(field, n=12):
+        """Top n by total size; blank and missing values are one "not recorded" row (name None), with its photo/video split."""
+        rows = (qs.annotate(g=NullIf(field, Value(""))).values("g")
+                .annotate(count=Count("id"), videos=Count("id", filter=_V), total=Sum("size_total"), opt=Sum("size"))
+                .order_by(F("total").desc(nulls_last=True))[:n])  # Postgres sorts NULL first
+        return [{"name": r["g"], "count": r["count"], "videos": r["videos"], "total_kb": r["total"] or 0,
+                 "optimized_kb": r["opt"] or 0} for r in rows]
     largest = list(qs.filter(size_total__gt=0).select_related("album").order_by("-size_total")[:12])
-    return {"all": block(qs), "photo": block(qs.filter(video=False)), "video": block(qs.filter(video=True)),
-            "by_year": years, "by_library": group("album__name"), "by_camera": group("camera_model"),
-            "by_type": group("mimetype"),
+    return {"all": bucket(t["count"], t["optimized_kb"], t["total_kb"], t["video_s"]),
+            "photo": bucket(t["photo_count"], t["photo_kb"], t["photo_kb"] + t["raw_kb"]),
+            "video": bucket(t["video_count"], t["video_kb"], t["video_kb"] + t["original_kb"], t["video_s"]),
+            "by_library": by_library, "by_year": by_year, "by_month": by_month,
+            "undated": undated if undated["count"] else None,
+            "by_camera": group("camera_model"), "by_type": group("mimetype"),
             "largest": [{"id": str(p.id), "thumb_url": PhotoOut.resolve_thumb_url(p), "size_kb": p.size_total or 0,
                          "video": p.video, "date_taken": p.date_taken} for p in largest]}
 

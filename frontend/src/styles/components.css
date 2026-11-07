@@ -74,3 +74,24 @@
 .task-row.coloured { box-shadow: inset 3px 0 0 var(--task-colour); }
 .ring { flex: none; }
 .task-desc-icon { display: inline; vertical-align: -1px; margin-left: 0.375rem; color: var(--app-muted); }
+
+/* ---------- Measured column chart (PlotColumns) and stacked share bar (StackBar) */
+.chart-mark { fill: var(--app-accent); transition: opacity 0.12s; }
+.chart-mark.dim { opacity: 0.45; }
+.chart-mark.strong { fill: var(--app-accent-hover); }
+.chart-base { stroke: var(--app-border); stroke-width: 1; }
+.chart-cols-wrap { display: grid; gap: 0.25rem; min-width: 0; }
+.chart-cols { position: relative; min-width: 0; border-radius: 2px; }
+.chart-cols:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 3px; }
+.chart-cols svg { display: block; overflow: visible; }
+.chart-xlabels { position: relative; height: 1rem; overflow: hidden; font-size: 0.6875rem; color: var(--app-muted); font-variant-numeric: tabular-nums; }
+.chart-xlabels span { position: absolute; top: 0; white-space: nowrap; }
+.chart-tip {
+  position: absolute; transform: translate(-50%, -100%); margin-top: -4px; pointer-events: none; white-space: nowrap; z-index: 5;
+  background: var(--app-fg); color: var(--app-bg); font-size: var(--fs-xs); padding: 0.25rem 0.5rem; border-radius: 5px; box-shadow: 0 4px 12px rgba(0,0,0,.18);
+}
+.chart-tip.start { transform: translate(-0.75rem, -100%); }
+.chart-tip.end { transform: translate(calc(-100% + 0.75rem), -100%); }
+.stackbar { display: flex; height: 0.5rem; min-width: 6rem; border-radius: 4px; overflow: hidden; background: var(--app-surface-2); }
+.stackbar > span { display: block; height: 100%; min-width: 1px; }
+.stackbar > span + span { box-shadow: inset 2px 0 0 var(--app-surface); }

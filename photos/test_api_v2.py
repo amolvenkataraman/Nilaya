@@ -69,9 +69,40 @@ class PhotosApiTests(TestCase):
         self.client.force_login(self.user)
         s = self.client.get("/api/v2/photos/stats").json()
         self.assertEqual((s["totals"]["photos"], s["totals"]["videos"]), (2, 1))
-        self.assertEqual(sum(s["by_hour"]), 3)
+        self.assertEqual(sum(s["by_hour"]["photos"]) + sum(s["by_hour"]["videos"]), 3)
+        self.assertEqual(sum(s["by_day_of_month"]["videos"]), 1)
+        self.assertEqual(sum(s["by_month_of_year"]["length_s"]), 30)
         st = self.client.get("/api/v2/photos/storage").json()
         self.assertEqual((st["video"]["count"], st["video"]["total_kb"], st["video"]["length_s"]), (1, 1500, 30))
+
+    def test_storage_tables_match_the_classic_breakdown_for_every_year(self):
+        from .views import get_storage_breakdown
+        album = self.photos[0].album
+        other = Album.objects.create(name="Old scans", owner=self.user, location="/tmp/scans/")
+        Album_Subscriber.objects.create(album=other, user=self.user, subscribe_type=0)
+        for i, year in enumerate(range(2001, 2026)):  # 25 years, more than any top-N
+            when = datetime.datetime(year, 6, 15, 12, tzinfo=datetime.timezone.utc)
+            Photo.objects.create(owner=self.user, album=other, filepath=f"s{i}.jpg", orientation="1", date_taken=when,
+                                 size=100 + i, size_total=300 + i)
+            Photo.objects.create(owner=self.user, album=other, filepath=f"v{i}.mp4", orientation="1", date_taken=when,
+                                 video=True, size=1000, size_total=4000, length=3600 * 5)
+        self.client.force_login(self.user)
+        st = self.client.get("/api/v2/photos/storage").json()
+        self.assertEqual([y["year"] for y in st["by_year"]][-25:], list(range(2025, 2000, -1)))
+        y2003 = next(y for y in st["by_year"] if y["year"] == 2003)
+        self.assertEqual((y2003["photo_kb"], y2003["raw_kb"], y2003["video_count"], y2003["original_kb"], y2003["video_s"],
+                          y2003["total_kb"]), (102, 200, 1, 3000, 18000, 4302))
+        self.assertEqual(sum(m["count"] for m in st["by_month"]), Photo.objects.filter(album__in=[album, other]).count())
+        for lib in (album, other):
+            bd = get_storage_breakdown(Photo.objects.filter(album=lib))
+            row = next(r for r in st["by_library"] if r["id"] == lib.id)
+            self.assertEqual((row["photo_count"], row["photo_kb"], row["raw_kb"], row["video_count"], row["video_s"],
+                              row["video_kb"], row["original_kb"], row["total_kb"]),
+                             (bd["photo"]["cnt"], bd["photo"]["opt"], bd["photo"]["overhead"], bd["video"]["cnt"],
+                              bd["video"]["length"], bd["video"]["opt"], bd["video"]["overhead"], bd["all"]["tot"]))
+        bd = get_storage_breakdown(Photo.objects.filter(album__in=[album, other]))
+        self.assertEqual((st["all"]["total_kb"], st["photo"]["overhead_kb"], st["video"]["overhead_kb"]),
+                         (bd["all"]["tot"], bd["photo"]["overhead"], bd["video"]["overhead"]))
 
     def test_stats_on_feb_29(self):
         leap_day = datetime.datetime(2024, 2, 29, 12, tzinfo=datetime.timezone.utc)
