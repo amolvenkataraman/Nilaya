@@ -23,7 +23,9 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 | New URLs `/api/v2/`, `/tasks/`, `/habits/`, `/contacts/`, `/settings/api-keys/`, `/feeds/…ics`, `/analytics/`, `/app/` | None if nginx proxies everything to Daphne (it does). API keys use the `Authorization` header, which nginx passes through by default |
 | New React interface at `/app/` | Built on your computer and copied with rsync (step 7). Until then `/app/` shows "isn't built on this server yet" |
 | Email delivery for notifications (optional) | Set `EMAIL_HOST`/`EMAIL_HOST_USER` in settings and put the password in `Comptech/email_password.txt` |
-| `SITE_URL` (links in notifications and feeds) | Already `https://app.example.com`; change it if your domain differs |
+| **Site settings moved out of the code**: `SITE_URL` (links in notifications and feeds), the hostnames/IPs the site answers to (`CSRF_TRUSTED_ORIGINS`, which also sets `ALLOWED_HOSTS`), `INTERNAL_IPS`, the email From address and the name on the upload page now come from an untracked `Comptech/site.json`. Without it the code falls back to `example.com` | **Create `Comptech/site.json` before starting the app (step 4)**, or every page answers **400 Bad Request**. `python manage.py check` warns (`mainsite.W001`) while it's missing |
+| **Daphne listens on `127.0.0.1:8000`** (was `0.0.0.0:8000`), so Django is reachable only through nginx | None if you always go through nginx. If you open `http://<server>:8000` directly from the LAN, see step 9 |
+| The classic Geoguessr and location-entry pages are gone; `/photos/geoguessr/` and `/photos/geoguessr_ent/` redirect to the new interface (`/app/photos/geoguessr`, `/app/photos/locate`) | None |
 
 ### Behaviour changes users will notice
 - **Deleting photos** (and deleting originals) and **setting photo locations** in the location-entry tool now need owner or editor access to the library; viewers could do both before.
@@ -99,6 +101,31 @@ Django is pinned to `>=5.1,<6` (the connection pool needs 5.1+; 6.0 won't start)
 psql -h 127.0.0.1 -U postgres -c "ALTER SYSTEM SET jit = off;" -c "SELECT pg_reload_conf();"
 ```
 
+**Site settings (required):** create `Comptech/site.json` (same folder as `secret.txt`, untracked) with your real values. To keep production exactly as it was, copy them from the old `Comptech/settings.py`:
+```bash
+git show "$(cat ~/comptech-previous-commit)":Comptech/settings.py | grep -E "SITE_URL|CSRF_TRUSTED_ORIGINS|INTERNAL_IPS|DEFAULT_FROM_EMAIL|PHOTOS_UPLOAD_RECIPIENT_NAME"
+```
+```json
+{
+  "site_url": "https://app.example.com",
+  "csrf_trusted_origins": ["https://app.example.com", "https://lab.example.com",
+                           "http://app.home.lan", "https://app.home.lan",
+                           "http://192.168.50.10", "https://192.168.50.10"],
+  "internal_ips": ["127.0.0.1", "192.168.50.10"],
+  "default_from_email": "AVNet Superapp <noreply@example.com>",
+  "upload_recipient_name": "Your Name",
+  "preferred_library_keyword": "yourname"
+}
+```
+- `csrf_trusted_origins`: every address people open the site with, as `scheme://host` (no port, no path). `ALLOWED_HOSTS` is built from these plus `localhost` and `127.0.0.1`; any other Host gets 400.
+- `preferred_library_keyword`: the duplicate clean-up in `photos/importables.py` prefers copies in libraries whose name contains it (it was your username, hard-coded). Leave it out to turn that preference off.
+- Every key is optional; a missing key uses the `example.com` default. A JSON syntax error stops the app at start-up with the file name, instead of running with the wrong hosts.
+```bash
+chmod 600 Comptech/site.json
+python manage.py check                # must not show mainsite.W001
+python -c "import django,os;os.environ['DJANGO_SETTINGS_MODULE']='Comptech.settings';django.setup();from django.conf import settings as s;print(s.SITE_URL, s.ALLOWED_HOSTS)"
+```
+
 **Location-entry spots (optional):** your one-click save buttons and map focus buttons now live in an untracked file, `Comptech/photos_locate.json` (same folder as `secret.txt`), not in the code:
 ```json
 {"presets": [{"label": "Home", "lat": 0.0, "lng": 0.0}],
@@ -132,7 +159,7 @@ python manage.py fix_orientation              # fixes sideways photo/video thumb
 ```
 
 ### 8. nginx
-Copy the `gzip …`, `listen 443 ssl http2;` and the three `location /static/…` blocks from the repo's `nginx.conf` into your live config (keep your real `secure_link_secret`), then:
+The repo's `nginx.conf` is a template with `example.com` placeholders (see its header). Copy the `gzip …`, `listen 443 ssl http2;` and the three `location /static/…` blocks from it into your live config (keep your real `server_name`, certificate paths and `secure_link_secret`), then:
 ```bash
 sudo nginx -t && sudo systemctl reload nginx
 ```
@@ -141,14 +168,15 @@ sudo nginx -t && sudo systemctl reload nginx
 ```bash
 tmux kill-session -t Comptech
 /opt/Comptech/Comptech.sh
-tmux attach -t Comptech               # window 0: "Listening on TCP address 0.0.0.0:8000"; windows 2 and 3: Celery up
+tmux attach -t Comptech               # window 0: "Listening on TCP address 127.0.0.1:8000"; windows 2 and 3: Celery up
 ```
+Daphne now listens only on `127.0.0.1` (nginx's `proxy_pass http://127.0.0.1:8000` is unchanged). If you, or anything on the LAN, used `http://<server>:8000` directly, either switch to the nginx address, or keep the old behaviour by changing window 0's command in `Comptech.sh` from `make` to `make DAPHNE_BIND=0.0.0.0`.
 
 ### 10. Check it (and note the optional hardening below)
 - Sign in, then open Home, Calendar, Tasks, Habits, Contacts, Photos, Places and Notifications. Toggle dark mode in the user menu.
 - Notifications → add a channel (e.g. ntfy) → **Send test**.
 - Settings → API keys: create a key with Tasks read access, then
-  `curl -H "Authorization: Bearer <key>" https://app.example.com/api/v2/tasks/overview` should return JSON; revoke the key afterwards.
+  `curl -H "Authorization: Bearer <key>" https://<your-site>/api/v2/tasks/overview` should return JSON; revoke the key afterwards.
 - Photos upload page works again (it was broken by a script clash).
 - Within a minute, Celery beat's log should show the reminder tasks running; within 30 minutes, `autosync_calendars`.
 - A synced calendar → settings → Sync → **Sync now** shows "Synced" (or the feed's error).
@@ -161,6 +189,26 @@ SESSION_COOKIE_SECURE = True
 CSRF_COOKIE_SECURE = True
 SECURE_HSTS_SECONDS = 31536000   # only once you're sure HTTPS works everywhere; browsers remember it
 ```
+
+## Recommended hardening: a dedicated database role
+The app connects as `postgres`, a superuser, so a bug in the app could do anything to every database on the server. A role that owns only the `Comptech` database is enough for the app, including migrations and the materialized-view refreshes:
+```bash
+psql -h 127.0.0.1 -U postgres <<'SQL'
+CREATE ROLE comptech LOGIN PASSWORD 'choose-a-long-random-password';
+ALTER DATABASE "Comptech" OWNER TO comptech;
+\c Comptech
+ALTER SCHEMA public OWNER TO comptech;
+-- Hand over the tables (their sequences and indexes follow), views and materialized views.
+DO $$DECLARE r record; BEGIN
+  FOR r IN SELECT format('ALTER %s public.%I OWNER TO comptech',
+                         CASE c.relkind WHEN 'v' THEN 'VIEW' WHEN 'm' THEN 'MATERIALIZED VIEW' ELSE 'TABLE' END, c.relname) AS q
+           FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+           WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p', 'v', 'm')
+  LOOP EXECUTE r.q; END LOOP;
+END$$;
+SQL
+```
+Then put that password in `Comptech/db_password.txt`, change `'USER': 'postgres'` to `'comptech'` in `DATABASES` (`Comptech/settings.py`), restart, and keep using `postgres` only for backups and admin. Do it in a quiet window and test the rollback steps first; nothing in this upgrade depends on it.
 
 ## Updating only the new interface later
 Build on your computer (`frontend/build.sh`), then `rsync -av --delete static_files/static/app/ server:/opt/Comptech/static_files/static/app/` and `make cs` on the server. No restart needed.

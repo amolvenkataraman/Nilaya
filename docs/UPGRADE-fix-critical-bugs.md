@@ -98,11 +98,10 @@ This logs everyone out once. **Do not change `salt.txt`.** It must match
 `secure_link_secret` in nginx, or every photo/thumbnail link breaks.
 
 ### 5. Check your hostnames
-Open `Comptech/settings.py` and find `CSRF_TRUSTED_ORIGINS`. Every hostname or IP
-you open the site with must be in it (scheme + host, no port, e.g.
-`'http://192.168.50.11'`). Anything else now gets **400 Bad Request**.
-Currently allowed: `192.168.50.11`, `app.home.lan`, `app.example.com`,
-`lab.example.com`, `localhost`, `127.0.0.1`.
+Find `CSRF_TRUSTED_ORIGINS` (in `Comptech/settings.py` at this version; newer code reads it from
+`Comptech/site.json`, see `UPGRADE-phase-1.md`). Every hostname or IP you open the site with must be
+in it (scheme + host, no port, e.g. `'http://192.168.50.10'`). Anything else now gets
+**400 Bad Request**. `localhost` and `127.0.0.1` are always allowed.
 
 ### 6. Download the front-end libraries, then collect static files
 ```bash
@@ -169,7 +168,8 @@ Optional clean-up: the chat app's old tables can be dropped
 (`psql ... -c '\dt chat_*'` to see them; `DROP TABLE` them only if you're sure).
 Optional hardening: in `Makefile`, change `daphne -b 0.0.0.0` to `-b 127.0.0.1`
 so Django is only reachable through nginx (skip this if you use
-`http://<server>:8000` directly on the LAN).
+`http://<server>:8000` directly on the LAN). Newer code does this by default
+(`DAPHNE_BIND`, see `UPGRADE-phase-1.md`).
 
 ## If something goes wrong: roll back
 ```bash
