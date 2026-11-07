@@ -26,9 +26,12 @@ from photos.models import Album, Album_Subscriber, Photo, ShareAlbum, ShareAlbum
 from scheduler.models import Calendar, Event, Invite, Subscriber, Todo
 from users.models import ComptechUser, UserGroup
 
+# Any folders of JPEGs/videos. Defaults live in the gitignored localdev/data/sources/ (a symlink to
+# your own folder works); override with LOCALDEV_PHONE_PHOTOS / LOCALDEV_CAMERA_PHOTOS.
+_SOURCES = Path(__file__).resolve().parents[3] / "localdev" / "data" / "sources"
 PHOTO_SOURCES = {
-    "Phone": Path.home() / "Desktop/26Projects/Compress/3",
-    "Camera": Path.home() / "Desktop/26Projects/Compress/7",
+    "Phone": Path(os.environ.get("LOCALDEV_PHONE_PHOTOS", _SOURCES / "Phone")),
+    "Camera": Path(os.environ.get("LOCALDEV_CAMERA_PHOTOS", _SOURCES / "Camera")),
 }
 PASSWORD = "localdev"
 TZ = ZoneInfo("America/Toronto")

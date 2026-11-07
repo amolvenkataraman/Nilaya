@@ -4,9 +4,9 @@
 
 **A self-hosted Google Workspace for one family: calendar, tasks, habits, contacts, photos, places and notifications on one server, with one typed API.**
 
-<!-- Badges: placeholders until CI and a licence exist -->
+<!-- Badges: CI is a placeholder until a workflow exists -->
 ![CI](https://img.shields.io/badge/CI-TBD-lightgrey)
-![Licence](https://img.shields.io/badge/licence-TBD-lightgrey)
+[![Licence: AGPL v3](https://img.shields.io/badge/licence-AGPL--3.0-blue)](LICENSE)
 ![Python](https://img.shields.io/badge/Django-5.1-0c4b33)
 ![React](https://img.shields.io/badge/React-19-149eca)
 
@@ -248,8 +248,13 @@ AI coding tools (assistants, not contributors):
 
 ## Contributing
 
-Outside contributions are welcome, for example a mobile app or new photo ingest methods. For anything big, open an issue first so we can agree on the approach. Before a PR, run the backend tests and the frontend build (see [Try it locally](#try-it-locally)), and keep to the ground rules under [Self-hosting](#self-hosting) and the design notes in [Is it for you?](#is-it-for-you-read-this-first).
+Outside contributions are welcome, and a PR can be quite literally anything: a bug fix, a mobile app, a new photo ingest method, or a whole new app. What matters is that it follows the [build philosophy](https://amolven.com/build-philosophy) and the rules of this repo: the ground rules under [Self-hosting](#self-hosting) and the design notes in [Is it for you?](#is-it-for-you-read-this-first).
+
+- **AI-written code is fine** as long as a human has read, understood and tested every line before opening the PR. That's the same standard this repo holds itself to (see [Credits](#credits)).
+- **For anything big,** open an issue first so we can agree on the approach.
+- **Before a PR,** run the backend tests and the frontend build (see [Try it locally](#try-it-locally)).
+- **By contributing,** you agree that your work is released under the same licence (AGPL-3.0).
 
 ## Licence
 
-TBD.
+[GNU Affero General Public License v3.0 or later](LICENSE). You can use, change and self-host it freely. If you distribute it, or run a modified version as a service for other people, you must publish your source code under the same licence, so every version stays free and open source.

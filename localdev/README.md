@@ -6,12 +6,14 @@ here is used on the server.
 
 ```bash
 localdev/setup.sh            # venv (.venv), secrets, SQLite DB, dummy users/calendars/todos/places
-localdev/setup.sh --photos   # ... plus photos from ~/Desktop/26Projects/Compress/{3,7}
+localdev/setup.sh --photos   # ... plus photos from localdev/data/sources/{Phone,Camera}
 frontend/build.sh            # builds the app into static_files/static/app/ (Node 20.19+)
 localdev/run.sh              # http://127.0.0.1:8000   (login: amol / localdev; also alex, sam)
 .venv/bin/python localdev/smoke.py   # signs in, checks every route, redirect, public page and signed file URL
 .venv/bin/python localdev/screens.py /calendar /login   # screenshots, light + dark, desktop + phone
 ```
+
+For `--photos`, put (or symlink) any folders of photos and videos at `localdev/data/sources/Phone` and `localdev/data/sources/Camera`, or point `LOCALDEV_PHONE_PHOTOS` / `LOCALDEV_CAMERA_PHOTOS` at them. They are hardlinked, never copied or modified.
 
 Reseed from scratch: `DJANGO_SETTINGS_MODULE=Comptech.settings_local .venv/bin/python manage.py seed_local --fresh [--photos] [--limit 100]`
 

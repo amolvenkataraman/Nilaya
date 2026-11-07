@@ -2,7 +2,7 @@
 # One-time local test setup: venv, secrets, SQLite DB, dummy data.
 # Everything it creates lives in .venv/ and localdev/data/ (both gitignored).
 #   localdev/setup.sh            # venv + DB + users/calendars/todos/places
-#   localdev/setup.sh --photos   # ... plus photos from ~/Desktop/26Projects/Compress/{3,7} (hardlinked)
+#   localdev/setup.sh --photos   # ... plus photos from localdev/data/sources/{Phone,Camera} (hardlinked)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 DATA=localdev/data

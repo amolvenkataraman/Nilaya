@@ -190,7 +190,7 @@ June 2021 is when Comptech started acting like a real project:
 - **2021-06-06, `0d5a0c1`**, **the first merged pull request**: "Added Google Calendar sync capability" (#1, branch `Google_Calendar`). It was reviewed on my own **Gitea** server, which also hosted the clone URL in the README.
 - **2021-06-06, `2bdbf0e`**, import/export in the admin (`django-import-export`).
 - **2021-06-12, `cf051bc`**, the first `requirements.txt`.
-- **2021-06-18, `d1e5cff`**, the only commit in the whole history by another human: a contributor "Fixed typo in README".
+- **2021-06-18, `d1e5cff`**, the only commit in the whole history by another human: my brother Bala, "Fixed typo in README".
 - **2021-06-20**, "Removed SSL Certificates" from the repo (`a2fe3e6`) and "Upgraded security" (`701d86d`). It was a good instinct, even if secrets would keep turning up in the code until 2026.
 - **2021-07-09, `575f547`**, PR #2, `Upgrade_Calendar`.
 - **2021-07-10, `6153512`**, "UWU".
@@ -310,7 +310,7 @@ Then nine months of quiet, from May 2025 to February 2026.
 
 ### April: Claude arrives
 
-- **2026-04-06, `75c0874`** (PR #1) and **`d04943d`** (PR #2), both by Claude. Map searches now go through a server-side **Nominatim proxy** with a proper User-Agent, tile layers carry OpenStreetMap attribution, and a referrer-policy change fixed blocked tiles (403s). These are the first commits by an AI author, and the first not written by me since the 2021 README typo fix.
+- **2026-04-06, `75c0874`** (PR #1) and **`d04943d`** (PR #2), both by Claude. Map searches now go through a server-side **Nominatim proxy** with a proper User-Agent, tile layers carry OpenStreetMap attribution, and a referrer-policy change fixed blocked tiles (403s). These are the first commits by an AI author, and the first not written by me since my brother's 2021 README typo fix.
 - **2026-04-19, `e4cd403`** (PR #3), Claude writes the `docs/` folder: data models and ETL pipelines for Calendar and Photos (1,104 lines). It was the first real technical documentation in five years.
 
 ### May: the photo engine
@@ -725,7 +725,7 @@ The most-touched files over the whole history: `Comptech/settings.py` (53 commit
 
 - **Busiest weekday:** Wednesday, with 62 commits, thanks largely to 4 November 2026. Saturday is the quietest (11).
 - **Busiest hour:** 22:00 to 23:00 (36 commits). This project has always been a late-night one.
-- **Authors:** me (188 commits, including one as "Amol Venktaraman", a typo of my own name), Claude (12 commits on GitHub PRs in 2026), and one other contributor (1 README typo fix, 2021).
+- **Authors:** me (188 commits, including one as "Amol Venktaraman", a typo of my own name), Claude (12 commits on GitHub PRs in 2026), and my brother Bala (1 README typo fix, 2021).
 - **Pull requests:** two on my self-hosted Gitea in 2021 (#1 Google Calendar sync, #2 Upgrade_Calendar), then ten on GitHub in 2026 (#1 to #10; #8, the rewrite brief, is still open).
 - **Longest silences:** 303 days (2022-05-01 → 2023-02-28, right after the "Program of Theseus"), 271 days (2025-05-09 → 2026-02-04), 251 days (2023-07-21 → 2024-03-28) and 247 days (2024-05-31 → 2025-02-02). Only the last was involuntary: it's the gap where the lost 2024 work should be.
 
