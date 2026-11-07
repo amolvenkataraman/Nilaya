@@ -101,8 +101,8 @@ psql -h 127.0.0.1 -U postgres -c "ALTER SYSTEM SET jit = off;" -c "SELECT pg_rel
 
 **Location-entry spots (optional):** your one-click save buttons and map focus buttons now live in an untracked file, `Comptech/photos_locate.json` (same folder as `secret.txt`), not in the code:
 ```json
-{"presets": [{"label": "CC", "lat": 43.6425662, "lng": -79.3870568}],
- "focus":   [{"label": "TOR", "lat": 43.6425662, "lng": -79.3870568, "zoom": 15}]}
+{"presets": [{"label": "Home", "lat": 0.0, "lng": 0.0}],
+ "focus":   [{"label": "City", "lat": 0.0, "lng": 0.0, "zoom": 15}]}
 ```
 
 ### 5. Front-end libraries
