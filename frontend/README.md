@@ -1,7 +1,7 @@
-# AVNet Superapp: new interface
+# AVNet Superapp: the web app
 
-A React single-page app served at `/app/...`, built only on the typed V2 JSON API (`/api/v2/`).
-The classic Django-template UI stays as it is; each app's launcher has a "Classic view" link.
+The only interface: a React single-page app served at `/` (every page URL), built only on the typed V2
+JSON API (`/api/v2/`). Django serves just the API, admin, ICS feeds and files.
 Stack: React 19, React Router 7, TanStack Query 5, TypeScript, Vite 7 (Leaflet for Places). No UI kit,
 no chart library, no CDN at runtime: everything is bundled.
 
@@ -9,19 +9,26 @@ no chart library, no CDN at runtime: everything is bundled.
 
 ```
 src/
-  main.tsx               routes (basename /app), React Query client
+  main.tsx               routes (public pages; the signed-in apps inside <Shell>), React Query client
   lib/                   api client (CSRF, 401 -> login), types, query hooks, dates, URL state, layout maths
   components/            AppShell (per-app chrome), command palette, bell, menus/dialogs, task row, charts
   pages/<app>/           one folder per app: dashboard, tasks, calendar, photos, places, habits, notifications, settings
-  styles/                base tokens + shared styles; colours come from ../static_files/static/css/theme.css
+  pages/public/          pages anyone may open: sign-in, request access, upload portal, public calendar,
+                         countdown, shared album (PublicFrame chrome, no signed-in requests)
+  styles/                base tokens (theme.css: colours, radii, fonts) + shared styles
+public/                  theme.js (pre-paint theme) and favicon.ico, copied next to the bundles
 ```
 
 Every app renders `<AppShell app="…" topbar={…} sidebar={…}>`: a compact top bar with the app's own
 controls, an optional collapsible sidebar (a slide-over drawer on phones), and the global items
 (search / Ctrl-K palette, notifications, theme, app launcher, account).
 
-Theme: per device, `localStorage["theme"]` = `light` | `dark` (absent = system), the same key and script
-as the classic UI (`static_files/static/js/theme.js` is copied into the build and runs before first paint).
+Theme: per device, `localStorage["theme"]` = `light` | `dark` (absent = system); `public/theme.js` runs
+before first paint, `src/lib/theme.ts` does the same in the app.
+
+Routes: the server (`Comptech/spa.py`) writes `<meta name="avn-session" content="1|0">` into `index.html`;
+signed out, only the public routes exist (anything else goes to `/login?next=…`), so a signed-out visitor
+never triggers a signed-in API request.
 
 ## Develop
 
@@ -30,15 +37,15 @@ Needs Node 20.19+ (22 recommended) and the Django dev server on http://127.0.0.1
 ```
 cd frontend
 npm ci
-npm run dev            # http://127.0.0.1:5173/app/  (VITE_PORT=5174 to change the port)
+npm run dev            # http://127.0.0.1:5173/  (VITE_PORT=5174 to change the port)
 npm test               # vitest: pure logic (API client, dates, URL state, photo rows, quick-add preview)
 npm run typecheck
 ```
 
-The Vite dev server proxies `/api`, `/accounts`, `/media`, `/private`, `/photo_cdn` and `/static/*`
-(except `/static/app/`) to Django (`DJANGO_URL` overrides the target). Cookies pass through, and the
-proxy rewrites `Origin`/`Referer` so Django's CSRF check accepts POST/PATCH/DELETE. Sign in through the
-proxy at http://127.0.0.1:5173/accounts/login/ and you land on the app.
+The Vite dev server proxies `/api`, `/admin`, `/feeds`, `/media`, `/private` and `/photo_cdn` to Django
+(`DJANGO_URL` overrides the target) and answers every other page URL with the app. Cookies pass through,
+and the proxy rewrites `Origin`/`Referer` so Django's CSRF check accepts POST/PATCH/DELETE. The dev
+server has no session tag, so it assumes you're signed in: sign in at http://127.0.0.1:5173/login first.
 
 ## Build
 
@@ -48,7 +55,8 @@ frontend/build.sh      # nvm use 22 if available, npm ci, tests, typecheck + vit
 
 Output goes to `static_files/static/app/` (gitignored). It is self-contained under `/static/app/`:
 hashed JS/CSS in `assets/`, plus `index.html`, `theme.js` and `favicon.ico`. `Comptech/spa.py` serves
-`index.html` for any `/app/...` URL (login required) and returns 503 if the build is missing.
+`index.html` for every page URL (signed-out visitors only on public routes) and returns 503 if the build
+is missing.
 Each JS/CSS/SVG/HTML file also gets a `.gz` copy (gzip -9) for nginx's `gzip_static on`, so nginx sends
 the precompressed file instead of compressing on every request (a cold Photos load goes from ~744 KB to ~227 KB).
 
@@ -68,8 +76,10 @@ after a deploy reloads itself once.
 
 ## Security notes
 
-- Session-cookie auth; unsafe requests send `X-CSRFToken` from the `csrftoken` cookie. A 401 redirects
-  to `/accounts/login/?next=<current path>`.
+- Session-cookie auth (signed in through `POST /api/v2/auth/login`); unsafe requests send `X-CSRFToken`
+  from the `csrftoken` cookie. A 401 redirects to `/login?next=<current path>`; the server only accepts
+  `next` paths on this site.
+- Strict Content-Security-Policy on `index.html`: same-origin scripts only, no inline scripts.
 - All API strings render as React text: no `dangerouslySetInnerHTML`, no `eval`, Leaflet popups are
   built from DOM text nodes. Links from API data (`notification.url`, photo URLs) go through
   `safeHref`, which only allows same-site paths and http(s) URLs.

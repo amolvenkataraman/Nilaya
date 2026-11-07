@@ -488,3 +488,4 @@ a.agenda-item:hover { text-decoration: none; }
 .avail-bare { border: var(--hairline); border-radius: var(--r); background: var(--app-surface); overflow: hidden; display: flex; flex-direction: column; height: min(78vh, 52rem); }
 .avail-bare .cal-subbar .cal-title { display: block; font-size: var(--fs-md); }
 .avail-bare .week { flex: 1; }
+.avail-bare .cal-subbar .row { flex-wrap: wrap; row-gap: 0.375rem; }

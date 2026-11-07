@@ -18,7 +18,7 @@ const blank = (): Form => ({
   reminder_time: '20:00', reminder_days: 127,
 })
 
-/** "Start from" templates, the same list as the classic editor (habits/static/habits/editor.js). */
+/** "Start from" templates, the same list the classic editor had. */
 const TEMPLATES: (Partial<Omit<Form, 'target'>> & { name: string; target?: number })[] = [
   { name: 'Drink water', kind: 'measurable', unit: 'glasses', target: 8, icon: 'drop', colour: '#2a78d6' },
   { name: 'Read', kind: 'measurable', unit: 'minutes', target: 20, icon: 'book', colour: '#6250d6' },

@@ -1,6 +1,6 @@
 // Whose data is persisted in this browser. On a shared browser the next person must never see the
 // previous person's data: persisted caches belong to one user, and a different user, a new login
-// (Django rotates the CSRF cookie on every login, also from the classic UI) or a sign-out (401) wipes
+// (Django rotates the CSRF cookie on every sign-in) or a sign-out (401) wipes
 // them before anything renders from them.
 
 const OWNER = 'app.owner' // localStorage: {"u": user id | undefined, "s": fingerprint of the CSRF cookie}

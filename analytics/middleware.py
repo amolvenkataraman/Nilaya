@@ -4,8 +4,8 @@ from django.utils import timezone
 
 from .models import Usage
 
-ALIASES = {"": "home", "recent_events": "home", "apps": "home", "map": "places", "me": "profile",
-           "accounts": "profile", "calendar": "calendar", "scheduler": "calendar"}
+# First path segment (or /api/v2/<segment>) -> app. Page loads are the app's routes (/tasks, /places, ...).
+ALIASES = {"": "home", "me": "profile", "users": "profile", "auth": "profile"}
 SKIP = ("/static/", "/media/", "/private/", "/photo_cdn/", "/favicon", "/admin/jsi18n", "/api/v2/analytics/")
 
 
@@ -25,7 +25,8 @@ class AnalyticsMiddleware:
 
     @staticmethod
     def count(request, response):
-        if response.status_code >= 400 or request.path.startswith(SKIP):  # before touching the session/user
+        # Errors and redirects (old URLs) don't count; checked before touching the session/user.
+        if response.status_code >= 400 or response.status_code in (301, 302) or request.path.startswith(SKIP):
             return
         user = getattr(request, "user", None)
         if user is None or not user.is_authenticated:

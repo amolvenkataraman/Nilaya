@@ -1,4 +1,4 @@
-// Habit icons and colours, the same set as the classic Habits page (habits/static/habits/lib.js),
+// Habit icons and colours, the same set the classic Habits page had,
 // plus goal/schedule wording and the client-side schedule rule.
 import type { CSSProperties } from 'react'
 import type { Habit, Period } from './api'

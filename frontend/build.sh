@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Build the new React UI into ../static_files/static/app/ (served by Django at /app/...).
+# Build the React app into ../static_files/static/app/ (Django serves its index.html for every page URL).
 # Reproducible: installs exactly what package-lock.json pins (npm ci), then typechecks and builds.
 set -euo pipefail
 cd "$(dirname "$0")"
