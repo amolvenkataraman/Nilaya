@@ -6,7 +6,7 @@
 
 ## Preface
 
-Every big tech company has an origin story with a garage in it. Mine has a school timetable, a YMCA calendar, a hackathon weekend, a dead SSD and roughly two hundred commits, many of them called "Did stuff".
+Every big tech company has an origin story with a garage in it. Mine has a school timetable, a hackathon weekend, a dead SSD and roughly two hundred commits, many of them called "Did stuff".
 
 This book traces that story from the first line of the first precursor in 2020 to the night in November 2026 when Claude Code helped me rebuild the whole thing. It covers what was built, when, and what happened to it: what survived, what got rewritten three times, and what quietly died. Wherever I can, I cite real commits (short hash and date) from this repository's history. Where a claim rests on file dates or on reading old code, I say so and give the evidence.
 
@@ -15,7 +15,7 @@ A few ground rules for reading:
 - **Dates** come from `git log --date=short` (author dates). For the precursor projects without git history, I use file modification times, and I mark those dates as *inferred*.
 - **Hashes** are the 7-character short hashes from this repo. `git show <hash>` takes you to the moment.
 - **"Comptech"** is the original name. The visible product became **AVNet Superapp** on 2026-11-04 (`7f66355`). The code still says `Comptech` everywhere, and so does this book when it talks about the old days.
-- **Authorship.** Everything before roughly February 2025 I wrote entirely by hand, starting in high school. From February 2025 on I used AI coding tools more and more, and the November 2026 overhaul was done end to end with Claude Code. The chapters say which era is which.
+- **Authorship.** Everything up to the 2025 backup restore I wrote entirely by hand, starting in high school, with no AI tools. After the restore I used three different AI editors, each to some degree: Cursor, Windsurf and Google Antigravity. From November 2026 the work was done with Claude Code. The chapters say which era is which.
 
 ---
 
@@ -29,13 +29,14 @@ A few ground rules for reading:
 6. [Chapter 4: Lost and found (late 2024 to February 2025)](#chapter-4-lost-and-found-late-2024-to-february-2025)
 7. [Chapter 5: Foreman for LLMs (February to May 2025)](#chapter-5-foreman-for-llms-february-to-may-2025)
 8. [Chapter 6: The 2026 renaissance, with AI at the keyboard (February to early November 2026)](#chapter-6-the-2026-renaissance-with-ai-at-the-keyboard-february-to-early-november-2026)
-9. [Chapter 7: Two nights in November, the Claude Code overhaul (4 to 5 November 2026)](#chapter-7-two-nights-in-november-the-claude-code-overhaul-4-to-5-november-2026)
+9. [Chapter 7: Two nights in November, the Claude Code overhaul (4 to 7 November 2026)](#chapter-7-two-nights-in-november-the-claude-code-overhaul-4-to-7-november-2026)
 10. [Chapter 8: What's next, V2 and Memex](#chapter-8-whats-next-v2-and-memex)
 11. [Appendix A: Feature ledgers, app by app](#appendix-a-feature-ledgers-app-by-app)
 12. [Appendix B: The apps that didn't make it](#appendix-b-the-apps-that-didnt-make-it)
 13. [Appendix C: Stats](#appendix-c-stats)
 14. [Appendix D: Commit-message hall of fame](#appendix-d-commit-message-hall-of-fame)
 15. [Appendix E: Sources and what I couldn't confirm](#appendix-e-sources-and-what-i-couldnt-confirm)
+16. [Appendix F: Screenshots through the years](#appendix-f-screenshots-through-the-years)
 
 ---
 
@@ -43,17 +44,16 @@ A few ground rules for reading:
 
 | When | Era | Milestone |
 |---|---|---|
-| 2020-05 | Precursors | **Docket**, my school task scheduler, gets its first commit (2020-05-12) and is deployed a week later (2020-05-19) |
+| 2020-05 | Precursors | **Docket**, my calendar-based school scheduler, gets its first commit (2020-05-12) and is deployed a week later (2020-05-19) |
 | 2020-08 → 2020-11 | Precursors | Docket gains invites, organisation-wide events, timetables, an indoor school map, then chat, video call and a homepage ("REV 1.1", 2020-11-04) |
-| 2020-12 → 2021-01 | Precursors | **YMCA Calendar**: a group calendar built from Docket's ideas, deployed 2021-01-31 |
 | 2021-02-19 | Beginnings | **Comptech's first commit** (`4f094bb`): a basic site and a login page with a background image |
-| 2021-03-02 | Beginnings | Calendar (from YMCA Calendar), home page and navbar arrive (`12a267d`); school features stripped the same day (`a3ab884`) |
+| 2021-03-02 | Beginnings | Calendar (from Docket), home page and navbar arrive (`12a267d`); school features stripped the same day (`a3ab884`) |
 | 2021-03-06 → 03-23 | Beginnings | Chat app started, then working over WebSockets (`494a8b7`, `5af3efe`) |
 | 2021-04-03 | Beginnings | Photos stub, Game Vault (Flappy Block, a YMCA game) and micro-apps (`3600020`) |
 | 2021-05 | Beginnings | Countdown page, Scrabble, friend requests (`967bb5c`); Comptech becomes an OpenID Connect provider (`083cf2c`) |
 | 2021-06-06 | Beginnings | First pull request: **Google Calendar sync** (Gitea PR #1, `0d5a0c1`) |
 | 2021-07-30 | Revamp | "Completely Revamp the entire codebase Part 1" (`b0bc811`) |
-| 2021-09 | Revamp | "Ready for CareerConnect" (`8357afa`); social media app scaffolded. **HTN2021** "PikPic" photo search hack (inferred from file dates, 18 to 19 September) |
+| 2021-09 | Revamp | "Ready for CareerConnect" (`8357afa`); social media app scaffolded. **PikPic**, the original Photos: a photo search hack at Hack the North 2021 (inferred from file dates, 18 to 19 September) |
 | 2021-11-13 | Revamp | Complete Calendar revamp: subscriber roles, todos, ICS calendars (`8ca4043`) |
 | 2021-12-28 | Revamp | Calendar JS split out, dark and light calendar styles, `sync.py` (`80c8c90`) |
 | 2022-05-01 | Revamp | "Making the Program of Theseus!": the calendar's JSON API moves into `scheduler/api.py` (`ab7d7b7`) |
@@ -69,8 +69,10 @@ A few ground rules for reading:
 | 2026-02 | AI-assisted | Shared albums, scheduled Celery ingest, **YOLO object search** (`c477ed1`, `90d790b`, `8d73cfa`) |
 | 2026-04-06 | AI-assisted | First GitHub PRs authored by **Claude on the web** (OSM compliance, PR #1 and #2) |
 | 2026-05 → 09 | AI-assisted | Photos: AI indexing on ingest, video object detection, stats, storage, search, RAW, superlatives, upload page, nested albums |
-| 2026-11-04 | Claude Code | **Phase 1**: critical security fixes and local dev environment (PR #10) |
+| 2026-11-04 | Claude Code | **Phase 1**: security hardening and local dev environment (PR #10) |
 | 2026-11-04 → 05 | Claude Code | **`improve/phase-1`**: theme and dark mode, notifications, V2 API, Tasks, Habits, Contacts, Places, Photos redesign, API keys, ICS feeds, analytics, React UI; product renamed **AVNet Superapp** |
+| 2026-11-05 | Claude Code | PR #11 merged (`f0e27ec`): the React interface at full parity, measured speed-ups, review hardening |
+| 2026-11-07 | Claude Code | **The React app becomes the only interface**, at `/` (`bc1f4c2`); the classic Django-template UI and its legacy endpoints are deleted (`c95ad93`); Photos smart search (`6425482`); the biggest API files split up; public-release prep |
 | Next | V2 | **Memex**, a modular rewrite being planned separately |
 
 ```mermaid
@@ -79,9 +81,8 @@ gantt
     dateFormat YYYY-MM-DD
     axisFormat %Y
     section Precursors
-    Docket school task scheduler   :2020-05-12, 2021-10-24
-    YMCA Calendar                  :2020-12-31, 2021-01-31
-    HTN2021 PikPic (inferred)      :milestone, 2021-09-18, 1d
+    Docket school scheduler        :2020-05-12, 2021-10-24
+    PikPic, original Photos (inferred) :milestone, 2021-09-18, 1d
     section Eras
     Beginnings (handwritten)       :2021-02-19, 2021-07-29
     Great revamps                  :2021-07-30, 2022-05-01
@@ -89,29 +90,31 @@ gantt
     Lost work (2024 H2)            :crit, 2024-06-01, 2025-01-31
     Recovery and first AI help     :2025-02-02, 2025-05-09
     2026 renaissance               :2026-02-04, 2026-11-02
-    Claude Code overhaul           :2026-11-04, 2026-11-05
+    Claude Code overhaul           :2026-11-04, 2026-11-07
     section Apps
-    Calendar                       :2021-03-02, 2026-11-05
+    Calendar                       :2021-03-02, 2026-11-07
     Chat (active)                  :2021-03-06, 2025-02-12
-    Photos                         :2021-04-03, 2026-11-05
+    Photos                         :2021-04-03, 2026-11-07
     Game Vault                     :2021-04-03, 2023-02-28
     Social media                   :2021-09-04, 2025-03-11
-    Notifications                  :2023-07-21, 2026-11-05
-    Places (map)                   :2025-03-07, 2026-11-05
-    Tasks Habits Contacts          :2026-11-04, 2026-11-05
+    Notifications                  :2023-07-21, 2026-11-07
+    Places (map)                   :2025-03-07, 2026-11-07
+    Tasks Habits Contacts          :2026-11-04, 2026-11-07
 ```
 
 ---
 
 ## Chapter 0: Origins, the precursors (2020 to 2021)
 
-Comptech didn't appear from nowhere. Three earlier projects in `~/Desktop/Programming/_OLD/` hold most of its DNA: one for structure, one for the calendar's actual JavaScript, and one for an idea that took five years to come back.
+Comptech didn't appear from nowhere. Two earlier projects in my archive of old code hold most of its DNA: Docket for the calendar's structure and its actual JavaScript, and PikPic for an idea that took five years to come back.
 
-### Docket, the School Task Scheduler (May 2020 to October 2021)
+### Docket, the school scheduler (May 2020 to October 2021)
 
-*Folder:* `_OLD/SchoolTaskScheduler/`, four copies: `Docket`, `Docket_Deploy`, `DocketDemo` and `Docket_OIDC`. All four are git repos, all commits by me.
+Docket was my answer to the COVID lockdowns. School had moved online onto two separate platforms, Google Classroom and Brightspace, with no connection between them. Docket put both in one place: a single calendar where students could search for their deadlines, assignments and exam dates. It grew into today's Calendar app.
 
-Docket was a Django web app for running a school's day-to-day: classes, teachers and students, assignments with deadlines and priorities, events, and a rotating day/period timetable. Its first commit is "Initial" on **2020-05-12**, followed the same day by "Created calendar". Some skeleton files carry a modification date of 2020-03-19 (*inferred*: the project may have been set up two months before the first commit). It was a pandemic-era high-school project in every sense.
+Four copies survive: `Docket`, `Docket_Deploy`, `DocketDemo` and `Docket_OIDC`. All four are git repos, all commits by me.
+
+Docket was a calendar-style Django web app for running a school's day-to-day: classes, teachers and students, assignments with deadlines and priorities, events, and a rotating day/period timetable. Its centre was a month calendar with each class's assignments on their due dates. Its first commit is "Initial" on **2020-05-12**, followed the same day by "Created calendar". Some skeleton files carry a modification date of 2020-03-19 (*inferred*: the project may have been set up two months before the first commit). It was a pandemic-era high-school project in every sense.
 
 The git log reads like a diary of a teenager shipping software:
 
@@ -125,43 +128,31 @@ The git log reads like a diary of a teenager shipping software:
 
 **What carried into Comptech:**
 
-- **The calendar's bones.** Comptech's very first scheduler (`12a267d`, 2021-03-02) shipped with Docket's school models still in it: `Class`, `Assignment`, `Invite` (8-character codes with a use counter), `Period`, `Day`, plus Docket's `admin.html`, `schedule.html` and `settings.html` templates. The same day, commit `a3ab884` ("Modified calendar, removed school-related features") deleted the admin and settings pages and turned the calendar personal. The invite-code idea survives today: Calendar still shares calendars with invite codes.
-- **Assignments became Todos, and Todos became Tasks.** Docket's `Assignment` (deadline, URL, description, priority) is the ancestor of the calendar's `Todo` (`8ca4043`, 2021-11-13), which the 2026 Tasks app is built on.
+- **The calendar itself.** Comptech's first `scheduler/static/scheduler/calendar.js` (`12a267d`) is byte-for-byte identical to Docket's at REV 1.1 (`47ba860`, 2020-11-04), and Comptech's 2021 home page still listed the app as "Calendar (formerly Docket)" (`3600020`). The very first scheduler (`12a267d`, 2021-03-02) also shipped with Docket's school models still in it: `Class`, `Assignment`, `Invite` (8-character codes with a use counter), `Period`, `Day`, plus Docket's `admin.html`, `schedule.html` and `settings.html` templates. The same day, commit `a3ab884` ("Modified calendar, removed school-related features") deleted the admin and settings pages and turned the calendar personal. The invite-code idea survives today: Calendar still shares calendars with invite codes.
+- **Dated items on the calendar.** Docket drew each class's `Assignment` (deadline, URL, description, priority) on the calendar. Comptech's calendar kept the idea of dated items beside events: Tasks and Assignments on the grid (`083cf2c`), then the calendar's own `Todo` model (`8ca4043`, 2021-11-13). Those always lived inside the calendar; there was no separate Tasks page until the November 2026 overhaul.
 - **Chat, map and stats.** Comptech started its own chat in March 2021 and got a map app in March 2025. Its first commit (`4f094bb`) vendored `uaparser.js`, `leaflet.js` and `handlebars.js`: the same trio Docket used for device stats and the school map. The 2026 usage analytics app is, in spirit, Docket's `stats` grown up (and made much more privacy-respecting).
 - **The `getinfo()` habit.** Docket's models each had a `getinfo()` method returning a dict for JSON responses. Comptech's `ComptechUser`, `Calendar` and friends kept that pattern for years.
 
-### YMCA Calendar (December 2020 to January 2021)
+### A separate project: YMCA Calendar (2020)
 
-*Folder:* `_OLD/YMCACalendar/YMCACalendar/`, a git repo with 20 commits.
+In late 2020 I also built a small group calendar for a YMCA program. It was a separate project; Comptech's calendar descends from Docket (above).
 
-A smaller, focused Django app: a calendar for a YMCA program's **groups**. Each group had a code, a location, an address and an advisor's contact details; events belonged to a group or to everyone. Visitors picked their group and saw a month view of its events. It even carried a `VARS` setting for a rotating "DAY" schedule (a four-day cycle with weekends as holidays), which is very Docket.
+### PikPic, the original Photos (Hack the North 2021, September 2021)
 
-- Migrations are dated **2020-12-31** to **2021-01-09** (*inferred* from file times).
-- All 20 commits landed on **2021-01-31**: "make it better", then nineteen variations of "Ready for deploy" and "Ready to deploy". Anyone who has fought Heroku will recognise the pattern.
-- Stack: Django, crispy-forms, Heroku (`Procfile`, `runtime.txt` = python-3.9.0), gunicorn, whitenoise, Postgres.
-
-**What carried into Comptech:** the calendar's front-end code, almost literally. Comptech's first `scheduler/static/scheduler/calendar.js` (`12a267d`) differs from YMCA Calendar's `calendar.js` by **three lines** (short day names, one string concatenation, and the click handler on each date cell). The CSS file names (`calendar.css`, `styles.css`) and the `getinfo()` model style match too. Comptech's first commit came 19 days after YMCA Calendar's deploy marathon, and its first scheduler arrived 30 days after it.
-
-Two YMCA side quests also left a mark: `_OLD/YMCAGame/` (a small Python game, June 2021) and a `ymca_game.html` page in Comptech's Game Vault (`3600020`, 2021-04-03).
-
-### HTN2021, "PikPic" (September 2021)
-
-*Folder:* `_OLD/HTN2021/`, no git history.
-
-The file dates (**2021-09-18** and **2021-09-19**) line up with the Hack the North 2021 weekend, and the folder name says the rest, so this was very likely my HTN2021 project (*inferred*). It's a Flask app called **PikPic**, "a fast and efficient way to view, and search the photos on your computer". Its `indexer.py` walked a folder and, for each image:
+There's no git history, only file dates. They (**2021-09-18** and **2021-09-19**) line up with the Hack the North 2021 weekend, and the folder is named after it, so this was very likely my HTN2021 project (*inferred*). It's a Flask app called **PikPic**, "a fast and efficient way to view, and search the photos on your computer", and it is the original version of Photos. You opened a folder and got a wall of 200-px thumbnails (made on first view), an Indexed/Not indexed badge, and Object, Text and Face Search in the sidebar once the folder was indexed; a History page listed recently opened folders. Its `indexer.py` walked a folder and, for each image:
 
 - detected **objects** with YOLOv3 (OpenCV's DNN module and the COCO labels);
 - read **text** with Tesseract OCR;
 - recognised **faces** with FaceNet embeddings and cosine similarity against a folder of known faces;
 - made thumbnails and kept a history of indexed folders.
 
-Side experiments in the same folder: MediaPipe selfie segmentation, a ResNet-based image captioner, and a histogram-based "find similar photos" script. `ImgScan/app.py` was last touched on 2022-08-06, so I came back to it at least once.
+Side experiments in the same folder: MediaPipe selfie segmentation, a ResNet-based image captioner, and a histogram-based "find similar photos" script. The app and its templates were last touched in July and August 2022 (they link under a `/pikpic/` prefix by then), so I came back to it at least once; that later version is the one that survives.
 
-**What carried into Comptech:** the idea of *searching your photos by what's in them*. Comptech's Photos app was still a stub in September 2021. Object search finally arrived on **2026-02-05** as "YOLO-based image object search" (`8d73cfa`), this time with YOLOv11 through `ultralytics`. Today's Photos search covers place, camera and object. Face recognition hasn't made the jump (yet).
+**What carried into Comptech:** PikPic was Photos before Photos, and it set the idea of *searching your photos by what's in them*. Comptech's own photo pages were still a single grid of thumbnails in September 2021. Object search finally arrived on **2026-02-05** as "YOLO-based image object search" (`8d73cfa`), this time with YOLOv11 through `ultralytics`. Today's smart search (`6425482`, 2026-11-07) reads free text into places, objects, cameras and dates. Text and face search haven't made the jump (yet).
 
 ### A footnote: `ComptechWebsite` (May 2021)
 
-`_OLD/ComptechWebsite/` is an empty Django project with a `mainsite` app, all files dated 2021-05-17 (*inferred*). It looks like a short-lived attempt at a separate public "Comptech" site, three months after the real repo started. Nothing in it carried over.
+`ComptechWebsite` is an empty Django project with a `mainsite` app, all files dated 2021-05-17 (*inferred*). It looks like a short-lived attempt at a separate public "Comptech" site, three months after the real repo started. Nothing in it carried over.
 
 ---
 
@@ -176,7 +167,7 @@ The README written on 2021-06-06 (`8ec87c2`) states the mission in four words th
 - **2021-02-19, `4f094bb`, "Created basic site, and login page with background".** Django settings, a custom `ComptechUser` model (profile picture, description, a `newuser` flag), login and register pages, and a `bg_images` app whose only job was to serve big landscape photos behind the login form. The README later warned that a fresh install would crash until you uploaded a background image through the admin.
 - **2021-02-22, `1e65a63`**, "Added SSL encryption".
 - **2021-02-24, `7932582`**, mobile-friendly login and the start of profiles.
-- **2021-03-02, `12a267d`, "Added calendar, Started on mainsite, added Navbar".** The scheduler app arrives with Docket's models and YMCA Calendar's JavaScript (Chapter 0), plus the `mainsite` home and apps pages and 400/403/404/500 error pages. Later that day, `a3ab884` strips the school features.
+- **2021-03-02, `12a267d`, "Added calendar, Started on mainsite, added Navbar".** The scheduler app arrives with Docket's models and Docket's calendar JavaScript (Chapter 0), plus the `mainsite` home and apps pages and 400/403/404/500 error pages. Later that day, `a3ab884` strips the school features.
 
 ### Chat, games and everything else
 
@@ -199,7 +190,7 @@ June 2021 is when Comptech started acting like a real project:
 - **2021-06-06, `0d5a0c1`**, **the first merged pull request**: "Added Google Calendar sync capability" (#1, branch `Google_Calendar`). It was reviewed on my own **Gitea** server, which also hosted the clone URL in the README.
 - **2021-06-06, `2bdbf0e`**, import/export in the admin (`django-import-export`).
 - **2021-06-12, `cf051bc`**, the first `requirements.txt`.
-- **2021-06-18, `d1e5cff`**, the only commit in the whole history by another human: a contributor named Bala "Fixed typo in README".
+- **2021-06-18, `d1e5cff`**, the only commit in the whole history by another human: a contributor "Fixed typo in README".
 - **2021-06-20**, "Removed SSL Certificates" from the repo (`a2fe3e6`) and "Upgraded security" (`701d86d`). It was a good instinct, even if secrets would keep turning up in the code until 2026.
 - **2021-07-09, `575f547`**, PR #2, `Upgrade_Calendar`.
 - **2021-07-10, `6153512`**, "UWU".
@@ -230,7 +221,7 @@ Fewer commits, much bigger ones. This is where I learned that code you wrote six
 
 **9 commits · 2023-02-28 → 2024-05-31 · handwritten**
 
-University years, judging by the gaps (and by a commit called "Added UW course info"). Commits got rare, but each one carried a season of work.
+Busy years, judging by the gaps. Commits got rare, but each one carried a season of work.
 
 ### 2023: Photos grows up
 
@@ -248,7 +239,7 @@ University years, judging by the gaps (and by a commit called "Added UW course i
 ### 2024: Todos, habits and courses
 
 - **2024-03-28, `d7fa84f`, "Did some things".** Todos got richer (statuses, completion tracking, extra fields), a first **`Habit`** model appeared in the scheduler, `scheduler/inject.py` started importing course schedules, a notification model arrived, and Photos gained a photo viewer page and a second GeoGuessr mode.
-- **2024-04-01, `990018e`**, "Added UW course info". Course injection gets reworked (115 lines changed in `inject.py`). This is very likely the University of Waterloo, given the WCMS sync.
+- **2024-04-01, `990018e`**, "Added UW course info". Course injection gets reworked (115 lines changed in `inject.py`).
 - **2024-05-07, `44ca503`**, "Photos security improvements, DB changes". The photo indexer moved into the app (`photos/indeximg.py`), and notifications got device groups and expiry dates.
 - **2024-05-31, `6f7b051`**, "Update gitignore and readme". **This is the last commit before the gap.**
 
@@ -285,7 +276,7 @@ A small detail in the history may be the ghost of the lost API. On **2025-03-11*
 
 **19 commits · 2025-02-02 → 2025-05-09 · the AI-assisted era begins**
 
-From February 2025 on, I wrote much of the new code with AI coding tools. The commit log shows the change in pace right away: **14 commits in March 2025**, more than in all of 2022, 2023 and 2024 combined (12).
+After the backup restore, I wrote much of the new code with AI editors: Cursor, Windsurf and Google Antigravity, each used to some degree. The restored code was behind the spec I had built and lost with the SSD, so AI first helped bring it back up to that spec. The commit log shows the change in pace right away: **14 commits in March 2025**, more than in all of 2022, 2023 and 2024 combined (12).
 
 - **2025-03-07, `97ef189`**, "Added basic Map app" (17 lines of scaffolding).
 - **2025-03-07, `d8724d5`**, a fix for all-day ICS events in calendar sync.
@@ -299,13 +290,13 @@ From February 2025 on, I wrote much of the new code with AI coding tools. The co
 
 Then nine months of quiet, from May 2025 to February 2026.
 
-> **On which tools, when.** I remember this era as mostly Google's **Antigravity**, with Claude on the web joining later. The commit log adds detail: the only tool named in a 2025 commit message is **Cursor** (March 2025). Antigravity was released publicly in late 2025, so it most likely powered the 2026 commits in Chapter 6 rather than the March 2025 ones. Commits authored by **Claude** start on 2026-04-06.
+> **On which tools, when.** No AI tools were used before the 2025 restore. After it, three different AI editors each did some of the work: **Cursor**, **Windsurf** and **Google Antigravity**. Only Cursor is named in a commit message (March 2025). From April 2026 a few GitHub PRs were also authored by Claude on the web (Chapter 6), and from November 2026 the work was done with **Claude Code** (Chapter 7).
 
 ---
 
 ## Chapter 6: The 2026 renaissance, with AI at the keyboard (February to early November 2026)
 
-**54 commits plus 8 merges · 2026-02-04 → 2026-11-02 · AI-assisted (Antigravity, then Claude on the web as well)**
+**54 commits plus 8 merges · 2026-02-04 → 2026-11-02 · AI-assisted (AI editors, plus Claude on the web for some PRs)**
 
 2026 is when the project woke up properly. In the first half of the year, commits arrived in themed bursts, often several in a day. Mid-year, a new author started showing up in `git log`: **Claude**, opening pull requests on GitHub from Claude on the web (each commit links its `claude.ai/code` session). Ten GitHub PRs were opened in 2026; nine are merged and one (#8) is still open.
 
@@ -319,14 +310,14 @@ Then nine months of quiet, from May 2025 to February 2026.
 
 ### April: Claude arrives
 
-- **2026-04-06, `75c0874`** (PR #1) and **`d04943d`** (PR #2), both by Claude. Map searches now go through a server-side **Nominatim proxy** with a proper User-Agent, tile layers carry OpenStreetMap attribution, and a referrer-policy change fixed blocked tiles (403s). These are the first commits by an AI author, and the first not written by me since Bala's 2021 typo fix.
+- **2026-04-06, `75c0874`** (PR #1) and **`d04943d`** (PR #2), both by Claude. Map searches now go through a server-side **Nominatim proxy** with a proper User-Agent, tile layers carry OpenStreetMap attribution, and a referrer-policy change fixed blocked tiles (403s). These are the first commits by an AI author, and the first not written by me since the 2021 README typo fix.
 - **2026-04-19, `e4cd403`** (PR #3), Claude writes the `docs/` folder: data models and ETL pipelines for Calendar and Photos (1,104 lines). It was the first real technical documentation in five years.
 
 ### May: the photo engine
 
 **25 commits, the busiest month until November.**
 
-- **2026-05-11**, PRs #4 to #7 (Claude): AI indexing runs automatically after each ingest (`5edf44b`); **videos get object detection** by sampling frames at a rate scaled to their length (`0961873`); a BGR/RGB mix-up that produced zero detections is fixed (`bb8c8ff`, `484c46f`); and **city detection** is reworked (`b62c670`, `ad5a115`, `6fe69c9`, `4f020ba`). It went from "nearest place" to a population-and-distance score, so a photo in downtown Toronto says "Toronto" and not a neighbourhood name. I tuned it again the same day (`604fe4b`) and fixed photo times to always show local time (`fcf7bd6`).
+- **2026-05-11**, PRs #4 to #7 (Claude): AI indexing runs automatically after each ingest (`5edf44b`); **videos get object detection** by sampling frames at a rate scaled to their length (`0961873`); a BGR/RGB mix-up that produced zero detections is fixed (`bb8c8ff`, `484c46f`); and **city detection** is reworked (`b62c670`, `ad5a115`, `6fe69c9`, `4f020ba`). It went from "nearest place" to a population-and-distance score, so a photo taken downtown in a big city shows the city's name, not a neighbourhood's. I tuned it again the same day (`604fe4b`) and fixed photo times to always show local time (`fcf7bd6`).
 - **2026-05-28**, a refactoring day: the calendar timezone bug (`49e1618`), **the Map app moved into proper static files** (`b93ff46`, 1,491 lines in, 902 out), and the Photos UI refactor (`87b82fe`, `08fc109`, `cae7182`).
 - **2026-05-29**, a feature day: **Stats and Storage pages** (`8f64dae`, `d3d6dae`), **RAW file parsing** with RAW/JPEG matching (`24182b2`), a stop to the auto-reloading photos page (`3d14922`), a **Search page** (`8b47b30`), and a **justified photo grid** (`432f18d`, "Justify all images").
 
@@ -338,28 +329,28 @@ Then nine months of quiet, from May 2025 to February 2026.
 - **2026-06-28**, **perceptual hashes and blur scores** (`36ac8d0`) for duplicate and quality detection, plus an `index_photos` management command. More fixes followed the same day (`24f07d2`, `16417a7`, `9d5735e`).
 - **2026-07-14, `62746a1`** (PR #9, Claude), the original per-photo "dot" heatmap returns beside the blob heatmap (`?style=dot`), with a `?date=` filter for plotting a single day.
 - **2026-07-31**, the **Superlatives** page (`de24b8e`, `41a6ef0`, `33c7822`): biggest, furthest, busiest days and more. pHash came out again (`263eba9`) and the ingestion pipeline got simpler (`42bc63b`).
-- **2026-08-07, `624f95c`**, "Add (back) media upload page". The "(back)" is a quiet nod to something lost along the way.
+- **2026-08-07, `624f95c`**, "Add (back) media upload page". The "(back)" is a quiet nod to something lost along the way. The upload portal was removed again in November 2026.
 - **2026-09-10, `7bd381f`**, calendar event descriptions parse properly.
 - **2026-09-14, `55d4216`**, a new photo ingest process, **parent/child albums**, and "importables" (296 lines).
 - **2026-11-02, `a0cbbdc`**, "Stuff". In fact, a 261-line **video compressor** (`photos/compressvideo.py`) and a sync fix. It's the last commit before Claude Code took the wheel.
 
 ---
 
-## Chapter 7: Two nights in November, the Claude Code overhaul (4 to 5 November 2026)
+## Chapter 7: Two nights in November, the Claude Code overhaul (4 to 7 November 2026)
 
-**About 110 commits · 2026-11-04 20:39 → 2026-11-05 · Claude Code end to end**
+**About 130 commits on 4 and 5 November, then about two dozen on 7 November · Claude Code end to end**
 
-The last couple of days of this history were done entirely in Claude Code, in two moves: **Phase 1**, an audit-driven bug-fix pass merged as PR #10, then **`improve/phase-1`**, a platform-wide upgrade on top of it.
+The last few days of this history were done entirely in Claude Code, in three moves: **Phase 1**, an audit-driven hardening pass merged as PR #10, then **`improve/phase-1`**, a platform-wide upgrade on top of it, and finally the switch to a single React interface and the preparation for going public.
 
 A note on timestamps: the 65 commits are packed into a few hours (between 20:39 on 4 November and about 01:10 on 5 November). They record when the finished work was **committed** in reviewable slices, not every hour it took to build. The work itself happened over the preceding couple of days.
 
-### Phase 1: fixing what was broken (PR #10, `fix/critical-bugs`)
+### Phase 1: security hardening and local dev (PR #10, `fix/critical-bugs`)
 
-Merged as **`3b9be79`** on 2026-11-04 (GitHub records 2026-11-05 01:52 UTC). Seventeen commits:
+Five years of running on a private family server had left assumptions that only hold when everyone on the network is family. An audit listed them, and Phase 1 tightened them before anything else changed. Merged as **`3b9be79`** on 2026-11-04 (GitHub records 2026-11-05 01:52 UTC). Seventeen commits:
 
 | Commit | What it fixed |
 |---|---|
-| `00391c9` | **Critical security fixes from the audit.** Calendar write access checks, album and photo scoping, safe `?next=` redirects, re-encoded profile pictures, parameterised SQL in `inject.py`, sanitised and escaped user text, API keys moved out of the code into untracked files, `X-Frame-Options`, and Celery limited to JSON (no pickle) |
+| `00391c9` | **Security hardening from the audit.** Calendar write access checks, album and photo scoping, safe `?next=` redirects, re-encoded profile pictures, parameterised SQL in `inject.py`, sanitised and escaped user text, API keys moved out of the code into untracked files, `X-Frame-Options`, and Celery limited to JSON (no pickle) |
 | `e16bc3f` | **A local testing environment**: SQLite, no Redis, no nginx, Celery tasks run inline, dummy data, and `localdev/smoke.py`, which logs in and checks every page |
 | `0d97171`, `f68dccb` | Shared mutable JSON defaults fixed; exception details never sent to the browser |
 | `eda9365` | Photos ingest scans `Ingest/` recursively and stores timezone-aware dates |
@@ -369,7 +360,7 @@ Merged as **`3b9be79`** on 2026-11-04 (GitHub records 2026-11-05 01:52 UTC). Sev
 | `56fdb58`, `0456905` | Places edits no longer wipe fields; home greeting, reminders, search and lists fixed |
 | `f226d7a` | `ALLOWED_HOSTS` was `'*'`; now only known hostnames |
 | `0554c5b`, `8b93680` | **No CDNs, no vendored blobs**: 52 third-party files (44,693 lines) leave git and are fetched at deploy time, pinned by SHA-256 in `static_files/vendor.lock`. The 2021 README's rule 2 ("DO NOT use the CDN links") is enforced at last |
-| `7d9d0db`, `3132d02` | Same-origin framing for calendar photo pop-ups; a step-by-step server upgrade guide (`docs/UPGRADE-fix-critical-bugs.md`) |
+| `7d9d0db`, `3132d02` | Same-origin framing for calendar photo pop-ups; a one-time, step-by-step upgrade guide for the server (retired once the server was upgraded) |
 
 ### `improve/phase-1`: the platform upgrade
 
@@ -390,7 +381,7 @@ Everything below is on the `improve/phase-1` branch, dated 2026-11-04 or 2026-11
 
 **The V2 API, take two.** `5e9b1a7` stands up `/api/v2/` on **Django Ninja**, and `9c0b9a0` adds `me`, calendar (calendars and events), photos (timeline, albums, on this day, summary) and places. `6721d0e` adds **per-app API keys** (`avn_…` tokens stored hashed and shown once, read/write scopes per app, expiry) and **Markdown API guides for AI agents** at `/api/v2/<app>/guide.md`, generated from the live schema. `8f73e8a` keys the rate limit (600 requests per minute) by user or key. Almost two years after the handwritten V2 API died with the SSD, a typed one shipped.
 
-**Tasks.** Five years after `Todo` and six after Docket's `Assignment`:
+**Tasks.** Five years after the calendar's `Todo` model, Tasks became an app of its own:
 
 - `bae08ee`, the Tasks backend: projects, kanban buckets with WIP limits, labels, reminders, comments, relations, saved views, recurring tasks, sharing, and **natural-language quick add** (`"Pay rent tomorrow 5pm *bills +Home !3 every month"`). It is built on the old `scheduler.Todo`, so Calendar and Home kept working.
 - `00b6928`, `0b93a6c`, the `/tasks/` route and launcher tile.
@@ -447,7 +438,17 @@ The calendar got the remaining parity work: `38c1a29` and `f94f52a` added settin
 - A fresh review (`9103d8c`) found private events leaking into ICS feeds and "task from event", series that lost their exceptions when moved across a DST change, and a feed with one duplicated UID that silently imported nothing.
 - A final pass closed server-side request forgery through feed links, cross-app API key scopes, admin invites that admins could re-issue, and creators who kept edit rights after being demoted.
 
-By the end the suite had grown to 143 tests, and the upgrade guide covered a Postgres rehearsal in a separate git worktree, an rsync'd frontend build, and the nginx changes.
+By the end the suite had grown to 143 tests, and the upgrade guide covered a Postgres rehearsal in a separate git worktree, an rsync'd frontend build, and the nginx changes. PR #11 was merged that afternoon (`f0e27ec`). A follow-up the same day (`1e2b547`) stopped the static-files storage from inventing a hashed `stored_name` that wasn't in `staticfiles.json`: a hash of the raw file doesn't match the post-processed copy, so those URLs had 404'd.
+
+### One interface, and getting ready to go public (7 November 2026)
+
+**One interface.** `bc1f4c2` made the React app the site itself, served at `/`, with React sign-in and the public pages (public calendars, countdowns, availability, shared albums), and gave the V2 API everything the classic UI still had. Old `/app/` and classic URLs redirect to their new routes. `c95ad93` then deleted the classic Django-template UI: every classic page, template and static file, the vendored third-party files, and the legacy JSON endpoints, each with its V2 replacement listed in `docs/UPGRADE-new-ui-only.md`. One of those endpoints, `/calendar/block/?user=`, told anyone, signed in or not, the categories of a person's current events, ignoring busy-sharing settings and private events; it went with the rest, and the availability endpoint replaces it. The classic Geoguessr and location-entry pages had already moved to React (`43e47cd`), and Photos Stats and Storage reached full parity with the classic pages (`f171e74`).
+
+**Photos.** `6425482` added **smart search**: free text such as "dog toronto 2019" is read into places, objects, cameras, dates, types, albums and libraries, with typo matching, shown as removable chips. The same commit kept a zoomed photo inside its stage so the viewer's info panel and mini-map never cover it, after the sidebar had already been cut to one request (`1b7e4e6`). The speed work from 5 November stayed in place underneath: the per-day rollup and heat-map materialized views (`e3e6faf`), the `(date_taken, id)` and latitude/longitude indexes (`1da66ad`) and the Redis cache for photo aggregates (`014c59d`). The **upload portal**, the public upload page re-added in August 2026 (`624f95c`), was removed.
+
+**Smaller files.** The biggest API modules were split without changing behaviour, each checked against an identical OpenAPI schema: `scheduler/api_v2.py` (1,420 lines, `27dbb83`), `tasks/api.py` (1,403 lines, `4dc5abb`) and `photos/api_v2.py` (1,000 lines, `b465835`) became groups of smaller modules, and the Places file importers moved out of `map/api_v2.py` (`fe68d45`).
+
+**Going public.** The repository was prepared for publication: the one-off scripts in `scripts/` went with `c95ad93` and other unused one-off scripts followed; site-specific values moved into an untracked `Comptech/site.json` with `example.com` defaults (`0eb8434`); personal specifics in seed data, scripts and docs were made generic (`4499a34`, `290862e`); `nginx.conf` became a template (`786eba4`); the history itself was cleaned of private details; and the screenshots in [Appendix F](#appendix-f-screenshots-through-the-years) were rendered offline from each version's own code with a fictional dataset.
 
 ---
 
@@ -462,7 +463,7 @@ What's known about Memex so far:
 - V1 itself is described in its own README as a codebase "carrying years of technical debt", which after this history reads more like a medal than an apology.
 - While PR #11 was in review, a V2 feature overview was started. Its centrepiece is much better photo search, all run locally: faces grouped into people and linked to contacts, plain-language search, text found inside photos. It also covers new features for every app, new apps, and search across apps.
 
-If V1's story has a moral, it's that the ship of Theseus does sail. Docket's assignments became Todos, and Todos became Tasks. YMCA Calendar's `calendar.js` became a 2,000-line calendar with insights. A hackathon photo indexer became a library you can search for "dog" across fifteen years of videos. Whatever Memex turns out to be, it will probably have a little Docket in it too.
+If V1's story has a moral, it's that the ship of Theseus does sail. Docket's `calendar.js` became a calendar with shared roles, sync and insights, and the calendar's todos grew into a Tasks app. A hackathon photo indexer became a library you can search for "dog" across fifteen years of videos. Whatever Memex turns out to be, it will probably have a little Docket in it too.
 
 ---
 
@@ -474,8 +475,8 @@ Dates are author dates; hashes are short hashes from this repo. "Inferred" marks
 
 | Feature | First appeared | Notes |
 |---|---|---|
-| Group calendars with month view | 2020-12-31 *(inferred)* | YMCA Calendar precursor; Docket had calendars from 2020-05-12 |
-| Month-view calendar | 2021-03-02 `12a267d` | `calendar.js` nearly identical to YMCA Calendar's; Docket's school models included |
+| Month calendar with assignments | 2020-05-12 *(Docket repo)* | Precursor: Docket |
+| Month-view calendar | 2021-03-02 `12a267d` | `calendar.js` identical to Docket REV 1.1's (`47ba860`); Docket's school models included |
 | School features removed | 2021-03-02 `a3ab884` | Admin and settings pages gone; personal calendar |
 | Invite codes | 2021-03-02 `12a267d` | Inherited from Docket's class invites; still used for shared calendars |
 | Countdown page | 2021-05-01 `967bb5c` | Timezone glitch fixed 2021-06-06 `22f807e` |
@@ -501,12 +502,14 @@ Dates are author dates; hashes are short hashes from this repo. "Inferred" marks
 | Automatic reminders, insights and agenda APIs | 2026-11-04 `59503ef` | |
 | Insight tab, Upcoming agenda, Add to tasks | 2026-11-04 `d6e0e3f` | |
 | Private ICS feeds | 2026-11-04 `44cd184` | Managed in Settings from `1f1c541` |
+| React calendar only; legacy endpoints removed | 2026-11-07 `bc1f4c2`, `c95ad93` | Including `/calendar/block/` |
+| API split into modules | 2026-11-07 `27dbb83` | Identical OpenAPI schema |
 
 ### Photos (`photos/`)
 
 | Feature | First appeared | Notes |
 |---|---|---|
-| Photo search by objects, text and faces | 2021-09-18 *(inferred)* | HTN2021 "PikPic" precursor |
+| Photo search by objects, text and faces | 2021-09-18 *(inferred)* | PikPic (Hack the North 2021), the original Photos |
 | App stub | 2021-04-03 `3600020` | Empty models |
 | First `Photo` model and pages | 2021-05-31 `3dda934` | |
 | Albums | 2022-02-06 `f47bb10` | |
@@ -534,13 +537,15 @@ Dates are author dates; hashes are short hashes from this repo. "Inferred" marks
 | pHash and blur score | 2026-06-28 `36ac8d0` | pHash removed 2026-07-31 `263eba9` |
 | Dot heatmap and day filter | 2026-07-14 `62746a1` | Claude, PR #9 |
 | Superlatives | 2026-07-31 `de24b8e` | Day superlatives `33c7822` |
-| Upload page (back) | 2026-08-07 `624f95c` | |
+| Upload page (back) | 2026-08-07 `624f95c` | Removed in November 2026 |
 | Parent/child albums, importables | 2026-09-14 `55d4216` | |
 | Video compression | 2026-11-02 `a0cbbdc` | |
 | Recursive ingest, timezone-aware dates | 2026-11-04 `eda9365` | Phase 1 |
 | Sideways video thumbnail fix | 2026-11-04 `212d93e` | |
 | Hidden photos | 2026-11-04 `e6449c2` | UI in `01252d8` |
 | Google Photos-style redesign | 2026-11-05 `01252d8` | |
+| Smart search | 2026-11-07 `6425482` | Places, objects, cameras, dates |
+| API split into modules | 2026-11-07 `b465835` | Identical schema apart from one new operation id |
 
 ### Places (`map/`)
 
@@ -555,12 +560,12 @@ Dates are author dates; hashes are short hashes from this repo. "Inferred" marks
 | Edits keep fields; ratings save | 2026-11-04 `56fdb58` | Phase 1 |
 | Restyle on shared theme | 2026-11-04 `9a6d19a` | |
 | Detail panel, nearby photos, visit history, suggestions, lists, import/export, clustering | 2026-11-04 `c1b523a` | |
+| Importers moved to `map/importers.py` | 2026-11-07 `fe68d45` | |
 
 ### Tasks (`tasks/`)
 
 | Feature | First appeared | Notes |
 |---|---|---|
-| Assignments with deadlines and priorities | 2020-05 *(Docket repo)* | Precursor |
 | `Todo` model in Calendar | 2021-11-13 `8ca4043` | |
 | Todo statuses and completion tracking | 2024-03-28 `d7fa84f` | |
 | Tasks backend (projects, buckets, labels, recurrence, sharing, quick add) | 2026-11-04 `bae08ee` | Built on `scheduler.Todo` |
@@ -568,6 +573,7 @@ Dates are author dates; hashes are short hashes from this repo. "Inferred" marks
 | Tests | 2026-11-04 `37fbb9c` | |
 | Tasks page (list, board, table, calendar, timeline) | 2026-11-05 `4929cbd` | |
 | API refinements; "tonight" = 8 pm | 2026-11-05 `97b5221` | |
+| API split into modules | 2026-11-07 `4dc5abb` | Identical OpenAPI schema |
 
 ### Habits (`habits/`)
 
@@ -636,7 +642,10 @@ Dates are author dates; hashes are short hashes from this repo. "Inferred" marks
 | Per-app API keys, agent guides | 2026-11-04 `6721d0e` | |
 | ICS feeds (`feeds/`) | 2026-11-04 `44cd184` | |
 | Usage analytics (`analytics/`) | 2026-11-04 `9115f68` | Simplified 2026-11-05 `35b325e` |
-| React UI at `/app/` | 2026-11-04 `00b6928` (routes) | Source uncommitted at time of writing |
+| React UI at `/app/` | 2026-11-04 `00b6928` (routes) | Source committed 2026-11-05 `24897d6` |
+| React UI at `/`, the only interface | 2026-11-07 `bc1f4c2` | Classic UI and legacy endpoints deleted in `c95ad93` |
+| Hashed static names only from `staticfiles.json` | 2026-11-05 `1e2b547` | |
+| Site settings in untracked `site.json` | 2026-11-07 `0eb8434` | |
 
 ---
 
@@ -655,6 +664,9 @@ A fond farewell to everything that was born in this repo and didn't survive.
 | `socialmedia` | 2021-09-04 `8357afa` | 2025-03-11 `d44411e` | A social network scaffold with a model added in 2022 |
 | Scheduler `Habit` | 2024-03-28 `d7fa84f` | 2026-02-04 `c477ed1` | Reborn as the Habits app in November 2026 |
 | Handwritten V2 API | 2024 H2 *(per owner)* | 2025-01, SSD failure | Never committed; reborn on Django Ninja in November 2026 |
+| Upload portal | 2026-08-07 `624f95c` | 2026-11 | A public page for uploading media into the library |
+| One-off scripts (`scripts/`) | 2023-02-28 `5f8f34f` | 2026-11-07 `c95ad93` | Indexing and import helpers from before the app had its own pipeline |
+| The classic Django-template UI | 2021-02-19 `4f094bb` | 2026-11-07 `c95ad93` | Every page before the React app; frozen on 2026-11-05, deleted two days later |
 
 ---
 
@@ -713,7 +725,7 @@ The most-touched files over the whole history: `Comptech/settings.py` (53 commit
 
 - **Busiest weekday:** Wednesday, with 62 commits, thanks largely to 4 November 2026. Saturday is the quietest (11).
 - **Busiest hour:** 22:00 to 23:00 (36 commits). This project has always been a late-night one.
-- **Authors:** me (188 commits, including one as "Amol Venktaraman", a typo of my own name), Claude (12 commits on GitHub PRs in 2026), and Bala (1 README typo fix, 2021).
+- **Authors:** me (188 commits, including one as "Amol Venktaraman", a typo of my own name), Claude (12 commits on GitHub PRs in 2026), and one other contributor (1 README typo fix, 2021).
 - **Pull requests:** two on my self-hosted Gitea in 2021 (#1 Google Calendar sync, #2 Upgrade_Calendar), then ten on GitHub in 2026 (#1 to #10; #8, the rewrite brief, is still open).
 - **Longest silences:** 303 days (2022-05-01 → 2023-02-28, right after the "Program of Theseus"), 271 days (2025-05-09 → 2026-02-04), 251 days (2023-07-21 → 2024-03-28) and 247 days (2024-05-31 → 2025-02-02). Only the last was involuntary: it's the gap where the lost 2024 work should be.
 
@@ -752,15 +764,121 @@ And from the Docket archives (not this repo): "Pray it work", "sdf sdfasd fdafsa
 
 - This repository's full history (`git log --all`, `git show`), including the branches `fix/critical-bugs`, `improve/phase-1`, `origin/claude/charming-brown-fjomw` (PR #8, unmerged) and `origin/claude/photos-map-dot-heatmap-x55lwb`, and the GitHub PR list.
 - `README.md` (current and historical versions), `docs/` (data model and ETL docs, both upgrade guides), `localdev/README.md`, `frontend/README.md`.
-- `_OLD/SchoolTaskScheduler/` (four Docket repos with git history), `_OLD/YMCACalendar/YMCACalendar/` (git history), `_OLD/HTN2021/` (file dates only), and a glance at `_OLD/ComptechWebsite/`, `_OLD/YMCA*`.
+- My archive of old projects: the four Docket repos (git history), the PikPic folder (file dates only), and a glance at a few other folders.
+- The screenshots in Appendix F, rendered offline from each version's own files.
 - The owner's own account of the SSD loss, the lost V2 API, and the AI tools used.
 
 **Inferred or unconfirmed**
 
 - **HTN2021 = Hack the North 2021.** Based on the folder name and file dates (18 and 19 September 2021); there's no README or git history.
 - **The exact date of the SSD failure** ("January 2025") and the **contents of the lost 2024 work** come from the owner's account. The repo only shows the gap and the recovery commits. Commits from May 2024 do exist in history, so the git remote evidently survived to 2024-05-31, while the README says the restored *code* came from an April 2024 backup.
-- **Which AI tool wrote what in 2025 to 2026.** Commit messages name Cursor (March 2025); Claude-authored commits are explicit from April 2026. Antigravity isn't named in any commit, and since it was publicly released in late 2025, it most likely applies to the 2026 work rather than to February or March 2025.
+- **Which AI tool wrote what in 2025 to 2026.** After the restore I used Cursor, Windsurf and Google Antigravity, each to some degree; only Cursor is named in a commit message (March 2025), so which editor wrote which commit isn't recorded. Claude-authored PR commits are explicit from April 2026, and the November 2026 work was done with Claude Code.
 - **CareerConnect** (`8357afa`) is likely an event where the project was shown; the commit message is the only evidence.
-- **The UW course-info and WCMS features point to the University of Waterloo.** The WCMS sync calls UWaterloo's open data API, so this one is solid. That the author was a student there at the time is an inference.
 - **`Docket_OIDC` used Comptech as its login provider.** Very likely: it points at the same `/openid/authorize/` path that Comptech began serving on 2021-05-09, but no commit says so.
-- **The book covers `improve/phase-1` up to PR #11's review** (5 November 2026, late morning). Commits made after that aren't covered.
+- **The book covers the history up to the new-UI-only refactor** (7 November 2026: the React app as the only interface, the classic UI deleted, the API module splits) and the screenshots added for the public release. Appendix C's stats stop earlier, at `cbed793` (5 November). Commits made after that aren't covered.
+
+---
+
+## Appendix F: Screenshots through the years
+
+Every version below was rendered offline from that commit's own templates, CSS and JavaScript, with no backend: static files, plus every API call answered with mocked data in that era's JSON shape. All of them show the same fictional data: a March 2026 calendar and task list for a made-up user, Alex Morgan, and the same 34 landscape photos from one day in Sequoia National Park. Desktop, 1440 × 900, light mode. Old bugs and quirks are left as they were; the author's name, a LAN link and profile pictures were blanked or replaced with placeholders. Docket screenshots come from the Docket repos, PikPic from the original Hack the North 2021 code (as last edited in 2022). The current app is shown in more detail in [SCREENSHOTS.md](SCREENSHOTS.md).
+
+### Calendar
+
+<table>
+<tr>
+<td width="50%" valign="top"><a href="history/calendar-2020-05-15-8cb2b39-docket.png"><img src="history/calendar-2020-05-15-8cb2b39-docket.png" width="420" alt="Docket, first deployable version"></a><br><sub><b>2020-05-15</b> · <code>8cb2b39</code> · Docket, first deployable version: one month calendar with each class's assignments on their due dates (Docket repo)</sub></td>
+<td width="50%" valign="top"><a href="history/calendar-2020-08-18-ea49a44-docket.png"><img src="history/calendar-2020-08-18-ea49a44-docket.png" width="420" alt="Docket REV 0.9.1"></a><br><sub><b>2020-08-18</b> · <code>ea49a44</code> · Docket REV 0.9.1: an Enrolled sidebar of classes, class events beside assignments (Docket repo)</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/calendar-2020-11-04-47ba860-docket.png"><img src="history/calendar-2020-11-04-47ba860-docket.png" width="420" alt="Docket REV 1.1"></a><br><sub><b>2020-11-04</b> · <code>47ba860</code> · Docket REV 1.1: per-class toggles, invites, school-wide events; the calendar code Comptech started from (Docket repo)</sub></td>
+<td width="50%" valign="top"><a href="history/calendar-2021-04-03-3600020.png"><img src="history/calendar-2021-04-03-3600020.png" width="420" alt="First Comptech calendar to show events"></a><br><sub><b>2021-04-03</b> · <code>3600020</code> · First Comptech calendar to show events: a plain month grid under a navbar still branded "Unnamed"</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/calendar-2021-05-09-083cf2c.png"><img src="history/calendar-2021-05-09-083cf2c.png" width="420" alt="&quot;Completely Finished Calendar&quot;"></a><br><sub><b>2021-05-09</b> · <code>083cf2c</code> · "Completely Finished Calendar": calendar colours, Tasks and Assignments on the grid (it was not finished)</sub></td>
+<td width="50%" valign="top"><a href="history/calendar-2021-06-19-4f415e9-docket.png"><img src="history/calendar-2021-06-19-4f415e9-docket.png" width="420" alt="DocketDemo REV 2.0"></a><br><sub><b>2021-06-19</b> · <code>4f415e9</code> · DocketDemo REV 2.0: a colour per class, the last Docket before it shut down (DocketDemo repo)</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/calendar-2021-07-14-1865a72.png"><img src="history/calendar-2021-07-14-1865a72.png" width="420" alt="&quot;Calendar Upgrade #65536&quot;"></a><br><sub><b>2021-07-14</b> · <code>1865a72</code> · "Calendar Upgrade #65536": navbar menus, start times, done tasks struck through</sub></td>
+<td width="50%" valign="top"><a href="history/calendar-2021-11-13-8ca4043.png"><img src="history/calendar-2021-11-13-8ca4043.png" width="420" alt="&quot;Complete Calendar Revamp&quot;"></a><br><sub><b>2021-11-13</b> · <code>8ca4043</code> · "Complete Calendar Revamp": the data model still in use, a gradient navbar and a Todos panel</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/calendar-2023-07-21-97db631.png"><img src="history/calendar-2023-07-21-97db631.png" width="420" alt="Calendar 6.0.0 on the base_v2 shell"></a><br><sub><b>2023-07-21</b> · <code>97db631</code> · Calendar 6.0.0 on the base_v2 shell: todos with due dates on the grid</sub></td>
+<td width="50%" valign="top"><a href="history/calendar-2026-03-12-aadfddd.png"><img src="history/calendar-2026-03-12-aadfddd.png" width="420" alt="The first Week view, after the day/week refactor"></a><br><sub><b>2026-03-12</b> · <code>aadfddd</code> · The first Week view, after the day/week refactor</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/calendar-2026-11-05-73f6cae.png"><img src="history/calendar-2026-11-05-73f6cae.png" width="420" alt="The last classic calendar"></a><br><sub><b>2026-11-05</b> · <code>73f6cae</code> · The last classic calendar: redesigned to match Tasks and Habits, then frozen</sub></td>
+<td width="50%" valign="top"><a href="screenshots/calendar-light-desktop.png"><img src="screenshots/calendar-light-desktop.png" width="420" alt="Today's React calendar at /"></a><br><sub><b>2026-11-07</b> · <code>8f34563</code> · Today's React calendar at /: month view, mini month, my and other calendars</sub></td>
+</tr>
+</table>
+
+### Tasks
+
+<table>
+<tr>
+<td width="50%" valign="top"><a href="history/tasks-2026-11-05-56a7d00.png"><img src="history/tasks-2026-11-05-56a7d00.png" width="420" alt="The first standalone Tasks page (classic UI), Upcoming in calendar layout; Tasks had no page of its own before November 2026"></a><br><sub><b>2026-11-05</b> · <code>56a7d00</code> · The first standalone Tasks page (classic UI), Upcoming in calendar layout; Tasks had no page of its own before November 2026</sub></td>
+<td width="50%" valign="top"><a href="screenshots/tasks-light-desktop.png"><img src="screenshots/tasks-light-desktop.png" width="420" alt="Today's React Tasks"></a><br><sub><b>2026-11-07</b> · <code>8f34563</code> · Today's React Tasks: smart views, projects and labels, shown as a table</sub></td>
+</tr>
+</table>
+
+### Home
+
+<table>
+<tr>
+<td width="50%" valign="top"><a href="history/home-2021-04-03-3600020.png"><img src="history/home-2021-04-03-3600020.png" width="420" alt="The first real home page"></a><br><sub><b>2021-04-03</b> · <code>3600020</code> · The first real home page: a greeting, a giant clock and link cards</sub></td>
+<td width="50%" valign="top"><a href="history/home-2021-08-07-9b4c2c3.png"><img src="history/home-2021-08-07-9b4c2c3.png" width="420" alt="&quot;Changed Homepage&quot;"></a><br><sub><b>2021-08-07</b> · <code>9b4c2c3</code> · "Changed Homepage": a search box and a Recent Events card (empty, as shipped)</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/home-2024-03-28-d7fa84f.png"><img src="history/home-2024-03-28-d7fa84f.png" width="420" alt="Home on base_v2"></a><br><sub><b>2024-03-28</b> · <code>d7fa84f</code> · Home on base_v2: a reminder greeting, Recent Events and Upcoming Todos</sub></td>
+<td width="50%" valign="top"><a href="history/home-2026-11-04-1fad757.png"><img src="history/home-2026-11-04-1fad757.png" width="420" alt="The last classic home, restyled on the shared theme"></a><br><sub><b>2026-11-04</b> · <code>1fad757</code> · The last classic home, restyled on the shared theme</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="screenshots/home-light-desktop.png"><img src="screenshots/home-light-desktop.png" width="420" alt="Today's React home"></a><br><sub><b>2026-11-07</b> · <code>8f34563</code> · Today's React home: agenda, tasks, a "This week" chart, habits and quick links</sub></td>
+<td width="50%"></td>
+</tr>
+</table>
+
+### Photos
+
+<table>
+<tr>
+<td width="50%" valign="top"><a href="history/photos-2021-09-19-htn2021-pikpic.webp"><img src="history/photos-2021-09-19-htn2021-pikpic.webp" width="420" alt="PikPic"></a><br><sub><b>2021-09</b> · Hack the North 2021 · PikPic: the original version of Photos. Open a folder, browse 200 px thumbnails, index it, then search by object, text or face</sub></td>
+<td width="50%" valign="top"><a href="history/photos-2021-05-31-3dda934.webp"><img src="history/photos-2021-05-31-3dda934.webp" width="420" alt="Comptech's first photo page"></a><br><sub><b>2021-05-31</b> · <code>3dda934</code> · Comptech's first photo page: the newest days' thumbnails in one floating grid</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/photos-2021-05-31-3dda934-viewer.webp"><img src="history/photos-2021-05-31-3dda934-viewer.webp" width="420" alt="The first viewer reused the 200 px thumbnail, so it is upscaled and soft"></a><br><sub><b>2021-05-31</b> · <code>3dda934</code> · The first viewer reused the 200 px thumbnail, so it is upscaled and soft</sub></td>
+<td width="50%" valign="top"><a href="history/photos-2023-02-28-5f8f34f.webp"><img src="history/photos-2023-02-28-5f8f34f.webp" width="420" alt="&quot;Complete revamp of Photos app&quot;"></a><br><sub><b>2023-02-28</b> · <code>5f8f34f</code> · "Complete revamp of Photos app": a day-by-day timeline with infinite scroll</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/photos-2023-02-28-5f8f34f-viewer.webp"><img src="history/photos-2023-02-28-5f8f34f-viewer.webp" width="420" alt="Viewer with EXIF details and a &quot;Load Map&quot; mini-map"></a><br><sub><b>2023-02-28</b> · <code>5f8f34f</code> · Viewer with EXIF details and a "Load Map" mini-map</sub></td>
+<td width="50%" valign="top"><a href="history/photos-2023-02-28-5f8f34f-map.webp"><img src="history/photos-2023-02-28-5f8f34f-map.webp" width="420" alt="The first photo heatmap over OpenStreetMap"></a><br><sub><b>2023-02-28</b> · <code>5f8f34f</code> · The first photo heatmap over OpenStreetMap</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/photos-2025-03-12-23ce53d.webp"><img src="history/photos-2025-03-12-23ce53d.webp" width="420" alt="After the restore"></a><br><sub><b>2025-03-12</b> · <code>23ce53d</code> · After the restore: a new shell, a stats bar and city tags from offline geocoding</sub></td>
+<td width="50%" valign="top"><a href="history/photos-2025-03-12-23ce53d-viewer.webp"><img src="history/photos-2025-03-12-23ce53d-viewer.webp" width="420" alt="Viewer with location, &quot;View Location&quot; and &quot;Delete&quot;"></a><br><sub><b>2025-03-12</b> · <code>23ce53d</code> · Viewer with location, "View Location" and "Delete"</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/photos-2026-02-05-44b4141.webp"><img src="history/photos-2026-02-05-44b4141.webp" width="420" alt="A Filters sidebar (here"></a><br><sub><b>2026-02-05</b> · <code>44b4141</code> · A Filters sidebar (here: City is Three Rivers) with removable filter tags</sub></td>
+<td width="50%" valign="top"><a href="history/photos-2026-02-05-44b4141-viewer.webp"><img src="history/photos-2026-02-05-44b4141-viewer.webp" width="420" alt="Viewer adds megapixels and optimized/original file sizes"></a><br><sub><b>2026-02-05</b> · <code>44b4141</code> · Viewer adds megapixels and optimized/original file sizes</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/photos-2026-05-29-432f18d.webp"><img src="history/photos-2026-05-29-432f18d.webp" width="420" alt="&quot;Justify all images&quot;"></a><br><sub><b>2026-05-29</b> · <code>432f18d</code> · "Justify all images": the justified grid, with Stats and Storage in the sidebar</sub></td>
+<td width="50%" valign="top"><a href="history/photos-2026-05-29-432f18d-viewer.webp"><img src="history/photos-2026-05-29-432f18d-viewer.webp" width="420" alt="Redesigned viewer info panel"></a><br><sub><b>2026-05-29</b> · <code>432f18d</code> · Redesigned viewer info panel</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/photos-2026-05-29-432f18d-stats.png"><img src="history/photos-2026-05-29-432f18d-stats.png" width="420" alt="The first Stats page (Chart.js)"></a><br><sub><b>2026-05-29</b> · <code>432f18d</code> · The first Stats page (Chart.js)</sub></td>
+<td width="50%" valign="top"><a href="history/photos-2026-05-29-432f18d-storage.png"><img src="history/photos-2026-05-29-432f18d-storage.png" width="420" alt="The first Storage page, by album with usage bars"></a><br><sub><b>2026-05-29</b> · <code>432f18d</code> · The first Storage page, by album with usage bars</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="history/photos-2026-11-05-01252d8.webp"><img src="history/photos-2026-11-05-01252d8.webp" width="420" alt="Google Photos-style redesign, the last big classic version"></a><br><sub><b>2026-11-05</b> · <code>01252d8</code> · Google Photos-style redesign, the last big classic version</sub></td>
+<td width="50%" valign="top"><a href="history/photos-2026-11-05-01252d8-viewer.webp"><img src="history/photos-2026-11-05-01252d8-viewer.webp" width="420" alt="Its viewer with the info panel open"></a><br><sub><b>2026-11-05</b> · <code>01252d8</code> · Its viewer with the info panel open</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="screenshots/photos-light-desktop.webp"><img src="screenshots/photos-light-desktop.webp" width="420" alt="Today's React Photos timeline"></a><br><sub><b>2026-11-07</b> · <code>8f34563</code> · Today's React Photos timeline</sub></td>
+<td width="50%" valign="top"><a href="screenshots/photos-search-light-desktop.webp"><img src="screenshots/photos-search-light-desktop.webp" width="420" alt="Smart search"></a><br><sub><b>2026-11-07</b> · <code>8f34563</code> · Smart search: "three rivers july 2026" read as a place and a date</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="screenshots/photos-viewer-light-desktop.webp"><img src="screenshots/photos-viewer-light-desktop.webp" width="420" alt="Viewer with the Details panel and mini-map"></a><br><sub><b>2026-11-07</b> · <code>8f34563</code> · Viewer with the Details panel and mini-map</sub></td>
+<td width="50%" valign="top"><a href="screenshots/photos-map-light-desktop.webp"><img src="screenshots/photos-map-light-desktop.webp" width="420" alt="Map"></a><br><sub><b>2026-11-07</b> · <code>8f34563</code> · Map: heatmap with count bubbles</sub></td>
+</tr>
+</table>
