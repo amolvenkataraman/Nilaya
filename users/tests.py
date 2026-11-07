@@ -58,7 +58,10 @@ class SignInTests(TestCase):
     def setUp(self):
         from django.core.cache import cache
         from django.test import Client
+
+        from Comptech.tests import built_app
         cache.clear()
+        self.enterContext(built_app())
         ComptechUser.objects.create_user("eve", password="right-pass-1")
         self.client = Client(enforce_csrf_checks=True)
         self.client.get("/login")  # sets the CSRF cookie

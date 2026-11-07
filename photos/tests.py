@@ -94,6 +94,9 @@ class PublicAlbumAndUploadTests(TestCase):
 
         from django.core.files.uploadedfile import SimpleUploadedFile
         from django.test import Client, override_settings
+
+        from Comptech.tests import built_app
+        self.enterContext(built_app())
         client = Client(enforce_csrf_checks=True)
         with tempfile.TemporaryDirectory() as tmp, override_settings(UPLOADS_DIR=tmp + "/"):
             files = lambda: [SimpleUploadedFile("../../a.jpg", b"x"), SimpleUploadedFile("run.sh", b"x")]
