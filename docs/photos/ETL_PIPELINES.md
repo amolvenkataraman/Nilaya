@@ -278,19 +278,11 @@ def ingest_all_photos(user_id=None):
 
 ---
 
-## 4. Utility Scripts (`scripts/`)
+## 4. One-off maintenance
 
-These scripts are run manually for maintenance and bulk operations.
-
-| Script | Purpose |
-|--------|---------|
-| `ingest_existing.py` | Import photos that are already in the album directory (no Ingest/ staging) |
-| `genthumbnail.py` | Regenerate thumbnails for all Photo records (e.g. after thumbnail format change) |
-| `gpx_locfind.py` | Parse a GPX track file and geotag photos by interpolating GPS coordinates from timestamps |
-| `prevnext_locfind.py` | Find the nearest GPS coordinate before/after a photo's timestamp (for gap-filling) |
-| `adddate.py` | Write EXIF date metadata to files that are missing it |
-| `calibrate_time.py` | Apply a time offset to photos taken with a misconfigured camera clock |
-| `photos_rev_gc.py` | Re-run reverse geocoding for all photos missing city/country data |
+The old one-off scripts in `scripts/` (bulk EXIF dates, thumbnails, GPX geotagging, reverse geocoding,
+clock offsets) were removed. Use the management commands instead: `index_photos` (AI indexing),
+`fix_orientation` (thumbnails), and the Locate tool in Photos for missing locations.
 
 ---
 

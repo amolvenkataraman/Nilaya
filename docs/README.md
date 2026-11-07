@@ -9,22 +9,22 @@ This directory contains technical documentation for the AVNet Superapp (V1) plat
 | Document | Description |
 |----------|-------------|
 | [calendar/DATA_MODEL.md](calendar/DATA_MODEL.md) | All models (`Calendar`, `Subscriber`, `Event`, `Todo`, `Invite`), field-by-field reference, relationships diagram |
-| [calendar/ETL_PIPELINES.md](calendar/ETL_PIPELINES.md) | ICalendar sync, Google Calendar sync, UWaterloo WCMS sync, Celery periodic task, course injection pipeline |
+| [calendar/ETL_PIPELINES.md](calendar/ETL_PIPELINES.md) | ICalendar sync, Google Calendar sync, UWaterloo WCMS sync, Celery periodic task |
 
 ### Photos App (`photos`)
 
 | Document | Description |
 |----------|-------------|
 | [photos/DATA_MODEL.md](photos/DATA_MODEL.md) | All models (`Album`, `Photo`, `ShareAlbum`, `PhotoLocationCache` materialized view), field-by-field reference, relationships diagram |
-| [photos/ETL_PIPELINES.md](photos/ETL_PIPELINES.md) | Photo ingest pipeline (date extraction, EXIF parsing, GPS geocoding, thumbnail generation, hash computation), AI object detection, Celery task, utility scripts |
+| [photos/ETL_PIPELINES.md](photos/ETL_PIPELINES.md) | Photo ingest pipeline (date extraction, EXIF parsing, GPS geocoding, thumbnail generation, hash computation), AI object detection, Celery task |
 
 ---
 
 ## System Architecture (Brief)
 
 ```
-Browser / Client
-      │
+Browser: the React app (frontend/, served at /)
+      │  JSON API /api/v2/
       ▼
 Django (Daphne + Channels for WebSocket)
       │

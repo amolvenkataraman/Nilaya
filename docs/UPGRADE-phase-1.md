@@ -1,3 +1,5 @@
+> **Newer upgrade:** after this one, follow [UPGRADE-new-ui-only.md](UPGRADE-new-ui-only.md) (the app moves to `/`, the classic pages and `fetch_vendor.sh` go away). The `/app/` paths and vendor steps below are as of phase 1.
+
 # Upgrading the server to `improve/phase-1`
 
 Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_env`, tmux session `Comptech` started by `Comptech.sh` (window 0 Daphne via `make`, window 2 Celery worker, window 3 Celery beat), nginx in front, Postgres DB `Comptech`. Time needed: about 30 minutes, plus 10 for the rehearsal (step 0, strongly recommended: everything was tested on SQLite, not yet on Postgres).

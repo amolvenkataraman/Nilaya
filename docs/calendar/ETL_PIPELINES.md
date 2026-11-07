@@ -178,41 +178,12 @@ All three pipelines share the same **upsert pattern**: look up an existing `Even
 
 ---
 
-## 5. UWaterloo Course Injection — `inject.py`
-
-This is a one-time or on-demand pipeline that injects university course schedules as calendar events, reading from a local SQLite database.
-
-**File:** `scheduler/inject.py`  
-**Source:** `UW_Courses.db` (SQLite, local file)
-
-### Term Code Calculation
-
-```python
-term_code = ((year - 1900) * 10) + month_code
-# month_code: 1=Winter, 5=Spring, 9=Fall
-```
-
-### Pipeline Steps
-
-```
-1. Open UW_Courses.db SQLite connection
-2. Query courses for the given term code
-3. For each course section:
-   a. Parse meeting pattern (days of week, time slots)
-   b. Generate recurring Event objects for the full term
-   c. Assign color based on course number (deterministic hash)
-   d. Save Events to the target Calendar
-```
-
----
-
 ## Manual Sync API
 
-Users can also trigger sync on demand via the API:
+Users can also trigger sync on demand (the calendar's settings → Sync → Sync now, or a range of months):
 
 ```
-POST /api/sync/
-Body: { "calendar_id": <id>, "start": "<ISO8601>", "end": "<ISO8601>" }
+POST /api/v2/calendar/calendars/<id>/sync
 ```
 
 This calls the same `sync_ical` / `sync_google` / `sync_uwaterloo` functions directly.
