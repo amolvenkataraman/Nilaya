@@ -1,32 +1,23 @@
 """/api/v2/photos/public/: what anyone with the link may use, signed in or not.
 
-- A shared album's page: public albums for anyone; private ones for their owner and members
-  (the same rule the old /photos/?album=<id> page had). Hidden photos never show.
-- The upload portal: people send photos and videos to the site's owner (settings.ALLOW_PHOTO_UPLOADS,
-  PHOTOS_UPLOAD_RECIPIENT_NAME from site.json, files land in settings.UPLOADS_DIR untouched, so all
-  metadata is kept). Nothing is imported automatically.
+A shared album's page: public albums for anyone; private ones for their owner and members (the same
+rule the old /photos/?album=<id> page had). Hidden photos never show.
 """
 
 import datetime
-import os
 import uuid
-from pathlib import Path
 from typing import Optional
 
-from django.conf import settings
 from django.db.models import Count, Max, Min, Q, Sum
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
 from ninja.errors import HttpError
-from ninja.utils import check_csrf
 
 from . import hidden as hidden_mode
 from .api_common import PageOut, _page
 from .models import Photo, ShareAlbum
 
 router = Router(tags=["photos"])
-
-UPLOAD_EXTENSIONS = {"jpg", "jpeg", "png", "mp4", "mpg", "m4v", "mov", "mod", "avi", "3gp", "mkv", "gif", "heic", "webp"}
 
 
 class PublicAlbumOut(Schema):
@@ -81,59 +72,3 @@ def public_album_photos(request, album_id: uuid.UUID, before: Optional[datetime.
                         before_id: Optional[uuid.UUID] = None):
     album, _ = _album(request, album_id)
     return _page(_photos(request, album), before, limit, before_id)
-
-
-# ---------------------------------------------------------------- upload portal
-
-class UploadInfo(Schema):
-    enabled: bool
-    recipient: str
-    extensions: list[str]
-
-
-@router.get("/upload", auth=None, response=UploadInfo, summary="The upload portal: whether it's open, and for whom")
-def upload_info(request):
-    return {"enabled": bool(getattr(settings, "ALLOW_PHOTO_UPLOADS", True)),
-            "recipient": getattr(settings, "PHOTOS_UPLOAD_RECIPIENT_NAME", "the owner of this site"),
-            "extensions": sorted(UPLOAD_EXTENSIONS)}
-
-
-class UploadOut(Schema):
-    saved: list[str]
-    errors: list[str]
-
-
-@router.post("/upload", auth=None, response=UploadOut,
-             summary="Send photos or videos to the site's owner (multipart field `files`; saved untouched)")
-def upload(request):
-    if check_csrf(request) is not None:
-        raise HttpError(403, "Your session expired. Reload the page and try again.")
-    if not getattr(settings, "ALLOW_PHOTO_UPLOADS", True):
-        raise HttpError(403, "Uploads are turned off.")
-    files = request.FILES.getlist("files") or request.FILES.getlist("file") or list(request.FILES.values())
-    if not files:
-        raise HttpError(400, "No files were sent.")
-    target_dir = settings.UPLOADS_DIR
-    os.makedirs(target_dir, exist_ok=True)
-    saved, errors = [], []
-    for f in files:
-        name = Path(f.name).name  # no directories: never write outside the uploads folder
-        stem, dot, ext = name.rpartition(".")
-        if not dot or not stem or ext.lower() not in UPLOAD_EXTENSIONS:
-            errors.append(f"{name}: .{ext.lower() if dot else ''} files aren't accepted.")
-            continue
-        base, suffix = os.path.splitext(name)
-        path, n = os.path.join(target_dir, name), 1
-        while os.path.exists(path):  # never overwrite an earlier upload
-            path, n = os.path.join(target_dir, f"{base}_{n}{suffix}"), n + 1
-        try:
-            with open(path, "xb") as out:  # raw chunks: EXIF and video metadata stay exactly as sent
-                for chunk in f.chunks():
-                    out.write(chunk)
-        except OSError as exc:
-            errors.append(f"{name}: couldn't be saved ({exc.strerror or 'disk error'}).")
-            continue
-        saved.append(os.path.basename(path))
-    if not saved:
-        raise HttpError(400, " ".join(errors))
-    return {"saved": saved, "errors": errors}

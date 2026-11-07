@@ -29,7 +29,7 @@ class SpaTests(TestCase):
     def test_private_routes_need_sign_in_and_public_ones_do_not(self):
         r = self.client.get("/tasks/", {"task": "x"})
         self.assertRedirects(r, "/login?next=/tasks/%3Ftask%3Dx", fetch_redirect_response=False)
-        for path in ("/login", "/register", "/photos/upload/", "/calendar/public/3/", "/calendar/countdown/x/start/",
+        for path in ("/login", "/register", "/calendar/public/3/", "/calendar/countdown/x/start/",
                      "/calendar/availability/ann/", "/shared/albums/0b7e9d3c-1b5e-4c55-9a0e-6a1e2b3c4d5e"):
             r = self.client.get(path)
             self.assertEqual(r.status_code, 200, path)
@@ -37,8 +37,10 @@ class SpaTests(TestCase):
         self.assertIn("csrftoken", r.cookies)  # the sign-in form posts with it
         self.assertEqual(r["Cache-Control"], "no-cache")
         self.assertIn("script-src 'self'", r["Content-Security-Policy"])
+        self.assertEqual(self.client.get("/photos/upload/").status_code, 404)  # removed upload portal
         self.client.force_login(ComptechUser.objects.create_user("amy", password="pw"))
         self.assertContains(self.client.get("/places"), '<meta name="avn-session" content="1">')
+        self.assertEqual(self.client.get("/photos/upload").status_code, 404)
 
     def test_old_urls_redirect_to_their_routes_with_the_query(self):
         album = "0b7e9d3c-1b5e-4c55-9a0e-6a1e2b3c4d5e"

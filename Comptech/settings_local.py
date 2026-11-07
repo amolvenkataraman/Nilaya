@@ -42,7 +42,6 @@ CELERY_RESULT_BACKEND = "cache+memory://"
 PHOTOS_ROOT = str(_DATA / "photos") + "/"
 PRIVATE_ROOT = str(_DATA / "private") + "/"
 THUMBNAIL_DIR = PRIVATE_ROOT + "photo_cache/thumbnail/"
-UPLOADS_DIR = PHOTOS_ROOT + "Uploads/"
 STATIC_ROOT = str(_DATA / "static")
 MEDIA_ROOT = str(_DATA / "media")
 SERVE_FILES_WITH_DJANGO = True  # /private/ and /photo_cdn/ served by Django, same signed URLs

@@ -25,7 +25,7 @@ Same setup as the last guide: code in `/opt/Comptech`, venv `/opt/Comptech/CT_en
 | New URLs `/api/v2/`, `/tasks/`, `/habits/`, `/contacts/`, `/settings/api-keys/`, `/feeds/…ics`, `/analytics/`, `/app/` | None if nginx proxies everything to Daphne (it does). API keys use the `Authorization` header, which nginx passes through by default |
 | New React interface at `/app/` | Built on your computer and copied with rsync (step 7). Until then `/app/` shows "isn't built on this server yet" |
 | Email delivery for notifications (optional) | Set `EMAIL_HOST`/`EMAIL_HOST_USER` in settings and put the password in `Comptech/email_password.txt` |
-| **Site settings moved out of the code**: `SITE_URL` (links in notifications and feeds), the hostnames/IPs the site answers to (`CSRF_TRUSTED_ORIGINS`, which also sets `ALLOWED_HOSTS`), `INTERNAL_IPS`, the email From address and the name on the upload page now come from an untracked `Comptech/site.json`. Without it the code falls back to `example.com` | **Create `Comptech/site.json` before starting the app (step 4)**, or every page answers **400 Bad Request**. `python manage.py check` warns (`mainsite.W001`) while it's missing |
+| **Site settings moved out of the code**: `SITE_URL` (links in notifications and feeds), the hostnames/IPs the site answers to (`CSRF_TRUSTED_ORIGINS`, which also sets `ALLOWED_HOSTS`), `INTERNAL_IPS` and the email From address now come from an untracked `Comptech/site.json`. Without it the code falls back to `example.com` | **Create `Comptech/site.json` before starting the app (step 4)**, or every page answers **400 Bad Request**. `python manage.py check` warns (`mainsite.W001`) while it's missing |
 | **Daphne listens on `127.0.0.1:8000`** (was `0.0.0.0:8000`), so Django is reachable only through nginx | None if you always go through nginx. If you open `http://<server>:8000` directly from the LAN, see step 9 |
 | The classic Geoguessr and location-entry pages are gone; `/photos/geoguessr/` and `/photos/geoguessr_ent/` redirect to the new interface (`/app/photos/geoguessr`, `/app/photos/locate`) | None |
 
@@ -105,7 +105,7 @@ psql -h 127.0.0.1 -U postgres -c "ALTER SYSTEM SET jit = off;" -c "SELECT pg_rel
 
 **Site settings (required):** create `Comptech/site.json` (same folder as `secret.txt`, untracked) with your real values. To keep production exactly as it was, copy them from the old `Comptech/settings.py`:
 ```bash
-git show "$(cat ~/comptech-previous-commit)":Comptech/settings.py | grep -E "SITE_URL|CSRF_TRUSTED_ORIGINS|INTERNAL_IPS|DEFAULT_FROM_EMAIL|PHOTOS_UPLOAD_RECIPIENT_NAME"
+git show "$(cat ~/comptech-previous-commit)":Comptech/settings.py | grep -E "SITE_URL|CSRF_TRUSTED_ORIGINS|INTERNAL_IPS|DEFAULT_FROM_EMAIL"
 ```
 ```json
 {
@@ -114,13 +114,11 @@ git show "$(cat ~/comptech-previous-commit)":Comptech/settings.py | grep -E "SIT
                            "http://app.home.lan", "https://app.home.lan",
                            "http://192.168.50.10", "https://192.168.50.10"],
   "internal_ips": ["127.0.0.1", "192.168.50.10"],
-  "default_from_email": "AVNet Superapp <noreply@example.com>",
-  "upload_recipient_name": "Your Name",
-  "preferred_library_keyword": "yourname"
+  "default_from_email": "AVNet Superapp <noreply@example.com>"
 }
 ```
 - `csrf_trusted_origins`: every address people open the site with, as `scheme://host` (no port, no path). `ALLOWED_HOSTS` is built from these plus `localhost` and `127.0.0.1`; any other Host gets 400.
-- `preferred_library_keyword`: the duplicate clean-up in `photos/importables.py` prefers copies in libraries whose name contains it (it was your username, hard-coded). Leave it out to turn that preference off.
+- `upload_recipient_name` and `preferred_library_keyword` (in earlier versions of this guide) are no longer used: the upload page and the `photos/importables.py` shell helpers were removed. Delete them from `site.json` if you have them.
 - Every key is optional; a missing key uses the `example.com` default. A JSON syntax error stops the app at start-up with the file name, instead of running with the wrong hosts.
 ```bash
 chmod 600 Comptech/site.json
@@ -179,7 +177,6 @@ Daphne now listens only on `127.0.0.1` (nginx's `proxy_pass http://127.0.0.1:800
 - Notifications → add a channel (e.g. ntfy) → **Send test**.
 - Settings → API keys: create a key with Tasks read access, then
   `curl -H "Authorization: Bearer <key>" https://<your-site>/api/v2/tasks/overview` should return JSON; revoke the key afterwards.
-- Photos upload page works again (it was broken by a script clash).
 - Within a minute, Celery beat's log should show the reminder tasks running; within 30 minutes, `autosync_calendars`.
 - A synced calendar → settings → Sync → **Sync now** shows "Synced" (or the feed's error).
 - Photos → Map shows the heat map; Photos → Stats loads (the second visit is instant: cached).

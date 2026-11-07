@@ -56,7 +56,6 @@ except ValueError as e:
 PHOTOS_ROOT = '/mnt/data/Photos/'          # albums live under here; nginx /photo_cdn/ aliases it
 PRIVATE_ROOT = '/www/private/'             # nginx /private/ aliases it (thumbnail cache, ...)
 THUMBNAIL_DIR = PRIVATE_ROOT + 'photo_cache/thumbnail/'
-UPLOADS_DIR = PHOTOS_ROOT + 'Uploads/'
 SERVE_FILES_WITH_DJANGO = False            # True only for local testing (no nginx)
 PHOTOS_INGEST_HARDLINK = False             # local testing: hardlink instead of copy on ingest
 
@@ -284,10 +283,6 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # Photos settings
 PHOTOS_AI_INDEX_ON_INGEST = True  # Set to False to disable automatic AI object detection during photo ingest
-ALLOW_PHOTO_UPLOADS = True        # False turns off the upload portal (/photos/upload, POST /api/v2/photos/public/upload)
-PHOTOS_UPLOAD_RECIPIENT_NAME = _site.get('upload_recipient_name', 'the owner of this site')  # shown on the media share upload portal
-# Duplicate clean-up (photos/importables.py) prefers copies in libraries whose name contains this (case-insensitive).
-PHOTOS_PREFERRED_LIBRARY_KEYWORD = _site.get('preferred_library_keyword', '')
 
 # Allow cross-origin requests to include the Referer header (required by OSM tile servers)
 SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"

@@ -19,11 +19,12 @@ Time needed: about 15 minutes. **No database migrations**, so rolling back is ju
 | nginx | **No changes needed.** The three `location /static/…` blocks stay: `/static/app/assets/` (hashed, cached forever), `/static/app/` (theme.js and favicon, revalidated) and `/static/` (admin). `index.html` is served by Django with `Cache-Control: no-cache`, so a deploy is picked up on the next page load |
 | Celery tasks send notification links to the new routes (`/tasks?task=…`, `/contacts?person=…`, `/photos/albums/<id>`, `/settings#set-api`) | Restart the worker and beat with Daphne (step 5) |
 | ICS feeds (`/feeds/f_….ics`), API keys, signed photo URLs | Unchanged |
+| The upload portal (`/photos/upload`, `POST /api/v2/photos/public/upload`) is removed, and so are the unused shell helpers `photos/importables.py` (duplicate clean-up, moving photos between libraries) and `photos/compressvideo.py`; `upload_recipient_name` and `preferred_library_keyword` in `Comptech/site.json` are no longer read | Delete those two keys from `site.json` (optional, step 4) |
 
 ### Behaviour changes people will notice
 - **Signing in** happens on the app's own page (`/login`), with the same accounts and passwords. After 10 wrong passwords for a username within 15 minutes, that username is refused until the window ends (Redis keeps the count; if Redis is down, there's no limit).
-- **Public pages work without signing in**, as they did on the classic site: a public calendar (`/calendar/public/<id>`, with a Subscribe button when signed in), a countdown (`/calendar/countdown/<id>/start` or `/end`), someone's availability (`/calendar/availability/<username>`), a public shared album (`/shared/albums/<id>`, the new share link) and the upload portal (`/photos/upload`). Private events still show only as "Busy", and hidden photos never show.
-- **The upload portal** is the same: open to anyone with the link while `ALLOW_PHOTO_UPLOADS = True`, files land untouched in `UPLOADS_DIR`, and the recipient name comes from `upload_recipient_name` in `site.json`. Nothing is imported automatically and no notification is sent (as before).
+- **Public pages work without signing in**, as they did on the classic site: a public calendar (`/calendar/public/<id>`, with a Subscribe button when signed in), a countdown (`/calendar/countdown/<id>/start` or `/end`), someone's availability (`/calendar/availability/<username>`), and a public shared album (`/shared/albums/<id>`, the new share link). Private events still show only as "Busy", and hidden photos never show.
+- **The upload portal is gone.** `/photos/upload` (a page anyone with the link could send photos and videos through) answers **404**, and so does `POST /api/v2/photos/public/upload`. Files it already saved stay in `/mnt/data/Photos/Uploads/` (move or delete them by hand). The settings `ALLOW_PHOTO_UPLOADS`, `UPLOADS_DIR` and `PHOTOS_UPLOAD_RECIPIENT_NAME` are gone, and `upload_recipient_name` in `Comptech/site.json` is no longer read: delete it (step 4). Adding photos is unchanged: drop files in a library's `Ingest` folder and use Photos › Ingest new photos.
 - **Superlatives** has all 11 rankings in the app (longest videos, original videos, highest resolution, largest photos, overhead gap, RAW files, most video time in a day were classic-only), with a Top 20/50/100/200 picker and bulk delete.
 - **Photos filters** gain "In this map area" (from Photos › Map and Places), camera make, sharpness and oldest first; heat maps gain "every year up to", an altitude ceiling and a library filter.
 - **Usernames** can be changed in Settings › Profile again.
@@ -64,6 +65,7 @@ rm -rf static_files/static/css static_files/static/js static_files/static/vendor
 python manage.py collectstatic --noinput --clear   # --clear drops the classic files from /www/static; admin and the app are copied again
 ls /www/static/app/index.html /www/static/app/assets | head -3
 ```
+Optional: delete `upload_recipient_name` and `preferred_library_keyword` from `Comptech/site.json` (both are ignored now; keep the JSON valid, no trailing comma). Files the upload portal saved are still in `/mnt/data/Photos/Uploads/`.
 
 ### 5. Restart Daphne, the Celery worker and beat
 ```bash
@@ -77,7 +79,7 @@ Signed out, in a private window:
 - `https://<your-site>/` goes to `/login?next=/`; a wrong password shows an error; signing in lands on Home.
 - `https://<your-site>/tasks?view=today` signed out goes to `/login?next=…` and, after signing in, back to Today.
 - `https://<your-site>/app/` and `/accounts/login/` redirect to `/` and `/login`.
-- A public calendar (`/calendar/public/<id>`), a countdown (from an event on it: Event → Countdown to start), a public album (Photos › Albums › a public album › Copy link) and `/photos/upload` open without signing in.
+- A public calendar (`/calendar/public/<id>`), a countdown (from an event on it: Event → Countdown to start) and a public album (Photos › Albums › a public album › Copy link) open without signing in; `/photos/upload` answers 404.
 
 Signed in:
 - Open every app from the launcher; toggle dark mode; open the bell and click a notification from before the upgrade (old links redirect).
@@ -137,7 +139,7 @@ out) or a 301, never their old JSON, so check every call.
 | `POST /photos/ingest/` | `POST /api/v2/photos/ingest` |
 | `POST /photos/delete/<id>/` | `POST /api/v2/photos/delete` `{"ids": […]}` (browser session only) |
 | `POST /photos/delete-original/<id>/` | `POST /api/v2/photos/<id>/delete-original` (browser session only) |
-| `POST /photos/upload/` | `POST /api/v2/photos/public/upload` (multipart field `files`, CSRF token; `GET` for the recipient and allowed types) |
+| `POST /photos/upload/` | None: the upload portal was removed (it and `POST /api/v2/photos/public/upload` answer 404) |
 
 ### Places (`/map/…`)
 | Removed | Replacement |

@@ -194,7 +194,6 @@ function Sidebar() {
       )}
       <SideSection title="More">
         {canIngest && <SideItem icon="refresh" label="Ingest new photos" onClick={startIngest} />}
-        <Link className="side-item" to="/photos/upload"><Icon name="arrowUp" size={16} /><span className="grow truncate">Upload</span></Link>
         <label className="side-item ph-hidden-toggle" title="Shift+H. Only your own hidden photos; turns itself off after 30 minutes.">
           <Icon name="ban" size={16} />
           <span className="grow truncate">Show hidden photos</span>
@@ -325,7 +324,7 @@ function Timeline({ zoom, params }: { zoom: Zoom; params: URLSearchParams }) {
         path="photos/timeline"
         params={Object.keys(filter).length ? filter : undefined}
         zoom={zoom}
-        empty={ranged ? 'No photos were taken in this time range.' : place ? `No photos match ${place}.` : kind === 'videos' ? 'No videos yet.' : filtered ? 'No photos in this range.' : 'No photos yet. Use Ingest or Upload in the sidebar to add some.'}
+        empty={ranged ? 'No photos were taken in this time range.' : place ? `No photos match ${place}.` : kind === 'videos' ? 'No videos yet.' : filtered ? 'No photos in this range.' : 'No photos yet. Use Ingest new photos in the sidebar to add some.'}
       />
     </div>
   )

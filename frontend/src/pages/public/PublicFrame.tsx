@@ -1,5 +1,5 @@
-// Chrome for the standalone pages anyone with a link may open (sign-in, upload portal, public
-// calendars, countdowns, shared albums): a slim top bar and a centred column. No /me request, so a
+// Chrome for the standalone pages anyone with a link may open (sign-in, public calendars,
+// countdowns, shared albums): a slim top bar and a centred column. No /me request, so a
 // signed-out visitor never hits an endpoint that needs a session.
 import { useEffect, type ReactNode } from 'react'
 import { Link, useLocation } from 'react-router'

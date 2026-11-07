@@ -63,8 +63,8 @@ class SuperlativesTests(TestCase):
         self.assertEqual([(d["date"], d["videos"], d["length_s"]) for d in days], [("2024-05-01", 1, 90)])
 
 
-class PublicAlbumAndUploadTests(TestCase):
-    """What signed-out visitors may use: public shared albums and the upload portal."""
+class PublicAlbumTests(TestCase):
+    """What signed-out visitors may use: public shared albums."""
 
     @classmethod
     def setUpTestData(cls):
@@ -88,28 +88,6 @@ class PublicAlbumAndUploadTests(TestCase):
         self.assertEqual(self.client.get(f"/api/v2/photos/public/albums/{self.album.id}").status_code, 404)
         self.client.force_login(self.owner)
         self.assertTrue(self.client.get(f"/api/v2/photos/public/albums/{self.album.id}").json()["member"])
-
-    def test_upload_needs_csrf_keeps_names_unique_and_refuses_other_types(self):
-        import tempfile
-
-        from django.core.files.uploadedfile import SimpleUploadedFile
-        from django.test import Client, override_settings
-
-        from Comptech.tests import built_app
-        self.enterContext(built_app())
-        client = Client(enforce_csrf_checks=True)
-        with tempfile.TemporaryDirectory() as tmp, override_settings(UPLOADS_DIR=tmp + "/"):
-            files = lambda: [SimpleUploadedFile("../../a.jpg", b"x"), SimpleUploadedFile("run.sh", b"x")]
-            self.assertEqual(client.post("/api/v2/photos/public/upload", {"files": files()}).status_code, 403)
-            client.get("/photos/upload")  # the page sets the CSRF cookie
-            token = client.cookies["csrftoken"].value
-            for expected in ("a.jpg", "a_1.jpg"):
-                r = client.post("/api/v2/photos/public/upload", {"files": files()}, HTTP_X_CSRFTOKEN=token)
-                self.assertEqual(r.status_code, 200, r.content)
-                self.assertEqual((r.json()["saved"], len(r.json()["errors"])), ([expected], 1))
-            with override_settings(ALLOW_PHOTO_UPLOADS=False):
-                r = client.post("/api/v2/photos/public/upload", {"files": files()}, HTTP_X_CSRFTOKEN=token)
-                self.assertEqual(r.status_code, 403)
 
 
 class DeletePermissionTests(TestCase):

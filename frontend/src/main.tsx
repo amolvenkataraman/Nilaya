@@ -74,7 +74,6 @@ const Contacts = page(() => import('./pages/contacts/ContactsPage'))
 const PUBLIC: RouteObject[] = [
   { path: 'login', lazy: page(() => import('./pages/public/Login')) },
   { path: 'register', lazy: page(() => import('./pages/public/Register')) },
-  { path: 'photos/upload', lazy: page(() => import('./pages/public/Upload')) },
   { path: 'calendar/public/:id', lazy: page(() => import('./pages/public/PublicCalendar')) },
   { path: 'calendar/countdown/:id/:which?', lazy: page(() => import('./pages/public/Countdown')) },
   { path: 'shared/albums/:id', lazy: page(() => import('./pages/public/SharedAlbum')) },

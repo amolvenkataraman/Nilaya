@@ -6,7 +6,7 @@
     (needs: uv pip install --python .venv playwright && .venv/bin/playwright install chromium)
 
 Writes PNGs to localdev/data/screens/<page>-<theme>-<width>.png. Logs in as amol
-unless the path is a public page (sign-in, upload, public calendar, countdown, shared album), which are
+unless the path is a public page (sign-in, public calendar, countdown, shared album), which are
 shot signed out. Fails (exit 1) on any page error.
 """
 
@@ -18,7 +18,7 @@ from playwright.sync_api import sync_playwright
 
 BASE = "http://127.0.0.1:8000"
 OUT = Path(__file__).resolve().parent / "data" / "screens"
-PUBLIC = re.compile(r"^/(?:login|register|photos/upload|calendar/(?:public|countdown)/|shared/)")
+PUBLIC = re.compile(r"^/(?:login|register|calendar/(?:public|countdown)/|shared/)")
 SIZES = {"desktop": (1440, 900), "phone": (390, 844)}
 
 

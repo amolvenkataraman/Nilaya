@@ -4,8 +4,9 @@ Comptech/urls.py sends every path outside the reserved prefixes (API, admin, fil
 This view also:
 - redirects /app/<path> (where the app used to live) and the old server-rendered pages' URLs to
   their routes (301, query string kept), so bookmarks and old notification links keep working;
-- sends signed-out visitors of private routes to /login?next=<path> (public routes: sign-in, the
-  upload portal, public calendars, countdowns, availability and public shared albums);
+- sends signed-out visitors of private routes to /login?next=<path> (public routes: sign-in,
+  public calendars, countdowns, availability and public shared albums);
+- answers 404 for the removed upload portal (/photos/upload), signed in or not;
 - sets the CSRF cookie (the sign-in form posts with it) and a strict Content-Security-Policy.
 """
 
@@ -14,7 +15,7 @@ from pathlib import Path
 from urllib.parse import quote
 
 from django.conf import settings
-from django.http import HttpResponse, HttpResponsePermanentRedirect, HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseNotFound, HttpResponsePermanentRedirect, HttpResponseRedirect
 from django.middleware.csrf import get_token
 
 INDEX = Path(settings.BASE_DIR) / "static_files" / "static" / "app" / "index.html"
@@ -22,8 +23,11 @@ INDEX = Path(settings.BASE_DIR) / "static_files" / "static" / "app" / "index.htm
 # Never served by the app (Comptech/urls.py keeps them out of the catch-all): unknown paths there 404.
 RESERVED = ("api", "admin", "static", "media", "private", "photo_cdn", "feeds", ".well-known", "dav")
 
+# Removed pages: a plain 404 rather than the app (or, signed out, the sign-in page).
+GONE = re.compile(r"^/photos/upload/?$")
+
 # Routes signed-out visitors may open; everything else goes to the sign-in page first.
-PUBLIC = re.compile(r"^/(?:(?:login|register)/?$|photos/upload/?$|calendar/(?:public|countdown|availability)/|shared/)")
+PUBLIC = re.compile(r"^/(?:(?:login|register)/?$|calendar/(?:public|countdown|availability)/|shared/)")
 
 # The app is fully bundled (no inline scripts, no CDNs): only same-origin code may run. Styles allow
 # 'unsafe-inline' for React/Leaflet style attributes; images also come from OpenStreetMap tiles.
@@ -114,6 +118,8 @@ def index(request):
     target = legacy_target(request)
     if target:
         return HttpResponsePermanentRedirect(target)
+    if GONE.match(request.path):
+        return HttpResponseNotFound("This page no longer exists.", content_type="text/plain")
     signed_in = request.user.is_authenticated
     if not signed_in and not PUBLIC.match(request.path):
         return HttpResponseRedirect("/login?next=" + quote(request.get_full_path(), safe="/"))

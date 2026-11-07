@@ -13,8 +13,8 @@ src/
   lib/                   api client (CSRF, 401 -> login), types, query hooks, dates, URL state, layout maths
   components/            AppShell (per-app chrome), command palette, bell, menus/dialogs, task row, charts
   pages/<app>/           one folder per app: dashboard, tasks, calendar, photos, places, habits, notifications, settings
-  pages/public/          pages anyone may open: sign-in, request access, upload portal, public calendar,
-                         countdown, shared album (PublicFrame chrome, no signed-in requests)
+  pages/public/          pages anyone may open: sign-in, request access, public calendar, countdown,
+                         shared album (PublicFrame chrome, no signed-in requests)
   styles/                base tokens (theme.css: colours, radii, fonts) + shared styles
 public/                  theme.js (pre-paint theme) and favicon.ico, copied next to the bundles
 ```

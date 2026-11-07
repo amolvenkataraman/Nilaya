@@ -21,10 +21,14 @@ def check(ok, label):
 s = requests.Session()
 
 # Signed out: public pages load, private ones go to the sign-in page, the API says 401.
-PUBLIC = ["/login", "/register", "/photos/upload", "/calendar/availability/amol", "/api/v2/photos/public/upload"]
+PUBLIC = ["/login", "/register", "/calendar/availability/amol"]
 for path in PUBLIC:
     r = s.get(BASE + path, allow_redirects=False)
     check(r.status_code == 200, f"{r.status_code} {path} (signed out)")
+# The upload portal was removed: its page and endpoint are gone.
+for path in ("/photos/upload", "/api/v2/photos/public/upload"):
+    r = s.get(BASE + path, allow_redirects=False)
+    check(r.status_code == 404, f"{r.status_code} {path} (removed)")
 for path in ("/", "/tasks?view=today", "/photos/albums"):
     r = s.get(BASE + path, allow_redirects=False)
     check(r.status_code == 302 and r.headers["Location"].startswith("/login?next="), f"{r.status_code} {path} -> {r.headers.get('Location')}")
@@ -40,7 +44,7 @@ if "sessionid" not in s.cookies:
 ROUTES = [
     "/", "/calendar", "/calendar/availability/alex", "/tasks", "/habits", "/habits/progress", "/contacts", "/places",
     "/photos", "/photos/albums", "/photos/map", "/photos/stats", "/photos/storage", "/photos/superlatives",
-    "/photos/browse", "/photos/geoguessr", "/photos/locate", "/photos/upload", "/notifications", "/settings",
+    "/photos/browse", "/photos/geoguessr", "/photos/locate", "/notifications", "/settings",
     "/settings/usage", "/users/alex",
 ]
 for path in ROUTES:
