@@ -284,10 +284,6 @@ def masked_for(e, user, role_):
     return e.visibility == "private" and role_ not in ("owner", "admin")
 
 
-def can_see_private(role_):
-    return role_ in ("owner", "admin")
-
-
 # ---------------------------------------------------------------- input cleaning (both APIs)
 
 def clean_tags(values):
