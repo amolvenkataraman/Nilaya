@@ -65,6 +65,7 @@ This is an **opinionated** project, shaped by one family's daily use.
 
 - **Photos is for a fairly pro user.** It keeps RAW files and originals, separates camera *libraries* from shared *albums*, reports storage, and has tools for fixing locations. It doesn't make per-photo previews or edits: it was designed around a large library on a small disk.
 - **Calendar sync is archival, not two-way.** It imports ICS and Google calendars and keeps their history, the way you'd want for a personal record. It doesn't push changes back like an enterprise groupware server.
+- **Self-hosted, and built to fail gracefully.** It assumes you run it on your own hardware, and every part is designed so a failure stays small and recoverable. Photos live as plain files in folders on your disk, not in an object store like MinIO, so the library is still yours, readable and backed up, even if the app breaks. Caches, the summary tables and Redis can all disappear without losing data. The honest origin: 15-year-old me didn't trust my own code. The code and my trust in it have improved a lot since; the principle hasn't. More on that in my [build philosophy](https://amolven.com/build-philosophy).
 - **Other choices you inherit:** one React interface, self-hosted only, `ONLINE_MODE` off by default for outbound calls, a lean trust model (apps run in one trusted process), and API keys scoped per app.
 
 ### Limitations
@@ -132,7 +133,7 @@ Fun fact: the entire repository, with nearly six years of history, is about **5 
 ```mermaid
 flowchart LR
     B["Browser<br/>React SPA"] -->|HTTPS, HTTP/2| N["nginx<br/>static files, signed photo URLs"]
-    N -->|/api, /accounts, /feeds| D["Daphne + Django<br/>Django Ninja V2 API"]
+    N -->|"/api, /admin, /feeds, pages"| D["Daphne + Django<br/>Django Ninja V2 API"]
     N -->|secure_link| L[("Photo library<br/>on disk")]
     D --> P[("PostgreSQL<br/>+ materialized views")]
     D --> R[("Redis<br/>cache, Celery broker")]
@@ -189,11 +190,12 @@ Run the tests with `DJANGO_SETTINGS_MODULE=Comptech.settings_local .venv/bin/pyt
 
 Production runs Postgres, Redis, Daphne, a Celery worker and Celery beat behind nginx, on one Linux server. Site-specific values (URL, hostnames, email sender) live in an untracked `Comptech/site.json`, and secrets in untracked files.
 
-- [docs/UPGRADE-phase-1.md](docs/UPGRADE-phase-1.md): the full upgrade guide, with a rehearsal on a copy of production, every command and a rollback plan.
+- [docs/UPGRADE-new-ui-only.md](docs/UPGRADE-new-ui-only.md): the latest upgrade (the React app moves to `/`, the classic pages go), with the removed endpoints and their V2 replacements.
+- [docs/UPGRADE-phase-1.md](docs/UPGRADE-phase-1.md): the full phase-1 upgrade guide, with a rehearsal on a copy of production, every command and a rollback plan.
 - [docs/UPGRADE-fix-critical-bugs.md](docs/UPGRADE-fix-critical-bugs.md): the earlier security-fix upgrade.
 - [`nginx.conf`](nginx.conf): a template with the caching, HTTP/2 and signed-URL rules.
 
-Ground rules if you contribute: no CDNs (vendor files are pinned in `static_files/vendor.lock`), no new outbound services without a switch behind `ONLINE_MODE`, and never commit secrets.
+Ground rules if you contribute: no CDNs (the app bundles its dependencies from npm, pinned in `frontend/package-lock.json`), no new outbound services without a switch behind `ONLINE_MODE`, and never commit secrets.
 
 ## Roadmap
 
@@ -208,7 +210,8 @@ V1 is being kept fast, safe and pleasant until its successor is ready. **Everyth
 |---|---|
 | [docs/HISTORY.md](docs/HISTORY.md) | The history of the project, 2020 to 2026 |
 | [docs/README.md](docs/README.md) | Technical docs: calendar and photos data models and pipelines |
-| [docs/UPGRADE-phase-1.md](docs/UPGRADE-phase-1.md) | Production upgrade guide |
+| [docs/UPGRADE-new-ui-only.md](docs/UPGRADE-new-ui-only.md) | Latest production upgrade: the app at `/`, removed endpoints for API clients |
+| [docs/UPGRADE-phase-1.md](docs/UPGRADE-phase-1.md) | Phase-1 production upgrade guide |
 | [localdev/README.md](localdev/README.md) | Local setup and how it differs from the server |
 | [frontend/README.md](frontend/README.md) | The React app: layout, development, build and deploy |
 | `/api/v2/docs`, `/api/v2/<app>/guide.md` | Live API reference and agent guides (on a running server) |
