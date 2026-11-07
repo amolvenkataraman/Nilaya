@@ -10,10 +10,7 @@
 ![Python](https://img.shields.io/badge/Django-5.1-0c4b33)
 ![React](https://img.shields.io/badge/React-19-149eca)
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/screenshots/home-dark-desktop.png">
-  <img alt="AVNet Superapp home dashboard" src="docs/screenshots/home-light-desktop.png" width="900">
-</picture>
+<img alt="AVNet Superapp home dashboard: today's agenda, tasks, a weekly time chart, habits and quick links" src="docs/screenshots/home-light-desktop.png" width="900">
 
 </div>
 
@@ -31,25 +28,27 @@ This isn't a weekend AI build with back-dated commits. It has run in production 
 
 ## Apps
 
-| | App | Standout features |
-|---|---|---|
-| ![Home](docs/screenshots/home-light-desktop.png) | **Home** | Today's agenda, open tasks, habits due, unread notifications, a "this week" time breakdown and quick links, each card loading only when visible. |
-| ![Calendar](docs/screenshots/calendar-light-desktop.png) | **Calendar** | Month, week, day and agenda views; shared calendars with roles and invite codes; ICS and Google sync; private events shown to others as "Busy"; availability; a second time zone; Insights (where your time went, by category, weekday and hour). |
-| ![Tasks](docs/screenshots/tasks-light-desktop.png) | **Tasks** | Nested projects with list, board (WIP limits), table, calendar and Gantt timeline views; natural-language quick add (`Pay rent tomorrow 5pm *bills !3 every month`); repeating tasks, reminders, relations, bulk edits and sharing. Smooth at 5,000 tasks. |
-| ![Habits](docs/screenshots/habits-light-desktop.png) | **Habits** | Yes/no and measurable habits with daily, weekly or monthly goals, schedules, streaks, a Loop-style score, a backfill grid and a year heat map. |
-| ![Contacts](docs/screenshots/contacts-light-desktop.png) | **Contacts** | A personal CRM: vCard, Google, Outlook and LinkedIn imports, duplicate merging, an interaction log, keep-in-touch and birthday reminders. |
-| ![Photos](docs/screenshots/photos-light-desktop.png) | **Photos** | A justified timeline over hundreds of thousands of photos and videos; libraries and shared albums; RAW and originals; smart search (`dog toronto 2019`, `pixel 7 paris june 2023`) over places, cameras, dates and detected objects; map and heat map; stats, storage and superlatives; hidden photos; a Geoguessr game built from your own photos. |
-| ![Places](docs/screenshots/places-light-desktop.png) | **Places** | Saved places in groups, photos taken nearby with visit history, places suggested from photo GPS, want-to-go and visited lists, and GeoJSON, Takeout and KML import and export. |
-| ![Notifications](docs/screenshots/notifications-light-desktop.png) | **Notifications** | An inbox and bell menu, delivery to ntfy, Gotify, email, Discord or any webhook (e.g. Home Assistant), and automatic reminders for events, deadlines, tasks, habits, birthdays and a morning agenda. |
-| ![Settings](docs/screenshots/settings-light-desktop.png) | **Settings** | Profile, appearance and keyboard shortcuts; per-app API keys; private ICS feeds for phone calendar apps; API guides; and, for staff, a privacy-respecting usage dashboard. |
+| App | Standout features |
+|---|---|
+| **Home** | Today's agenda, open tasks, habits due, unread notifications, a "this week" time breakdown and quick links, each card loading only when visible. |
+| **Calendar** | Month, week, day and agenda views; shared calendars with roles and invite codes; ICS and Google sync; private events shown to others as "Busy"; availability; a second time zone; Insights (where your time went, by category, weekday and hour). |
+| **Tasks** | Nested projects with list, board (WIP limits), table, calendar and Gantt timeline views; natural-language quick add (`Pay rent tomorrow 5pm *bills !3 every month`); repeating tasks, reminders, relations, bulk edits and sharing. Smooth at 5,000 tasks. |
+| **Habits** | Yes/no and measurable habits with daily, weekly or monthly goals, schedules, streaks, a Loop-style score, a backfill grid and a year heat map. |
+| **Contacts** | A personal CRM: vCard, Google, Outlook and LinkedIn imports, duplicate merging, an interaction log, keep-in-touch and birthday reminders. |
+| **Photos** | A justified timeline over hundreds of thousands of photos and videos; libraries and shared albums; RAW and originals; smart search (`dog toronto 2019`, `pixel 7 paris june 2023`) over places, cameras, dates and detected objects; map and heat map; stats, storage and superlatives; hidden photos; a Geoguessr game built from your own photos. |
+| **Places** | Saved places in groups, photos taken nearby with visit history, places suggested from photo GPS, want-to-go and visited lists, and GeoJSON, Takeout and KML import and export. |
+| **Notifications** | An inbox and bell menu, delivery to ntfy, Gotify, email, Discord or any webhook (e.g. Home Assistant), and automatic reminders for events, deadlines, tasks, habits, birthdays and a morning agenda. |
+| **Settings** | Profile, appearance and keyboard shortcuts; per-app API keys; private ICS feeds for phone calendar apps; API guides; and, for staff, a privacy-respecting usage dashboard. |
+
+| Calendar | Tasks |
+|---|---|
+| ![Calendar month view](docs/screenshots/calendar-light-desktop.png) | ![Tasks table view](docs/screenshots/tasks-light-desktop.png) |
+| **Photos** | **Photos smart search** |
+| ![Photos timeline](docs/screenshots/photos-light-desktop.webp) | ![Photos smart search for "three rivers july 2026"](docs/screenshots/photos-search-light-desktop.webp) |
+
+<sub>All screenshots show fictional data (a made-up user, Alex Morgan, and 34 photos from one day in Sequoia National Park), rendered from the app's own build with mocked API responses. **[More screenshots](docs/SCREENSHOTS.md)**, including every app through the years.</sub>
 
 Everything works on a phone too: sidebars become drawers and toolbars compact.
-
-| Phone, light | Phone, dark | Phone, dark |
-|---|---|---|
-| ![Calendar on a phone](docs/screenshots/calendar-light-phone.png) | ![Photos on a phone](docs/screenshots/photos-dark-phone.png) | ![Tasks on a phone](docs/screenshots/tasks-dark-phone.png) |
-
-<sub>Screenshots are taken with Playwright against randomly generated data, in light and dark, desktop and phone: `docs/screenshots/<app>-<light|dark>-<desktop|phone>.png`.</sub>
 
 ## Across the apps
 
@@ -70,11 +69,19 @@ This is an **opinionated** project, shaped by one family's daily use.
 
 ### Limitations
 
+May come later (no promises; PRs welcome):
+
 - **No native mobile app.** The web app works well on phones; location history through the OwnTracks app is planned, not built.
-- **Photo ingest is folder-based.** Files are expected to land in the Ingest folder, e.g. synced from phones with Syncthing. There's no automatic phone backup client like Google Photos has.
+- **Photo ingest is folder-based.** Files are expected to land in the Ingest folder, e.g. synced from phones with Syncthing. There's no automatic phone backup client like Google Photos has, and other ingest methods may come.
+
+Not planned, because they add too much overhead for a family or small-business server:
+
 - **One server.** No clustering or high availability.
-- **No end-to-end encryption.** Whoever runs the server can read the data.
 - **English only**, no translations.
+- **No end-to-end encryption**, and it will likely never be added. You run the server, so whoever runs it can read the data.
+
+Also worth knowing:
+
 - **Postgres in production.** SQLite works for local testing only.
 - **Object detection is optional and heavy** (ultralytics/PyTorch, runs after each ingest).
 
@@ -85,7 +92,7 @@ This is an **opinionated** project, shaped by one family's daily use.
 
 ## Origins
 
-Parts of this code were first written in **2020**, in high school, long before AI coding tools: a school task scheduler called Docket and a YMCA group calendar, whose `calendar.js` became Comptech's first calendar. Comptech's first commit was in February 2021, and it has **run in production in some form for over five years**, through four calendar rewrites, an SSD failure and a recovered backup.
+Parts of this code were first written in **2020**, in high school, long before AI coding tools. During the COVID lockdowns, school moved online onto two unconnected platforms, Google Classroom and Brightspace, so I built **Docket**: one calendar where students could search for their deadlines, assignments and exam dates. Its `calendar.js` became Comptech's first calendar, and Docket grew into today's Calendar app. Comptech's first commit was in February 2021, and it has **run in production in some form for over five years**, through four calendar rewrites, an SSD failure and a recovered backup.
 
 The whole story, with commit hashes, is in **[docs/HISTORY.md](docs/HISTORY.md)**, *My Very Own Tech Giant*: a homework planner that grew into a superapp, the apps that didn't make it, and the commit-message hall of fame.
 
@@ -101,7 +108,7 @@ It's also a little poetic. A decade later, I've finally made 12-year-old me prou
 - **From the 2025 backup restore: Cursor, Windsurf and Google Antigravity**, three different tools, each used to some degree. The restored code was behind the spec I had already built and lost with the failed SSD, so AI helped bring it back up to that spec fast, and then sped up bug fixes and features.
 - **From November 2026: Claude Code.**
 
-In November 2026 V1 was overhauled end to end with **Claude Code**: critical security fixes, the V2 API, Tasks, Habits, Contacts, notifications, a single design system with dark mode, a new React interface and the performance work below.
+In November 2026 V1 was overhauled end to end with **Claude Code**: security hardening (key handling, host checks, permissions), the V2 API, Tasks, Habits, Contacts, notifications, a single design system with dark mode, a new React interface and the performance work below.
 
 AI wrote much of that code, but **every change was reviewed, tested and used in production by a real human** (me): deployed to the real server, rehearsed on a copy of the real database first, and fixed from bugs reported back from daily family use. That's more human review than the average SF AI startup.
 
@@ -126,7 +133,7 @@ Also under the hood:
 - **A database connection pool**, gzip and ETag/304 on API responses, content-hashed static files cached as `immutable`, and HTTP/2.
 - **Few, deduplicated requests:** TanStack Query caching, and pages that keep showing data on errors instead of going blank.
 
-Fun fact: the entire repository, with nearly six years of history, is about **5 MB**: smaller than a single photo it stores.
+Fun fact: the code, with nearly six years of history, is about **5 MB**: smaller than a single photo it stores.
 
 ## Architecture
 
@@ -192,7 +199,6 @@ Production runs Postgres, Redis, Daphne, a Celery worker and Celery beat behind 
 
 - [docs/UPGRADE-new-ui-only.md](docs/UPGRADE-new-ui-only.md): the latest upgrade (the React app moves to `/`, the classic pages go), with the removed endpoints and their V2 replacements.
 - [docs/UPGRADE-phase-1.md](docs/UPGRADE-phase-1.md): the full phase-1 upgrade guide, with a rehearsal on a copy of production, every command and a rollback plan.
-- [docs/UPGRADE-fix-critical-bugs.md](docs/UPGRADE-fix-critical-bugs.md): the earlier security-fix upgrade.
 - [`nginx.conf`](nginx.conf): a template with the caching, HTTP/2 and signed-URL rules.
 
 Ground rules if you contribute: no CDNs (the app bundles its dependencies from npm, pinned in `frontend/package-lock.json`), no new outbound services without a switch behind `ONLINE_MODE`, and never commit secrets.
@@ -209,6 +215,7 @@ V1 is being kept fast, safe and pleasant until its successor is ready. **Everyth
 | Doc | What's in it |
 |---|---|
 | [docs/HISTORY.md](docs/HISTORY.md) | The history of the project, 2020 to 2026 |
+| [docs/SCREENSHOTS.md](docs/SCREENSHOTS.md) | Screenshots of the current app, and links to every version through the years |
 | [docs/README.md](docs/README.md) | Technical docs: calendar and photos data models and pipelines |
 | [docs/UPGRADE-new-ui-only.md](docs/UPGRADE-new-ui-only.md) | Latest production upgrade: the app at `/`, removed endpoints for API clients |
 | [docs/UPGRADE-phase-1.md](docs/UPGRADE-phase-1.md) | Phase-1 production upgrade guide |
@@ -238,6 +245,10 @@ AI coding tools (assistants, not contributors):
 
 - **Cursor, Windsurf and Google Antigravity** (AI editors): helped restore the lost spec after the 2025 backup restore, then sped up bug fixes and features.
 - **Claude Code** (AI): pair programmer for the November 2026 overhaul, with every change reviewed by me.
+
+## Contributing
+
+Outside contributions are welcome, for example a mobile app or new photo ingest methods. For anything big, open an issue first so we can agree on the approach. Before a PR, run the backend tests and the frontend build (see [Try it locally](#try-it-locally)), and keep to the ground rules under [Self-hosting](#self-hosting) and the design notes in [Is it for you?](#is-it-for-you-read-this-first).
 
 ## Licence
 
