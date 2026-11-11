@@ -42,6 +42,14 @@ class TimelineFilterTests(TestCase):
         rest = self.ids(order="oldest", before=first["next_before"], before_id=first["next_before_id"])
         self.assertEqual(rest, [str(self.paris.id)])
 
+    def test_have_reports_which_file_hashes_are_in_your_libraries(self):
+        Photo.objects.filter(id=self.paris.id).update(md5_hash="a" * 32)
+        stranger = ComptechUser.objects.create_user("sam", password="pw")
+        for user, expected in ((self.user, {"a" * 32: str(self.paris.id)}), (stranger, {})):
+            self.client.force_login(user)
+            r = self.client.post("/api/v2/photos/have", {"md5": ["A" * 32, "b" * 32]}, content_type="application/json")
+            self.assertEqual((r.status_code, r.json()), (200, expected))
+
 
 class SuperlativesTests(TestCase):
     def test_rankings_count_an_imported_original_once_and_rank_days(self):

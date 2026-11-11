@@ -89,3 +89,40 @@ class ApiKeyTests(TestCase):
         self.assertEqual(r.status_code, 200)
         self.assertIn("POST /api/v2/tasks/quick", r.content.decode())
         self.assertEqual(self.call("get", "/api/v2/photos/guide.md", self.token).status_code, 403)
+
+
+class DeviceTests(TestCase):
+    """Phone sign-in: one password entry per device, then a key per app, all revoked with the device."""
+
+    def post(self, path, **body):
+        return self.client.post(path, body, content_type="application/json")
+
+    def test_sign_in_gives_app_keys_that_die_with_the_device(self):
+        user = ComptechUser.objects.create_user("kim", password="pw")
+        creds = {"username": "kim", "device_name": "Pixel 8", "app": "photos"}
+        self.assertEqual(self.post("/api/v2/devices/sign-in", password="wrong", **creds).status_code, 400)
+        signed = self.post("/api/v2/devices/sign-in", password="pw", **creds)
+        self.assertEqual(signed.status_code, 201, signed.content)
+        photos = {"HTTP_AUTHORIZATION": f"Bearer {signed.json()['token']}"}
+        self.assertEqual(self.client.get("/api/v2/me", **photos).json()["username"], "kim")
+        self.assertEqual(self.client.get("/api/v2/photos/summary", **photos).status_code, 200)
+        self.assertEqual(self.client.get("/api/v2/tasks/overview", **photos).status_code, 403)  # its own app only
+
+        # A second app trades the device token for its own key; asking again replaces that key.
+        device_token = signed.json()["device_token"]
+        first = self.post("/api/v2/devices/app-key", device_token=device_token, app="tasks").json()["token"]
+        second = self.post("/api/v2/devices/app-key", device_token=device_token, app="tasks").json()["token"]
+        self.assertEqual(self.client.get("/api/v2/tasks/overview", HTTP_AUTHORIZATION=f"Bearer {first}").status_code, 401)
+        self.assertEqual(self.client.get("/api/v2/tasks/overview", HTTP_AUTHORIZATION=f"Bearer {second}").status_code, 200)
+        # Neither credential can be used as the other, and an app key can't list devices.
+        self.assertEqual(self.post("/api/v2/devices/app-key", device_token=second, app="photos").status_code, 401)
+        self.assertEqual(self.client.get("/api/v2/me", HTTP_AUTHORIZATION=f"Bearer {device_token}").status_code, 401)
+        self.assertEqual(self.client.get("/api/v2/devices/", **photos).status_code, 401)
+
+        self.client.force_login(user)
+        listed = self.client.get("/api/v2/devices/").json()
+        self.assertEqual([(d["name"], d["apps"]) for d in listed], [("Pixel 8", ["photos", "tasks"])])
+        self.assertEqual(self.client.delete(f"/api/v2/devices/{listed[0]['id']}").status_code, 204)
+        self.client.logout()
+        self.assertEqual(self.client.get("/api/v2/photos/summary", **photos).status_code, 401)
+        self.assertEqual(self.post("/api/v2/devices/app-key", device_token=device_token, app="photos").status_code, 401)

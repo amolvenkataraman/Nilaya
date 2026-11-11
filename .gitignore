@@ -29,3 +29,6 @@ frontend/node_modules/
 static_files/static/app/
 
 *.tsbuildinfo
+
+# Mobile apps (mobile/): local-only until they're ready to publish
+mobile/

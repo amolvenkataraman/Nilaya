@@ -223,6 +223,22 @@ def days(request, start: datetime.date, end: datetime.date):
     return {r["day"].isoformat(): {"photos": r["photos"], "videos": r["videos"], "size_kb": r["size_kb"] or 0} for r in rows}
 
 
+class Md5In(Schema):
+    md5: list[str] = Field(..., min_length=1, max_length=1000)
+
+
+@router.post("/have", response=dict[str, uuid.UUID],
+             summary="Which of these files are already in your libraries: {md5: photo id} for the ones that are "
+                     "(MD5 of the file bytes, hex; up to 1000). A lookup, but POST for the body size, so an API key needs photos:write")
+def have(request, payload: Md5In):
+    """For the phone app: which of the phone's files the server already holds, and as which photo, so the two
+    show as one. Hidden photos and libraries switched off in Sources count too: the question is whether the
+    bytes are on the server, not whether they're showing."""
+    wanted = {m.lower() for m in payload.md5 if len(m) == 32}
+    mine = Album_Subscriber.objects.filter(user=request.user).values("album_id")
+    return dict(Photo.objects.filter(album_id__in=mine, md5_hash__in=wanted).values_list("md5_hash", "id"))
+
+
 @router.get("/libraries", response=list[LibraryOut], summary="Library albums (camera folders) you can see")
 def libraries(request):
     subs = list(Album_Subscriber.objects.filter(user=request.user).select_related("album").order_by("album__name"))

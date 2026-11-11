@@ -80,6 +80,7 @@ api.add_router("/tasks/", "tasks.api.router")
 api.add_router("/contacts/", "contacts.api.router")
 api.add_router("/habits/", "habits.api.router")
 api.add_router("/keys/", "apikeys.api.router")
+api.add_router("/devices/", "apikeys.devices.router")
 api.add_router("/analytics/", "analytics.api.router")
 api.add_router("/feeds/", "feeds.api.router")
 

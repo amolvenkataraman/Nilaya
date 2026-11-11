@@ -46,17 +46,17 @@ class LoginOut(Schema):
     next: str
 
 
-@router.post("/login", auth=None, response=LoginOut, summary="Sign in with a username and password (browser session)")
-def sign_in(request, payload: LoginIn):
-    _csrf(request)
-    key = _fail_key(payload.username)
+def check_credentials(request, username, password):
+    """The user for a username and password. Raises 429 once that name has failed too often, 400 if
+    they're wrong. Shared by the browser sign-in and the phone sign-in (apikeys/devices.py)."""
+    key = _fail_key(username)
     try:
         failures = cache.get(key, 0)
     except Exception:  # cache down: the limit is a safety net, never a lock-out
         failures = 0
     if failures >= FAIL_LIMIT:
         raise HttpError(429, "Too many failed attempts. Try again in 15 minutes.")
-    user = authenticate(request, username=payload.username, password=payload.password)
+    user = authenticate(request, username=username, password=password)
     if user is None:
         try:
             cache.set(key, failures + 1, FAIL_WINDOW)
@@ -67,6 +67,13 @@ def sign_in(request, payload: LoginIn):
         cache.delete(key)
     except Exception:
         pass
+    return user
+
+
+@router.post("/login", auth=None, response=LoginOut, summary="Sign in with a username and password (browser session)")
+def sign_in(request, payload: LoginIn):
+    _csrf(request)
+    user = check_credentials(request, payload.username, payload.password)
     login(request, user)  # new session id and CSRF token
     return {"next": safe_next(request, payload.next)}
 

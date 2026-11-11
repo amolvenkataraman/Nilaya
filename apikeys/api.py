@@ -63,7 +63,7 @@ def list_keys(request):
 @router.post("/", response={201: KeyCreated})
 def create_key(request, payload: KeyIn):
     _check_scopes(payload.scopes)
-    if ApiKey.objects.filter(user=request.user).count() >= MAX_KEYS:
+    if ApiKey.objects.filter(user=request.user, device=None).count() >= MAX_KEYS:  # phone apps' keys don't count
         raise HttpError(400, f"You can have at most {MAX_KEYS} keys; revoke one first")
     key, token = ApiKey.issue(request.user, payload.name.strip(), payload.scopes, payload.expires_on)
     notify(request.user, f"New API key \"{key.name}\" created",
