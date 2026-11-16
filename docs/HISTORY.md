@@ -45,7 +45,7 @@ Screenshots of every major version are in a companion file, [Screenshots through
 
 | When | Era | Milestone |
 |---|---|---|
-| 2020-05 | Precursors | **Docket**, my calendar-based school scheduler, gets its first commit (2020-05-12) and is deployed a week later (2020-05-19) |
+| 2020-05 | Precursors | **[Docket](https://github.com/amolvenkataraman/Docket)**, my calendar-based school scheduler, gets its first commit (2020-05-12) and is deployed a week later (2020-05-19) |
 | 2020-08 → 2020-11 | Precursors | Docket gains invites, organisation-wide events, timetables, an indoor school map, then chat, video call and a homepage ("REV 1.1", 2020-11-04) |
 | 2021-02-19 | Beginnings | **Comptech's first commit** (`69a0018`): a basic site and a login page with a background image |
 | 2021-03-02 | Beginnings | Calendar (from Docket), home page and navbar arrive (`16d8aeb`); school features stripped the same day (`286f4e1`) |
@@ -107,7 +107,7 @@ gantt
 
 ## Chapter 0: Origins, the precursors (2020 to 2021)
 
-Comptech didn't appear from nowhere. Two earlier projects in my archive of old code hold most of its DNA: Docket for the calendar's structure and its actual JavaScript, and PikPic for an idea that took five years to come back.
+Comptech didn't appear from nowhere. Two earlier projects in my archive of old code hold most of its DNA: [Docket](https://github.com/amolvenkataraman/Docket) for the calendar's structure and its actual JavaScript, and PikPic for an idea that took five years to come back.
 
 ### Docket, the school scheduler (May 2020 to October 2021)
 

@@ -101,7 +101,7 @@ Also worth knowing:
 
 ## Origins
 
-Parts of this code go back to **2020**, written in high school, long before AI coding tools existed. When COVID moved school online, my classes ended up split across two platforms that didn't talk to each other, Google Classroom and Brightspace. So I built **Docket**: one calendar where students could find all their deadlines, assignments and exam dates in one place. Docket's `calendar.js` became Comptech's first calendar, and Docket slowly grew into today's Calendar app.
+Parts of this code go back to **2020**, written in high school, long before AI coding tools existed. When COVID moved school online, my classes ended up split across two platforms that didn't talk to each other, Google Classroom and Brightspace. So I built **[Docket](https://github.com/amolvenkataraman/Docket)**: one calendar where students could find all their deadlines, assignments and exam dates in one place. Docket's `calendar.js` became Comptech's first calendar, and Docket slowly grew into today's Calendar app.
 
 Comptech's first commit landed in February 2021, and it has **run in production in some form for over five years**, through four calendar rewrites, an SSD failure and a backup restore.
 
