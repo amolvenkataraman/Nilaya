@@ -1,16 +1,16 @@
 <!-- header:start -->
 <div align="center">
 
-<img alt="Nilaya: A self-hosted life management and logging platform for a family." src=".github/assets/banner.svg" width="100%">
+<img alt="Nilaya: A self-hosted life management and logging platform for a family." src="https://raw.githubusercontent.com/amolvenkataraman/Nilaya/master/.github/assets/banner.svg" width="100%">
 
 ![Django: 5.1](https://img.shields.io/badge/Django-5.1-0f6f68?labelColor=15181c&color=0f6f68)
-[![licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-0f6f68?labelColor=15181c&color=0f6f68)](LICENSE)
+[![licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-0f6f68?labelColor=15181c&color=0f6f68)](https://github.com/amolvenkataraman/Nilaya/blob/master/LICENSE)
 
 [What it is](#what-it-is) · [Apps](#apps) · [Architecture](#architecture) · [Try it locally](#try-it-locally) · [Self-hosting](#self-hosting)
 
 </div>
 
-<a href="https://haiscale.amolven.com/M1/"><img alt="HAI Scale M1, Mixed, human-leaning. Hand-written from 2020 to early 2025. Since then, AI coding tools have helped restore lost work and build new features, and I reviewed, tested and ran every change in production. The full history is in “How AI was (and wasn't) used” below. Provided as is, with no warranty." src=".github/assets/hai.svg" width="100%"></a>
+<a href="https://haiscale.amolven.com/M1/"><img alt="HAI Scale M1, Mixed, human-leaning. Hand-written from 2020 to early 2025. Since then, AI coding tools have helped restore lost work and build new features, and I reviewed, tested and ran every change in production. The full history is in “How AI was (and wasn't) used” below. Provided as is, with no warranty." src="https://raw.githubusercontent.com/amolvenkataraman/Nilaya/master/.github/assets/hai.svg" width="100%"></a>
 <!-- header:end -->
 
 Calendar, tasks, habits, contacts, photos, places and notifications for a family, on a server you own, with ideas (and a lot of functionality) borrowed from Google Workspace apps.
