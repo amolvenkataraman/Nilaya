@@ -1,41 +1,23 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router'
-import { APPS } from '../../components/nav'
+// Settings: one scrolling page of sections (profile, password, appearance, shortcuts, developer tools, staff
+// links) with a sidebar that follows the scroll, plus the staff Usage page at /settings/usage.
+import { useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { AppShell, SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Avatar, ErrorBox, SkeletonRows } from '../../components/ui'
-import { toast } from '../../components/toast'
-import { useMe, useUpdateMe } from '../../lib/queries'
-import { setTheme, useTheme, type ThemePref } from '../../lib/theme'
-import type { Me, MePatch } from '../../lib/types'
-import { userPath } from '../users/UserLink'
-import { PictureDialog } from './PictureDialog'
+import { ErrorBox, SkeletonRows } from '../../components/ui'
+import { cn } from '../../lib/cn'
+import { useMe } from '../../lib/queries'
+import { ApiKeysSection } from './ApiKeys'
+import { AppearanceSection } from './Appearance'
+import { cardClass } from './Card'
+import { FeedsSection } from './Feeds'
+import { GuidesSection } from './Guides'
+import { AdminSection, MoreSection } from './MoreLinks'
 import { PasswordSection } from './Password'
-import { ApiKeysSection, FeedsSection, GuidesSection } from './Developer'
+import { ProfileSection } from './Profile'
+import { pageClass } from './SettingsSection'
+import { ShortcutsSection } from './Shortcuts'
 import { UsagePage } from './Usage'
-import './settings.css'
-
-type Form = { username: string; first_name: string; last_name: string; description: string; birthday: string; timezone: string }
-
-const toForm = (me: Me): Form => ({
-  username: me.username ?? '',
-  first_name: me.first_name ?? '',
-  last_name: me.last_name ?? '',
-  description: me.description ?? '',
-  birthday: me.birthday ?? '',
-  timezone: me.timezone ?? '',
-})
-
-function timezones(current: string): string[] {
-  let zones: string[] = []
-  try {
-    zones = Intl.supportedValuesOf('timeZone')
-  } catch {
-    zones = []
-  }
-  if (current && !zones.includes(current)) zones = [current, ...zones]
-  return zones
-}
 
 interface SectionDef {
   id: string
@@ -120,7 +102,7 @@ export default function SettingsPage() {
           <SideItem icon="chart" label="Usage" active={usage} to="/settings/usage" />
           <a className="side-item" href="/admin/">
             <Icon name="wrench" size={16} />
-            <span className="grow truncate">Admin site</span>
+            <span className="min-w-0 flex-1 truncate">Admin site</span>
             <Icon name="external" size={12} />
           </a>
         </SideSection>
@@ -128,14 +110,17 @@ export default function SettingsPage() {
       <SideSection>{item(MORE)}</SideSection>
     </>
   )
+  const loading = (
+    <div className={cardClass}>
+      <SkeletonRows rows={5} />
+    </div>
+  )
   return (
     <AppShell app="settings" sidebar={sidebar} pageTitle={usage ? 'Usage' : 'Settings'}>
-      <div className={'page set-page' + (usage ? ' usage-page' : '')}>
+      <div className={cn(pageClass, usage ? 'max-w-[72rem]' : 'max-w-[52rem]')}>
         {usage ? (
           me.isPending ? (
-            <div className="set-card">
-              <SkeletonRows rows={5} />
-            </div>
+            loading
           ) : staff ? (
             <UsagePage />
           ) : (
@@ -143,348 +128,26 @@ export default function SettingsPage() {
           )
         ) : (
           <>
-            {me.isPending ? (
-              <div className="set-card">
-                <SkeletonRows rows={5} />
-              </div>
-            ) : me.isError && !me.data ? (
-              <div className="set-card">
+            {me.data ? (
+              <ProfileSection me={me.data} />
+            ) : me.isPending ? (
+              loading
+            ) : (
+              <div className={cardClass}>
                 <ErrorBox error={me.error} retry={() => me.refetch()} />
               </div>
-            ) : (
-              <Profile me={me.data} />
             )}
             <PasswordSection />
-            <Appearance />
-            <Shortcuts />
+            <AppearanceSection />
+            <ShortcutsSection />
             <ApiKeysSection />
             <FeedsSection />
             <GuidesSection />
             {staff && <AdminSection />}
-            <Links username={me.data?.username} />
+            <MoreSection username={me.data?.username} />
           </>
         )}
       </div>
     </AppShell>
-  )
-}
-
-function Profile({ me }: { me: Me }) {
-  const update = useUpdateMe()
-  const [picture, setPicture] = useState(false)
-  const [nameError, setNameError] = useState('')
-  const initial = useMemo(() => toForm(me), [me])
-  const [form, setForm] = useState<Form>(initial)
-  useEffect(() => setForm(initial), [initial])
-  const zones = useMemo(() => timezones(me.timezone), [me.timezone])
-  const dirtyKeys = (Object.keys(form) as (keyof Form)[]).filter((k) => form[k] !== initial[k])
-  const dirty = dirtyKeys.length > 0
-  const set = (k: keyof Form) => (e: { target: { value: string } }) => {
-    if (k === 'username') setNameError('')
-    setForm((f) => ({ ...f, [k]: e.target.value }))
-  }
-  const name = [me.first_name, me.last_name].filter(Boolean).join(' ') || me.username
-
-  const save = () => {
-    const body: MePatch = {}
-    for (const k of dirtyKeys) {
-      if (k === 'birthday') body.birthday = form.birthday || null
-      else body[k] = k === 'description' ? form[k] : form[k].trim()
-    }
-    if (body.username === '') return setNameError('Choose a username')
-    update.mutate(body, {
-      onSuccess: () => toast.show(body.username ? `Profile saved. You're now @${body.username}` : 'Profile saved'),
-      onError: (e) => {
-        const msg = (e as Error).message
-        if (body.username && /username/i.test(msg))
-          setNameError(msg) // shown under the field
-        else toast.error(msg)
-      },
-    })
-  }
-
-  return (
-    <section className="set-section" aria-labelledby="set-profile">
-      <div className="set-section-head">
-        <div>
-          <h2 id="set-profile">Profile</h2>
-          <p>How you appear to people you share projects, calendars and albums with.</p>
-        </div>
-      </div>
-      <form
-        className="set-card"
-        onSubmit={(e) => {
-          e.preventDefault()
-          if (dirty) save()
-        }}
-      >
-        <div className="profile-head">
-          <button
-            type="button"
-            className="profile-pic"
-            onClick={() => setPicture(true)}
-            aria-label="Change profile picture"
-            title="Change profile picture"
-          >
-            <Avatar name={name} src={me.profile_picture} size={3} />
-            <span className="profile-pic-cam" aria-hidden="true">
-              <Icon name="camera" size={12} />
-            </span>
-          </button>
-          <div className="grow" style={{ minWidth: 0 }}>
-            <div className="name truncate">{name}</div>
-            <div className="small muted truncate">
-              @{me.username}
-              {me.email ? ` · ${me.email}` : ''}
-            </div>
-          </div>
-          <div className="profile-actions">
-            <button type="button" className="btn sm" onClick={() => setPicture(true)}>
-              Change photo
-            </button>
-            <Link className="btn ghost sm" to={userPath(me.username)}>
-              View profile
-            </Link>
-          </div>
-        </div>
-        <div className="set-row">
-          <label className="set-label" htmlFor="pf-first">
-            First name
-          </label>
-          <div className="set-control fill">
-            <input
-              id="pf-first"
-              className="input"
-              value={form.first_name}
-              onChange={set('first_name')}
-              maxLength={150}
-              autoComplete="given-name"
-            />
-          </div>
-        </div>
-        <div className="set-row">
-          <label className="set-label" htmlFor="pf-last">
-            Last name
-          </label>
-          <div className="set-control fill">
-            <input
-              id="pf-last"
-              className="input"
-              value={form.last_name}
-              onChange={set('last_name')}
-              maxLength={150}
-              autoComplete="family-name"
-            />
-          </div>
-        </div>
-        <div className="set-row top">
-          <label className="set-label" htmlFor="pf-about">
-            About<small>Shown on your profile</small>
-          </label>
-          <div className="set-control fill">
-            <textarea id="pf-about" className="textarea" rows={3} value={form.description} onChange={set('description')} maxLength={512} />
-          </div>
-        </div>
-        <div className="set-row">
-          <label className="set-label" htmlFor="pf-bday">
-            Birthday
-          </label>
-          <div className="set-control fill">
-            <input id="pf-bday" type="date" className="input" value={form.birthday} onChange={set('birthday')} />
-          </div>
-        </div>
-        <div className="set-row">
-          <label className="set-label" htmlFor="pf-tz">
-            Time zone<small>Used for reminders and quick-add dates</small>
-          </label>
-          <div className="set-control fill">
-            <select id="pf-tz" className="select" value={form.timezone} onChange={set('timezone')}>
-              {!form.timezone && <option value="">Not set</option>}
-              {zones.map((z) => (
-                <option key={z} value={z}>
-                  {z.replace(/_/g, ' ')}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-        <div className="set-row top">
-          <label className="set-label" htmlFor="pf-user">
-            Username<small>Your profile and availability links use it</small>
-          </label>
-          <div className="set-control fill">
-            <input
-              id="pf-user"
-              className={'input' + (nameError ? ' invalid' : '')}
-              value={form.username}
-              onChange={set('username')}
-              maxLength={150}
-              autoComplete="username"
-              spellCheck={false}
-              pattern="[\w.@+\-]+"
-              aria-invalid={!!nameError || undefined}
-              aria-describedby={nameError ? 'pf-user-err' : undefined}
-            />
-            {nameError && (
-              <p id="pf-user-err" className="field-error" role="alert">
-                {nameError}
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="set-row">
-          <span className="set-label">Email</span>
-          <span className="set-value">{me.email || '—'}</span>
-        </div>
-        {(me.groups.length > 0 || me.is_staff) && (
-          <div className="set-row">
-            <span className="set-label">Groups</span>
-            <span className="set-value profile-groups">
-              {me.is_staff && <span className="chip accent">Staff</span>}
-              {me.groups.map((g) => (
-                <span key={g.id} className="chip">
-                  {g.name}
-                </span>
-              ))}
-            </span>
-          </div>
-        )}
-        <div className="set-foot">
-          <span className="set-status">
-            {update.isPending
-              ? 'Saving…'
-              : dirty
-                ? `${dirtyKeys.length} unsaved change${dirtyKeys.length > 1 ? 's' : ''}`
-                : 'All changes saved'}
-          </span>
-          <span className="spacer" />
-          <button type="button" className="btn" disabled={!dirty || update.isPending} onClick={() => setForm(initial)}>
-            Reset
-          </button>
-          <button type="submit" className="btn primary" disabled={!dirty || update.isPending}>
-            Save
-          </button>
-        </div>
-      </form>
-      <PictureDialog open={picture} onClose={() => setPicture(false)} />
-    </section>
-  )
-}
-
-function Appearance() {
-  const { pref } = useTheme()
-  const options: { value: ThemePref; label: string; icon: string }[] = [
-    { value: 'system', label: 'System', icon: 'monitor' },
-    { value: 'light', label: 'Light', icon: 'sun' },
-    { value: 'dark', label: 'Dark', icon: 'moon' },
-  ]
-  return (
-    <section className="set-section" aria-labelledby="set-appearance">
-      <div className="set-section-head">
-        <div>
-          <h2 id="set-appearance">Appearance</h2>
-          <p>Saved in this browser only, so each device can have its own theme.</p>
-        </div>
-      </div>
-      <div className="set-card">
-        <div className="set-row inline">
-          <span className="set-label">Theme</span>
-          <div className="set-control">
-            <div className="seg" role="group" aria-label="Theme">
-              {options.map((o) => (
-                <button key={o.value} type="button" aria-pressed={pref === o.value} onClick={() => setTheme(o.value)}>
-                  <Icon name={o.icon} size={14} />
-                  {o.label}
-                </button>
-              ))}
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  )
-}
-
-const SHORTCUTS: [string, string[]][] = [
-  ['Search or jump to', ['Ctrl', 'K']],
-  ['Search', ['/']],
-  ['New task', ['Q']],
-  ...APPS.filter((a) => a.key).map((a) => [`Go to ${a.label}`, ['G', a.key!.toUpperCase()]] as [string, string[]]),
-]
-
-function Shortcuts() {
-  const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-  return (
-    <section className="set-section" aria-labelledby="set-keys">
-      <div className="set-section-head">
-        <div>
-          <h2 id="set-keys">Keyboard shortcuts</h2>
-          <p>Letters work when you're not typing in a field.</p>
-        </div>
-      </div>
-      <div className="set-card" style={{ overflow: 'hidden' }}>
-        <div className="shortcut-grid">
-          {SHORTCUTS.map(([label, keys]) => (
-            <div key={label} className="shortcut">
-              <span>{label}</span>
-              <span className="keys">
-                {keys.map((k) => (
-                  <span key={k} className="kbd">
-                    {k === 'Ctrl' && mac ? '⌘' : k}
-                  </span>
-                ))}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  )
-}
-
-function AdminSection() {
-  return (
-    <section className="set-section" aria-labelledby="set-admin">
-      <div className="set-section-head">
-        <div>
-          <h2 id="set-admin">Admin</h2>
-          <p>Staff only.</p>
-        </div>
-      </div>
-      <div className="set-card">
-        <Link className="set-link" to="/settings/usage">
-          <Icon name="chart" />
-          <span>Usage</span>
-          <span className="end small">Page views and API calls per person and app</span>
-        </Link>
-        <a className="set-link" href="/admin/">
-          <Icon name="wrench" />
-          <span>Admin site</span>
-          <span className="end small">Users, groups and all data</span>
-          <Icon name="external" size={14} />
-        </a>
-      </div>
-    </section>
-  )
-}
-
-function Links({ username }: { username?: string }) {
-  return (
-    <section className="set-section" aria-labelledby="set-links">
-      <div className="set-section-head">
-        <div>
-          <h2 id="set-links">More</h2>
-        </div>
-      </div>
-      <div className="set-card">
-        {username && (
-          <Link className="set-link" to={userPath(username)}>
-            <Icon name="user" />
-            <span>Your profile</span>
-            <span className="end small">As others see it</span>
-          </Link>
-        )}
-      </div>
-    </section>
   )
 }
