@@ -32,6 +32,14 @@ describe('api client', () => {
     expect(init.headers['Content-Type']).toBe('application/json')
     expect(init.credentials).toBe('same-origin')
     expect(init.body).toBe('{"title":"x"}')
+    // Uploads: FormData goes as is, with CSRF and the browser's own multipart Content-Type.
+    fetchMock.mockResolvedValue(new Response('{}', { status: 200 }))
+    const form = new FormData()
+    await api('contacts/import/preview', { method: 'POST', body: form })
+    const [, up] = fetchMock.mock.calls[1]
+    expect(up.body).toBe(form)
+    expect(up.headers['Content-Type']).toBeUndefined()
+    expect(up.headers['X-CSRFToken']).toBe('tok')
   })
 
   it('redirects to login on 401', async () => {

@@ -5,7 +5,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { Confirm, Dialog, ErrorBox, Menu, MenuItem, SkeletonRows } from '../../components/ui'
 import { toast } from '../../components/toast'
-import { del, get, patch, post } from '../../lib/api'
+import { apiUrl, del, get, getText, patch, post } from '../../lib/api'
 import { fmtDate, shortStamp } from '../../lib/dates'
 
 interface KeyApp {
@@ -491,11 +491,7 @@ function FeedRow({ f, busy, onRegenerate }: { f: Feed; busy: boolean; onRegenera
 export function GuidesSection() {
   const apps = useKeyApps()
   const [copied, setCopied] = useState('')
-  const fetchGuide = async (app: string) => {
-    const r = await fetch(`/api/v2/${encodeURIComponent(app)}/guide.md`, { credentials: 'same-origin' })
-    if (!r.ok) throw new Error(`Guide unavailable (${r.status})`)
-    return r.text()
-  }
+  const fetchGuide = (app: string) => getText(`${encodeURIComponent(app)}/guide.md`)
   const copy = async (app: string) => {
     try {
       await navigator.clipboard.writeText(await fetchGuide(app))
@@ -549,7 +545,7 @@ export function GuidesSection() {
                 </span>
                 <a
                   className="btn ghost sm"
-                  href={`/api/v2/${encodeURIComponent(a.app)}/guide.md`}
+                  href={apiUrl(`${encodeURIComponent(a.app)}/guide.md`)}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
@@ -567,11 +563,11 @@ export function GuidesSection() {
         )}
         <div className="card-body dev-links">
           <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-            <a className="btn sm" href="/api/v2/docs" target="_blank" rel="noopener noreferrer">
+            <a className="btn sm" href={apiUrl('docs')} target="_blank" rel="noopener noreferrer">
               <Icon name="book" size={14} />
               Interactive API docs
             </a>
-            <a className="btn sm" href="/api/v2/openapi.json" target="_blank" rel="noopener noreferrer">
+            <a className="btn sm" href={apiUrl('openapi.json')} target="_blank" rel="noopener noreferrer">
               <Icon name="code" size={14} />
               OpenAPI schema
             </a>

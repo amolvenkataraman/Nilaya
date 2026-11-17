@@ -1,6 +1,6 @@
 // Places API hooks (local to this page). The API also returns status/visited_on, newer than lib/types.
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, del, get, patch, post, readCookie } from '../../lib/api'
+import { api, del, get, patch, post, upload } from '../../lib/api'
 import type { Photo, Place as BasePlace, PlaceCategory, PlaceGroup } from '../../lib/types'
 import { toast } from '../../components/toast'
 
@@ -253,15 +253,7 @@ export async function importPlaces(file: File, groupId: number, dryRun: boolean)
   fd.append('file', file)
   fd.append('group_id', String(groupId))
   fd.append('dry_run', dryRun ? 'true' : 'false')
-  const res = await fetch('/api/v2/places/import', {
-    method: 'POST',
-    body: fd,
-    credentials: 'same-origin',
-    headers: { 'X-CSRFToken': readCookie('csrftoken'), Accept: 'application/json' },
-  })
-  const data = await res.json().catch(() => null)
-  if (!res.ok) throw new Error((data && typeof data.detail === 'string' && data.detail) || `Import failed (${res.status})`)
-  return data as ImportResult
+  return upload<ImportResult>('places/import', fd)
 }
 
 /** Great-circle distance in metres. */

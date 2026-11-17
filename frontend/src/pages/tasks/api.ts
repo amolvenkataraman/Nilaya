@@ -2,7 +2,7 @@
 // members, relations and bulk actions.
 import { useCallback, useSyncExternalStore } from 'react'
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { API_BASE, ApiError, del, get, patch, post, readCookie } from '../../lib/api'
+import { ApiError, api, del, get, patch, post } from '../../lib/api'
 import { bumpParent, keys, refreshTaskCounts } from '../../lib/queries'
 import { cachedTask, listItems, patchTaskLists, settleTaskLists, type TaskList } from '../../lib/taskLists'
 import { dayKey } from '../../lib/dates'
@@ -533,17 +533,7 @@ async function bulkDelete(ids: string[], keepalive = false): Promise<number> {
   for (let i = 0; i < ids.length; i += BULK_IDS) {
     const chunk = ids.slice(i, i + BULK_IDS)
     try {
-      if (keepalive) {
-        await fetch(`${API_BASE}/tasks/bulk`, {
-          method: 'POST',
-          keepalive: true,
-          credentials: 'same-origin',
-          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': readCookie('csrftoken') },
-          body: JSON.stringify({ action: 'delete', ids: chunk }),
-        })
-      } else {
-        await post('tasks/bulk', { action: 'delete', ids: chunk })
-      }
+      await api('tasks/bulk', { method: 'POST', body: { action: 'delete', ids: chunk }, keepalive })
     } catch {
       failed += chunk.length
     }

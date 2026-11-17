@@ -48,7 +48,7 @@ import { photosInArea } from '../photos/util'
 import { HeatFilterControls, heatParams, useHeatFilter } from '../photos/HeatFilters'
 import { PlaceSearch } from './Search'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { get } from '../../lib/api'
+import { apiUrl, get } from '../../lib/api'
 import { userKey } from '../../lib/owner'
 import { useMe } from '../../lib/queries'
 import { realPoints, type HeatPoint } from '../photos/heat'
@@ -752,7 +752,7 @@ function GroupMenu({
               {g.is_public ? 'Make private' : 'Share with everyone (public)'}
             </MenuItem>
           )}
-          <MenuItem icon="arrowUp" href={`/api/v2/places/groups/${g.id}/export`} onClick={close}>
+          <MenuItem icon="arrowUp" href={apiUrl(`places/groups/${g.id}/export`)} onClick={close}>
             Export GeoJSON
           </MenuItem>
           {g.mine && (

@@ -1,6 +1,6 @@
 // /api/v2/contacts/ types and hooks (query keys under ['contacts']).
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { api, ApiError, apiUrl, del, errorMessage, get, loginUrl, patch, post, readCookie } from '../../lib/api'
+import { api, apiUrl, del, get, patch, post, upload } from '../../lib/api'
 import { toast } from '../../components/toast'
 import { queryGroup } from '../../lib/batch'
 
@@ -197,32 +197,10 @@ function refresh(qc: QueryClient, keepPerson?: string) {
   })
 }
 
-/** Multipart POST (imports, photos). The shared JSON client only sends JSON bodies. */
-async function upload<T>(path: string, fd: FormData): Promise<T> {
-  let res: Response
-  try {
-    res = await fetch(apiUrl(path), {
-      method: 'POST',
-      body: fd,
-      credentials: 'same-origin',
-      headers: { 'X-CSRFToken': readCookie('csrftoken'), Accept: 'application/json' },
-    })
-  } catch {
-    throw new ApiError(0, "Couldn't reach the server. Check your connection.")
-  }
-  if (res.status === 401) {
-    window.location.assign(loginUrl())
-    throw new ApiError(401, 'Signed out')
-  }
-  const data = await res.json().catch(() => null)
-  if (!res.ok) throw new ApiError(res.status, errorMessage(res.status, data))
-  return data as T
-}
-
 // Cache-busting for photos: the avatar URL is cached for 5 minutes, so a fresh upload gets a new query string.
 const avatarVersion = new Map<string, number>()
 export const avatarSrc = (p: { id: string; has_avatar: boolean }) =>
-  p.has_avatar ? `/api/v2/contacts/${p.id}/avatar${avatarVersion.has(p.id) ? `?v=${avatarVersion.get(p.id)}` : ''}` : null
+  p.has_avatar ? apiUrl(`contacts/${p.id}/avatar`, { v: avatarVersion.get(p.id) }) : null
 export const exportHref = (format: 'vcf' | 'csv', ids?: string[]) =>
   apiUrl('contacts/export', { format, ids: ids?.length ? ids.join(',') : undefined })
 

@@ -18,8 +18,13 @@ type Query = Record<string, string | number | boolean | null | undefined | reado
 export interface RequestOptions {
   method?: 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE'
   query?: Query
+  /** JSON-encoded, except FormData, which goes as multipart (file uploads). */
   body?: unknown
   signal?: AbortSignal
+  /** Let the request finish after the page unloads (deletes sent on pagehide). */
+  keepalive?: boolean
+  /** 'text' returns the body as a string (Markdown guides); default parses JSON. */
+  as?: 'json' | 'text'
 }
 
 const SAFE = new Set(['GET', 'HEAD', 'OPTIONS'])
@@ -74,10 +79,12 @@ let redirecting = false
 
 export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T> {
   const method = opts.method ?? 'GET'
-  const headers: Record<string, string> = { Accept: 'application/json' }
+  const headers: Record<string, string> = { Accept: opts.as === 'text' ? 'text/plain, text/markdown, */*' : 'application/json' }
   if (!SAFE.has(method)) headers['X-CSRFToken'] = readCookie('csrftoken')
-  let body: string | undefined
-  if (opts.body !== undefined) {
+  let body: string | FormData | undefined
+  if (opts.body instanceof FormData) {
+    body = opts.body // the browser sets the multipart Content-Type with its boundary
+  } else if (opts.body !== undefined) {
     headers['Content-Type'] = 'application/json'
     body = JSON.stringify(opts.body)
   }
@@ -89,6 +96,7 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
       body,
       credentials: 'same-origin',
       signal: opts.signal,
+      keepalive: opts.keepalive,
     })
   } catch (e) {
     if ((e as Error).name === 'AbortError') throw e
@@ -104,6 +112,10 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
   }
   if (res.status === 204) return undefined as T
   const text = await res.text()
+  if (opts.as === 'text') {
+    if (!res.ok) throw new ApiError(res.status, errorMessage(res.status, null))
+    return text as T
+  }
   let data: unknown = null
   if (text) {
     try {
@@ -118,8 +130,11 @@ export async function api<T>(path: string, opts: RequestOptions = {}): Promise<T
 
 export const get = <T>(path: string, query?: Query, signal?: AbortSignal) => api<T>(path, { query, signal })
 export const post = <T>(path: string, body?: unknown, query?: Query) => api<T>(path, { method: 'POST', body, query })
-export const patch = <T>(path: string, body: unknown) => api<T>(path, { method: 'PATCH', body })
-export const del = (path: string) => api<void>(path, { method: 'DELETE' })
+export const patch = <T>(path: string, body: unknown, query?: Query) => api<T>(path, { method: 'PATCH', body, query })
+export const del = (path: string, query?: Query) => api<void>(path, { method: 'DELETE', query })
+/** Multipart POST: imports, pictures. */
+export const upload = <T>(path: string, form: FormData, query?: Query) => api<T>(path, { method: 'POST', body: form, query })
+export const getText = (path: string, query?: Query, signal?: AbortSignal) => api<string>(path, { query, signal, as: 'text' })
 
 /** Only same-site paths ("/x", not "//x") and http(s) URLs may become links. Everything else is text. */
 export function safeHref(url: string | null | undefined): string | null {
