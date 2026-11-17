@@ -22,7 +22,8 @@ import { Confirm, Menu, MenuItem, MenuSeparator, PHONE_QUERY, isTyping } from '.
 import { toast } from '../../components/toast'
 import { fmtDuration } from './util'
 import { fmtBytes } from '../../lib/format'
-import { albumContext, DeleteDialog } from './select'
+import { DeleteDialog } from './DeleteDialog'
+import { albumContext } from './selection'
 import { copyLinks, deleteOriginal, setAlbumCover, useHiddenMode, useLibraries } from './actions'
 import { useLayer } from '../../components/layers'
 
