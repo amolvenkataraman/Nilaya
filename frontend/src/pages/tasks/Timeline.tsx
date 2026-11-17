@@ -2,24 +2,19 @@
 // steps by 2 weeks. Drag a bar to shift both dates, drag an edge to change start or due (mouse/pen;
 // touch taps open the task). Bars are buttons, so Tab + Enter opens the task drawer.
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type PointerEvent as RPointerEvent } from 'react'
-import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
-import { useUpdateTask } from '../../lib/queries'
-import { addDays, dayDiff, fmtDate, isEndOfDay, startOfDay, startOfWeek } from '../../lib/dates'
-import type { Task, TaskPatch } from '../../lib/types'
+import { cn } from '../../lib/cn'
+import { addDays, dayDiff, fmtDate, startOfDay, startOfWeek } from '../../lib/dates'
 import { plural } from '../../lib/format'
+import { useUpdateTask } from '../../lib/queries'
+import type { Task, TaskPatch } from '../../lib/types'
+import { prioColour } from './priority'
+import { RangeHeader } from './RangeHeader'
+import { isOverdue, isTempId } from './task'
 
 const DAYS = 42
 const STEP = 14
 type Edge = 'move' | 'start' | 'end'
-
-const prioLevel = (p: number) => (p >= 20 ? 20 : p >= 15 ? 15 : p >= 10 ? 10 : 5)
-const PRIO_COLOUR: Record<number, string> = {
-  5: 'var(--app-muted)',
-  10: 'var(--app-accent)',
-  15: 'var(--app-warning)',
-  20: 'var(--app-danger)',
-}
 
 /** [first day, last day] of a task's bar (local midnight), or null when it has no dates. */
 export function taskSpan(t: Pick<Task, 'start' | 'due'>): [Date, Date] | null {
@@ -65,6 +60,11 @@ export function dragPatch(t: Pick<Task, 'start' | 'due'>, edge: Edge, delta: num
   return body
 }
 
+/** Sticky header cells and the name column sit on the surface, above the bars. */
+const sticky = 'sticky bg-surface'
+const handle =
+  'absolute inset-y-0 z-1 w-1.75 cursor-ew-resize touch:hidden after:absolute after:inset-y-1.25 after:left-[0.15rem] after:w-0.5 after:rounded-[1px] after:bg-(--c) after:opacity-0 after:transition-opacity after:duration-100 group-hover/bar:after:opacity-60'
+
 export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (t: Task) => void; selected: string | null }) {
   const today = startOfDay(new Date())
   const home = addDays(startOfWeek(today), -7)
@@ -75,7 +75,9 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
   const justDragged = useRef(false)
   const scroller = useRef<HTMLDivElement>(null)
   const dayCell = useRef<HTMLDivElement>(null)
+  const startMs = start.getTime()
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed by the window's start time (a new Date each render)
   const { rows, undated, outside } = useMemo(() => {
     const out: { t: Task; s: Date; e: Date }[] = []
     let undated = 0
@@ -94,9 +96,10 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
     }
     out.sort((a, b) => a.s.getTime() - b.s.getTime() || a.e.getTime() - b.e.getTime() || a.t.title.localeCompare(b.t.title))
     return { rows: out, undated, outside }
-  }, [tasks, start.getTime()]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [tasks, startMs])
 
-  const days = useMemo(() => Array.from({ length: DAYS }, (_, i) => addDays(start, i)), [start.getTime()]) // eslint-disable-line react-hooks/exhaustive-deps
+  // biome-ignore lint/correctness/useExhaustiveDependencies: keyed by the window's start time
+  const days = useMemo(() => Array.from({ length: DAYS }, (_, i) => addDays(start, i)), [startMs])
   const months = useMemo(() => {
     const out: { label: string; from: number; span: number }[] = []
     days.forEach((d, i) => {
@@ -110,6 +113,8 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
   const todayIdx = dayDiff(start, today)
 
   // Narrow screens scroll sideways: bring today into view (when it's in this window and hidden).
+  const hasRows = rows.length > 0
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-centres when the window moves or the grid appears
   useLayoutEffect(() => {
     const el = scroller.current
     const cell = dayCell.current
@@ -120,10 +125,10 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
     const inView = x >= el.scrollLeft + name && x + w <= el.scrollLeft + el.clientWidth
     if (todayIdx >= 0 && todayIdx < DAYS && !inView) el.scrollLeft = Math.max(0, (todayIdx - 1) * w)
     else if (todayIdx < 0 || todayIdx >= DAYS) el.scrollLeft = 0
-  }, [start.getTime(), rows.length > 0]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [startMs, hasRows])
 
   const onPointerDown = (e: RPointerEvent<HTMLButtonElement>, t: Task) => {
-    if (e.button !== 0 || e.pointerType === 'touch' || t.id.startsWith('temp-')) return
+    if (e.button !== 0 || e.pointerType === 'touch' || isTempId(t.id)) return
     const edge = ((e.target as HTMLElement).dataset.edge as Edge | undefined) ?? 'move'
     const dayW = dayCell.current?.getBoundingClientRect().width || 24
     const el = e.currentTarget
@@ -149,7 +154,9 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
       setDrag(null)
       if (!moved) return // the click that follows opens the task
       justDragged.current = true
-      setTimeout(() => (justDragged.current = false), 0)
+      setTimeout(() => {
+        justDragged.current = false
+      }, 0)
       if (!delta) return
       const body = dragPatch(t, edge, delta)
       if (typeof body === 'string') return toast.error(body)
@@ -162,65 +169,73 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
   }
 
   return (
-    <div className="tl">
-      <div className="tl-head">
-        <h2 className="tl-range">
-          {fmtDate(start, { month: 'short', day: 'numeric' })} –{' '}
-          {fmtDate(addDays(end, -1), { month: 'short', day: 'numeric', year: 'numeric' })}
-        </h2>
-        <span className="muted xsmall tl-note">
-          {[undated ? `${plural(undated, 'undated task')} not shown` : '', outside ? `${outside} outside this range` : '']
-            .filter(Boolean)
-            .join(' · ')}
-        </span>
-        <span className="spacer" />
-        <div className="tl-nav">
-          <button
-            className="btn sm icon"
-            onClick={() => setStart(addDays(start, -STEP))}
-            aria-label="Two weeks earlier"
-            title="Two weeks earlier"
-          >
-            <Icon name="chevronLeft" size={14} />
-          </button>
-          <button className="btn sm" onClick={() => setStart(home)} disabled={start.getTime() === home.getTime()}>
-            Today
-          </button>
-          <button
-            className="btn sm icon"
-            onClick={() => setStart(addDays(start, STEP))}
-            aria-label="Two weeks later"
-            title="Two weeks later"
-          >
-            <Icon name="chevronRight" size={14} />
-          </button>
-        </div>
-      </div>
+    <div className="grid gap-2">
+      <RangeHeader
+        title={`${fmtDate(start, { month: 'short', day: 'numeric' })} – ${fmtDate(addDays(end, -1), { month: 'short', day: 'numeric', year: 'numeric' })}`}
+        note={
+          <span className="text-xs text-muted max-md:order-3 max-md:basis-full">
+            {[undated ? `${plural(undated, 'undated task')} not shown` : '', outside ? `${outside} outside this range` : '']
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+        }
+        prev="Two weeks earlier"
+        next="Two weeks later"
+        onPrev={() => setStart(addDays(start, -STEP))}
+        onNext={() => setStart(addDays(start, STEP))}
+        onToday={() => setStart(home)}
+        todayDisabled={startMs === home.getTime()}
+      />
       {rows.length === 0 ? (
-        <div className="empty tasks-empty">No tasks with dates in this range. Give tasks a start or due date to plan them here.</div>
+        <div className="px-4 py-12 text-center text-sm text-muted">
+          No tasks with dates in this range. Give tasks a start or due date to plan them here.
+        </div>
       ) : (
-        <div className="tl-scroll" ref={scroller}>
+        <div
+          className="max-h-[calc(100dvh-12rem)] overflow-auto rounded-md border border-border bg-surface max-md:max-h-[calc(100dvh-13rem)]"
+          ref={scroller}
+        >
           <div
-            className="tl-grid"
-            style={{ '--days': DAYS, gridTemplateRows: `auto auto repeat(${rows.length}, 2.25rem)` } as CSSProperties}
+            className="relative grid min-w-min grid-cols-[var(--tl-name)_repeat(42,minmax(var(--tl-day),1fr))] overflow-clip [--tl-day:1.125rem] [--tl-name:13rem] max-md:[--tl-day:1.75rem] max-md:[--tl-name:7.5rem]"
+            style={{ gridTemplateRows: `auto auto repeat(${rows.length}, 2.25rem)` }}
           >
-            <div className="tl-corner">Task</div>
+            <div
+              className={cn(
+                sticky,
+                'top-0 left-0 z-4 col-1 row-[1/3] flex items-end border-r border-b border-border px-3 py-1.5 text-xs font-semibold text-muted',
+              )}
+            >
+              Task
+            </div>
             {months.map((m) => (
-              <div key={m.from} className="tl-month" style={{ gridColumn: `${m.from + 2} / span ${m.span}` }}>
-                <span>{m.label}</span>
+              <div
+                key={m.from}
+                className={cn(
+                  sticky,
+                  'top-0 z-3 row-1 overflow-clip pt-1.5 pb-0.5 text-xs font-semibold whitespace-nowrap shadow-[inset_1px_0_0_var(--app-border)]',
+                )}
+                style={{ gridColumn: `${m.from + 2} / span ${m.span}` }}
+              >
+                <span className="sticky left-[calc(var(--tl-name)+0.375rem)] px-1.5">{m.label}</span>
               </div>
             ))}
             {days.map((d, i) => {
               const we = d.getDay() === 0 || d.getDay() === 6
+              const isToday = i === todayIdx
               return (
                 <div
-                  key={i}
+                  key={d.getTime()}
                   ref={i === 0 ? dayCell : undefined}
-                  className={'tl-day' + (we ? ' we' : '') + (i === todayIdx ? ' today' : '') + (d.getDay() === 1 ? ' wk' : '')}
+                  className={cn(
+                    sticky,
+                    'top-[1.5625rem] z-3 row-2 grid justify-items-center border-b border-border pt-px pb-1 text-2xs leading-[1.25] tabular-nums',
+                    we && 'bg-[color-mix(in_srgb,var(--app-surface-2)_70%,var(--app-surface))]',
+                    isToday ? 'font-bold text-accent' : we ? 'text-muted' : 'text-fg',
+                  )}
                   style={{ gridColumn: i + 2 }}
                   title={fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}
                 >
-                  <span className="tl-wd">{fmtDate(d, { weekday: 'narrow' })}</span>
+                  <span className={cn('text-3xs', isToday ? 'text-accent' : 'text-muted')}>{fmtDate(d, { weekday: 'narrow' })}</span>
                   {d.getDate()}
                 </div>
               )
@@ -229,19 +244,31 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
               (d, i) =>
                 (d.getDay() === 0 || d.getDay() === 6 || d.getDay() === 1) && (
                   <div
-                    key={'c' + i}
-                    className={'tl-col' + (d.getDay() === 1 ? ' wk' : ' we')}
+                    key={`c${d.getTime()}`}
+                    className={cn(
+                      'pointer-events-none row-[3/-1]',
+                      d.getDay() === 1
+                        ? 'shadow-[inset_1px_0_0_var(--app-border)]'
+                        : 'bg-[color-mix(in_srgb,var(--app-surface-2)_70%,transparent)]',
+                    )}
                     style={{ gridColumn: i + 2 }}
                     aria-hidden="true"
                   />
                 ),
             )}
-            {todayIdx >= 0 && todayIdx < DAYS && <div className="tl-now" style={{ gridColumn: todayIdx + 2 }} aria-hidden="true" />}
+            {todayIdx >= 0 && todayIdx < DAYS && (
+              <div
+                className="pointer-events-none z-1 row-[2/-1] w-0.5 justify-self-center rounded-[1px] bg-accent opacity-70"
+                style={{ gridColumn: todayIdx + 2 }}
+                aria-hidden="true"
+              />
+            )}
             {rows.map(({ t, s, e }, r) => {
               const row = r + 3
               let from = dayDiff(start, s)
               let to = dayDiff(start, e)
-              if (drag?.id === t.id) {
+              const dragging = drag?.id === t.id
+              if (drag && dragging) {
                 if (drag.edge !== 'end') from += drag.delta
                 if (drag.edge !== 'start') to += drag.delta
                 if (from > to) [from, to] = drag.edge === 'start' ? [to, to] : [from, from]
@@ -250,52 +277,54 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
               const clipR = to > DAYS - 1
               from = Math.max(0, Math.min(DAYS - 1, from))
               to = Math.max(from, Math.min(DAYS - 1, to))
-              const overdue =
-                !t.done &&
-                !!t.due &&
-                new Date(t.due) < new Date() &&
-                (dayDiff(new Date(), new Date(t.due)) < 0 || !isEndOfDay(new Date(t.due)))
+              const overdue = isOverdue(t)
               const short = to - from < 3
-              const range = `${t.start ? fmtDate(new Date(t.start), { month: 'short', day: 'numeric' }) + ' → ' : ''}${t.due ? fmtDate(new Date(t.due), { month: 'short', day: 'numeric' }) : 'no due date'}`
-              const cls =
-                'tl-bar p' +
-                prioLevel(t.priority) +
-                (t.done ? ' done' : '') +
-                (overdue ? ' overdue' : '') +
-                (short ? ' short' : '') +
-                (clipL ? ' clip-l' : '') +
-                (clipR ? ' clip-r' : '') +
-                (drag?.id === t.id ? ' dragging' : '') +
-                (t.id === selected ? ' sel' : '')
+              const sel = t.id === selected
+              const range = `${t.start ? `${fmtDate(new Date(t.start), { month: 'short', day: 'numeric' })} → ` : ''}${t.due ? fmtDate(new Date(t.due), { month: 'short', day: 'numeric' }) : 'no due date'}`
+              const colour = t.colour || prioColour(t.priority)
               return [
                 <div
-                  key={'r' + t.id}
-                  className={'tl-rowline' + (t.id === selected ? ' sel' : '')}
+                  key={`r${t.id}`}
+                  className={cn(
+                    'pointer-events-none col-[1/-1] border-b border-border',
+                    sel && 'bg-[color-mix(in_srgb,var(--app-accent-soft)_70%,transparent)]',
+                  )}
                   style={{ gridRow: row }}
                   aria-hidden="true"
                 />,
                 <button
-                  key={'n' + t.id}
-                  className={'tl-name' + (t.done ? ' done' : '')}
+                  key={`n${t.id}`}
+                  type="button"
+                  className={cn(
+                    sticky,
+                    'left-0 z-2 col-1 flex min-w-0 items-center gap-2 border-0 border-r border-b border-solid border-border px-3 text-left text-sm text-fg hover:bg-[color-mix(in_srgb,var(--app-fg)_4%,var(--app-surface))] max-md:px-2 max-md:text-xs',
+                  )}
                   style={{ gridRow: row }}
                   onClick={() => onOpen(t)}
                   title={t.title}
                 >
-                  <span className="tl-dot" style={{ background: t.colour || PRIO_COLOUR[prioLevel(t.priority)] }} />
-                  <span className="truncate">{t.title}</span>
+                  <span className="size-2 flex-none rounded-full" style={{ background: colour }} />
+                  <span className={cn('truncate', t.done && 'text-muted line-through')}>{t.title}</span>
                 </button>,
                 <button
-                  key={'b' + t.id}
+                  key={`b${t.id}`}
                   type="button"
-                  className={cls}
+                  className={cn(
+                    'group/bar relative z-1 mx-0.5 flex h-6 min-w-0 cursor-grab touch-pan-x touch-pan-y items-center self-center rounded-[0.375rem] border px-2 text-left text-xs text-fg transition-[box-shadow,background-color] duration-120 touch:cursor-pointer',
+                    'bg-[color-mix(in_srgb,var(--c)_16%,var(--app-surface))] hover:bg-[color-mix(in_srgb,var(--c)_24%,var(--app-surface))] dark:bg-[color-mix(in_srgb,var(--c)_22%,var(--app-surface))] dark:hover:bg-[color-mix(in_srgb,var(--c)_22%,var(--app-surface))]',
+                    overdue
+                      ? 'border-danger shadow-[inset_3px_0_0_var(--app-danger)]'
+                      : 'border-[color-mix(in_srgb,var(--c)_45%,transparent)]',
+                    !overdue &&
+                      (dragging ? 'shadow-[inset_3px_0_0_var(--c),0_4px_12px_rgba(16,24,40,.16)]' : 'shadow-[inset_3px_0_0_var(--c)]'),
+                    dragging && 'z-2 cursor-grabbing',
+                    sel && 'outline-2 outline-offset-1 outline-accent',
+                    t.done && 'opacity-55',
+                    clipL && 'rounded-l-none border-l-dashed',
+                    clipR && 'rounded-r-none border-r-dashed',
+                  )}
                   data-task={t.id}
-                  style={
-                    {
-                      gridRow: row,
-                      gridColumn: `${from + 2} / ${to + 3}`,
-                      '--c': t.colour || PRIO_COLOUR[prioLevel(t.priority)],
-                    } as CSSProperties
-                  }
+                  style={{ gridRow: row, gridColumn: `${from + 2} / ${to + 3}`, '--c': colour } as CSSProperties}
                   aria-label={`${t.title}, ${range}${overdue ? ', overdue' : ''}${t.done ? ', completed' : ''}. Open details`}
                   title={`${t.title}\n${range}\nDrag to move, drag an edge to change the start or due date`}
                   onPointerDown={(ev) => onPointerDown(ev, t)}
@@ -303,9 +332,18 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
                     if (!justDragged.current) onOpen(t)
                   }}
                 >
-                  {!clipL && <span className="tl-h l" data-edge="start" aria-hidden="true" />}
-                  <span className="tl-bar-t">{t.title}</span>
-                  {!clipR && <span className="tl-h r" data-edge="end" aria-hidden="true" />}
+                  {!clipL && <span className={cn(handle, '-left-px')} data-edge="start" aria-hidden="true" />}
+                  <span
+                    className={cn(
+                      'pointer-events-none min-w-0 text-ellipsis whitespace-nowrap',
+                      short ? 'absolute left-[calc(100%+0.375rem)] max-w-56 overflow-visible' : 'overflow-hidden',
+                      overdue ? 'text-danger' : short && 'text-muted',
+                      t.done && 'line-through',
+                    )}
+                  >
+                    {t.title}
+                  </span>
+                  {!clipR && <span className={cn(handle, '-right-px')} data-edge="end" aria-hidden="true" />}
                 </button>,
               ]
             })}
@@ -315,5 +353,3 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
     </div>
   )
 }
-
-/** Small "timeline" glyph for the layout switch (the shared icon set has none). */

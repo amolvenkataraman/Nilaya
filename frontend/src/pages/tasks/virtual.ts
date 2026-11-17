@@ -31,11 +31,13 @@ export interface Windowed {
 export function useWindowed(keys: string[], container: RefObject<HTMLElement | null>, estimate = 44, gap = 0): Windowed {
   const heights = useRef(new Map<string, number>())
   const [version, bump] = useReducer((n: number) => n + 1, 0)
+  // `version` changes when measured heights do (they live in a ref, so the memo can't see them).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: see above
   const offsets = useMemo(() => {
     const out = new Float64Array(keys.length + 1)
     for (let i = 0; i < keys.length; i++) out[i + 1] = out[i] + (heights.current.get(keys[i]) ?? estimate) + gap
     return out
-  }, [keys, estimate, gap, version]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [keys, estimate, gap, version])
   const [range, setRange] = useState<[number, number]>([0, Math.min(keys.length, 30)])
 
   const compute = useCallback(() => {

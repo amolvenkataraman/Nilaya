@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { dragPatch, taskSpan } from './Timeline'
-import { dueOn, positionsBetween } from './api'
+import { dueOn } from './bulk'
+import { positionsBetween } from './order'
 
 const at = (d: number, h: number, m = 0) => new Date(2026, 10, d, h, m).toISOString()
 const day = (iso: string | null | undefined) => (iso ? new Date(iso).getDate() : null)
@@ -28,13 +29,15 @@ describe('bulk helpers', () => {
   })
 })
 
-import { calendarRange, fitsList, nestTasks, parseMinutes, repeatText, rescheduleTo } from './util'
+import { groupTasks, nestTasks } from './grouping'
+import { repeatText } from './recurrence'
+import { applyPatch, parseMinutes, rescheduleTo } from './task'
 import { treeDrop } from './Sidebar'
-import { withFilters } from './TasksPage'
+import { withFilters } from './params'
 import type { Project, Task } from '../../lib/types'
 import { QueryClient } from '@tanstack/react-query'
-import { listItems, listTotal, settleTaskLists } from '../../lib/taskLists'
-import { rangeGaps } from './Calendar'
+import { fitsList, listItems, listTotal, settleTaskLists } from '../../lib/taskLists'
+import { calendarRange, rangeGaps } from './Calendar'
 
 describe('task helpers', () => {
   it('parses time spent and words repeats', () => {
@@ -155,6 +158,55 @@ describe('task helpers', () => {
       label: '1,2',
       priority_min: 10,
       assignee: 'me',
+    })
+  })
+  it('groups by priority level (highest first, empty levels dropped) and plans Upcoming by day', () => {
+    const t = (id: string, priority: number, due: string | null = null) => ({ id, priority, due, parent_id: null }) as unknown as Task
+    const rows = [t('a', 0), t('b', 17), t('c', 20), t('d', 15)]
+    const byPrio = groupTasks({
+      view: 'today',
+      items: rows,
+      roots: rows,
+      grouping: 'priority',
+      projectList: false,
+      sort: 'due',
+      projectLabel: String,
+    })
+    expect(byPrio.map((g) => [g.key, g.items.map((x) => x.id)])).toEqual([
+      ['p20', ['c']],
+      ['p15', ['b', 'd']],
+      ['p0', ['a']],
+    ])
+    const now = new Date(2026, 10, 9, 12)
+    const soon = [t('e', 0, at(11, 9))]
+    const upcoming = groupTasks({
+      view: 'upcoming',
+      items: soon,
+      roots: soon,
+      grouping: 'auto',
+      projectList: false,
+      sort: 'due',
+      projectLabel: String,
+      now,
+    })
+    expect(upcoming.map((g) => g.key)).toEqual([
+      'today',
+      'tomorrow',
+      'day:2026-11-11',
+      'day:2026-11-12',
+      'day:2026-11-13',
+      'day:2026-11-14',
+      'day:2026-11-15',
+    ])
+    expect(upcoming[2].items.map((x) => x.id)).toEqual(['e'])
+    expect(upcoming.every((g) => g.keep)).toBe(true)
+  })
+  it('applies a PATCH as the server returns it: usernames become the people already assigned', () => {
+    const alex = { id: 'u1', username: 'alex', name: 'Alex' }
+    const task = { id: 'a', title: 'x', assignees: [alex] } as unknown as Task
+    expect(applyPatch(task, { assignees: ['alex', 'sam'], title: 'y' })).toMatchObject({
+      title: 'y',
+      assignees: [alex, { id: 'sam', username: 'sam', name: 'sam' }],
     })
   })
 })

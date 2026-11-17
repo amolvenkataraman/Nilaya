@@ -2,12 +2,29 @@
 // and the saved-view dialog (save the current filters as a view, or rename one).
 import { useEffect, useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { Confirm, Dialog, Menu, MenuItem, MenuLabel, MenuSeparator } from '../../components/ui'
 import { toast } from '../../components/toast'
+import {
+  Button,
+  ColourPicker,
+  Confirm,
+  Dialog,
+  Field,
+  Input,
+  Menu,
+  MenuItem,
+  MenuLabel,
+  MenuSeparator,
+  Segmented,
+  Select,
+  Textarea,
+} from '../../components/ui'
 import type { TaskQuery } from '../../lib/queries'
 import type { Project, SavedView } from '../../lib/types'
 import { useDeleteProject, useSaveProject, useSaveView } from './api'
+import { FieldGroup, sideMore } from './Labels'
+import { isProjectAdmin } from './task'
 
+/** The colours projects, labels and tasks pick from (candidate for lib/colour.ts). */
 export const PROJECT_COLOURS = [
   '#2563eb',
   '#0891b2',
@@ -20,12 +37,13 @@ export const PROJECT_COLOURS = [
   '#7c3aed',
   '#64748b',
 ]
-const LAYOUTS = [
-  ['list', 'List', 'list'],
-  ['board', 'Board', 'board'],
-  ['table', 'Table', 'layers'],
-  ['calendar', 'Calendar', 'calendar'],
-] as const
+type DefaultLayout = 'list' | 'board' | 'table' | 'calendar'
+const LAYOUTS: { value: DefaultLayout; label: string; icon: string }[] = [
+  { value: 'list', label: 'List', icon: 'list' },
+  { value: 'board', label: 'Board', icon: 'board' },
+  { value: 'table', label: 'Table', icon: 'layers' },
+  { value: 'calendar', label: 'Calendar', icon: 'calendar' },
+]
 
 export function ProjectDialog({
   open,
@@ -45,14 +63,14 @@ export function ProjectDialog({
   const save = useSaveProject()
   const [name, setName] = useState('')
   const [colour, setColour] = useState(PROJECT_COLOURS[0])
-  const [view, setView] = useState('list')
+  const [view, setView] = useState<DefaultLayout>('list')
   const [description, setDescription] = useState('')
   const [parent, setParent] = useState('')
   useEffect(() => {
     if (!open) return
     setName(project?.name ?? '')
     setColour(project ? project.colour : PROJECT_COLOURS[0])
-    setView(project?.default_view || 'list')
+    setView((project?.default_view || 'list') as DefaultLayout)
     setDescription(project?.description ?? '')
     setParent(project?.parent_id ?? parentId ?? '')
   }, [open, project, parentId])
@@ -69,7 +87,7 @@ export function ProjectDialog({
         }
     }
   }
-  const parents = (projects ?? []).filter((p) => !p.is_inbox && p.role >= 2 && !below.has(p.id))
+  const parents = (projects ?? []).filter((p) => !p.is_inbox && isProjectAdmin(p) && !below.has(p.id))
   const submit = () => {
     if (!name.trim()) return
     const body: Partial<Project> = { name: name.trim(), colour, default_view: view, description }
@@ -93,78 +111,51 @@ export function ProjectDialog({
       width="28rem"
       footer={
         <>
-          <span className="spacer" />
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn primary" disabled={!name.trim() || save.isPending} onClick={submit}>
+          <span className="flex-1" />
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" disabled={!name.trim() || save.isPending} onClick={submit}>
             {project ? 'Save' : 'Create project'}
-          </button>
+          </Button>
         </>
       }
     >
-      <form className="stack" style={{ gap: '0.75rem' }} onSubmit={(e) => (e.preventDefault(), submit())}>
-        <label className="field">
-          <span>Name</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={128} autoFocus />
-        </label>
-        <label className="field">
-          <span>Description</span>
-          <textarea className="textarea" rows={2} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
-        </label>
-        <div className="field">
-          <span>Colour</span>
-          <div className="swatches" role="radiogroup" aria-label="Colour">
-            <button
-              type="button"
-              role="radio"
-              aria-checked={!colour}
-              aria-label="No colour"
-              className="swatch none"
-              onClick={() => setColour('')}
-            >
-              {!colour && <Icon name="check" size={12} />}
-            </button>
-            {PROJECT_COLOURS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                role="radio"
-                aria-checked={c === colour}
-                aria-label={c}
-                className="swatch"
-                style={{ background: c }}
-                onClick={() => setColour(c)}
-              >
-                {c === colour && <Icon name="check" size={12} />}
-              </button>
-            ))}
-          </div>
-        </div>
+      <form
+        className="grid gap-3"
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit()
+        }}
+      >
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={128} autoFocus />
+        </Field>
+        <Field label="Description">
+          <Textarea rows={2} value={description} onChange={(e) => setDescription(e.target.value)} maxLength={2000} />
+        </Field>
+        <FieldGroup label="Colour">
+          <ColourPicker value={colour || null} onChange={(c) => setColour(c ?? '')} colours={PROJECT_COLOURS} none="No colour" />
+        </FieldGroup>
         {!project?.is_inbox && (
-          <label className="field">
-            <span>Parent project</span>
-            <select className="select" value={parent} onChange={(e) => setParent(e.target.value)}>
+          <Field label="Parent project">
+            <Select value={parent} onChange={(e) => setParent(e.target.value)}>
               <option value="">No parent</option>
               {parents.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.name}
                 </option>
               ))}
-            </select>
-          </label>
+            </Select>
+          </Field>
         )}
-        <div className="field">
-          <span>Default layout</span>
-          <div className="seg" role="group" aria-label="Default layout">
-            {LAYOUTS.map(([v, l, ic]) => (
-              <button key={v} type="button" aria-pressed={view === v} onClick={() => setView(v)}>
-                <Icon name={ic} size={14} />
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
+        <FieldGroup label="Default layout">
+          <Segmented
+            label="Default layout"
+            className="justify-self-start"
+            value={view}
+            onChange={setView}
+            options={LAYOUTS.map((l) => ({ value: l.value, label: l.label, icon: l.icon }))}
+          />
+        </FieldGroup>
       </form>
     </Dialog>
   )
@@ -188,7 +179,7 @@ export function ProjectMenu({
   const save = useSaveProject()
   const remove = useDeleteProject()
   const [confirm, setConfirm] = useState(false)
-  const admin = project.role >= 2
+  const admin = isProjectAdmin(project)
   return (
     <>
       <Menu
@@ -196,69 +187,81 @@ export function ProjectMenu({
         label={`${project.name} options`}
         trigger={(p) =>
           trigger === 'header' ? (
-            <button {...p} className="btn ghost icon sm" aria-label="Project options" title="Project options">
+            <Button {...p} variant="ghost" size="sm" icon aria-label="Project options" title="Project options">
               <Icon name="more" size={16} />
-            </button>
+            </Button>
           ) : (
-            <button {...p} className="btn ghost icon sm side-more" aria-label={`${project.name} options`}>
+            <Button {...p} variant="ghost" size="sm" icon className={sideMore} aria-label={`${project.name} options`}>
               <Icon name="more" size={14} />
-            </button>
+            </Button>
           )
         }
       >
-        {(close) => (
-          <>
-            {admin && (
-              <MenuItem icon="edit" onClick={() => (close(), onEdit())}>
-                Edit project…
-              </MenuItem>
-            )}
-            {admin && onAddSub && !project.is_inbox && (
-              <MenuItem icon="plus" onClick={() => (close(), onAddSub())}>
-                Add subproject…
-              </MenuItem>
-            )}
-            {onShare && !project.is_inbox && (
-              <MenuItem icon="users" end={project.shared ? 'Shared' : undefined} onClick={() => (close(), onShare())}>
-                {admin ? 'Share…' : 'Members…'}
-              </MenuItem>
-            )}
-            {admin && (
-              <MenuItem icon="star" onClick={() => (close(), save.mutate({ id: project.id, body: { favorite: !project.favorite } }))}>
-                {project.favorite ? 'Remove from favourites' : 'Add to favourites'}
-              </MenuItem>
-            )}
-            {admin && !project.is_inbox && (
-              <MenuItem
-                icon="album"
-                onClick={() => (
-                  close(),
-                  save.mutate(
-                    { id: project.id, body: { archived: !project.archived } },
-                    { onSuccess: () => toast.show(project.archived ? `Restored "${project.name}"` : `Archived "${project.name}"`) },
-                  )
-                )}
-              >
-                {project.archived ? 'Unarchive' : 'Archive'}
-              </MenuItem>
-            )}
-            {admin && !project.is_inbox && (
-              <>
-                <MenuSeparator />
-                <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>
-                  Delete project…
+        {(close) => {
+          const act = (fn: () => void) => () => {
+            close()
+            fn()
+          }
+          return (
+            <>
+              {admin && (
+                <MenuItem icon="edit" onClick={act(onEdit)}>
+                  Edit project…
                 </MenuItem>
-              </>
-            )}
-            {!admin && (!onShare || project.is_inbox) && <MenuLabel>Only admins can change this project.</MenuLabel>}
-          </>
-        )}
+              )}
+              {admin && onAddSub && !project.is_inbox && (
+                <MenuItem icon="plus" onClick={act(onAddSub)}>
+                  Add subproject…
+                </MenuItem>
+              )}
+              {onShare && !project.is_inbox && (
+                <MenuItem icon="users" end={project.shared ? 'Shared' : undefined} onClick={act(onShare)}>
+                  {admin ? 'Share…' : 'Members…'}
+                </MenuItem>
+              )}
+              {admin && (
+                <MenuItem icon="star" onClick={act(() => save.mutate({ id: project.id, body: { favorite: !project.favorite } }))}>
+                  {project.favorite ? 'Remove from favourites' : 'Add to favourites'}
+                </MenuItem>
+              )}
+              {admin && !project.is_inbox && (
+                <MenuItem
+                  icon="album"
+                  onClick={act(() =>
+                    save.mutate(
+                      { id: project.id, body: { archived: !project.archived } },
+                      { onSuccess: () => toast.show(project.archived ? `Restored "${project.name}"` : `Archived "${project.name}"`) },
+                    ),
+                  )}
+                >
+                  {project.archived ? 'Unarchive' : 'Archive'}
+                </MenuItem>
+              )}
+              {admin && !project.is_inbox && (
+                <>
+                  <MenuSeparator />
+                  <MenuItem icon="trash" danger onClick={act(() => setConfirm(true))}>
+                    Delete project…
+                  </MenuItem>
+                </>
+              )}
+              {!admin && (!onShare || project.is_inbox) && <MenuLabel>Only admins can change this project.</MenuLabel>}
+            </>
+          )
+        }}
       </Menu>
       <Confirm
         open={confirm}
         title={`Delete "${project.name}"?`}
         body={`Its ${project.open_count ? `${project.open_count} open ` : ''}tasks and subprojects are deleted too. This can't be undone.`}
-        onConfirm={() => remove.mutate(project.id, { onSuccess: () => (toast.show('Project deleted'), onDeleted()) })}
+        onConfirm={() =>
+          remove.mutate(project.id, {
+            onSuccess: () => {
+              toast.show('Project deleted')
+              onDeleted()
+            },
+          })
+        }
         onClose={() => setConfirm(false)}
       />
     </>
@@ -291,7 +294,10 @@ export function SaveViewDialog({
     const n = name.trim()
     if (!n) return
     save.mutate(view ? { id: view.id, body: { name: n } } : { body: { name: n, filters, position: position ?? 0 } }, {
-      onSuccess: (v) => (onClose(), onSaved(v)),
+      onSuccess: (v) => {
+        onClose()
+        onSaved(v)
+      },
     })
   }
   return (
@@ -302,23 +308,26 @@ export function SaveViewDialog({
       width="26rem"
       footer={
         <>
-          <span className="spacer" />
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn primary" disabled={!name.trim() || save.isPending} onClick={submit}>
+          <span className="flex-1" />
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" disabled={!name.trim() || save.isPending} onClick={submit}>
             {view ? 'Save' : 'Save view'}
-          </button>
+          </Button>
         </>
       }
     >
-      <form onSubmit={(e) => (e.preventDefault(), submit())} className="stack">
-        <label className="field">
-          <span>Name</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={64} autoFocus />
-        </label>
+      <form
+        className="grid gap-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit()
+        }}
+      >
+        <Field label="Name">
+          <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={64} autoFocus />
+        </Field>
         {!view && (
-          <p className="help">
+          <p className="text-xs text-muted">
             Saves the current list, search, filters and sort:{' '}
             {Object.entries(filters)
               .map(([k, v]) => `${k}=${v}`)

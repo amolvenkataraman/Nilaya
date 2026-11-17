@@ -1,15 +1,74 @@
-// Tasks-page mutations not shared with other pages: projects, buckets, comments, saved views, labels,
-// members, relations and bulk actions.
-import { useCallback, useSyncExternalStore } from 'react'
-import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
-import { ApiError, api, del, get, patch, post } from '../../lib/api'
-import { bumpParent, keys, refreshTaskCounts } from '../../lib/queries'
-import { cachedTask, listItems, patchTaskLists, settleTaskLists, type TaskList } from '../../lib/taskLists'
-import { dayKey } from '../../lib/dates'
-import { toast } from '../../components/toast'
-import type { Bucket, Comment, Label, Member, Project, Relation, SavedView, Task, TaskDetail, UserBrief } from '../../lib/types'
-import { plural } from '../../lib/format'
+// Tasks-page queries and mutations not shared with other pages: projects, board columns, comments, saved
+// views, labels, members and relations, plus the query keys and factories this app adds to lib/queries'
+// `keys`. Bulk actions are in bulk.ts, delete-with-undo in deleteUndo.ts.
+import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import { ApiError, del, get, patch, post } from '../../lib/api'
+import { keys } from '../../lib/queries'
+import { cachedTask, patchTaskLists, settleTaskLists } from '../../lib/taskLists'
+import type { Bucket, Comment, Label, Member, Project, Relation, SavedView, Task, TaskDetail, TaskPage, UserBrief } from '../../lib/types'
 
+// ---------------------------------------------------------------- keys and query factories
+/** Keys this app uses beyond lib/queries' `keys` (prefixes of those, for invalidating an area). */
+export const taskKeys = {
+  all: ['tasks'] as const,
+  lists: ['tasks', 'list'] as const,
+  /** Every board query of a project (whatever its search). */
+  boardOf: (projectId: string) => ['tasks', 'board', projectId] as const,
+  members: (projectId: string) => ['tasks', 'members', projectId] as const,
+}
+
+export const membersQuery = (projectId: string | null) =>
+  queryOptions({
+    queryKey: taskKeys.members(projectId ?? ''),
+    queryFn: ({ signal }) => get<Member[]>(`tasks/projects/${projectId}/members`, undefined, signal),
+    enabled: !!projectId,
+  })
+export const useMembers = (projectId: string | null) => useQuery(membersQuery(projectId))
+
+export const BOARD_PAGE = 50
+/** One board column's paged list (the board request seeds its first page). */
+export const columnParams = (projectId: string, bucketId: number, q: string) => ({
+  project: projectId,
+  bucket: bucketId,
+  top_level: true,
+  sort: 'position',
+  limit: BOARD_PAGE,
+  q: q || undefined,
+})
+
+export interface BoardColumn extends Bucket {
+  total: number
+  open: number
+  items?: Task[] | null
+  next?: string | null
+}
+export interface BoardOut {
+  columns: BoardColumn[]
+}
+
+/** A board's columns and counts in one request (GET projects/{id}/board), its cards seeded into one paged
+ *  list per column. Refetches (after a change) skip the cards when every column's list is cached. */
+export const boardQuery = (qc: QueryClient, projectId: string, q: string) =>
+  queryOptions({
+    queryKey: keys.board(projectId, q),
+    queryFn: async ({ signal }): Promise<BoardOut> => {
+      const prev = qc.getQueryData<BoardOut>(keys.board(projectId, q))
+      const cached = !!prev?.columns.length && prev.columns.every((c) => qc.getQueryData(keys.taskPages(columnParams(projectId, c.id, q))))
+      const r = await get<BoardOut>(
+        `tasks/projects/${projectId}/board`,
+        { q: q || undefined, per: BOARD_PAGE, items: cached ? false : undefined },
+        signal,
+      )
+      for (const c of r.columns) {
+        const k = keys.taskPages(columnParams(projectId, c.id, q))
+        if (c.items && !qc.getQueryData(k))
+          qc.setQueryData(k, { pages: [{ items: c.items, total: c.total, next: c.next ?? null } satisfies TaskPage], pageParams: [null] })
+      }
+      return { columns: r.columns.map(({ items: _i, next: _n, ...c }) => c) }
+    },
+  })
+
+// ---------------------------------------------------------------- projects and board columns
 const setProjects = (qc: QueryClient, fn: (l: Project[]) => Project[]) => {
   qc.setQueriesData<Project[]>({ queryKey: keys.projects }, (old) => (old ? fn(old) : old))
   qc.setQueryData<{ projects?: Project[] }>(keys.overview, (o) => (o?.projects ? { ...o, projects: fn(o.projects) } : o))
@@ -26,7 +85,11 @@ export function useSaveProject() {
       await qc.cancelQueries({ queryKey: keys.projects })
       const snaps = [...qc.getQueriesData({ queryKey: keys.projects }), [keys.overview, qc.getQueryData(keys.overview)] as const]
       setProjects(qc, (list) => list.map((p) => (p.id === id ? { ...p, ...body } : p)))
-      return { rollback: () => snaps.forEach(([k, d]) => qc.setQueryData(k, d)) }
+      return {
+        rollback: () => {
+          for (const [k, d] of snaps) qc.setQueryData(k, d)
+        },
+      }
     },
     onSuccess: (p) => {
       // The response has no open count: keep the one we have. Counts and the archived list refresh from the overview.
@@ -46,7 +109,7 @@ export function useDeleteProject() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: string) => del(`tasks/projects/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: taskKeys.all }),
   })
 }
 
@@ -57,7 +120,7 @@ export function useSaveBucket(projectId: string) {
       id ? patch<Bucket>(`tasks/buckets/${id}`, body) : post<Bucket>(`tasks/projects/${projectId}/buckets`, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: keys.buckets(projectId) })
-      qc.invalidateQueries({ queryKey: ['tasks', 'board', projectId] })
+      qc.invalidateQueries({ queryKey: taskKeys.boardOf(projectId) })
     },
   })
 }
@@ -66,19 +129,66 @@ export function useDeleteBucket() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (id: number) => del(`tasks/buckets/${id}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: taskKeys.all }),
   })
 }
 
+export type ProjectWithOwner = Project & { owner?: UserBrief }
+
+// ---------------------------------------------------------------- tasks
 /** Take myself off a task's assignees (allowed even when the task is view-only for me). */
 export function useUnassignMe(taskId: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: () => post<void>(`tasks/${taskId}/unassign`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: taskKeys.all }),
   })
 }
 
+export function useDuplicateTask() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: string) => post<{ id: string; title: string }>(`tasks/${id}/duplicate`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: taskKeys.all }),
+  })
+}
+
+/** Put tasks (in this order) right after one task, or before another, in a project's manual order. The
+ *  server picks positions between the neighbours, so it works when only part of the list is loaded. */
+export function usePlaceTasks(projectId: string) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { ids: string[]; after?: string; before?: string; positions: number[] }) =>
+      post<{ positions: Record<string, number>; renumbered: boolean }>(`tasks/projects/${projectId}/place`, {
+        ids: v.ids,
+        after: v.after,
+        before: v.before,
+      }),
+    onMutate: async (v) => {
+      await qc.cancelQueries({ queryKey: taskKeys.lists })
+      const tasks = v.ids
+        .map((id, i) => {
+          const t = cachedTask(qc, id)
+          return t && { ...t, position: v.positions[i] }
+        })
+        .filter((t): t is Task => !!t)
+      return { rollback: settleTaskLists(qc, { tasks, keep: v.ids }) }
+    },
+    onSuccess: (r, v) => {
+      if (r.renumbered) return qc.invalidateQueries({ queryKey: taskKeys.lists }) // other tasks moved too (rare)
+      const tasks = Object.entries(r.positions)
+        .map(([id, position]) => {
+          const t = cachedTask(qc, id)
+          return t && { ...t, position }
+        })
+        .filter((t): t is Task => !!t)
+      settleTaskLists(qc, { tasks, keep: v.ids })
+    },
+    onError: (_e, _v, ctx) => ctx?.rollback(),
+  })
+}
+
+// ---------------------------------------------------------------- comments
 export function useAddComment(taskId: string) {
   const qc = useQueryClient()
   return useMutation({
@@ -107,6 +217,7 @@ export function useEditComment(taskId: string) {
   })
 }
 
+// ---------------------------------------------------------------- saved views
 /** Saved views live in their own cache and in the overview's copy (which re-seeds it); keep both in step. */
 const setViews = (qc: QueryClient, fn: (v: SavedView[]) => SavedView[]) => {
   const sort = (l: SavedView[]) => [...l].sort((a, b) => a.position - b.position)
@@ -132,260 +243,6 @@ export function useDeleteView() {
   })
 }
 
-export function useDuplicateTask() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (id: string) => post<{ id: string; title: string }>(`tasks/${id}/duplicate`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
-  })
-}
-
-/** Put tasks (in this order) right after one task, or before another, in a project's manual order. The
- *  server picks positions between the neighbours, so it works when only part of the list is loaded. */
-export function usePlaceTasks(projectId: string) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (v: { ids: string[]; after?: string; before?: string; positions: number[] }) =>
-      post<{ positions: Record<string, number>; renumbered: boolean }>(`tasks/projects/${projectId}/place`, {
-        ids: v.ids,
-        after: v.after,
-        before: v.before,
-      }),
-    onMutate: async (v) => {
-      await qc.cancelQueries({ queryKey: ['tasks', 'list'] })
-      const tasks = v.ids
-        .map((id, i) => {
-          const t = cachedTask(qc, id)
-          return t && { ...t, position: v.positions[i] }
-        })
-        .filter((t): t is Task => !!t)
-      return { rollback: settleTaskLists(qc, { tasks, keep: v.ids }) }
-    },
-    onSuccess: (r, v) => {
-      if (r.renumbered) return qc.invalidateQueries({ queryKey: ['tasks', 'list'] }) // other tasks moved too (rare)
-      const tasks = Object.entries(r.positions)
-        .map(([id, position]) => {
-          const t = cachedTask(qc, id)
-          return t && { ...t, position }
-        })
-        .filter((t): t is Task => !!t)
-      settleTaskLists(qc, { tasks, keep: v.ids })
-    },
-    onError: (_e, _v, ctx) => ctx?.rollback(),
-  })
-}
-
-/** Positions for `n` tasks dropped between two loaded neighbours (the optimistic copy of the server's choice). */
-export function positionsBetween(n: number, prev?: number, next?: number): number[] {
-  if (prev == null && next == null) return Array.from({ length: n }, (_, i) => i + 1)
-  if (next == null) return Array.from({ length: n }, (_, i) => prev! + i + 1)
-  if (prev == null) return Array.from({ length: n }, (_, i) => next - n + i)
-  return Array.from({ length: n }, (_, i) => prev + ((next - prev) * (i + 1)) / (n + 1))
-}
-
-// ---------------------------------------------------------------- bulk actions
-/** Same areas as lib/queries refreshTaskCounts, plus every list (after a filter-wide change). */
-export function refreshTaskAreas(qc: QueryClient) {
-  for (const k of [
-    ['tasks', 'list'],
-    ['tasks', 'overview'],
-    ['tasks', 'board'],
-    ['tasks', 'detail'],
-    ['calendar', 'agenda'],
-  ])
-    qc.invalidateQueries({ queryKey: k })
-}
-
-/** What a bulk action applies to: loaded rows by id, or every task matching the list ("select all N"). */
-export type BulkTarget = string[] | { filter: Record<string, unknown>; total: number }
-export const targetCount = (t: BulkTarget) => (Array.isArray(t) ? t.length : t.total)
-const BULK_IDS = 500
-
-export interface BulkBody {
-  action: 'done' | 'reopen' | 'update' | 'move' | 'delete'
-  priority?: number
-  favorite?: boolean
-  due?: string | null
-  due_day?: string
-  clear_due?: boolean
-  add_label?: number
-  remove_label?: number
-  project_id?: string
-}
-interface BulkOut {
-  count: number
-  failed: number
-  more: boolean
-  ids: string[]
-  tasks: Task[] | null
-}
-
-/** The list filters a "select all matching" sends (GET / params without paging and sort). */
-export function bulkFilter(p: Record<string, unknown>): Record<string, unknown> {
-  const out: Record<string, unknown> = {}
-  for (const k of [
-    'view',
-    'project',
-    'label',
-    'priority_min',
-    'q',
-    'done',
-    'due_before',
-    'due_after',
-    'parent',
-    'top_level',
-    'assignee',
-    'done_after',
-    'bucket',
-  ]) {
-    if (p[k] !== undefined && p[k] !== '') out[k] = p[k]
-  }
-  return out
-}
-
-export interface BulkVars {
-  target: BulkTarget
-  body: BulkBody
-  /** Optimistic change, in place, to each selected task that's loaded. */
-  patch?: (t: Task) => Task
-  /** Optimistic change that moves tasks between lists at once (move to another project). */
-  settle?: (t: Task) => Task
-  /** Success toast (omit for silent, e.g. when the change is already visible). */
-  done?: string | ((n: number) => string)
-  undo?: (ids: string[]) => void
-}
-
-/** One mutation for N tasks: one optimistic cache pass, one request (POST /tasks/bulk, 500 ids per call),
- *  then the changed tasks are put where they belong in the cached lists. */
-export function useBulk() {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (v: BulkVars): Promise<BulkOut> => {
-      if (!Array.isArray(v.target)) {
-        const out: BulkOut = { count: 0, failed: 0, more: false, ids: [], tasks: null }
-        for (let i = 0; i < 10; i++) {
-          // 5000 a call; "more" means run again
-          const r = await post<BulkOut>('tasks/bulk', { ...v.body, filter: v.target.filter })
-          out.count += r.count
-          out.failed = r.failed
-          out.ids.push(...r.ids)
-          if (!r.more || v.body.action !== 'delete') break // only a delete shrinks the match; others would repeat
-        }
-        return out
-      }
-      const out: BulkOut = { count: 0, failed: 0, more: false, ids: [], tasks: [] }
-      for (let i = 0; i < v.target.length; i += BULK_IDS) {
-        const r = await post<BulkOut>('tasks/bulk', { ...v.body, ids: v.target.slice(i, i + BULK_IDS) })
-        out.count += r.count
-        out.failed += r.failed
-        out.ids.push(...r.ids)
-        out.tasks!.push(...(r.tasks ?? []))
-      }
-      return out
-    },
-    onMutate: async (v) => {
-      await qc.cancelQueries({ queryKey: ['tasks'] })
-      const ids = Array.isArray(v.target) ? v.target : [] // filter mode: no optimistic pass (we don't hold them all)
-      if (v.body.action === 'delete') return { rollback: settleTaskLists(qc, { gone: ids }) }
-      if (v.settle)
-        return {
-          rollback: settleTaskLists(qc, {
-            tasks: ids
-              .map((id) => cachedTask(qc, id))
-              .filter((t): t is Task => !!t)
-              .map(v.settle),
-          }),
-        }
-      if (v.patch) return { rollback: patchTaskLists(qc, ids, v.patch) }
-      return { rollback: () => {} }
-    },
-    onSuccess: (r, v) => {
-      if (!Array.isArray(v.target)) refreshTaskAreas(qc)
-      else if (v.body.action === 'delete') settleTaskLists(qc, { gone: r.ids })
-      else settleTaskLists(qc, { tasks: r.tasks ?? [] })
-      if (r.failed)
-        toast.error(
-          r.count ? `${r.failed} of ${r.count + r.failed} tasks couldn't be changed (view-only).` : 'You can only view these tasks.',
-        )
-      const msg = typeof v.done === 'function' ? v.done(r.count) : v.done
-      if (msg && r.count) toast.show(msg, v.undo ? { action: { label: 'Undo', run: () => v.undo!(r.ids) } } : undefined)
-    },
-    onError: (_e, _v, ctx) => {
-      ctx?.rollback()
-    },
-    onSettled: () => refreshTaskCounts(qc),
-  })
-}
-
-const PRIO_LABEL: Record<number, string> = { 0: 'None', 5: 'Low', 10: 'Medium', 15: 'High', 20: 'Urgent' }
-
-/** Ready-made bulk operations (bulk bar, keyboard, drag and drop). Each takes loaded ids or a filter. */
-export function useBulkOps() {
-  const bulk = useBulk()
-  const update = (target: BulkTarget, body: Partial<Task>, done?: string) => {
-    const b: BulkBody = { action: 'update' }
-    if (body.favorite !== undefined) b.favorite = body.favorite
-    if (body.priority !== undefined) b.priority = body.priority
-    if (body.due !== undefined) {
-      if (body.due) b.due = body.due
-      else b.clear_due = true
-    }
-    bulk.mutate({ target, body: b, patch: (t) => ({ ...t, ...body }), done })
-  }
-  const ops = {
-    pending: bulk.isPending,
-    update,
-    /** Keep each task's time of day unless it had none (23:59 = "that day"). */
-    setDue: (target: BulkTarget, tasks: Task[], day: Date | null) => {
-      const each = new Map(tasks.map((t) => [t.id, dueOn(t.due, day)]))
-      bulk.mutate({
-        target,
-        body: day ? { action: 'update', due_day: dayKey(day) } : { action: 'update', clear_due: true },
-        patch: (t) => ({ ...t, due: each.has(t.id) ? each.get(t.id)! : dueOn(t.due, day) }),
-      })
-    },
-    setPriority: (target: BulkTarget, priority: number) =>
-      update(target, { priority, priority_label: PRIO_LABEL[priority] ?? '' } as Partial<Task>),
-    /** Add the label to all, or take it off when every (loaded) selected task has it. */
-    toggleLabel: (target: BulkTarget, tasks: Task[], labelId: number) => {
-      const all = tasks.length > 0 && tasks.every((t) => t.labels.includes(labelId))
-      bulk.mutate({
-        target,
-        body: all ? { action: 'update', remove_label: labelId } : { action: 'update', add_label: labelId },
-        patch: (t) => ({ ...t, labels: all ? t.labels.filter((x) => x !== labelId) : [...new Set([...t.labels, labelId])] }),
-      })
-    },
-    setDone: (target: BulkTarget, done: boolean) =>
-      bulk.mutate({
-        target,
-        body: { action: done ? 'done' : 'reopen' },
-        patch: (t) => ({ ...t, done, done_at: done ? new Date().toISOString() : null }),
-        done: done ? (n) => `Completed ${plural(n, 'task')}` : undefined,
-        undo: done ? (ids) => ops.setDone(ids, false) : undefined,
-      }),
-    move: (target: BulkTarget, project: Pick<Project, 'id' | 'name' | 'is_inbox'>) =>
-      bulk.mutate({
-        target,
-        body: { action: 'move', project_id: project.id },
-        settle: (t) => ({ ...t, project_id: project.id, bucket_id: null }),
-        done: (n) => `Moved ${plural(n, 'task')} to ${project.is_inbox ? 'Inbox' : project.name}`,
-      }),
-    /** Delete right away (no undo window): for "all N matching", after a confirm. */
-    remove: (target: BulkTarget) => bulk.mutate({ target, body: { action: 'delete' }, done: (n) => `Deleted ${plural(n, 'task')}` }),
-  }
-  return ops
-}
-
-/** New due ISO for a task moved to `day`: same time of day if it had one, else 23:59. */
-export function dueOn(cur: string | null, day: Date | null): string | null {
-  if (!day) return null
-  const d = new Date(day)
-  const old = cur ? new Date(cur) : null
-  if (old && !(old.getHours() === 23 && old.getMinutes() === 59)) d.setHours(old.getHours(), old.getMinutes(), 0, 0)
-  else d.setHours(23, 59, 0, 0)
-  return d.toISOString()
-}
-
 // ---------------------------------------------------------------- labels
 const setLabels = (qc: QueryClient, fn: (l: Label[]) => Label[]) => {
   qc.setQueryData<Label[]>(keys.labels, (old) => fn(old ?? []))
@@ -407,20 +264,12 @@ export function useDeleteLabel() {
     mutationFn: (id: number) => del(`tasks/labels/${id}`),
     onSuccess: (_r, id) => {
       setLabels(qc, (list) => list.filter((x) => x.id !== id))
-      qc.invalidateQueries({ queryKey: ['tasks', 'list'] }) // tasks lose the label
+      qc.invalidateQueries({ queryKey: taskKeys.lists }) // tasks lose the label
     },
   })
 }
 
 // ---------------------------------------------------------------- project members
-const membersKey = (projectId: string) => ['tasks', 'members', projectId] as const
-export const useMembers = (projectId: string | null) =>
-  useQuery({
-    queryKey: membersKey(projectId ?? ''),
-    queryFn: () => get<Member[]>(`tasks/projects/${projectId}/members`),
-    enabled: !!projectId,
-  })
-
 /** The `shared` flag on projects comes from the overview (which re-seeds the projects cache). */
 const refreshShared = (qc: QueryClient) => {
   qc.invalidateQueries({ queryKey: keys.overview })
@@ -433,7 +282,7 @@ export function useSaveMember(projectId: string) {
   return useMutation({
     mutationFn: (body: { username: string; role: number }) => post<Member>(`tasks/projects/${projectId}/members`, body),
     onSuccess: (m) => {
-      qc.setQueryData<Member[]>(membersKey(projectId), (old) =>
+      qc.setQueryData<Member[]>(taskKeys.members(projectId), (old) =>
         old?.some((x) => x.id === m.id) ? old.map((x) => (x.id === m.id ? m : x)) : [...(old ?? []), m],
       )
       refreshShared(qc)
@@ -450,13 +299,11 @@ export function useRemoveMember(projectId: string) {
   return useMutation({
     mutationFn: (id: number) => del(`tasks/projects/${projectId}/members/${id}`),
     onSuccess: (_r, id) => {
-      qc.setQueryData<Member[]>(membersKey(projectId), (old) => old?.filter((x) => x.id !== id))
+      qc.setQueryData<Member[]>(taskKeys.members(projectId), (old) => old?.filter((x) => x.id !== id))
       refreshShared(qc)
     },
   })
 }
-
-export type ProjectWithOwner = Project & { owner?: UserBrief }
 
 // ---------------------------------------------------------------- relations
 export const RELATION_KINDS = [
@@ -495,87 +342,4 @@ export function useRemoveRelation(taskId: string) {
     onError: (_e, _r, ctx) => ctx?.prev && qc.setQueryData(keys.task(taskId), ctx.prev),
     onSettled: (_d, _e, r) => qc.invalidateQueries({ queryKey: keys.task(r.other_id) }),
   })
-}
-
-// ---------------------------------------------------------------- delete with undo
-// Deleted tasks leave the lists at once; the DELETE goes out when the 6 s undo toast expires (or when
-// the page is left). Hidden ids are filtered from lists so a refetch inside the window can't bring them back.
-let hidden = new Set<string>()
-const hiddenListeners = new Set<() => void>()
-const setHidden = (next: Set<string>) => {
-  hidden = next
-  hiddenListeners.forEach((l) => l())
-}
-const pending = new Map<symbol, string[]>()
-export const useHiddenTasks = () =>
-  useSyncExternalStore(
-    (l) => (hiddenListeners.add(l), () => hiddenListeners.delete(l)),
-    () => hidden,
-  )
-
-/** Delete through the bulk endpoint, 500 ids a request; keepalive lets it finish while the page unloads. */
-async function bulkDelete(ids: string[], keepalive = false): Promise<number> {
-  let failed = 0
-  for (let i = 0; i < ids.length; i += BULK_IDS) {
-    const chunk = ids.slice(i, i + BULK_IDS)
-    try {
-      await api('tasks/bulk', { method: 'POST', body: { action: 'delete', ids: chunk }, keepalive })
-    } catch {
-      failed += chunk.length
-    }
-  }
-  return failed
-}
-
-if (typeof window !== 'undefined') {
-  window.addEventListener('pagehide', () => {
-    for (const ids of pending.values()) bulkDelete(ids, true).catch(() => {})
-    pending.clear()
-  })
-}
-
-export function useDeleteWithUndo() {
-  const qc = useQueryClient()
-  return useCallback(
-    (tasks: (Pick<Task, 'id' | 'title'> & Partial<Pick<Task, 'parent_id' | 'done'>>)[]) => {
-      if (!tasks.length) return
-      const ids = tasks.map((t) => t.id)
-      const gone = new Set(ids)
-      // Loaded subtasks go with their parent (the server deletes them too).
-      for (const [, data] of qc.getQueriesData<TaskList>({ queryKey: ['tasks', 'list'] })) {
-        for (const t of listItems(data)) if (t.parent_id && gone.has(t.parent_id)) gone.add(t.id)
-      }
-      setHidden(new Set([...hidden, ...gone]))
-      const key = Symbol('delete')
-      pending.set(key, ids)
-      const unhide = () => setHidden(new Set([...hidden].filter((id) => !gone.has(id))))
-      const timer = setTimeout(async () => {
-        if (!pending.delete(key)) return
-        const failed = await bulkDelete(ids)
-        if (failed)
-          toast.error(
-            failed === ids.length ? "Couldn't delete. Nothing was deleted." : `${failed} of ${ids.length} tasks couldn't be deleted.`,
-          )
-        for (const id of ids) qc.removeQueries({ queryKey: keys.task(id) })
-        if (!failed) settleTaskLists(qc, { gone })
-        else qc.invalidateQueries({ queryKey: ['tasks', 'list'] })
-        for (const t of tasks)
-          if ('parent_id' in t && t.parent_id && !gone.has(t.parent_id))
-            bumpParent(qc, t.parent_id as string, { subtasks: -1, done: (t as Task).done ? -1 : 0 })
-        refreshTaskCounts(qc)
-        unhide()
-      }, 6000)
-      toast.show(ids.length === 1 ? `Deleted "${tasks[0].title}"` : `Deleted ${plural(ids.length, 'task')}`, {
-        action: {
-          label: 'Undo',
-          run: () => {
-            clearTimeout(timer)
-            pending.delete(key)
-            unhide()
-          },
-        },
-      })
-    },
-    [qc],
-  )
 }
