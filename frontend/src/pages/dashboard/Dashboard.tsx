@@ -128,9 +128,9 @@ function AgendaCard({ items, tomorrow, loading, error, now, className }: {
   const current = timed.filter((i) => i.start && i.end && new Date(i.start) <= now && new Date(i.end) > now)
   const next = timed.find((i) => i.start && new Date(i.start) > now)
   return (
-    <section className={'card ' + className} aria-labelledby="agenda-h">
+    <section className={'card ' + className} aria-labelledby="dash-agenda-h">
       <div className="card-head">
-        <h2 id="agenda-h"><Icon name="calendar" />Today</h2>
+        <h2 id="dash-agenda-h"><Icon name="calendar" />Today</h2>
         <span className="spacer" />
         <Link className="btn ghost sm" to="/calendar">Calendar<Icon name="chevronRight" size={14} /></Link>
       </div>
@@ -139,16 +139,16 @@ function AgendaCard({ items, tomorrow, loading, error, now, className }: {
       ) : error ? (
         <ErrorBox error={error} />
       ) : (
-        <div className="agenda">
+        <div className="dash-agenda">
           {allDay.length > 0 && (
-            <div className="agenda-allday">
+            <div className="dash-agenda-allday">
               {allDay.map((i) => (
                 <span key={i.id} className="allday-chip" style={{ '--c': i.colour } as React.CSSProperties}>{i.title}</span>
               ))}
             </div>
           )}
           {timed.length === 0 && <div className="empty left">No events today.</div>}
-          <ol className="agenda-list">
+          <ol className="dash-agenda-list">
             {timed.map((i) => {
               const start = i.start ? new Date(i.start) : null
               const end = i.end ? new Date(i.end) : null
@@ -156,20 +156,20 @@ function AgendaCard({ items, tomorrow, loading, error, now, className }: {
               const isNext = next === i
               const past = !isNow && (end ?? start) !== null && (end ?? start)! <= now
               return (
-                <li key={i.kind + i.id} className={'agenda-item' + (isNow ? ' now' : '') + (isNext ? ' next' : '') + (past ? ' past' : '')}>
-                  <div className="agenda-time tabular">
+                <li key={i.kind + i.id} className={'dash-agenda-item' + (isNow ? ' now' : '') + (isNext ? ' next' : '') + (past ? ' past' : '')}>
+                  <div className="dash-agenda-time tabular">
                     {start ? (i.kind === 'deadline' ? <span className="dl"><Icon name="flag" size={12} />{fmtTime(start)}</span> : fmtTime(start)) : ''}
-                    {end && i.kind === 'event' && <span className="agenda-end">{fmtTime(end)}</span>}
+                    {end && i.kind === 'event' && <span className="dash-agenda-end">{fmtTime(end)}</span>}
                   </div>
-                  <span className="agenda-bar" style={{ background: i.colour }} aria-hidden="true" />
-                  <div className="agenda-body">
-                    <div className="agenda-title">
+                  <span className="dash-agenda-bar" style={{ background: i.colour }} aria-hidden="true" />
+                  <div className="dash-agenda-body">
+                    <div className="dash-agenda-title">
                       <span className="truncate">{i.title}</span>
                       {isNow && <span className="chip accent">Now</span>}
                       {isNext && start && <span className="chip">Next · {relTime(start, now)}</span>}
                       {i.kind === 'deadline' && <span className="chip warning">Due</span>}
                     </div>
-                    <div className="agenda-meta truncate">
+                    <div className="dash-agenda-meta truncate">
                       {[i.calendar, i.location].filter(Boolean).join(' · ')}
                     </div>
                   </div>
@@ -178,7 +178,7 @@ function AgendaCard({ items, tomorrow, loading, error, now, className }: {
             })}
           </ol>
           {tomorrow.length > 0 && (
-            <div className="agenda-tomorrow">
+            <div className="dash-agenda-tomorrow">
               <div className="label">Next 7 days</div>
               {tomorrow.slice(0, 8).map((i, idx) => {
                 const d = new Date(placedStart(i)!)
@@ -275,7 +275,7 @@ function WeekCard({ className, now }: { className: string; now: Date }) {
         <span className="spacer" />
         <Link className="btn ghost sm" to="/calendar?insights=week">Insights<Icon name="chevronRight" size={14} /></Link>
       </div>
-      <div className="card-body week-body">
+      <div className="card-body dash-week-body">
         {ins.isPending ? (
           <><span className="sk" style={{ height: '2rem', width: '40%' }} /><span className="sk" style={{ height: '4.5rem' }} /></>
         ) : ins.error && !ins.data ? (

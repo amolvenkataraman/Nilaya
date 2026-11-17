@@ -438,8 +438,8 @@ body:has(.viewer) .dialog { z-index: 87; }
 .gg-preset:hover .gg-preset-x, .gg-preset-x:focus-visible { display: grid; }
 .sm-input { height: 1.875rem; width: 6rem; padding: 0 0.5rem; font-size: var(--fs-sm); }
 .gg-search { position: absolute; top: 0.75rem; left: 0.75rem; z-index: 500; width: min(22rem, calc(100% - 1.5rem)); }
-.gg-search .ph-search { display: flex; width: 100%; border-color: var(--app-border); box-shadow: var(--shadow-1, 0 1px 3px rgba(0,0,0,.2)); background: var(--app-surface); }
-.gg-hits { list-style: none; margin: 0.25rem 0 0; padding: 0.25rem; background: var(--app-surface); border: var(--hairline); border-radius: var(--r); box-shadow: var(--shadow-2, 0 4px 16px rgba(0,0,0,.2)); }
+.gg-search .ph-search { display: flex; width: 100%; border-color: var(--app-border); box-shadow: var(--card-shadow), 0 1px 3px rgba(16, 24, 40, 0.16); background: var(--app-surface); }
+.gg-hits { list-style: none; margin: 0.25rem 0 0; padding: 0.25rem; background: var(--app-surface); border: var(--hairline); border-radius: var(--r); box-shadow: var(--pop-shadow); }
 .gg-hits li.muted { padding: 0.375rem 0.5rem; }
 .gg-hits button { display: grid; width: 100%; text-align: left; padding: 0.375rem 0.5rem; border: 0; background: none; color: inherit; border-radius: var(--r-sm); min-width: 0; }
 .gg-hits button:hover, .gg-hits button:focus-visible { background: var(--hover); }

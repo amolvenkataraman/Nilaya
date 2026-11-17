@@ -144,13 +144,13 @@ export function Calendar({ base, labels, projectId, hidden, onOpen, selected }: 
     const d = new Date(t.due!)
     return (
       <button key={t.id} type="button" draggable={!t.id.startsWith('temp-')} data-task={t.id}
-        className={'cal-chip' + (t.done ? ' done' : '') + (isOverdue(t) ? ' overdue' : '') + (t.id === selected ? ' sel' : '')}
+        className={'tcal-chip' + (t.done ? ' done' : '') + (isOverdue(t) ? ' overdue' : '') + (t.id === selected ? ' sel' : '')}
         style={t.colour ? ({ '--tc': t.colour } as CSSProperties) : undefined}
         title={hoverText(t, labels?.filter((l) => t.labels.includes(l.id)) ?? [])}
         onClick={(e) => (e.stopPropagation(), onOpen(t))}
         onDragStart={(e) => { e.dataTransfer.setData('text/x-task', t.id); e.dataTransfer.effectAllowed = 'move' }}>
-        <span className={'cal-dot ' + prio(t.priority)} />
-        {!isEndOfDay(d) && <span className="cal-time">{fmtTime(d)}</span>}
+        <span className={'tcal-dot ' + prio(t.priority)} />
+        {!isEndOfDay(d) && <span className="tcal-time">{fmtTime(d)}</span>}
         <span className="truncate">{t.title}</span>
       </button>
     )
@@ -159,7 +159,7 @@ export function Calendar({ base, labels, projectId, hidden, onOpen, selected }: 
   if (tasks.error && !tasks.hasData) return <ErrorBox error={tasks.error} retry={() => tasks.refetch()} />
   const selItems = byDay.get(sel) ?? []
   return (
-    <div className="cal">
+    <div className="tcal">
       <div className="tl-head">
         <h2 className="tl-range">{fmtDate(month, { month: 'long', year: 'numeric' })}</h2>
         {tasks.isFetching && <span className="muted xsmall">Loading…</span>}
@@ -170,8 +170,8 @@ export function Calendar({ base, labels, projectId, hidden, onOpen, selected }: 
           <button className="btn sm icon" onClick={() => nav(1)} aria-label="Next month" title="Next month"><Icon name="chevronRight" size={14} /></button>
         </div>
       </div>
-      <div className="cal-grid" role="grid" aria-label={fmtDate(month, { month: 'long', year: 'numeric' })}>
-        {Array.from({ length: 7 }, (_, i) => <div key={'w' + i} className="cal-wd" role="columnheader">{fmtDate(addDays(start, i), { weekday: 'short' })}</div>)}
+      <div className="tcal-grid" role="grid" aria-label={fmtDate(month, { month: 'long', year: 'numeric' })}>
+        {Array.from({ length: 7 }, (_, i) => <div key={'w' + i} className="tcal-wd" role="columnheader">{fmtDate(addDays(start, i), { weekday: 'short' })}</div>)}
         {Array.from({ length: 42 }, (_, i) => {
           const d = addDays(start, i)
           const k = dayKey(d)
@@ -179,33 +179,33 @@ export function Calendar({ base, labels, projectId, hidden, onOpen, selected }: 
           const open = expanded === k
           return (
             <div key={k} role="gridcell" aria-selected={k === sel}
-              className={'cal-day' + (d.getMonth() !== month.getMonth() ? ' out' : '') + (isSameDay(d, today) ? ' today' : '') + (k === sel ? ' sel' : '') + (over === k ? ' drop' : '') + (open ? ' open' : '')}
+              className={'tcal-day' + (d.getMonth() !== month.getMonth() ? ' out' : '') + (isSameDay(d, today) ? ' today' : '') + (k === sel ? ' sel' : '') + (over === k ? ' drop' : '') + (open ? ' open' : '')}
               onClick={() => setSel(k)}
               onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; if (over !== k) setOver(k) }}
               onDragLeave={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node) && over === k) setOver(null) }}
               onDrop={(e) => drop(e, k)}>
-              <div className="cal-dayhead">
-                <span className="cal-num">{d.getDate()}</span>
-                <button className="btn ghost icon sm cal-add" aria-label={`Add task on ${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}`}
+              <div className="tcal-dayhead">
+                <span className="tcal-num">{d.getDate()}</span>
+                <button className="btn ghost icon sm tcal-add" aria-label={`Add task on ${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}`}
                   onClick={(e) => { e.stopPropagation(); setSel(k); setAdding(k); setText('') }}><Icon name="plus" size={12} /></button>
               </div>
               {adding === k && (
                 <form onSubmit={(e) => (e.preventDefault(), add(k))} onClick={(e) => e.stopPropagation()}>
-                  <input className="input cal-input" autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="New task" maxLength={500} aria-label="New task"
+                  <input className="input tcal-input" autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="New task" maxLength={500} aria-label="New task"
                     onBlur={() => add(k)} onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), setText(''), setAdding(null))} />
                 </form>
               )}
-              <div className="cal-items">
+              <div className="tcal-items">
                 {(open ? items.slice(0, OPEN_MAX) : items.slice(0, MAX)).map(chip)}
-                {!open && items.length > MAX && <button className="cal-more" onClick={(e) => { e.stopPropagation(); setSel(k); setExpanded(k); setAgendaAll(false) }}>{items.length - MAX} more</button>}
-                {open && items.length > OPEN_MAX && <span className="cal-more muted">{items.length - OPEN_MAX} more below</span>}
+                {!open && items.length > MAX && <button className="tcal-more" onClick={(e) => { e.stopPropagation(); setSel(k); setExpanded(k); setAgendaAll(false) }}>{items.length - MAX} more</button>}
+                {open && items.length > OPEN_MAX && <span className="tcal-more muted">{items.length - OPEN_MAX} more below</span>}
               </div>
-              {items.length > 0 && <div className="cal-dots" aria-hidden="true">{items.slice(0, 5).map((t) => <span key={t.id} className={'cal-dot ' + prio(t.priority) + (t.done ? ' done' : '')} />)}</div>}
+              {items.length > 0 && <div className="tcal-dots" aria-hidden="true">{items.slice(0, 5).map((t) => <span key={t.id} className={'tcal-dot ' + prio(t.priority) + (t.done ? ' done' : '')} />)}</div>}
             </div>
           )
         })}
       </div>
-      <section className="cal-agenda" aria-label="Selected day">
+      <section className="tcal-agenda" aria-label="Selected day">
         <h3>{fmtDate(parseDayKey(sel), { weekday: 'long', month: 'long', day: 'numeric' })} <span className="muted">{selItems.length || ''}</span>
           <button className="btn ghost sm" onClick={() => { setAdding('a:' + sel); setText('') }}><Icon name="plus" size={12} />Add</button></h3>
         {adding === 'a:' + sel && (
@@ -215,7 +215,7 @@ export function Calendar({ base, labels, projectId, hidden, onOpen, selected }: 
           </form>
         )}
         {selItems.length ? (agendaAll ? selItems : selItems.slice(0, AGENDA_MAX)).map(chip) : <p className="muted xsmall">Nothing due.</p>}
-        {!agendaAll && selItems.length > AGENDA_MAX && <button className="btn ghost sm cal-cap" onClick={() => setAgendaAll(true)}>Show all {selItems.length}</button>}
+        {!agendaAll && selItems.length > AGENDA_MAX && <button className="btn ghost sm tcal-cap" onClick={() => setAgendaAll(true)}>Show all {selItems.length}</button>}
       </section>
     </div>
   )

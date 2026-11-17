@@ -26,25 +26,25 @@
 .label { font-size: var(--fs-xs); font-weight: 600; color: var(--app-muted); margin-bottom: 0.375rem; }
 
 /* Agenda */
-.agenda { padding: 0.375rem 0.5rem 0.75rem; display: grid; gap: 0.25rem; }
-.agenda-allday { display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.25rem 0.5rem 0.375rem; }
+.dash-agenda { padding: 0.375rem 0.5rem 0.75rem; display: grid; gap: 0.25rem; }
+.dash-agenda-allday { display: flex; flex-wrap: wrap; gap: 0.25rem; padding: 0.25rem 0.5rem 0.375rem; }
 .allday-chip { font-size: var(--fs-xs); font-weight: 500; padding: 0.125rem 0.5rem; border-radius: 4px; background: color-mix(in srgb, var(--c) 16%, var(--app-surface)); color: var(--app-fg); border-left: 3px solid var(--c); }
-.agenda-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
-.agenda-item { display: grid; grid-template-columns: 4.5rem 3px minmax(0, 1fr); gap: 0.625rem; align-items: stretch; padding: 0.4375rem 0.5rem; border-radius: var(--r-sm); }
-.agenda-item:hover { background: var(--hover); }
-.agenda-item.now { background: var(--app-accent-soft); }
-.agenda-item.past { opacity: 0.55; }
-.agenda-time { font-size: var(--fs-xs); color: var(--app-fg); font-weight: 500; display: grid; align-content: start; gap: 0.0625rem; text-align: right; }
-.agenda-time .dl { display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px; }
-.agenda-time svg { color: var(--app-warning); }
-.agenda-end { color: var(--app-muted); font-weight: 400; }
-.agenda-bar { border-radius: 2px; min-height: 1.75rem; }
-.agenda-body { min-width: 0; display: grid; gap: 0.0625rem; }
-.agenda-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.375rem; font-size: var(--fs-sm); font-weight: 500; min-width: 0; }
-.agenda-title > .truncate { white-space: normal; overflow-wrap: anywhere; }
-.agenda-item.next .agenda-title > .truncate { font-weight: 600; }
-.agenda-meta { font-size: var(--fs-xs); color: var(--app-muted); }
-.agenda-tomorrow { margin-top: 0.5rem; padding: 0.625rem 0.5rem 0; border-top: var(--hairline); display: grid; gap: 0.25rem; }
+.dash-agenda-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 1px; }
+.dash-agenda-item { display: grid; grid-template-columns: 4.5rem 3px minmax(0, 1fr); gap: 0.625rem; align-items: stretch; padding: 0.4375rem 0.5rem; border-radius: var(--r-sm); }
+.dash-agenda-item:hover { background: var(--hover); }
+.dash-agenda-item.now { background: var(--app-accent-soft); }
+.dash-agenda-item.past { opacity: 0.55; }
+.dash-agenda-time { font-size: var(--fs-xs); color: var(--app-fg); font-weight: 500; display: grid; align-content: start; gap: 0.0625rem; text-align: right; }
+.dash-agenda-time .dl { display: inline-flex; align-items: center; justify-content: flex-end; gap: 3px; }
+.dash-agenda-time svg { color: var(--app-warning); }
+.dash-agenda-end { color: var(--app-muted); font-weight: 400; }
+.dash-agenda-bar { border-radius: 2px; min-height: 1.75rem; }
+.dash-agenda-body { min-width: 0; display: grid; gap: 0.0625rem; }
+.dash-agenda-title { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 0.375rem; font-size: var(--fs-sm); font-weight: 500; min-width: 0; }
+.dash-agenda-title > .truncate { white-space: normal; overflow-wrap: anywhere; }
+.dash-agenda-item.next .dash-agenda-title > .truncate { font-weight: 600; }
+.dash-agenda-meta { font-size: var(--fs-xs); color: var(--app-muted); }
+.dash-agenda-tomorrow { margin-top: 0.5rem; padding: 0.625rem 0.5rem 0; border-top: var(--hairline); display: grid; gap: 0.25rem; }
 .tomorrow-item { display: grid; grid-template-columns: 4.5rem auto 4rem minmax(0, 1fr); gap: 0.5rem; align-items: center; font-size: var(--fs-xs); }
 .tomorrow-day { font-weight: 600; color: var(--app-fg); }
 .dash-clock { font-size: var(--fs-md); font-weight: 500; color: var(--app-muted); margin-left: 0.5rem; letter-spacing: 0; }
@@ -58,7 +58,7 @@
 .task-group-label.danger { color: var(--app-danger); }
 
 /* Week */
-.week-body { display: grid; gap: 0.875rem; }
+.dash-week-body { display: grid; gap: 0.875rem; }
 .week-facts { display: flex; flex-wrap: wrap; gap: 0.25rem 1rem; font-size: var(--fs-xs); color: var(--app-muted); padding-top: 0.625rem; border-top: var(--hairline); }
 .week-facts strong { color: var(--app-fg); font-weight: 600; font-variant-numeric: tabular-nums; }
 

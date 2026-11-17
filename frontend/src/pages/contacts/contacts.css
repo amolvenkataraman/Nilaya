@@ -146,7 +146,7 @@
 .c-map summary { cursor: pointer; font-size: var(--fs-sm); font-weight: 500; }
 .c-map-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.375rem 1rem; margin-top: 0.5rem; }
 .c-map-row { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 0.375rem; font-size: var(--fs-sm); }
-.c-map-col { font-family: var(--app-mono, ui-monospace, monospace); font-size: var(--fs-xs); }
+.c-map-col { font-family: var(--app-font-mono); font-size: var(--fs-xs); }
 .c-imp-table-wrap { max-height: 18rem; overflow: auto; border: var(--hairline); border-radius: var(--r); }
 .c-imp-table { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: var(--fs-sm); }
 .c-imp-table th { position: sticky; top: 0; background: var(--app-surface-2); text-align: left; font-size: var(--fs-xs); font-weight: 600; color: var(--app-muted); padding: 0.375rem 0.75rem; border-bottom: var(--hairline); }
