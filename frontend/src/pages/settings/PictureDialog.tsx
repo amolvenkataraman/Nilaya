@@ -1,13 +1,10 @@
 // Profile picture: pick an image, crop it square on a canvas (drag to move, slider or wheel to zoom,
 // rotate in quarter turns), upload as a JPEG data URL. The server re-encodes it (POST /me/picture).
+// Drawn on a canvas rather than with CSS transforms so the upload is exactly what the preview shows.
 import { useCallback, useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { Dialog } from '../../components/ui'
-import { toast } from '../../components/toast'
-import { post } from '../../lib/api'
-import { keys } from '../../lib/queries'
-import type { Me } from '../../lib/types'
+import { Button, Dialog } from '../../components/ui'
+import { useUploadPicture } from './api'
 
 const OUT = 640 // exported square, px (the server keeps up to 1024)
 const MAX_ZOOM = 5
@@ -50,7 +47,6 @@ function draw(ctx: CanvasRenderingContext2D, img: HTMLImageElement, v: View, siz
 }
 
 export function PictureDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const qc = useQueryClient()
   const [img, setImg] = useState<HTMLImageElement | null>(null)
   const [view, setView] = useState<View>({ zoom: 1, x: 0, y: 0, rot: 0 })
   const [error, setError] = useState('')
@@ -118,7 +114,9 @@ export function PictureDialog({ open, onClose }: { open: boolean; onClose: () =>
     drag.current = { ...d, x: e.clientX, y: e.clientY }
     update((v) => ({ ...v, x: v.x + dx, y: v.y + dy }))
   }
-  const onUp = () => (drag.current = null)
+  const onUp = () => {
+    drag.current = null
+  }
 
   // Wheel zoom needs a non-passive listener to stop the page scrolling.
   useEffect(() => {
@@ -135,24 +133,16 @@ export function PictureDialog({ open, onClose }: { open: boolean; onClose: () =>
     return () => c.removeEventListener('wheel', h)
   }, [img])
 
-  const upload = useMutation({
-    mutationFn: () => {
-      const out = document.createElement('canvas')
-      out.width = out.height = OUT
-      const ctx = out.getContext('2d')
-      if (!ctx || !img) throw new Error('Nothing to upload')
-      draw(ctx, img, view, OUT)
-      return post<Me>('me/picture', { data_url: out.toDataURL('image/jpeg', 0.9) })
-    },
-    onSuccess: (me) => {
-      qc.setQueryData(keys.me, me)
-      qc.invalidateQueries({ queryKey: ['users', me.username] })
-      toast.show('Profile picture updated')
-      onClose()
-    },
-    meta: { errorMessage: () => null }, // shown in the form
-    onError: (e) => setError((e as Error).message),
-  })
+  const upload = useUploadPicture(onClose, setError)
+  const save = () => {
+    const out = document.createElement('canvas')
+    out.width = out.height = OUT
+    const ctx = out.getContext('2d')
+    if (!ctx || !img) return
+    draw(ctx, img, view, OUT)
+    setError('')
+    upload.mutate(out.toDataURL('image/jpeg', 0.9))
+  }
 
   const step = 0.02
   const onKey = (e: React.KeyboardEvent) => {
@@ -179,94 +169,102 @@ export function PictureDialog({ open, onClose }: { open: boolean; onClose: () =>
       footer={
         <>
           {error ? (
-            <span className="error-text grow" role="alert">
+            <span className="flex-1 text-xs text-danger" role="alert">
               {error}
             </span>
           ) : (
-            <span className="spacer" />
+            <span className="flex-1" />
           )}
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn primary" disabled={!img || upload.isPending} onClick={() => (setError(''), upload.mutate())}>
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" disabled={!img || upload.isPending} onClick={save}>
             {upload.isPending ? 'Uploading…' : 'Save picture'}
-          </button>
+          </Button>
         </>
       }
     >
-      <div className="stack pic-body">
-        <input
-          ref={fileInput}
-          type="file"
-          accept="image/*"
-          className="sr-only"
-          tabIndex={-1}
-          onChange={(e) => (pick(e.target.files?.[0]), (e.target.value = ''))}
-        />
-        {img ? (
-          <>
-            <div className="crop-stage">
-              <canvas
-                ref={canvas}
-                tabIndex={0}
-                aria-label="Crop area: drag or use the arrow keys to move, + and - to zoom"
-                onPointerDown={onDown}
-                onPointerMove={onMove}
-                onPointerUp={onUp}
-                onPointerCancel={onUp}
-                onKeyDown={onKey}
-              />
-              <span className="crop-ring" aria-hidden="true" />
-            </div>
-            <div className="crop-tools">
-              <Icon name="search" size={14} />
-              <input
-                type="range"
-                className="crop-zoom"
-                min={1}
-                max={MAX_ZOOM}
-                step={0.01}
-                value={view.zoom}
-                onChange={(e) => zoomTo(Number(e.target.value))}
-                aria-label="Zoom"
-              />
-              <button
-                type="button"
-                className="btn ghost icon sm"
-                title="Rotate left"
-                aria-label="Rotate left"
-                onClick={() => update((v) => ({ ...v, rot: ((v.rot + 3) % 4) as View['rot'], x: 0, y: 0 }))}
-              >
-                <Icon name="refresh" size={14} className="flip-x" />
-              </button>
-              <button
-                type="button"
-                className="btn ghost icon sm"
-                title="Rotate right"
-                aria-label="Rotate right"
-                onClick={() => update((v) => ({ ...v, rot: ((v.rot + 1) % 4) as View['rot'], x: 0, y: 0 }))}
-              >
-                <Icon name="refresh" size={14} />
-              </button>
-            </div>
-            <button type="button" className="btn sm pic-other" onClick={() => fileInput.current?.click()}>
-              Choose another image
-            </button>
-          </>
-        ) : (
-          <button
-            type="button"
-            className="pic-drop"
-            onClick={() => fileInput.current?.click()}
-            onDragOver={(e) => e.preventDefault()}
-            onDrop={(e) => (e.preventDefault(), pick(e.dataTransfer.files?.[0]))}
-          >
-            <Icon name="camera" size={22} />
-            <span>Choose an image</span>
-            <span className="help">or drop one here. You can crop it next.</span>
-          </button>
-        )}
-      </div>
+      <input
+        ref={fileInput}
+        type="file"
+        accept="image/*"
+        className="sr-only"
+        tabIndex={-1}
+        onChange={(e) => {
+          pick(e.target.files?.[0])
+          e.target.value = '' // so choosing the same file again still fires
+        }}
+      />
+      {img ? (
+        <>
+          <div className="relative mx-auto aspect-square w-[min(18rem,100%)] overflow-hidden rounded-md bg-surface-2">
+            <canvas
+              className="block size-full cursor-grab touch-none focus-visible:outline-offset-[-2px] active:cursor-grabbing"
+              ref={canvas}
+              tabIndex={0}
+              aria-label="Crop area: drag or use the arrow keys to move, + and - to zoom"
+              onPointerDown={onDown}
+              onPointerMove={onMove}
+              onPointerUp={onUp}
+              onPointerCancel={onUp}
+              onKeyDown={onKey}
+            />
+            <span
+              className="pointer-events-none absolute inset-0 rounded-full shadow-[0_0_0_100vmax_rgba(0,0,0,0.45)]"
+              aria-hidden="true"
+            />
+          </div>
+          <div className="mx-auto flex w-[min(18rem,100%)] items-center gap-2 text-muted">
+            <Icon name="search" size={14} />
+            <input
+              type="range"
+              className="min-w-0 flex-1 accent-accent"
+              min={1}
+              max={MAX_ZOOM}
+              step={0.01}
+              value={view.zoom}
+              onChange={(e) => zoomTo(Number(e.target.value))}
+              aria-label="Zoom"
+            />
+            <Button
+              variant="ghost"
+              size="sm"
+              icon
+              title="Rotate left"
+              aria-label="Rotate left"
+              onClick={() => update((v) => ({ ...v, rot: ((v.rot + 3) % 4) as View['rot'], x: 0, y: 0 }))}
+            >
+              <Icon name="refresh" size={14} className="-scale-x-100" />
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon
+              title="Rotate right"
+              aria-label="Rotate right"
+              onClick={() => update((v) => ({ ...v, rot: ((v.rot + 1) % 4) as View['rot'], x: 0, y: 0 }))}
+            >
+              <Icon name="refresh" size={14} />
+            </Button>
+          </div>
+          <Button size="sm" className="justify-self-center" onClick={() => fileInput.current?.click()}>
+            Choose another image
+          </Button>
+        </>
+      ) : (
+        <button
+          type="button"
+          className="grid cursor-pointer justify-items-center gap-1.5 rounded-md border-[1.5px] border-dashed border-border bg-surface-2 px-4 py-10 text-sm font-medium text-fg hover:border-accent focus-visible:border-accent focus-visible:outline-none"
+          onClick={() => fileInput.current?.click()}
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={(e) => {
+            e.preventDefault()
+            pick(e.dataTransfer.files?.[0])
+          }}
+        >
+          <Icon name="camera" size={22} className="text-muted" />
+          <span>Choose an image</span>
+          <span className="text-xs text-muted">or drop one here. You can crop it next.</span>
+        </button>
+      )}
     </Dialog>
   )
 }

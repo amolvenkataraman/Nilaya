@@ -5,37 +5,24 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { AppShell } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Avatar, ErrorBox, SkeletonRows } from '../../components/ui'
-import { ApiError, get } from '../../lib/api'
+import { Avatar, Button, buttonClass, EmptyState, ErrorBox, SkeletonRows } from '../../components/ui'
+import { ApiError } from '../../lib/api'
+import { cn } from '../../lib/cn'
 import { useMe } from '../../lib/queries'
-import type { GroupBrief, UUID } from '../../lib/types'
+import { cardClass } from '../settings/Card'
+import { Chip } from '../settings/Chip'
 import { PictureDialog } from '../settings/PictureDialog'
-import '../settings/settings.css'
-import './users.css'
-
-interface Person {
-  id: UUID
-  username: string
-  name: string
-  description: string
-  profile_picture: string
-  is_staff: boolean
-  groups: GroupBrief[]
-}
+import { pageClass } from '../settings/SettingsSection'
+import { type Person, personQuery } from './api'
 
 export default function UserPage() {
   const { username = '' } = useParams()
   const navigate = useNavigate()
   const me = useMe().data
   const mine = !!me && me.username === username
-  const q = useQuery({
-    queryKey: ['users', username],
-    queryFn: () => get<Person>(`users/${encodeURIComponent(username)}`),
-    enabled: !!username && !!me && !mine, // your own profile comes from /me
-    staleTime: 5 * 60_000,
-  })
+  // Your own profile comes from /me, so edits show at once (and every group, not only public ones).
+  const q = useQuery({ ...personQuery(username), enabled: !!username && !!me && !mine })
   const [picture, setPicture] = useState(false)
-  // Your own card reads from /me so edits show at once (and every group, not only public ones).
   const p: Person | undefined =
     mine && me
       ? {
@@ -49,70 +36,81 @@ export default function UserPage() {
         }
       : q.data
   const topbar = (
-    <button className="btn ghost sm" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}>
+    <Button variant="ghost" size="sm" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}>
       <Icon name="x" size={14} />
       Close
-    </button>
+    </Button>
   )
   return (
     <AppShell app="home" title="Profile" pageTitle={p?.name ?? 'Profile'} topbar={topbar}>
-      <div className="page user-page">
+      <div className={cn(pageClass, 'max-w-[40rem]')}>
         {p ? (
-          <article className="set-card user-card">
-            <div className="user-cover" aria-hidden="true" />
-            <div className="user-main">
-              <div className="user-top">
-                <div className="user-pic">
+          <article className={cn(cardClass, 'overflow-hidden')}>
+            <div
+              className="h-26 bg-[linear-gradient(120deg,color-mix(in_srgb,var(--app-accent)_55%,var(--app-surface)),color-mix(in_srgb,var(--app-accent)_18%,var(--app-surface)))]"
+              aria-hidden="true"
+            />
+            <div className="grid gap-2 px-5 pb-5 max-md:px-4 max-md:pb-4">
+              <div className="-mt-12 flex items-end justify-between gap-3">
+                <div className="relative shrink-0 [&_.avatar]:box-content [&_.avatar]:border-4 [&_.avatar]:border-surface">
                   <Avatar name={p.name} src={p.profile_picture} size={6} />
                   {mine && (
-                    <button
-                      className="btn icon sm user-pic-btn"
+                    <Button
+                      size="sm"
+                      icon
+                      className="absolute right-0.5 bottom-0.5 rounded-full! shadow-card"
                       onClick={() => setPicture(true)}
                       title="Change profile picture"
                       aria-label="Change profile picture"
                     >
                       <Icon name="camera" size={14} />
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {mine && (
-                  <Link className="btn sm" to="/settings">
+                  <Link className={buttonClass({ size: 'sm', className: 'hover:no-underline' })} to="/settings">
                     <Icon name="edit" size={14} />
                     Edit profile
                   </Link>
                 )}
               </div>
-              <h1 className="user-name">{p.name}</h1>
-              <div className="user-handle">
+              <h1 className="mt-1 text-lg font-semibold wrap-anywhere">{p.name}</h1>
+              <div className="flex flex-wrap items-center gap-2 text-sm text-muted">
                 <span>@{p.username}</span>
                 {p.is_staff && (
-                  <span className="chip accent">
+                  <Chip tone="accent">
                     <Icon name="shield" size={12} />
                     Staff
-                  </span>
+                  </Chip>
                 )}
               </div>
               {p.groups.length > 0 && (
-                <div className="user-groups" aria-label="Groups">
+                <ul className="flex flex-wrap gap-1.5" aria-label="Groups">
                   {p.groups.map((g) => (
-                    <span key={g.id} className="chip">
-                      {g.name}
-                    </span>
+                    <li key={g.id} className="flex">
+                      <Chip>{g.name}</Chip>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
-              {p.description ? <p className="user-desc pre-wrap">{p.description}</p> : <p className="user-desc muted">No description.</p>}
-              <div className="user-id xsmall muted" title="User ID">
+              {p.description ? (
+                <p className="text-sm whitespace-pre-wrap wrap-anywhere">{p.description}</p>
+              ) : (
+                <p className="text-sm text-muted">No description.</p>
+              )}
+              <div className="font-mono text-xs wrap-anywhere text-muted" title="User ID">
                 ID {p.id}
               </div>
             </div>
           </article>
         ) : q.isPending ? (
-          <div className="set-card">
+          <div className={cardClass}>
             <SkeletonRows rows={5} />
           </div>
         ) : q.error instanceof ApiError && q.error.status === 404 ? (
-          <div className="set-card empty">There's no one with the username "{username}".</div>
+          <div className={cardClass}>
+            <EmptyState>There's no one with the username "{username}".</EmptyState>
+          </div>
         ) : (
           <ErrorBox error={q.error} retry={() => q.refetch()} />
         )}
