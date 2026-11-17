@@ -12,7 +12,6 @@ import { del, get, patch, post } from './api'
 import type {
   AgendaItem,
   Calendar,
-  CalEvent,
   Category,
   Comment,
   Count,
@@ -407,13 +406,6 @@ export const useCalendars = (includeInactive = false) =>
   })
 export const useCategories = () =>
   useQuery({ queryKey: keys.categories, queryFn: () => get<Category[]>('calendar/categories'), staleTime: Infinity })
-export const useEvents = (start: string, end: string) =>
-  useQuery({
-    queryKey: keys.events(start, end),
-    queryFn: ({ signal }) => get<CalEvent[]>('calendar/events', { start, end }, signal),
-    placeholderData: keepPreviousData,
-    staleTime: 2 * 60_000,
-  })
 export const useAgenda = (days: number, includeOverdue = false) =>
   useQuery({
     queryKey: [...keys.agenda(days), includeOverdue],
