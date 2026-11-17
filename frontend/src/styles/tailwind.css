@@ -1,0 +1,74 @@
+/* Tailwind, wired to Nilaya's tokens. theme.css stays the single source of colours, radii and fonts (the
+ * phone apps generate their tokens from it), so every utility here resolves to an --app-* variable and
+ * follows light/dark automatically. Tailwind's default palette, type scale and shadows are switched off:
+ * only the design system's values exist.
+ *
+ * No preflight: base.css owns the element resets, inside @layer base so utilities win over them.
+ * Older per-app stylesheets are unlayered and still beat utilities; each goes away as its app moves over. */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities);
+
+@custom-variant dark (&:where([data-bs-theme='dark'], [data-bs-theme='dark'] *));
+/* Touch screens (no hover). `hover:` already applies only where hovering exists. */
+@custom-variant touch (@media (hover: none));
+
+@theme inline {
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #fff;
+  --color-black: #000;
+  --color-bg: var(--app-bg);
+  --color-surface: var(--app-surface);
+  --color-surface-2: var(--app-surface-2);
+  --color-fg: var(--app-fg);
+  --color-muted: var(--app-muted);
+  --color-border: var(--app-border);
+  --color-accent: var(--app-accent);
+  --color-accent-hover: var(--app-accent-hover);
+  --color-accent-fg: var(--app-accent-fg);
+  --color-accent-soft: var(--app-accent-soft);
+  --color-danger: var(--app-danger);
+  --color-danger-soft: var(--app-danger-soft);
+  --color-warning: var(--app-warning);
+  --color-warning-soft: var(--app-warning-soft);
+  --color-success: var(--app-success);
+  --color-success-soft: var(--app-success-soft);
+  --color-hover: var(--app-overlay);
+  --color-scrim: var(--scrim);
+
+  --font-sans: var(--app-font);
+  --font-mono: var(--app-font-mono);
+
+  /* The app's type scale (rem, so the 4K rules scale it). Line height comes from body (1.45). */
+  --text-*: initial;
+  --text-3xs: 0.625rem;
+  --text-2xs: 0.6875rem;
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.5rem;
+
+  --radius-*: initial;
+  --radius-xs: 0.25rem;
+  --radius-sm: var(--app-radius-sm);
+  --radius-md: var(--app-radius);
+  --radius-full: 9999px;
+
+  --shadow-*: initial;
+  --shadow-card: var(--card-shadow);
+  --shadow-pop: var(--pop-shadow);
+
+  --ease-out: var(--ease);
+
+  /* md is the phone/desktop split used everywhere (phone = max-md). */
+  --breakpoint-*: initial;
+  --breakpoint-sm: 481px;
+  --breakpoint-md: 761px;
+  --breakpoint-lg: 1025px;
+  --breakpoint-xl: 1281px;
+  --breakpoint-2xl: 1600px;
+}

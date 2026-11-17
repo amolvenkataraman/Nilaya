@@ -1,6 +1,7 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import tailwindcss from '@tailwindcss/vite'
 import { fileURLToPath } from 'node:url'
 import type { Plugin, ProxyOptions } from 'vite'
 
@@ -39,7 +40,7 @@ function spaFallback(): Plugin {
 
 export default defineConfig({
   base: '/static/app/',
-  plugins: [react(), spaFallback()],
+  plugins: [react(), tailwindcss(), spaFallback()],
   build: {
     outDir,
     emptyOutDir: true,

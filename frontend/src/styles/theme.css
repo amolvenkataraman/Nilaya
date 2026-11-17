@@ -1,7 +1,6 @@
-/* Nilaya design system: one set of tokens for every page, light + dark.
- * Loaded after Bootstrap 5.3. Bootstrap's own components follow data-bs-theme;
- * these tokens give the app its accent, surfaces, radius and type, and every
- * page/app stylesheet should use the --app-* variables instead of literal colours. */
+/* Nilaya design tokens: one set for every page, light + dark. Every stylesheet and Tailwind utility uses
+ * these --app-* variables instead of literal colours. mobile/tools/gen_tokens.py reads the three blocks
+ * below (keep their selectors) to generate the phone apps' tokens. */
 
 :root,
 [data-bs-theme="light"] {
@@ -41,176 +40,20 @@
     color-scheme: dark;
 }
 
-/* Bootstrap mapped onto the tokens, so its components match the app in both themes. */
 :root,
 [data-bs-theme] {
     --app-radius: 8px;
     --app-radius-sm: 6px;
     --app-font: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
     --app-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-
-    --bs-body-bg: var(--app-bg);
-    --bs-body-color: var(--app-fg);
-    --bs-body-font-family: var(--app-font);
-    --bs-secondary-color: var(--app-muted);
-    --bs-tertiary-bg: var(--app-surface-2);
-    --bs-secondary-bg: var(--app-surface-2);
-    --bs-border-color: var(--app-border);
-    --bs-border-radius: var(--app-radius-sm);
-    --bs-border-radius-lg: var(--app-radius);
-    --bs-link-color: var(--app-accent);
-    --bs-link-color-rgb: 15, 109, 119;
-    --bs-link-hover-color: var(--app-accent-hover);
-    --bs-primary: var(--app-accent);
-    --bs-focus-ring-color: color-mix(in srgb, var(--app-accent) 35%, transparent);
 }
-[data-bs-theme="dark"] { --bs-link-color-rgb: 60, 195, 207; }
-
-body {
-    background: var(--app-bg);
-    color: var(--app-fg);
-    font-family: var(--app-font);
-}
-
-.btn-primary {
-    --bs-btn-bg: var(--app-accent);
-    --bs-btn-border-color: var(--app-accent);
-    --bs-btn-color: var(--app-accent-fg);
-    --bs-btn-hover-bg: var(--app-accent-hover);
-    --bs-btn-hover-border-color: var(--app-accent-hover);
-    --bs-btn-hover-color: var(--app-accent-fg);
-    --bs-btn-active-bg: var(--app-accent-hover);
-    --bs-btn-active-border-color: var(--app-accent-hover);
-    --bs-btn-active-color: var(--app-accent-fg);
-    --bs-btn-disabled-bg: var(--app-accent);
-    --bs-btn-disabled-border-color: var(--app-accent);
-    --bs-btn-disabled-color: var(--app-accent-fg);
-}
-.btn-outline-primary {
-    --bs-btn-color: var(--app-accent);
-    --bs-btn-border-color: var(--app-accent);
-    --bs-btn-hover-bg: var(--app-accent);
-    --bs-btn-hover-border-color: var(--app-accent);
-    --bs-btn-hover-color: var(--app-accent-fg);
-    --bs-btn-active-bg: var(--app-accent-hover);
-    --bs-btn-active-color: var(--app-accent-fg);
-}
-.form-control:focus, .form-select:focus, .form-check-input:focus {
-    border-color: var(--app-accent);
-    box-shadow: 0 0 0 0.2rem var(--bs-focus-ring-color);
-}
-.form-check-input:checked { background-color: var(--app-accent); border-color: var(--app-accent); }
-.dropdown-menu { --bs-dropdown-link-active-bg: var(--app-accent); --bs-dropdown-link-active-color: var(--app-accent-fg); }
-.nav-pills { --bs-nav-pills-link-active-bg: var(--app-accent); --bs-nav-pills-link-active-color: var(--app-accent-fg); }
-:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
-
-/* ---------- Shared building blocks ---------- */
-
-.app-card {
-    background: var(--app-surface);
-    border: 1px solid var(--app-border);
-    border-radius: var(--app-radius);
-    box-shadow: var(--app-shadow);
-}
-.app-muted { color: var(--app-muted); }
-
-/* Icon-only buttons (navbar, toolbars): inherit the text colour in both themes. */
-.unstyled-button,
-.unstyled-button:hover,
-.unstyled-button:focus {
-    color: inherit;
-    text-decoration: none;
-    border: none;
-    background: none;
-    border-radius: var(--app-radius-sm);
-}
-.unstyled-button:hover,
-.unstyled-button:focus-visible { background-color: var(--app-overlay); }
-
-.theme-toggle {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    font-size: 0.85rem;
-}
-.theme-toggle svg { display: none; }
-[data-theme-pref="system"] .theme-toggle .ti-system,
-[data-theme-pref="light"] .theme-toggle .ti-light,
-[data-theme-pref="dark"] .theme-toggle .ti-dark { display: inline; }
-
-/* ---------- Sign-in / account pages ---------- */
-
-.auth-shell {
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-    padding: 32px max(16px, env(safe-area-inset-left, 0px)) 32px max(16px, env(safe-area-inset-right, 0px));
-    background:
-        radial-gradient(900px 500px at 15% -10%, var(--app-accent-soft), transparent 60%),
-        var(--app-bg);
-}
-.auth-card {
-    width: 100%;
-    max-width: 400px;
-    padding: 32px 28px;
-    display: grid;
-    gap: 20px;
-}
-.auth-brand { display: flex; align-items: center; gap: 10px; font-weight: 600; letter-spacing: -0.01em; }
-.auth-brand .mark {
-    width: 34px; height: 34px; border-radius: 9px;
-    display: grid; place-items: center;
-    background: var(--app-accent); color: var(--app-accent-fg);
-    font-weight: 700;
-}
-.auth-card h1 { font-size: 1.4rem; font-weight: 650; margin: 0; }
-.auth-card .lead-text { color: var(--app-muted); margin: 4px 0 0; font-size: 0.95rem; }
-.auth-card form { display: grid; gap: 14px; }
-.auth-card .form-text ul { margin: 6px 0 0; padding-left: 18px; }
-.auth-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; font-size: 0.875rem; color: var(--app-muted); }
-
-/* Modals and dropdowns sit on the card surface, not the page background. */
-.modal-content { --bs-modal-bg: var(--app-surface); --bs-modal-border-color: var(--app-border); }
-.dropdown-menu { --bs-dropdown-bg: var(--app-surface); --bs-dropdown-border-color: var(--app-border); }
-
-/* Range sliders follow the accent instead of Bootstrap's hardcoded blue. */
-.form-range { accent-color: var(--app-accent); }
-.form-range::-webkit-slider-thumb { background: var(--app-accent); }
-.form-range::-moz-range-thumb { background: var(--app-accent); }
-.form-range:focus::-webkit-slider-thumb { box-shadow: 0 0 0 .2rem var(--app-accent-soft); }
 
 /* Soft status tints for banners, chips and hovers. */
 :root {
     --app-danger-soft: color-mix(in srgb, var(--app-danger) 14%, transparent);
     --app-warning-soft: color-mix(in srgb, var(--app-warning) 14%, transparent);
-    --app-success-soft: color-mix(in srgb, var(--app-success, #16a34a) 14%, transparent);
+    --app-success-soft: color-mix(in srgb, var(--app-success) 14%, transparent);
 }
-
-/* Quiet secondary buttons that stay readable in dark mode. */
-.btn-outline-secondary {
-    --bs-btn-color: var(--app-fg);
-    --bs-btn-border-color: var(--app-border);
-    --bs-btn-hover-color: var(--app-fg);
-    --bs-btn-hover-bg: var(--app-overlay);
-    --bs-btn-hover-border-color: var(--app-border);
-    --bs-btn-active-color: var(--app-fg);
-    --bs-btn-active-bg: var(--app-overlay);
-    --bs-btn-active-border-color: var(--app-border);
-}
-
-/* Bootstrap's "primary" utilities (.text-primary, .bg-primary, badges) follow the accent. */
-:root, [data-bs-theme="light"] { --bs-primary-rgb: 15, 109, 119; --bs-primary-text-emphasis: #0f6d77; }
-[data-bs-theme="dark"] { --bs-primary-rgb: 60, 195, 207; --bs-primary-text-emphasis: #3cc3cf; }
-[data-bs-theme="dark"] .badge.bg-primary, [data-bs-theme="dark"] .text-bg-primary { color: #06282b !important; }
-
-/* Modals use the same compact type scale as the page (Bootstrap's default is 16px). */
-.modal { font-size: 0.875rem; }
-.modal-title { font-size: 1rem; font-weight: 600; }
-.modal .form-control, .modal .form-select, .modal .input-group-text, .modal .btn { font-size: 0.875rem; }
-.modal .form-label, .modal label { font-size: 0.8125rem; }
-.modal .form-text, .modal small { font-size: 0.75rem; }
-.modal-header, .modal-footer { padding: 12px 16px; }
-.modal-body { padding: 16px; }
 
 /* Very wide screens without OS scaling (e.g. 4K at 100%): grow the rem-based type and
    layout so pages keep normal proportions instead of a tiny column in a sea of space.
