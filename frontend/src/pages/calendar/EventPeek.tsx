@@ -8,13 +8,13 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { MenuSeparator, Popover, useMediaQuery } from '../../components/ui'
 import { toast } from '../../components/toast'
-import { get, post, safeHref } from '../../lib/api'
+import { post, safeHref } from '../../lib/api'
 import { fmtDate, isSameDay, relTime } from '../../lib/dates'
 import type { CalEvent, Calendar, EventDetail } from '../../lib/types'
 import { Menu, MenuItem } from '../../components/ui'
 import { eventDayKey, eventDays } from './util'
 import { HOME_ZONE, fmtDateIn, fmtTimeIn, gmtLabel, useCalPrefs, zoneCity, zoneDayKey, type Zone } from './zone'
-import { useDeleteEvent, useDuplicateEvent, useTaskFromEvent, useUpdateEvent, type Scope } from './api'
+import { eventDetailQuery, eventToInput, useDeleteEvent, useDuplicateEvent, useTaskFromEvent, useUpdateEvent, type Scope } from './api'
 import { useLayer } from '../../components/layers'
 
 const MEETING_RE = /https:\/\/[^\s<>"]*(meet\.google\.com|zoom\.us|teams\.microsoft\.com|whereby\.com|jit\.si)[^\s<>"]*/i
@@ -71,11 +71,7 @@ export function EventPeek({
   const ref = useRef<HTMLDivElement>(null)
   const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden' })
   const navigate = useNavigate()
-  const detail = useQuery({
-    queryKey: ['calendar', 'event', event.id],
-    queryFn: () => get<EventDetail>(`calendar/events/${event.id}`),
-    staleTime: 30_000,
-  })
+  const detail = useQuery(eventDetailQuery(event.id))
   const qc = useQueryClient()
   const remove = useDeleteEvent()
   const duplicate = useDuplicateEvent()
@@ -145,23 +141,7 @@ export function EventPeek({
                   action: {
                     label: 'Undo',
                     run: () =>
-                      post('calendar/events', {
-                        calendar_id: snapshot.calendar_id,
-                        name: snapshot.name,
-                        kind: snapshot.kind,
-                        start: snapshot.start,
-                        end: snapshot.end,
-                        all_day: snapshot.all_day,
-                        category_id: snapshot.category_id ?? null,
-                        location: snapshot.location,
-                        description: snapshot.description,
-                        priority: snapshot.priority,
-                        colour: snapshot.colour ?? null,
-                        icon: snapshot.icon ?? null,
-                        tags: snapshot.tags ?? [],
-                        meeting_url: snapshot.meeting_url ?? '',
-                        reminders: snapshot.reminders ?? null,
-                      }).then(
+                      post('calendar/events', eventToInput(snapshot)).then(
                         () => qc.invalidateQueries({ queryKey: ['calendar'] }),
                         (err: Error) => toast.error(err.message),
                       ),

@@ -22,7 +22,7 @@ import { AgendaView } from './AgendaView'
 import { EventDialog, type EventDraft } from './EventDialog'
 import { DayList, MonthView } from './MonthView'
 import { WeekView } from './WeekView'
-import { useUpdateCalendar, useUpdateEvent } from './api'
+import { eventDetailQuery, useUpdateCalendar, useUpdateEvent } from './api'
 import { CategoriesDialog } from './Categories'
 import { PersonDialog, SubscribeDialog } from './Sharing'
 import { atWallMin, eventDayKey, eventsByDay, fetchRange, parseCalState, rangeTitle, stepDate, viewRange, type CalView } from './util'
@@ -165,10 +165,11 @@ function CalendarMain() {
     setEventParam(null)
     setDraft({ event: e })
   }
+  const qc = useQueryClient()
   useEffect(() => {
     if (!peekId || peek?.event.id === peekId) return
     let live = true
-    get<CalEvent>(`calendar/events/${peekId}`).then(
+    qc.fetchQuery(eventDetailQuery(peekId)).then(
       (e) => live && setPeek({ event: e, anchor: document.querySelector<HTMLElement>(`[data-ev="${e.id}"]`) }),
       () => live && setEventParam(null),
     )
@@ -204,7 +205,6 @@ function CalendarMain() {
   }, [events.data, ...peekedData, peekCals]) // eslint-disable-line react-hooks/exhaustive-deps
   const photoCounts = usePhotoCounts(range.days).data
   // When the browser is idle, warm the next range's events so stepping forward is instant (one request, cached 2 min).
-  const qc = useQueryClient()
   const nextKey = state.view === 'agenda' ? '' : dayKey(stepDate(state.view, state.date, 1, weekDays))
   useEffect(() => {
     if (!nextKey || !events.isSuccess) return
@@ -308,7 +308,7 @@ function CalendarMain() {
   }
   const openAgenda = async (i: AgendaItem) => {
     try {
-      showPeek(await get<CalEvent>(`calendar/events/${i.id}`))
+      showPeek(await qc.fetchQuery(eventDetailQuery(i.id)))
     } catch (e) {
       toast.error((e as Error).message)
     }

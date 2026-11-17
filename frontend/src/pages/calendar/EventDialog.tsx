@@ -4,7 +4,7 @@ import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { addDays, dayKey, parseDayKey } from '../../lib/dates'
 import { keys, useCalendars, useCategories } from '../../lib/queries'
-import type { CalEvent, Calendar, Category, EventDetail, EventIn } from '../../lib/types'
+import type { CalEvent, Calendar, Category, EventIn } from '../../lib/types'
 import { useQuery } from '@tanstack/react-query'
 import { get, post } from '../../lib/api'
 import { Attendees, type AttendeeDraft } from './Attendees'
@@ -12,7 +12,16 @@ import { CAL_COLOURS } from './calendarCommon'
 import { minutesText } from './EventPeek'
 import { allDayRange } from './util'
 import { HOME_ZONE, fromZoneInput, gmtLabel, toZoneInput, useCalPrefs, zoneCity, zoneDay, zoneDayKey, type Zone } from './zone'
-import { useCreateEvent, useDeleteEvent, useDuplicateEvent, useTaskFromEvent, useUpdateEvent, type Scope } from './api'
+import {
+  eventDetailQuery,
+  useCalendarIcons,
+  useCreateEvent,
+  useDeleteEvent,
+  useDuplicateEvent,
+  useTaskFromEvent,
+  useUpdateEvent,
+  type Scope,
+} from './api'
 
 export type EventDraft = { event: CalEvent } | { start: Date; end?: Date; allDay?: boolean }
 type Kind = 'event' | 'all_day' | 'deadline'
@@ -144,15 +153,8 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
   const recurring = !!(editing && (editing.recurring || editing.series_id))
   const [scope, setScope] = useState<Scope>('this')
   // Reminders live on the event detail; load them (cached) when editing.
-  const detail = useQuery({
-    queryKey: ['calendar', 'event', editing?.id],
-    queryFn: () => get<EventDetail>(`calendar/events/${editing!.id}`),
-    enabled: !!editing,
-    staleTime: 30_000,
-  })
-  const icons =
-    useQuery({ queryKey: ['calendar', 'icons'], queryFn: () => get<string[]>('calendar/icons'), staleTime: 60 * 60_000, enabled: more })
-      .data ?? []
+  const detail = useQuery({ ...eventDetailQuery(editing?.id ?? ''), enabled: !!editing })
+  const icons = useCalendarIcons(more).data ?? []
   const reminders = f.reminders ?? detail.data?.reminders ?? null
   const [pending, setPending] = useState<AttendeeDraft[]>([])
   const places =

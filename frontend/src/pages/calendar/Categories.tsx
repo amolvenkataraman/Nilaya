@@ -1,14 +1,15 @@
 // Event categories (yours): name, colour, icon and order. GET/POST /calendar/categories,
 // PATCH/DELETE /calendar/categories/{id}. "Uncategorized" can be renamed but not deleted.
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { Confirm, Dialog, ErrorBox, SkeletonRows } from '../../components/ui'
 import { toast } from '../../components/toast'
-import { del, get, patch, post } from '../../lib/api'
+import { del, patch, post } from '../../lib/api'
 import { keys, useCategories } from '../../lib/queries'
 import type { Category } from '../../lib/types'
 import { CAL_COLOURS } from './calendarCommon'
+import { useCalendarIcons } from './api'
 
 type Patch = Partial<Pick<Category, 'name' | 'colour' | 'icon' | 'position'>>
 const onError = (e: unknown) => toast.error((e as Error).message)
@@ -16,9 +17,7 @@ const onError = (e: unknown) => toast.error((e as Error).message)
 export function CategoriesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient()
   const cats = useCategories()
-  const icons =
-    useQuery({ queryKey: ['calendar', 'icons'], queryFn: () => get<string[]>('calendar/icons'), staleTime: Infinity, enabled: open })
-      .data ?? []
+  const icons = useCalendarIcons(open).data ?? []
   const [edit, setEdit] = useState<number | 'new' | null>(null)
   const [removing, setRemoving] = useState<Category | null>(null)
   // Categories show on events too: refresh both after a change.

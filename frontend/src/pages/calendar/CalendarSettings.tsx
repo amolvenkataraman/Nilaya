@@ -8,10 +8,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { Dialog, Drawer, DrawerBody, DrawerHead, ErrorBox, SkeletonRows, Switch } from '../../components/ui'
 import { toast } from '../../components/toast'
-import { ApiError, del, get, patch, post } from '../../lib/api'
+import { del, get, patch, post } from '../../lib/api'
 import { fmtDate, parseDayKey, shortStamp } from '../../lib/dates'
 import type { Calendar } from '../../lib/types'
 import { CAL_COLOURS, copyText, personName, publicUrl, type Person } from './calendarCommon'
+import { useCalendarIcons } from './api'
 import { RangeSyncDialog, SOURCES, SourceFields, sourceProblem, syncError, useRunSync, type SourceType, type SyncResult } from './SyncSetup'
 
 export interface CalendarDetail extends Calendar {
@@ -68,8 +69,6 @@ export interface Invite {
   usable: boolean
 }
 
-const FALLBACK_ICONS = ['calendar', 'user', 'users', 'tasks', 'flag', 'star', 'home', 'map', 'clock', 'bell', 'photo', 'repeat']
-
 const ZONES: string[] = (() => {
   try {
     return (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.('timeZone') ?? []
@@ -78,59 +77,18 @@ const ZONES: string[] = (() => {
   }
 })()
 
-const notFound = (e: unknown) => e instanceof ApiError && (e.status === 404 || e.status === 405)
 const onError = (e: unknown) => toast.error((e as Error).message)
 
 function useCalendarDetail(cal: Calendar) {
   return useQuery({
     queryKey: ['calendar', 'detail', cal.id],
-    queryFn: async (): Promise<CalendarDetail & { _fallback?: boolean }> => {
-      try {
-        return await get<CalendarDetail>(`calendar/calendars/${cal.id}`)
-      } catch (e) {
-        if (notFound(e))
-          return {
-            ...cal,
-            calendar_colour: cal.colour,
-            my_colour: null,
-            icon: cal.icon ?? '',
-            description: cal.description ?? '',
-            notify: cal.notify ?? true,
-            _fallback: true,
-          }
-        throw e
-      }
-    },
-    retry: false,
+    queryFn: ({ signal }) => get<CalendarDetail>(`calendar/calendars/${cal.id}`, undefined, signal),
   })
 }
-const useIcons = () =>
-  useQuery({
-    queryKey: ['calendar', 'icons'],
-    queryFn: async () => {
-      try {
-        const r = await get<(string | { key: string })[]>('calendar/icons')
-        return r.map((x) => (typeof x === 'string' ? x : x.key))
-      } catch (e) {
-        if (notFound(e)) return FALLBACK_ICONS
-        throw e
-      }
-    },
-    staleTime: Infinity,
-  })
-const useSubList = <T,>(cal: Calendar, what: 'subscribers' | 'invites', enabled: boolean) =>
+const useSubList = <T,>(cal: Calendar, what: 'subscribers' | 'invites') =>
   useQuery({
     queryKey: ['calendar', what, cal.id],
-    queryFn: async () => {
-      try {
-        return { items: await get<T[]>(`calendar/calendars/${cal.id}/${what}`), missing: false }
-      } catch (e) {
-        if (notFound(e)) return { items: [] as T[], missing: true }
-        throw e
-      }
-    },
-    enabled,
-    retry: false,
+    queryFn: ({ signal }) => get<T[]>(`calendar/calendars/${cal.id}/${what}`, undefined, signal),
   })
 
 function useSaveCalendar(id: number) {
@@ -241,7 +199,7 @@ export function CalendarSettings({ calendar, onClose }: { calendar: Calendar | n
 
 function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) {
   const detail = useCalendarDetail(cal)
-  const icons = useIcons().data ?? FALLBACK_ICONS
+  const icons = useCalendarIcons().data ?? []
   const save = useSaveCalendar(cal.id)
   const d = detail.data
   const [name, setName] = useState(cal.name)
@@ -253,7 +211,6 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
     }
   }, [d])
   const manage = cal.role === 'owner' || cal.role === 'admin'
-  const full = !!d && !d._fallback
   const colour = d?.my_colour || d?.colour || cal.colour || '#64748b'
 
   return (
@@ -272,12 +229,6 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
           <ErrorBox error={detail.error} retry={() => detail.refetch()} />
         ) : d ? (
           <>
-            {d._fallback && (
-              <p className="cal-note">
-                <Icon name="info" size={14} />
-                More settings (subscribers, invites, sync) appear once the server is updated.
-              </p>
-            )}
             {!d.active && (
               <p className="cal-note warn">
                 <Icon name="alert" size={14} />
@@ -299,19 +250,17 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
                       onBlur={() => name.trim() && name !== d.name && save.mutate({ name: name.trim() })}
                     />
                   </label>
-                  {full && (
-                    <label className="field">
-                      <span>Description</span>
-                      <textarea
-                        className="textarea"
-                        rows={2}
-                        value={desc}
-                        maxLength={1000}
-                        onChange={(e) => setDesc(e.target.value)}
-                        onBlur={() => desc !== (d.description ?? '') && save.mutate({ description: desc })}
-                      />
-                    </label>
-                  )}
+                  <label className="field">
+                    <span>Description</span>
+                    <textarea
+                      className="textarea"
+                      rows={2}
+                      value={desc}
+                      maxLength={1000}
+                      onChange={(e) => setDesc(e.target.value)}
+                      onBlur={() => desc !== (d.description ?? '') && save.mutate({ description: desc })}
+                    />
+                  </label>
                   <Picker
                     label="Calendar colour"
                     custom
@@ -324,15 +273,13 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
                       </span>
                     )}
                   />
-                  {full && (
-                    <Picker
-                      label="Icon"
-                      value={d.icon ?? ''}
-                      options={icons}
-                      onPick={(i) => save.mutate({ icon: i })}
-                      render={(i) => <Icon name={i} size={15} />}
-                    />
-                  )}
+                  <Picker
+                    label="Icon"
+                    value={d.icon ?? ''}
+                    options={icons}
+                    onPick={(i) => save.mutate({ icon: i })}
+                    render={(i) => <Icon name={i} size={15} />}
+                  />
                   <div className="cal-row">
                     <div>
                       <strong>Active</strong>
@@ -344,20 +291,18 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
                       label={<span className="sr-only">Active</span>}
                     />
                   </div>
-                  {full && <ZoneTags d={d} onSave={(b) => save.mutate(b)} />}
-                  {full && (
-                    <div className="cal-row">
-                      <div>
-                        <strong>Public</strong>
-                        <span className="help">Anyone with the link can view it.</span>
-                      </div>
-                      <Switch
-                        checked={d.public}
-                        onChange={(v) => save.mutate({ public: v })}
-                        label={<span className="sr-only">Public</span>}
-                      />
+                  <ZoneTags d={d} onSave={(b) => save.mutate(b)} />
+                  <div className="cal-row">
+                    <div>
+                      <strong>Public</strong>
+                      <span className="help">Anyone with the link can view it.</span>
                     </div>
-                  )}
+                    <Switch
+                      checked={d.public}
+                      onChange={(v) => save.mutate({ public: v })}
+                      label={<span className="sr-only">Public</span>}
+                    />
+                  </div>
                 </>
               ) : (
                 <p className="small">
@@ -421,34 +366,26 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
                   label={<span className="sr-only">Visible</span>}
                 />
               </div>
-              {full && (
-                <div className="cal-row">
-                  <div>
-                    <strong>Reminders</strong>
-                    <span className="help">Send event reminders from this calendar.</span>
-                  </div>
-                  <Switch
-                    checked={!!d.notify}
-                    onChange={(v) => save.mutate({ notify: v })}
-                    label={<span className="sr-only">Notify</span>}
-                  />
+              <div className="cal-row">
+                <div>
+                  <strong>Reminders</strong>
+                  <span className="help">Send event reminders from this calendar.</span>
                 </div>
-              )}
-              {full && (
-                <Picker
-                  label="My colour (only you see it)"
-                  custom
-                  value={d.my_colour ?? ''}
-                  options={CAL_COLOURS}
-                  onPick={(c) => save.mutate({ my_colour: c })}
-                  render={(c) => (
-                    <span className="cal-swatch" style={{ background: c }}>
-                      {c === d.my_colour && <Icon name="check" size={12} />}
-                    </span>
-                  )}
-                />
-              )}
-              {full && d.subscription && (
+                <Switch checked={!!d.notify} onChange={(v) => save.mutate({ notify: v })} label={<span className="sr-only">Notify</span>} />
+              </div>
+              <Picker
+                label="My colour (only you see it)"
+                custom
+                value={d.my_colour ?? ''}
+                options={CAL_COLOURS}
+                onPick={(c) => save.mutate({ my_colour: c })}
+                render={(c) => (
+                  <span className="cal-swatch" style={{ background: c }}>
+                    {c === d.my_colour && <Icon name="check" size={12} />}
+                  </span>
+                )}
+              />
+              {d.subscription && (
                 <label className="field">
                   <span>Your availability page shows</span>
                   <select
@@ -465,8 +402,8 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
               )}
             </section>
 
-            {manage && full && <Subscribers cal={cal} />}
-            {manage && full && <Invites cal={cal} />}
+            {manage && <Subscribers cal={cal} />}
+            {manage && <Invites cal={cal} />}
             {(d.synced || d.sync?.url || manage) && <Sync cal={d} canSync={manage} />}
             <Danger cal={d} onDone={onClose} />
           </>
@@ -477,7 +414,7 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
 }
 
 function Subscribers({ cal }: { cal: Calendar }) {
-  const q = useSubList<Subscriber>(cal, 'subscribers', true)
+  const q = useSubList<Subscriber>(cal, 'subscribers')
   const qc = useQueryClient()
   const refresh = () => qc.invalidateQueries({ queryKey: ['calendar', 'subscribers', cal.id] })
   const setRole = useMutation({
@@ -490,19 +427,18 @@ function Subscribers({ cal }: { cal: Calendar }) {
     onSettled: refresh,
     onError,
   })
-  if (q.data?.missing) return null
   return (
     <section className="cal-sec" aria-labelledby="cs-subs">
-      <h3 id="cs-subs">People {q.data && <span className="muted">{q.data.items.length}</span>}</h3>
+      <h3 id="cs-subs">People {q.data && <span className="muted">{q.data.length}</span>}</h3>
       {q.isPending ? (
         <SkeletonRows rows={2} />
       ) : q.error && !q.data ? (
         <ErrorBox error={q.error} />
-      ) : !q.data?.items.length ? (
+      ) : !q.data?.length ? (
         <p className="muted small">Only you. Invite people with a code below.</p>
       ) : (
         <ul className="cal-list">
-          {q.data.items.map((s) => (
+          {q.data.map((s) => (
             <li key={s.id}>
               <span className="grow truncate">
                 {personName(s.user)}
@@ -548,7 +484,7 @@ function Subscribers({ cal }: { cal: Calendar }) {
 }
 
 function Invites({ cal }: { cal: Calendar }) {
-  const q = useSubList<Invite>(cal, 'invites', true)
+  const q = useSubList<Invite>(cal, 'invites')
   const qc = useQueryClient()
   const refresh = () => qc.invalidateQueries({ queryKey: ['calendar', 'invites', cal.id] })
   const [days, setDays] = useState('7')
@@ -578,7 +514,6 @@ function Invites({ cal }: { cal: Calendar }) {
       () => toast.show('Invite code copied'),
       () => toast.show(`Code: ${code}`),
     )
-  if (q.data?.missing) return null
   return (
     <section className="cal-sec" aria-labelledby="cs-inv">
       <h3 id="cs-inv">Invites</h3>
@@ -632,9 +567,9 @@ function Invites({ cal }: { cal: Calendar }) {
         </button>
       </form>
       {!codeOk && <p className="error-text">Codes are 4–8 letters, digits, _ or -.</p>}
-      {q.data && q.data.items.length > 0 && (
+      {q.data && q.data.length > 0 && (
         <ul className="cal-list">
-          {q.data.items.map((i) => (
+          {q.data.map((i) => (
             <li key={i.id} className={i.usable ? '' : 'inactive'}>
               <code className="cal-code">{i.code}</code>
               <span className="muted xsmall grow">
@@ -989,7 +924,7 @@ function Danger({ cal, onDone }: { cal: CalendarDetail; onDone: () => void }) {
 
 export function NewCalendarDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (c: Calendar) => void }) {
   const qc = useQueryClient()
-  const icons = useIcons().data ?? FALLBACK_ICONS
+  const icons = useCalendarIcons().data ?? []
   const [mode, setMode] = useState<'blank' | 'sync'>('blank')
   const [name, setName] = useState('')
   const [colour, setColour] = useState(CAL_COLOURS[0])
