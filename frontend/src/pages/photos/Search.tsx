@@ -9,7 +9,7 @@ import { Icon } from '../../components/Icon'
 import { isTyping } from '../../components/ui'
 import { PhotoStream, type Zoom } from './PhotoStream'
 import { PageHead } from './parts'
-import { countLabel, dropSpan, type SearchPage, type SearchTerm } from './search'
+import { countLabel, dropSpan, type SearchPage, type SearchTerm } from './searchTerms'
 import './search.css'
 import { layerOpen } from '../../components/layers'
 

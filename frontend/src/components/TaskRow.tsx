@@ -5,7 +5,7 @@ import { dayDiff, dueLabel, fmtNumericDay, fmtStamp, isEndOfDay } from '../lib/d
 import type { Label, Project, Task } from '../lib/types'
 
 export function TaskCheck({ task, onToggle, size }: { task: Task; onToggle: () => void; size?: 'lg' }) {
-  const p = task.priority >= 20 ? 'p20' : task.priority >= 15 ? 'p15' : task.priority >= 10 ? '' : ''
+  const p = task.priority >= 20 ? 'p20' : task.priority >= 15 ? 'p15' : ''
   return (
     <button
       type="button"

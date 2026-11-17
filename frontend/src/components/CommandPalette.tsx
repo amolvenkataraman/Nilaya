@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -49,16 +49,14 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
     staleTime: 10_000,
   })
 
+  // Mounted only while open (Shell), so state starts fresh each time; give focus back on close.
   useEffect(() => {
-    if (open) {
-      setQ('')
-      setActive(0)
-      const prev = document.activeElement as HTMLElement | null
-      return () => prev?.focus?.({ preventScroll: true })
-    }
-  }, [open])
+    const prev = document.activeElement as HTMLElement | null
+    return () => prev?.focus?.({ preventScroll: true })
+  }, [])
 
-  const items = useMemo<Item[]>(() => {
+  // Rebuilt each render (a few dozen entries): memoising it kept stale handlers (onClose, navigate, createTask).
+  const items = ((): Item[] => {
     const ql = q.trim().toLowerCase()
     const go = (to: string) => () => (onClose(), navigate(to))
     const pages: Item[] = NAV.map((n) => ({
@@ -116,7 +114,7 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
     // Group order: best matches first when searching
     const groups = ql ? [...out, ...found, ...create] : [...actions, ...pages, ...views, ...projs]
     return groups
-  }, [q, projects, tasks.data])
+  })()
 
   function createTask(text: string) {
     create.mutate({ quick: text }, { onSuccess: (t) => toast.show(`Added "${t.title}" to ${t.project_id ? 'your tasks' : 'Inbox'}`) })

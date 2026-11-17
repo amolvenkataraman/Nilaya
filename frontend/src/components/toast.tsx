@@ -34,9 +34,10 @@ export function Toaster() {
     () => items,
   )
   return (
-    <div className="toasts" role="status" aria-live="polite">
+    <div className="toasts">
       {list.map((t) => (
-        <div key={t.id} className={'toast' + (t.error ? ' error' : '')}>
+        // Errors interrupt the screen reader (alert); everything else waits its turn (status).
+        <div key={t.id} className={'toast' + (t.error ? ' error' : '')} role={t.error ? 'alert' : 'status'}>
           <span>{t.text}</span>
           {t.action && (
             <button

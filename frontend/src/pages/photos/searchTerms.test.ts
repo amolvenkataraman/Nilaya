@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { countLabel, dropSpan } from './search'
+import { countLabel, dropSpan } from './searchTerms'
 
 describe('smart search', () => {
   it('drops a term with its dangling connector', () => {

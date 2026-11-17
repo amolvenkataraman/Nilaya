@@ -198,7 +198,6 @@ button.chip:hover { color: var(--app-fg); }
 .check[aria-checked='true'] { background: var(--c); border-color: var(--c); color: var(--app-surface); }
 .check.p15 { --c: var(--app-warning); }
 .check.p20 { --c: var(--app-danger); }
-.check.p10 { --c: var(--app-accent); }
 .check svg { width: 0.625rem; height: 0.625rem; }
 
 /* ---------- Scrims (custom overlays: the event peek on phones, the phone sidebar) */

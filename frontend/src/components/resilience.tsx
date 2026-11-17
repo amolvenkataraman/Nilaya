@@ -3,6 +3,7 @@
 import { Component, useSyncExternalStore, type ErrorInfo, type ReactNode } from 'react'
 import { type QueryClient, useQueryClient } from '@tanstack/react-query'
 import { ApiError } from '../lib/api'
+import { isStaleChunkError, reloadForNewBuild } from '../lib/newBuild'
 import { SESSION_CACHE, ownerId } from '../lib/owner'
 import { Icon } from './Icon'
 
@@ -13,6 +14,8 @@ export class Boundary extends Component<{ children: ReactNode; label?: string; c
     return { error }
   }
   componentDidCatch(error: Error, info: ErrorInfo) {
+    // A lazily loaded part from before a deploy: Retry can't fix that (React.lazy keeps the failure), a reload can.
+    if (isStaleChunkError(error) && reloadForNewBuild()) return
     console.error('Section failed', this.props.label ?? '', error, info.componentStack)
   }
   render() {

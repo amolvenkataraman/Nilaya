@@ -4,6 +4,7 @@ import { createBrowserRouter, Navigate, RouterProvider, useLocation, type RouteO
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ApiError } from './lib/api'
 import { initTheme } from './lib/theme'
+import { reloadOnStaleChunks } from './lib/newBuild'
 import { prefetchCalendar, prefetchDashboard, prefetchPhotos, prefetchShell, prefetchTasks } from './lib/prefetch'
 import { Shell } from './components/Shell'
 import { Toaster } from './components/toast'
@@ -18,6 +19,7 @@ import './styles/shell.css'
 import './styles/components.css'
 
 initTheme()
+reloadOnStaleChunks()
 
 const queryClient = new QueryClient({
   defaultOptions: {

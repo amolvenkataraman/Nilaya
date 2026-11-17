@@ -1,4 +1,5 @@
 import { Link, useRouteError } from 'react-router'
+import { isStaleChunkError, reloadForNewBuild } from '../lib/newBuild'
 import { AppShell } from '../components/AppShell'
 
 export function NotFound() {
@@ -23,19 +24,7 @@ export function NotFound() {
 export function RouteError() {
   const err = useRouteError() as Error | undefined
   // A new deploy replaced the lazily loaded chunks: reload once to pick up the new build.
-  if (err && /dynamically imported module|Importing a module script failed|Failed to fetch/i.test(err.message ?? '')) {
-    let first = false
-    try {
-      first = !sessionStorage.getItem('app.reloaded')
-      sessionStorage.setItem('app.reloaded', '1')
-    } catch {
-      /* storage blocked: show the error instead of looping */
-    }
-    if (first) {
-      window.location.reload()
-      return null
-    }
-  }
+  if (isStaleChunkError(err) && reloadForNewBuild()) return null
   return (
     <div className="page">
       <div className="card card-body" style={{ maxWidth: '30rem', margin: '10vh auto', display: 'grid', gap: '0.5rem' }}>
