@@ -275,7 +275,7 @@ export default function PlacesPage() {
     if ('description' in p && 'notes' in p && p.description !== undefined && p.notes !== undefined) return setDraft({ ...(p as Place) })
     qc.fetchQuery(placeQuery(p.id)).then(
       (full) => setDraft({ ...full }),
-      (e) => toast.error((e as Error).message),
+      (e) => toast.fail(e),
     )
   }
   const prefetchPlace = (id: string) => void qc.prefetchQuery(placeQuery(id))

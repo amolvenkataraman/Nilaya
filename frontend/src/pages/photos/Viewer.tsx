@@ -268,7 +268,7 @@ function ViewerActions({ photo, onLeave }: { photo: Photo; onLeave: () => void }
       })
       refresh()
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.fail(e)
     }
   }
   const removeOriginal = async () => {
@@ -277,7 +277,7 @@ function ViewerActions({ photo, onLeave }: { photo: Photo; onLeave: () => void }
       toast.show(r.freed_kb ? `Original deleted, ${fmtBytes(r.freed_kb)} freed` : 'Original removed')
       refresh()
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.fail(e)
     }
   }
   return (

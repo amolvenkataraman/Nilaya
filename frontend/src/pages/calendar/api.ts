@@ -13,10 +13,7 @@ function patchEventCaches(qc: QueryClient, fn: (list: CalEvent[]) => CalEvent[])
   return () => snaps.forEach(([k, d]) => qc.setQueryData(k, d))
 }
 
-const onErr = (e: unknown, _v: unknown, ctx?: { rollback?: () => void }) => {
-  ctx?.rollback?.()
-  toast.error((e as Error).message)
-}
+const onErr = (_e: unknown, _v: unknown, ctx?: { rollback?: () => void }) => ctx?.rollback?.()
 
 /** One event with its reminders and attendees: the peek, the edit dialog and deep links share this cache entry. */
 export const eventDetailQuery = (id: string) =>

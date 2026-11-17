@@ -1,7 +1,6 @@
 // /api/v2/contacts/ types and hooks (query keys under ['contacts']).
 import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api, apiUrl, del, get, patch, post, upload } from '../../lib/api'
-import { toast } from '../../components/toast'
 import { queryGroup } from '../../lib/batch'
 
 export interface LabeledValue {
@@ -187,7 +186,6 @@ export interface DuplicatePair {
 export type Filter = '' | 'favorites' | 'overdue' | 'kit' | 'recent' | 'birthdays'
 
 export const AVATAR_MAX = 2_000_000
-const onError = (e: unknown) => toast.error((e as Error).message)
 
 /** Refresh contact queries after a write; meta never changes and the edited person was just set. */
 function refresh(qc: QueryClient, keepPerson?: string) {
@@ -248,7 +246,7 @@ export function useSavePerson(toastErrors = true) {
       qc.setQueryData(['contacts', 'person', p.id], p)
       refresh(qc, p.id)
     },
-    onError: toastErrors ? onError : undefined,
+    meta: toastErrors ? undefined : { errorMessage: () => null },
   })
 }
 
@@ -260,7 +258,6 @@ export function useDeletePerson() {
       qc.removeQueries({ queryKey: ['contacts', 'person', id] })
       refresh(qc)
     },
-    onError,
   })
 }
 
@@ -272,7 +269,6 @@ export function useBulkDelete() {
       for (const id of ids) qc.removeQueries({ queryKey: ['contacts', 'person', id] })
       refresh(qc)
     },
-    onError,
   })
 }
 
@@ -290,12 +286,10 @@ export function useAvatar(personId: string) {
       return upload<PersonDetail>(`contacts/${personId}/avatar`, fd)
     },
     onSuccess: done,
-    onError,
   })
   const remove = useMutation({
     mutationFn: () => api<PersonDetail>(`contacts/${personId}/avatar`, { method: 'DELETE' }),
     onSuccess: done,
-    onError,
   })
   return { set, remove }
 }
@@ -306,7 +300,6 @@ export function useLogInteraction(personId: string) {
     mutationFn: (body: { kind: string; summary: string; date?: string | null; notes?: string }) =>
       post<Interaction>(`contacts/${personId}/interactions`, body),
     onSuccess: () => refresh(qc),
-    onError,
   })
 }
 
@@ -316,13 +309,12 @@ export function useUpdateInteraction() {
     mutationFn: ({ id, body }: { id: string; body: { kind?: string; summary?: string; date?: string; notes?: string } }) =>
       patch<Interaction>(`contacts/interactions/${id}`, body),
     onSuccess: () => refresh(qc),
-    onError,
   })
 }
 
 export function useDeleteInteraction() {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: (id: string) => del(`contacts/interactions/${id}`), onSuccess: () => refresh(qc), onError })
+  return useMutation({ mutationFn: (id: string) => del(`contacts/interactions/${id}`), onSuccess: () => refresh(qc) })
 }
 
 export function useRelationships(personId: string) {
@@ -330,9 +322,8 @@ export function useRelationships(personId: string) {
   const add = useMutation({
     mutationFn: (body: { other_id: string; kind: string }) => post<Relationship>(`contacts/${personId}/relationships`, body),
     onSuccess: () => refresh(qc),
-    onError,
   })
-  const remove = useMutation({ mutationFn: (id: number) => del(`contacts/relationships/${id}`), onSuccess: () => refresh(qc), onError })
+  const remove = useMutation({ mutationFn: (id: number) => del(`contacts/relationships/${id}`), onSuccess: () => refresh(qc) })
   return { add, remove }
 }
 
@@ -352,7 +343,6 @@ export function useImportCommit() {
     mutationFn: ({ file, opts }: { file: File; opts: ImportOptions }) =>
       upload<ImportResult>('contacts/import/commit', importForm(file, opts)),
     onSuccess: () => refresh(qc),
-    onError,
   })
 }
 
@@ -366,7 +356,6 @@ export function useMerge() {
       qc.setQueryData(['contacts', 'person', p.id], p)
       refresh(qc, p.id)
     },
-    onError,
   })
 }
 
@@ -378,7 +367,6 @@ export function useDismissDuplicate() {
       qc.setQueryData<DuplicatePair[]>(['contacts', 'duplicates'], (old) =>
         old?.filter((d) => !((d.a.id === v.a_id && d.b.id === v.b_id) || (d.a.id === v.b_id && d.b.id === v.a_id))),
       ),
-    onError,
   })
 }
 
@@ -386,6 +374,7 @@ export function useDismissDuplicate() {
 export function useRenameTag() {
   const qc = useQueryClient()
   return useMutation({
+    meta: { errorMessage: () => null }, // shown in the form
     mutationFn: ({ id, name }: { id: number; name: string }) => patch<Tag>(`contacts/tags/${id}`, { name }),
     onSuccess: () => refresh(qc), // contacts show tag names, so every list and open person refreshes
   })
@@ -393,7 +382,7 @@ export function useRenameTag() {
 
 export function useDeleteTag() {
   const qc = useQueryClient()
-  return useMutation({ mutationFn: (id: number) => del(`contacts/tags/${id}`), onSuccess: () => refresh(qc), onError })
+  return useMutation({ mutationFn: (id: number) => del(`contacts/tags/${id}`), onSuccess: () => refresh(qc) })
 }
 
 // ---------------------------------------------------------------- merge several into one
@@ -412,7 +401,7 @@ export function useMergeMany() {
       refresh(qc, p.id)
     },
     // Some merges may have gone through before the failure: refresh everything.
-    onError: (e) => (refresh(qc), onError(e)),
+    onError: () => refresh(qc),
   })
 }
 
@@ -434,7 +423,7 @@ export function useSaveContactSettings() {
       if (prev) qc.setQueryData(SETTINGS_KEY, { ...prev, ...body })
       return { prev }
     },
-    onError: (e, _b, ctx) => (ctx?.prev && qc.setQueryData(SETTINGS_KEY, ctx.prev), onError(e)),
+    onError: (_e, _b, ctx) => ctx?.prev && qc.setQueryData(SETTINGS_KEY, ctx.prev),
     onSuccess: (s) => qc.setQueryData(SETTINGS_KEY, s),
   })
 }

@@ -9,8 +9,6 @@ import { dayKey } from '../../lib/dates'
 import { toast } from '../../components/toast'
 import type { Bucket, Comment, Label, Member, Project, Relation, SavedView, Task, TaskDetail, UserBrief } from '../../lib/types'
 
-const onError = (e: unknown) => toast.error((e as Error).message)
-
 const setProjects = (qc: QueryClient, fn: (l: Project[]) => Project[]) => {
   qc.setQueriesData<Project[]>({ queryKey: keys.projects }, (old) => (old ? fn(old) : old))
   qc.setQueryData<{ projects?: Project[] }>(keys.overview, (o) => (o?.projects ? { ...o, projects: fn(o.projects) } : o))
@@ -39,7 +37,7 @@ export function useSaveProject() {
       qc.invalidateQueries({ queryKey: keys.overview })
       qc.invalidateQueries({ queryKey: [...keys.projects, 'archived'] })
     },
-    onError: (e, _v, ctx) => (ctx?.rollback(), onError(e)),
+    onError: (_e, _v, ctx) => ctx?.rollback(),
   })
 }
 
@@ -48,7 +46,6 @@ export function useDeleteProject() {
   return useMutation({
     mutationFn: (id: string) => del(`tasks/projects/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
-    onError,
   })
 }
 
@@ -61,7 +58,6 @@ export function useSaveBucket(projectId: string) {
       qc.invalidateQueries({ queryKey: keys.buckets(projectId) })
       qc.invalidateQueries({ queryKey: ['tasks', 'board', projectId] })
     },
-    onError,
   })
 }
 
@@ -70,7 +66,6 @@ export function useDeleteBucket() {
   return useMutation({
     mutationFn: (id: number) => del(`tasks/buckets/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
-    onError,
   })
 }
 
@@ -80,7 +75,6 @@ export function useUnassignMe(taskId: string) {
   return useMutation({
     mutationFn: () => post<void>(`tasks/${taskId}/unassign`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
-    onError,
   })
 }
 
@@ -92,7 +86,6 @@ export function useAddComment(taskId: string) {
       qc.setQueryData<Comment[]>(keys.comments(taskId), (old) => [...(old ?? []), c])
       patchTaskLists(qc, [taskId], (t) => ({ ...t, comments: (t.comments ?? 0) + 1 }))
     },
-    onError,
   })
 }
 
@@ -102,7 +95,6 @@ export function useDeleteComment(taskId: string) {
     mutationFn: (id: string) => del(`tasks/comments/${id}`),
     onMutate: (id) => qc.setQueryData<Comment[]>(keys.comments(taskId), (old) => old?.filter((c) => c.id !== id)),
     onSettled: () => qc.invalidateQueries({ queryKey: keys.comments(taskId) }),
-    onError,
   })
 }
 
@@ -111,7 +103,6 @@ export function useEditComment(taskId: string) {
   return useMutation({
     mutationFn: ({ id, body }: { id: string; body: string }) => patch<Comment>(`tasks/comments/${id}`, { body }),
     onSuccess: (c) => qc.setQueryData<Comment[]>(keys.comments(taskId), (old) => old?.map((x) => (x.id === c.id ? c : x))),
-    onError,
   })
 }
 
@@ -129,7 +120,6 @@ export function useSaveView() {
     mutationFn: ({ id, body }: { id?: string; body: { name?: string; filters?: Record<string, unknown>; position?: number } }) =>
       id ? patch<SavedView>(`tasks/views/${id}`, body) : post<SavedView>('tasks/views', body),
     onSuccess: (v) => setViews(qc, (list) => (list.some((x) => x.id === v.id) ? list.map((x) => (x.id === v.id ? v : x)) : [...list, v])),
-    onError,
   })
 }
 
@@ -138,7 +128,6 @@ export function useDeleteView() {
   return useMutation({
     mutationFn: (id: string) => del(`tasks/views/${id}`),
     onSuccess: (_r, id) => setViews(qc, (list) => list.filter((x) => x.id !== id)),
-    onError,
   })
 }
 
@@ -147,7 +136,6 @@ export function useDuplicateTask() {
   return useMutation({
     mutationFn: (id: string) => post<{ id: string; title: string }>(`tasks/${id}/duplicate`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['tasks'] }),
-    onError,
   })
 }
 
@@ -182,7 +170,7 @@ export function usePlaceTasks(projectId: string) {
         .filter((t): t is Task => !!t)
       settleTaskLists(qc, { tasks, keep: v.ids })
     },
-    onError: (e, _v, ctx) => (ctx?.rollback(), onError(e)),
+    onError: (_e, _v, ctx) => ctx?.rollback(),
   })
 }
 
@@ -321,9 +309,8 @@ export function useBulk() {
       const msg = typeof v.done === 'function' ? v.done(r.count) : v.done
       if (msg && r.count) toast.show(msg, v.undo ? { action: { label: 'Undo', run: () => v.undo!(r.ids) } } : undefined)
     },
-    onError: (e, _v, ctx) => {
+    onError: (_e, _v, ctx) => {
       ctx?.rollback()
-      toast.error((e as Error).message)
     },
     onSettled: () => refreshTaskCounts(qc),
   })
@@ -411,7 +398,6 @@ export function useSaveLabel() {
     mutationFn: ({ id, body }: { id?: number; body: { name?: string; colour?: string } }) =>
       id ? patch<Label>(`tasks/labels/${id}`, body) : post<Label>('tasks/labels', body),
     onSuccess: (l) => setLabels(qc, (list) => (list.some((x) => x.id === l.id) ? list.map((x) => (x.id === l.id ? l : x)) : [...list, l])),
-    onError,
   })
 }
 
@@ -423,7 +409,6 @@ export function useDeleteLabel() {
       setLabels(qc, (list) => list.filter((x) => x.id !== id))
       qc.invalidateQueries({ queryKey: ['tasks', 'list'] }) // tasks lose the label
     },
-    onError,
   })
 }
 
@@ -453,7 +438,10 @@ export function useSaveMember(projectId: string) {
       )
       refreshShared(qc)
     },
-    onError: (e, v) => toast.error(e instanceof ApiError && e.status === 404 ? `No user called "${v.username}".` : (e as Error).message),
+    meta: {
+      errorMessage: (e, v) =>
+        e instanceof ApiError && e.status === 404 ? `No user called "${(v as { username: string }).username}".` : (e as Error).message,
+    },
   })
 }
 
@@ -465,7 +453,6 @@ export function useRemoveMember(projectId: string) {
       qc.setQueryData<Member[]>(membersKey(projectId), (old) => old?.filter((x) => x.id !== id))
       refreshShared(qc)
     },
-    onError,
   })
 }
 
@@ -493,7 +480,6 @@ export function useAddRelation(taskId: string) {
       )
       qc.invalidateQueries({ queryKey: keys.task(r.other_id) }) // the reverse link (only refetches if open)
     },
-    onError,
   })
 }
 
@@ -506,7 +492,7 @@ export function useRemoveRelation(taskId: string) {
       if (prev) qc.setQueryData<TaskDetail>(keys.task(taskId), { ...prev, relations: prev.relations.filter((x) => x.id !== r.id) })
       return { prev }
     },
-    onError: (e, _r, ctx) => (ctx?.prev && qc.setQueryData(keys.task(taskId), ctx.prev), onError(e)),
+    onError: (_e, _r, ctx) => ctx?.prev && qc.setQueryData(keys.task(taskId), ctx.prev),
     onSettled: (_d, _e, r) => qc.invalidateQueries({ queryKey: keys.task(r.other_id) }),
   })
 }

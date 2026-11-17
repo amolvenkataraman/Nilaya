@@ -115,8 +115,6 @@ export const hk = {
   settings: ['settings', 'habits/settings'] as const,
 }
 
-const onError = (e: unknown) => toast.error((e as Error).message)
-
 export const useToday = () => useQuery({ queryKey: hk.today, queryFn: () => get<Today>('habits/today') })
 export const useHabitsOverview = () => useQuery({ queryKey: hk.overview, queryFn: () => get<Overview>('habits/overview') })
 export const useHabits = (archived = false) =>
@@ -189,7 +187,7 @@ export function useCheck() {
       }
       return { rollback: () => snaps.forEach(([k, d]) => qc.setQueryData(k, d)) }
     },
-    onError: (e, _v, ctx) => (ctx?.rollback(), onError(e)),
+    onError: (_e, _v, ctx) => ctx?.rollback(),
     onSuccess: (row) => {
       qc.setQueryData<Today>(hk.today, (old) =>
         old && old.date ? { ...old, habits: old.habits.map((r) => (r.habit.id === row.habit.id ? row : r)) } : old,
@@ -226,7 +224,7 @@ export function useSetEntry() {
       patchCaches(qc, habit, day, value, !!skipped, note)
       return { rollback: () => snaps.forEach(([k, d]) => qc.setQueryData(k, d)) }
     },
-    onError: (e, _v, ctx) => (ctx?.rollback(), onError(e)),
+    onError: (_e, _v, ctx) => ctx?.rollback(),
     onSuccess: ({ today: row }) => {
       qc.setQueryData<Today>(hk.today, (old) => old && { ...old, habits: old.habits.map((r) => (r.habit.id === row.habit.id ? row : r)) })
     },
@@ -237,10 +235,10 @@ export function useSetEntry() {
 export function useSaveHabit() {
   const qc = useQueryClient()
   return useMutation({
+    meta: { errorMessage: () => null }, // shown in the form
     mutationFn: ({ id, body }: { id?: string; body: HabitInput }) =>
       id ? patch<Habit>(`habits/${id}`, body) : post<Habit>('habits/', body),
     onSuccess: () => refreshDerived(qc),
-    onError,
   })
 }
 
@@ -248,7 +246,10 @@ export function useArchiveHabit() {
   const qc = useQueryClient()
   // Undo runs outside the hook: the row that archived may be gone by then.
   const undo = (h: Habit) =>
-    post<Habit>(`habits/${h.id}/archive`, { archived: false }).then(() => (refreshDerived(qc), toast.show(`Restored "${h.name}"`)), onError)
+    post<Habit>(`habits/${h.id}/archive`, { archived: false }).then(
+      () => (refreshDerived(qc), toast.show(`Restored "${h.name}"`)),
+      toast.fail,
+    )
   return useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) => post<Habit>(`habits/${id}/archive`, { archived }),
     onSuccess: (h) => {
@@ -256,7 +257,6 @@ export function useArchiveHabit() {
       if (h.archived) toast.show(`Archived "${h.name}"`, { action: { label: 'Undo', run: () => undo(h) } })
       else toast.show(`Restored "${h.name}"`)
     },
-    onError,
   })
 }
 
@@ -268,7 +268,6 @@ export function usePauseHabit() {
       refreshDerived(qc),
       toast.show(h.paused ? `${h.name} paused. No reminders until you resume.` : `${h.name} resumed. Paused days count as skipped.`)
     ),
-    onError,
   })
 }
 
@@ -277,7 +276,6 @@ export function useDeleteHabit() {
   return useMutation({
     mutationFn: (id: string) => del(`habits/${id}`),
     onSuccess: () => refreshDerived(qc),
-    onError,
   })
 }
 
@@ -293,7 +291,6 @@ export function useReorder() {
         (old) => old && { ...old, habits: [...old.habits].sort((a, b) => (order.get(a.habit.id) ?? 0) - (order.get(b.habit.id) ?? 0)) },
       )
     },
-    onError,
     onSettled: () => refreshDerived(qc),
   })
 }
@@ -303,6 +300,5 @@ export function useSaveHabitSettings() {
   return useMutation({
     mutationFn: (body: Partial<HabitSettings>) => patch<HabitSettings>('habits/settings', body),
     onSuccess: (s) => qc.setQueryData(hk.settings, s),
-    onError,
   })
 }

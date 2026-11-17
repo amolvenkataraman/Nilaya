@@ -99,7 +99,6 @@ export default function PublicCalendar() {
       qc.setQueryData<PublicCal>(['public', 'calendar', id], (c) => (c ? { ...c, subscribed: true } : c))
       toast.show('Subscribed: it now shows in your Calendar.')
     },
-    onError: (e) => toast.error((e as Error).message),
   })
 
   const go = (d: Date) =>

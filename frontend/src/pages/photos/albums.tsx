@@ -223,8 +223,8 @@ export function AlbumDialog({ album, onClose, onSaved }: { album?: Album; onClos
       onClose()
       onSaved?.(a)
     }
-    if (album) update.mutate({ id: album.id, ...body }, { onSuccess: done, onError: (err) => toast.error((err as Error).message) })
-    else create.mutate(body, { onSuccess: done, onError: (err) => toast.error((err as Error).message) })
+    if (album) update.mutate({ id: album.id, ...body }, { onSuccess: done })
+    else create.mutate(body, { onSuccess: done })
   }
   return (
     <Dialog
@@ -425,7 +425,7 @@ export function AlbumPage({ zoom }: { zoom: Zoom }) {
           navigate('/photos/albums', { replace: true })
           deleteAlbum(qc, album).then(
             () => toast.show(`Deleted "${album.name}"`),
-            (e) => toast.error((e as Error).message),
+            (e) => toast.fail(e),
           )
         }}
       />
@@ -449,12 +449,12 @@ function ShareDialog({ album, onClose }: { album: Album; onClose: () => void }) 
       setUsername('')
       refresh()
     },
-    onError: (e) => toast.error((e as ApiError).status === 404 ? `No user called "${username.trim()}".` : (e as Error).message),
+    meta: { errorMessage: (e) => ((e as ApiError).status === 404 ? `No user called "${username.trim()}".` : (e as Error).message) },
   })
   const change = useMutation({
     mutationFn: ({ id, role }: { id: number; role: 'viewer' | 'editor' }) => patch(`photos/albums/${album.id}/members/${id}`, { role }),
     onMutate: ({ id, role }) => qc.setQueryData<AlbumMember[]>(key, (old) => old?.map((m) => (m.id === id ? { ...m, role } : m))),
-    onError: (e) => (toast.error((e as Error).message), refresh()),
+    onError: () => refresh(),
   })
   const drop = useMutation({
     mutationFn: (id: number) => api(`photos/albums/${album.id}/members/${id}`, { method: 'DELETE' }),
@@ -462,7 +462,6 @@ function ShareDialog({ album, onClose }: { album: Album; onClose: () => void }) 
       qc.setQueryData<AlbumMember[]>(key, (old) => old?.filter((m) => m.id !== id))
       setConfirmId(null)
     },
-    onError: (e) => toast.error((e as Error).message),
   })
   return (
     <Dialog

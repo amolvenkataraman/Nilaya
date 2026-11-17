@@ -19,6 +19,7 @@ export function PasswordSection() {
       setConfirm('')
       toast.show('Password changed. You stay signed in here.')
     },
+    meta: { errorMessage: () => null }, // shown in the form
     onError: (e) => setError((e as Error).message),
   })
   const tooShort = next.length > 0 && next.length < MIN

@@ -174,7 +174,7 @@ export function SelectionBar() {
       select.setMode(false)
       refresh()
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.fail(e)
     }
   }
   const download = () => {
@@ -291,16 +291,12 @@ export function AlbumPicker({ ids, onClose }: { ids: string[]; onClose: () => vo
       onClose()
       select.setMode(false)
     },
-    onError: (e) => toast.error((e as Error).message),
   })
   const createAndAdd = (e: FormEvent) => {
     e.preventDefault()
     const n = name.trim()
     if (!n) return
-    create.mutate(
-      { name: n.slice(0, 64), description: '', public: pub },
-      { onSuccess: (a) => add.mutate(a), onError: (err) => toast.error((err as Error).message) },
-    )
+    create.mutate({ name: n.slice(0, 64), description: '', public: pub }, { onSuccess: (a) => add.mutate(a) })
   }
   // The API doesn't say whether you can edit someone else's album: list yours first, then shared ones (the server checks).
   const list = [...(albums.data ?? [])].sort((a, b) => Number(b.mine) - Number(a.mine))
@@ -379,7 +375,7 @@ export function DeleteDialog({ ids, onClose, onDone }: { ids: string[]; onClose:
       onDone()
       onClose()
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.fail(e)
     } finally {
       setBusy(false)
     }

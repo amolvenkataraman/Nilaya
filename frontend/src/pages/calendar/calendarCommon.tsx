@@ -20,7 +20,6 @@ export function copyText(text: string, done = 'Copied') {
     () => toast.show(text),
   )
 }
-const onError = (e: unknown) => toast.error((e as Error).message)
 
 /** "…" menu next to a calendar in the sidebar. */
 export function CalendarMenu({
@@ -45,14 +44,15 @@ export function CalendarMenu({
       r.ok
         ? toast.show(r.not_modified ? `"${calendar.name}" is up to date` : `Synced "${calendar.name}"`)
         : toast.error(r.last_sync_error || 'Sync failed'),
-    onError: (e) =>
-      toast.error(e instanceof ApiError && e.status === 503 ? 'Syncing is off on this server (offline mode).' : (e as Error).message),
+    meta: {
+      errorMessage: (e) =>
+        e instanceof ApiError && e.status === 503 ? 'Syncing is off on this server (offline mode).' : (e as Error).message,
+    },
     onSettled: () => qc.invalidateQueries({ queryKey: ['calendar'] }),
   })
   const leave = useMutation({
     mutationFn: () => del(`calendar/calendars/${calendar.id}/subscription`),
     onSuccess: () => toast.show(`Left "${calendar.name}"`),
-    onError,
     onSettled: () => qc.invalidateQueries({ queryKey: ['calendar'] }),
   })
   const [confirmLeave, setConfirmLeave] = useState(false)

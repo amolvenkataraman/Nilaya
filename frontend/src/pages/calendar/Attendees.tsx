@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { useDebounced } from '../../components/ui'
-import { toast } from '../../components/toast'
 import { del, get, patch, post } from '../../lib/api'
 import type { Attendee } from '../../lib/types'
 
@@ -42,7 +41,6 @@ export function Attendees({
   const add = useMutation({
     mutationFn: (a: AttendeeDraft) => post(`calendar/events/${encodeURIComponent(eventId!)}/attendees`, a),
     onSuccess: refresh,
-    onError: (e) => toast.error((e as Error).message),
   })
   const setRsvp = useMutation({
     mutationFn: ({ id, rsvp }: { id: number; rsvp: string }) =>

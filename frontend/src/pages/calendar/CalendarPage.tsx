@@ -310,7 +310,7 @@ function CalendarMain() {
     try {
       showPeek(await qc.fetchQuery(eventDetailQuery(i.id)))
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.fail(e)
     }
   }
 

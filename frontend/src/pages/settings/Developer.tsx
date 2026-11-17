@@ -117,7 +117,6 @@ function KeyRow({ k, label, onEdit }: { k: ApiKey; label: (app: string) => strin
   const revoke = useMutation({
     mutationFn: () => del(`keys/${k.id}`),
     onSuccess: () => toast.show(`Revoked "${k.name}"`),
-    onError: (e) => toast.error((e as Error).message),
     onSettled: () => qc.invalidateQueries({ queryKey: KEYS }),
   })
   const expired = !!k.expires_on && new Date(k.expires_on) <= new Date()
@@ -221,6 +220,7 @@ function KeyDialog({ apiKey, apps, onClose }: { apiKey: ApiKey | null; apps: Key
       toast.show(`Saved "${name.trim()}"`)
       onClose()
     },
+    meta: { errorMessage: () => null }, // shown in the form
     onError: (e) => setError((e as Error).message),
   })
   const submit = () => {
@@ -351,7 +351,6 @@ export function FeedsSection() {
           .finally(() => qc.invalidateQueries({ queryKey: FEEDS }))
       }
     },
-    onError: (e) => toast.error((e as Error).message),
     onSettled: () => qc.invalidateQueries({ queryKey: FEEDS }),
   })
   return (
@@ -428,7 +427,6 @@ function FeedRow({ f, busy, onRegenerate }: { f: Feed; busy: boolean; onRegenera
   const revoke = useMutation({
     mutationFn: () => del(`feeds/${f.id}`),
     onSuccess: () => toast.show('Feed revoked'),
-    onError: (e) => toast.error((e as Error).message),
     onSettled: () => qc.invalidateQueries({ queryKey: FEEDS }),
   })
   return (
@@ -512,7 +510,7 @@ export function GuidesSection() {
       a.remove()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.fail(e)
     }
   }
   const curl = `curl -H "Authorization: Bearer YOUR_API_KEY" ${location.origin}/api/v2/tasks/?view=today`

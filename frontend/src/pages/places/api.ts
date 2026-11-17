@@ -110,7 +110,7 @@ export function useGroupVisibility() {
     onSuccess: (_r, { visible }) => {
       if (visible) qc.invalidateQueries({ queryKey: VISIBLE_KEY })
     },
-    onError: (e, _v, ctx) => (ctx?.rollback(), toast.error((e as Error).message), qc.invalidateQueries({ queryKey: VISIBLE_KEY })),
+    onError: (_e, _v, ctx) => (ctx?.rollback(), qc.invalidateQueries({ queryKey: VISIBLE_KEY })),
   })
 }
 
@@ -126,7 +126,7 @@ export function useShowOnlyGroup() {
     onSuccess: (_r, g) => {
       if (!g.visible) qc.invalidateQueries({ queryKey: VISIBLE_KEY })
     },
-    onError: (e) => (toast.error((e as Error).message), qc.invalidateQueries({ queryKey: ['places'] })),
+    onError: () => qc.invalidateQueries({ queryKey: ['places'] }),
   })
 }
 export const usePlaceCategories = () =>
@@ -149,7 +149,6 @@ export function useSavePlace() {
     mutationFn: ({ id, body }: { id?: string; body: Partial<PlaceInput> }) =>
       id ? patch<Place>(`places/${id}`, body) : post<Place>('places/', body),
     onSuccess: (p, v) => toast.show(v.id ? `Saved "${p.name}"` : `Added "${p.name}"`),
-    onError: (e) => toast.error((e as Error).message),
     onSettled: done,
   })
 }
@@ -159,7 +158,6 @@ export function useDeletePlace() {
   return useMutation({
     mutationFn: (p: Place) => del(`places/${p.id}`),
     onSuccess: (_r, p) => toast.show(`Deleted "${p.name}"`),
-    onError: (e) => toast.error((e as Error).message),
     onSettled: done,
   })
 }
@@ -169,7 +167,6 @@ export function useSaveGroup() {
   return useMutation({
     mutationFn: ({ id, body }: { id?: number; body: Partial<Pick<Group, 'name' | 'description' | 'is_public' | 'archived'>> }) =>
       id ? patch<PlaceGroup>(`places/groups/${id}`, body) : post<PlaceGroup>('places/groups', body),
-    onError: (e) => toast.error((e as Error).message),
     onSettled: done,
   })
 }
@@ -179,7 +176,6 @@ export function useDeleteGroup() {
   return useMutation({
     mutationFn: (g: PlaceGroup) => del(`places/groups/${g.id}`),
     onSuccess: (_r, g) => toast.show(`Deleted the group "${g.name}"`),
-    onError: (e) => toast.error((e as Error).message),
     onSettled: done,
   })
 }

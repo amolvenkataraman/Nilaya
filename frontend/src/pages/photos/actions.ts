@@ -39,7 +39,7 @@ export function useToggleHidden() {
       refreshAll(qc)
       toast.show(r.show ? 'Showing hidden photos (turns off after 30 minutes)' : 'Hidden photos are out of sight again')
     },
-    onError: (e) => toast.error((e as Error).message || "Couldn't change hidden-photo mode."),
+    meta: { errorMessage: (e) => (e as Error).message || "Couldn't change hidden-photo mode." },
   })
 }
 
@@ -51,7 +51,6 @@ export function useLibraryVisibility() {
     mutationFn: ({ id, visible }: { id: number; visible: boolean }) =>
       patch<{ id: number; visible: boolean }>(`photos/libraries/${id}`, { visible }),
     onSettled: done,
-    onError: (e) => toast.error((e as Error).message),
   })
   const only = useMutation({
     mutationFn: (id: number) => post<{ id: number }>(`photos/libraries/${id}/only`),
@@ -75,7 +74,7 @@ export function useLibraryVisibility() {
                       qc.setQueryData(['photos', 'libraries'], ctx?.before)
                       done()
                     },
-                    (e) => toast.error((e as Error).message),
+                    (e) => toast.fail(e),
                   ),
               },
             }
@@ -83,7 +82,6 @@ export function useLibraryVisibility() {
       )
     },
     onSettled: done,
-    onError: (e) => toast.error((e as Error).message),
   })
   /** Optimistic: update the cached list before the request goes out. */
   const toggle = (id: number, visible: boolean) => {
@@ -157,7 +155,7 @@ export async function removeFromAlbum(qc: QueryClient, album: Album, ids: string
         ? {
             action: {
               label: 'Undo',
-              run: () => post(`photos/albums/${album.id}/photos`, { ids }).then(refresh, (e) => toast.error((e as Error).message)),
+              run: () => post(`photos/albums/${album.id}/photos`, { ids }).then(refresh, (e) => toast.fail(e)),
             },
           }
         : {},
@@ -176,7 +174,7 @@ export async function setAlbumCover(qc: QueryClient, album: Album, photoId: stri
     qc.setQueryData<Album[]>(['photos', 'albums'], (old) => old?.map((x) => (x.id === a.id ? { ...x, ...a } : x)))
     toast.show(`Cover set for "${album.name}"`)
   } catch (e) {
-    toast.error((e as Error).message)
+    toast.fail(e)
   }
 }
 

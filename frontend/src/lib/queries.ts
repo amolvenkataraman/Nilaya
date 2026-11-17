@@ -62,6 +62,7 @@ export function useUpdateMe() {
   return useMutation({
     mutationFn: (body: MePatch) => patch<Me>('me', body),
     onSuccess: (me) => qc.setQueryData(keys.me, me),
+    meta: { errorMessage: () => null }, // Settings shows it (under the username field, or as a toast)
   })
 }
 
@@ -217,9 +218,8 @@ export function useSetDone() {
       await qc.cancelQueries({ queryKey: ['tasks'] })
       return { rollback: patchTaskCaches(qc, task.id, (t) => ({ ...t, done, done_at: done ? new Date().toISOString() : null })) }
     },
-    onError: (e, _v, ctx) => {
+    onError: (_e, _v, ctx) => {
       ctx?.rollback()
-      toast.error((e as Error).message)
     },
     onSuccess: (res, { task, done }) => {
       // Let the check animation play, then move it out of open lists (and into done ones).
@@ -243,9 +243,8 @@ export function useUpdateTask() {
       await qc.cancelQueries({ queryKey: ['tasks'] })
       return { rollback: patchTaskCaches(qc, id, (t) => ({ ...t, ...body }) as Task) }
     },
-    onError: (e, _v, ctx) => {
+    onError: (_e, _v, ctx) => {
       ctx?.rollback()
-      toast.error((e as Error).message)
     },
     onSuccess: (task) => {
       settleTaskLists(qc, { tasks: [task] })
@@ -277,9 +276,8 @@ export function useMoveTask() {
       const clean = Object.fromEntries(Object.entries(body).filter(([, v]) => v !== undefined))
       return { rollback: patchTaskCaches(qc, id, (t) => ({ ...t, ...clean }) as Task) }
     },
-    onError: (e, _v, ctx) => {
+    onError: (_e, _v, ctx) => {
       ctx?.rollback()
-      toast.error((e as Error).message)
     },
     onSuccess: (task, v) => {
       settleTaskLists(qc, { tasks: [task], keep: v.optimistic ? [task.id] : [] })
@@ -339,9 +337,8 @@ export function useCreateTask() {
       if (prev) qc.setQueryData<TaskList>(v.listKey, appendTask(prev, temp))
       return { listKey: v.listKey, prev, temp }
     },
-    onError: (e, _v, ctx) => {
+    onError: (_e, _v, ctx) => {
       if (ctx?.listKey) qc.setQueryData(ctx.listKey, ctx.prev)
-      toast.error((e as Error).message)
     },
     onSuccess: (task, _v, ctx) => {
       if (ctx?.listKey && ctx.temp) {
@@ -377,9 +374,8 @@ export function useDeleteTask() {
       await qc.cancelQueries({ queryKey: ['tasks'] })
       return { rollback: settleTaskLists(qc, { gone: [id] }) }
     },
-    onError: (e, _v, ctx) => {
+    onError: (_e, _v, ctx) => {
       ctx?.rollback()
-      toast.error((e as Error).message)
     },
     onSettled: () => refreshTaskCounts(qc),
   })

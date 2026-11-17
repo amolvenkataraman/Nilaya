@@ -12,7 +12,6 @@ import { CAL_COLOURS } from './calendarCommon'
 import { useCalendarIcons } from './api'
 
 type Patch = Partial<Pick<Category, 'name' | 'colour' | 'icon' | 'position'>>
-const onError = (e: unknown) => toast.error((e as Error).message)
 
 export function CategoriesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const qc = useQueryClient()
@@ -26,13 +25,11 @@ export function CategoriesDialog({ open, onClose }: { open: boolean; onClose: ()
     mutationFn: ({ id, body }: { id?: number; body: Patch }) =>
       id ? patch<Category>(`calendar/categories/${id}`, body) : post<Category>('calendar/categories', body),
     onSuccess: () => setEdit(null),
-    onError,
     onSettled: refresh,
   })
   const remove = useMutation({
     mutationFn: (c: Category) => del(`calendar/categories/${c.id}`),
     onSuccess: (_r, c) => toast.show(`Deleted "${c.name}": its events are now Uncategorized`),
-    onError,
     onSettled: refresh,
   })
   const list = (cats.data ?? []).slice().sort((a, b) => a.position - b.position || a.id - b.id)
@@ -46,7 +43,7 @@ export function CategoriesDialog({ open, onClose }: { open: boolean; onClose: ()
       old?.map((c) => (c.id === a.id ? { ...c, position: pa } : c.id === b.id ? { ...c, position: a.position } : c)),
     )
     Promise.all([patch(`calendar/categories/${a.id}`, { position: pa }), patch(`calendar/categories/${b.id}`, { position: a.position })])
-      .catch(onError)
+      .catch(toast.fail)
       .finally(refresh)
   }
   return (

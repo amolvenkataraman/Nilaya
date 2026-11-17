@@ -174,7 +174,7 @@ export function useRunSync(id: number, name?: string) {
       r.ok
         ? toast.show(r.not_modified ? `${name ? `"${name}" is` : 'Already'} up to date` : `Synced${name ? ` "${name}"` : ''}`)
         : toast.error(r.last_sync_error || 'Sync failed'),
-    onError: (e) => toast.error(syncError(e)),
+    meta: { errorMessage: syncError },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['calendar', 'detail', id] })
       qc.invalidateQueries({ queryKey: ['calendar', 'events'] })

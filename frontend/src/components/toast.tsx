@@ -26,6 +26,8 @@ function push(t: Omit<ToastItem, 'id'>, ms: number) {
 export const toast = {
   show: (text: string, opts: { action?: ToastItem['action'] } = {}) => push({ text, action: opts.action }, opts.action ? 6000 : 3500),
   error: (text: string) => push({ text, error: true }, 6000),
+  /** A caught error as a toast (its message, else `fallback`). Failed mutations don't need this: see main.tsx. */
+  fail: (e: unknown, fallback = 'Something went wrong.') => push({ text: (e as Error)?.message || fallback, error: true }, 6000),
 }
 
 export function Toaster() {

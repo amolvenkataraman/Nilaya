@@ -83,9 +83,8 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
       patchPages(qc, (d) => ({ ...d, pages: d.pages.map((p) => ({ ...p, items: p.items.filter((n) => n.id !== id) })) }))
       return { snaps }
     },
-    onError: (e, _id, ctx) => {
+    onError: (_e, _id, ctx) => {
       ctx?.snaps.forEach(([k, d]) => qc.setQueryData(k, d))
-      toast.error((e as Error).message)
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   })
@@ -149,7 +148,7 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
       const r = await post<{ deleted: number }>('notifications/clear-read')
       toast.show(r.deleted ? `Cleared ${r.deleted} read notification${r.deleted === 1 ? '' : 's'}` : 'Nothing to clear')
     } catch (e) {
-      toast.error((e as Error).message)
+      toast.fail(e)
     }
     qc.invalidateQueries({ queryKey: ['notifications'] })
   }

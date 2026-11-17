@@ -77,8 +77,6 @@ const ZONES: string[] = (() => {
   }
 })()
 
-const onError = (e: unknown) => toast.error((e as Error).message)
-
 function useCalendarDetail(cal: Calendar) {
   return useQuery({
     queryKey: ['calendar', 'detail', cal.id],
@@ -101,7 +99,6 @@ function useSaveCalendar(id: number) {
       qc.invalidateQueries({ queryKey: ['calendar', 'calendars'] })
       qc.invalidateQueries({ queryKey: ['calendar', 'events'] })
     },
-    onError,
   })
 }
 
@@ -420,12 +417,10 @@ function Subscribers({ cal }: { cal: Calendar }) {
   const setRole = useMutation({
     mutationFn: ({ id, role }: { id: number; role: string }) => patch(`calendar/calendars/${cal.id}/subscribers/${id}`, { role }),
     onSettled: refresh,
-    onError,
   })
   const remove = useMutation({
     mutationFn: (id: number) => del(`calendar/calendars/${cal.id}/subscribers/${id}`),
     onSettled: refresh,
-    onError,
   })
   return (
     <section className="cal-sec" aria-labelledby="cs-subs">
@@ -501,14 +496,12 @@ function Invites({ cal }: { cal: Calendar }) {
         max_uses: uses ? Number(uses) : null,
       }),
     onSuccess: (inv) => (refresh(), setCode(''), copy(inv.code)),
-    onError,
   })
   const setActive = useMutation({
     mutationFn: ({ id, active }: { id: number; active: boolean }) => patch(`calendar/calendars/${cal.id}/invites/${id}`, { active }),
     onSettled: refresh,
-    onError,
   })
-  const remove = useMutation({ mutationFn: (id: number) => del(`calendar/calendars/${cal.id}/invites/${id}`), onSettled: refresh, onError })
+  const remove = useMutation({ mutationFn: (id: number) => del(`calendar/calendars/${cal.id}/invites/${id}`), onSettled: refresh })
   const copy = (code: string) =>
     navigator.clipboard?.writeText(code).then(
       () => toast.show('Invite code copied'),
@@ -871,7 +864,6 @@ function Danger({ cal, onDone }: { cal: CalendarDetail; onDone: () => void }) {
       setOpen(false),
       onDone()
     ),
-    onError,
   })
   return (
     <section className="cal-sec danger" aria-labelledby="cs-danger">
@@ -974,7 +966,6 @@ export function NewCalendarDialog({ open, onClose, onCreated }: { open: boolean;
         qc.invalidateQueries({ queryKey: ['calendar'] })
       }
     },
-    onError,
   })
   const ok = !!name.trim() && (!syncing || !sourceProblem(type, url))
   return (

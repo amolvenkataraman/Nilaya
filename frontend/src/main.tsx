@@ -1,13 +1,13 @@
 import { StrictMode, type ComponentType } from 'react'
 import { createRoot } from 'react-dom/client'
 import { createBrowserRouter, Navigate, RouterProvider, useLocation, type RouteObject } from 'react-router'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { MutationCache, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ApiError } from './lib/api'
 import { initTheme } from './lib/theme'
 import { reloadOnStaleChunks } from './lib/newBuild'
 import { prefetchCalendar, prefetchDashboard, prefetchPhotos, prefetchShell, prefetchTasks } from './lib/prefetch'
 import { Shell } from './components/Shell'
-import { Toaster } from './components/toast'
+import { Toaster, toast } from './components/toast'
 import { persistCache, restoreCache } from './components/resilience'
 import { checkOwnerAtBoot, claimOwner } from './lib/owner'
 import { signedIn } from './lib/session'
@@ -21,7 +21,18 @@ import './styles/components.css'
 initTheme()
 reloadOnStaleChunks()
 
+// Every failed mutation shows its error once, here. A mutation with its own wording sets
+// meta.errorMessage (return null to stay quiet); its onError is for rollback and refetching only.
+const mutationCache = new MutationCache({
+  onError: (error, variables, _ctx, mutation) => {
+    const own = mutation.meta?.errorMessage
+    const text = own ? own(error, variables) : (error as Error)?.message || 'Something went wrong.'
+    if (text) toast.error(text)
+  },
+})
+
 const queryClient = new QueryClient({
+  mutationCache,
   defaultOptions: {
     queries: {
       // 2 min: coming back to the tab refetches only what is older than that (was 30 s: ~6 requests on Home

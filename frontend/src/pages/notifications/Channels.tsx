@@ -32,9 +32,8 @@ function useChannelPatch() {
       if (!body.config) qc.setQueryData<Channel[]>(KEY, (old) => old?.map((c) => (c.id === id ? ({ ...c, ...body } as Channel) : c)))
       return { prev }
     },
-    onError: (e, _v, ctx) => {
+    onError: (_e, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(KEY, ctx.prev)
-      toast.error((e as Error).message)
     },
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
   })
@@ -94,13 +93,13 @@ function ChannelRow({ c, kindLabel, onEdit }: { c: Channel; kindLabel: string; o
     mutationFn: () => post<{ ok: boolean; error?: string }>(`notifications/channels/${c.id}/test`),
     onMutate: () => setResult(null),
     onSuccess: (r) => setResult(r.ok ? { ok: true, text: 'Test delivered' } : { ok: false, text: r.error || 'Delivery failed' }),
+    meta: { errorMessage: () => null }, // shown in the form
     onError: (e) => setResult({ ok: false, text: (e as Error).message }),
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
   })
   const remove = useMutation({
     mutationFn: () => del(`notifications/channels/${c.id}`),
     onSuccess: () => toast.show(`Deleted "${c.name}"`),
-    onError: (e) => toast.error((e as Error).message),
     onSettled: () => qc.invalidateQueries({ queryKey: KEY }),
   })
   const dest = destination(c, types)
@@ -222,6 +221,7 @@ function ChannelDialog({ channel, types, onClose }: { channel: Channel | null; t
       qc.invalidateQueries({ queryKey: KEY })
       onClose()
     },
+    meta: { errorMessage: () => null }, // shown in the form
     onError: (e) => setError((e as Error).message),
   })
   const missing = (type?.fields ?? []).filter((f) => f.required && !config[f.key]?.trim() && !(channel && f.secret))

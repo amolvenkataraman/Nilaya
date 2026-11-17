@@ -150,6 +150,7 @@ export function PictureDialog({ open, onClose }: { open: boolean; onClose: () =>
       toast.show('Profile picture updated')
       onClose()
     },
+    meta: { errorMessage: () => null }, // shown in the form
     onError: (e) => setError((e as Error).message),
   })
 
