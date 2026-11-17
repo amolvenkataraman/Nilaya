@@ -12,7 +12,7 @@ import { dayStartIn, fmtDateIn, fmtTimeIn, toZoneInput, useCalPrefs, zoneDay, ty
 
 const AGENDA_DAYS = 14
 const page = 'mx-auto w-full max-w-208 px-4 pt-3 pb-8'
-const dayHead = 'px-2 py-1.5 text-xs font-semibold tracking-[0.04em] text-muted uppercase'
+const dayHead = 'px-2 py-1.5 text-xs font-semibold tracking-[0.04em] uppercase'
 export const agendaItem = cn(
   'flex w-full items-start gap-3 rounded-sm border-0 bg-transparent p-2 text-left text-sm text-fg hover:bg-hover hover:no-underline',
 )
@@ -116,7 +116,7 @@ function Agenda({ items, tz, onOpen }: { items: AgendaItem[]; tz: Zone; onOpen: 
       )}
       {groups.map((g) => (
         <section key={g.key} className={section}>
-          <h2 className={cn(dayHead, g.date && dayKey(g.date) === dayKey(today) && 'text-accent')}>
+          <h2 className={cn(dayHead, g.date && dayKey(g.date) === dayKey(today) ? 'text-accent' : 'text-muted')}>
             {g.date ? dayHeading(g.date, today) : 'No date'}
           </h2>
           <ul>

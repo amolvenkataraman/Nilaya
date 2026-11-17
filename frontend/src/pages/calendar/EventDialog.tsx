@@ -38,7 +38,7 @@ import {
   useUpdateEvent,
   type Scope,
 } from './api'
-import { dot, pill } from './chips'
+import { pill } from './chips'
 import {
   defaultCalendar,
   type EventDraft,
@@ -53,6 +53,7 @@ import {
 import { EventMore } from './EventMore'
 import { isUncategorized, minutesText } from './format'
 import { HOME_ZONE, fromZoneInput, gmtLabel, useCalPrefs, zoneCity } from './zone'
+import { SEGMENTED_FIX } from './segmentedFix'
 
 export type { EventDraft } from './eventForm'
 
@@ -200,7 +201,13 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
               maxLength={256}
               autoFocus
             />
-            <Segmented<Kind> className="justify-self-start" label="Type" value={f.kind} onChange={(k) => set('kind', k)} options={KINDS} />
+            <Segmented<Kind>
+              className={`${SEGMENTED_FIX} justify-self-start`}
+              label="Type"
+              value={f.kind}
+              onChange={(k) => set('kind', k)}
+              options={KINDS}
+            />
 
             {tz && f.kind !== 'all_day' && (
               <p className="m-0 flex items-center gap-1.5 text-xs text-accent">
@@ -234,9 +241,11 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
                   <Input
                     type="date"
                     value={f.startDate}
-                    onChange={(e) =>
-                      setF((x) => ({ ...x, startDate: e.target.value, endDate: x.endDate < e.target.value ? e.target.value : x.endDate }))
-                    }
+                    onChange={(e) => {
+                      const v = e.target.value
+                      // The end date never falls before the start (YYYY-MM-DD strings compare in date order).
+                      setF((x) => ({ ...x, startDate: v, endDate: [x.endDate, v].sort()[1] }))
+                    }}
                     required
                   />
                 </Field>
@@ -261,7 +270,7 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
             <FieldRow>
               <Field label="Calendar">
                 <span className="flex items-center gap-2">
-                  <span className={cn(dot, 'size-2.5')} style={{ background: f.colour || cal?.colour }} />
+                  <span className="size-2.5 flex-none rounded-full" style={{ background: f.colour || cal?.colour }} />
                   <Select value={calendarId ?? ''} onChange={(e) => set('calendar', Number(e.target.value))}>
                     {(readOnly && cal ? [cal] : editable).map((c: Calendar) => (
                       <option key={c.id} value={c.id}>
@@ -358,7 +367,7 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
                 placeholder="Notes, links, agenda"
               />
             </Field>
-            <Button variant="ghost" size="sm" className="justify-self-start pl-1" aria-expanded={more} onClick={() => setMore((m) => !m)}>
+            <Button variant="ghost" size="sm" className="justify-self-start" aria-expanded={more} onClick={() => setMore((m) => !m)}>
               <Icon name={more ? 'chevronDown' : 'chevronRight'} size={14} />
               More: colour, icon, tags, place, meeting link, people, status
             </Button>

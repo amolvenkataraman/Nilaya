@@ -35,7 +35,8 @@ export function EventMore({
         <ColourChoice
           value={f.colour}
           onChange={(c) => set('colour', c)}
-          none={cal ? `Calendar colour (${cal.name})` : 'Calendar colour'}
+          none="Calendar colour"
+          noneColour={cal?.colour}
           label="Event colour"
         />
       </div>

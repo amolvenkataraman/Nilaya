@@ -14,6 +14,7 @@ import { CalendarMenu } from './CalendarMenu'
 import { pillSm } from './chips'
 import { useReadable } from './colours'
 import { HOME_ZONE, fmtTimeIn, gmtLabel, zoneCity, type WeekStart, type Zone } from './zone'
+import { SEGMENTED_FIX } from './segmentedFix'
 
 export type SidebarDialog = 'subscribe' | 'categories' | 'person'
 
@@ -165,7 +166,7 @@ export function CalendarSidebar({ mini, calendars, peek, show, view, open, refre
           <span className="text-sm">Week starts on</span>
           <Segmented
             label="Week starts on"
-            className="[&>button]:min-w-11 [&>button]:justify-center"
+            className={cn(SEGMENTED_FIX, '[&>button]:min-w-11 [&>button]:justify-center')}
             value={String(view.weekStart)}
             onChange={(v) => view.setWeekStart(Number(v) as WeekStart)}
             options={[
@@ -283,7 +284,7 @@ function MiniMonth({ date, today, weekStart, onDate }: { date: Date; today: Date
           <Icon name="chevronRight" size={14} />
         </Button>
       </div>
-      <div className="mt-1 grid grid-cols-7 gap-px" role="grid">
+      <div className="mt-1 grid grid-cols-7 gap-px">
         {grid[0].map((d) => (
           <span key={`h${d.getDay()}`} className="h-6 text-center text-2xs leading-6 font-medium text-muted" aria-hidden="true">
             {fmtDate(d, { weekday: 'narrow' })}

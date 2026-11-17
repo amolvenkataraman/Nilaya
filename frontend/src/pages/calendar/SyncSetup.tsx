@@ -7,6 +7,7 @@ import { Button, Dialog, Field, Input, Segmented, Select } from '../../component
 import { fmtDate, fmtTime } from '../../lib/dates'
 import { plural } from '../../lib/format'
 import { syncError, useSyncCalendar, usePreviewSource, type Preview } from './api'
+import { SEGMENTED_FIX } from './segmentedFix'
 
 export type SourceType = 1 | 2 | 50
 export const SOURCES: { type: SourceType; label: string; field: string; placeholder: string }[] = [
@@ -33,7 +34,7 @@ export function SourceTypes({ type, onType, disabled }: { type: SourceType; onTy
     <fieldset disabled={disabled} className="m-0 contents border-0 p-0">
       <Segmented
         label="Source type"
-        className="w-full flex-wrap [&>button]:flex-1 [&>button]:justify-center [&>button]:whitespace-nowrap"
+        className={`${SEGMENTED_FIX} w-full flex-wrap [&>button]:flex-1 [&>button]:justify-center [&>button]:whitespace-nowrap`}
         value={String(type)}
         onChange={(v) => onType(Number(v) as SourceType)}
         options={SOURCES.map((s) => ({ value: String(s.type), label: s.label }))}

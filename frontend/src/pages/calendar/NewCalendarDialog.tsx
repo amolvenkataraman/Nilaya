@@ -9,6 +9,7 @@ import { CAL_COLOURS } from './colours'
 import { IconPicker } from './IconPicker'
 import { SettingRow, srOnly } from './SettingRow'
 import { clampMonths, MAX_SYNC_MONTHS, SourceFields, sourceProblem, type SourceType } from './SyncSetup'
+import { SEGMENTED_FIX } from './segmentedFix'
 
 export default function NewCalendarDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (c: Calendar) => void }) {
   const icons = useCalendarIcons().data ?? []
@@ -72,7 +73,7 @@ export default function NewCalendarDialog({ onClose, onCreated }: { onClose: () 
       >
         <Segmented
           label="Kind of calendar"
-          className="w-full flex-wrap [&>button]:flex-1 [&>button]:justify-center [&>button]:whitespace-nowrap"
+          className={`${SEGMENTED_FIX} w-full flex-wrap [&>button]:flex-1 [&>button]:justify-center [&>button]:whitespace-nowrap`}
           value={mode}
           onChange={setMode}
           options={[

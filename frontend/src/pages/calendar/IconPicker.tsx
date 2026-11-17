@@ -20,6 +20,7 @@ export function IconPicker({
   size?: 'sm' | 'md'
 }) {
   const option = (icon: string, title: string, glyph: string, glyphSize: number) => (
+    // biome-ignore lint/a11y/useSemanticElements: an icon radio, drawn like the shared ColourPicker's swatches
     <button
       key={icon || '-'}
       type="button"

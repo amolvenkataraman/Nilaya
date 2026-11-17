@@ -22,6 +22,7 @@ export function ZoneChip({
 }) {
   const home = zoneCity(HOME_ZONE)
   return (
+    // biome-ignore lint/a11y/useSemanticElements: two buttons about one thing, not a form group
     <span
       className={cn(
         'inline-flex h-7 flex-none items-stretch justify-self-start rounded-full bg-accent-soft text-sm text-accent',
@@ -32,7 +33,7 @@ export function ZoneChip({
     >
       <button
         type="button"
-        className={cn(part, 'rounded-l-full border-0 pr-1.5 pl-2.5 font-semibold')}
+        className={cn(part, 'rounded-l-full border-0 pr-1.5 pl-2.5')}
         onClick={onOpen}
         title={`Times are shown in ${tz} (${gmtLabel(now.getTime(), tz)}), for this window only. Click to change.`}
       >

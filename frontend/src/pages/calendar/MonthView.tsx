@@ -72,6 +72,7 @@ export function MonthView({ days, month, byDay, colour, layers, today, selected,
           </div>
         ))}
       </div>
+      {/* biome-ignore lint/a11y/useSemanticElements: an ARIA grid of days; the day buttons inside take focus */}
       <div
         ref={grid}
         className={cn('grid min-h-0', compact ? 'grid-rows-[repeat(6,3rem)]' : 'flex-1 grid-rows-6')}
@@ -79,6 +80,7 @@ export function MonthView({ days, month, byDay, colour, layers, today, selected,
         aria-label={fmtDate(days[10], { month: 'long', year: 'numeric' })}
       >
         {weeks.map((week) => (
+          // biome-ignore lint/a11y/useSemanticElements lint/a11y/useFocusableInteractive: a row of the ARIA grid above
           <div className="grid min-h-0 grid-cols-7 border-b border-border last:border-b-0" role="row" key={week[0].getTime()}>
             {week.map((d) => {
               const list = entries(d)
@@ -89,7 +91,7 @@ export function MonthView({ days, month, byDay, colour, layers, today, selected,
               const hidden = list.length - shown.length
               const label = `${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}, ${list.length ? plural(list.length, 'item') : 'nothing scheduled'}`
               return (
-                // biome-ignore lint/a11y/useKeyWithClickEvents: the day number inside is the keyboard target; N creates events
+                // biome-ignore lint/a11y/useKeyWithClickEvents lint/a11y/useSemanticElements lint/a11y/useFocusableInteractive: a day of the ARIA grid; its day number is the keyboard target, N creates events
                 <div
                   key={d.getTime()}
                   role="gridcell"

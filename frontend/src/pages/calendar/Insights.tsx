@@ -13,6 +13,7 @@ import type { Insights as InsightsData } from '../../lib/types'
 import { pill } from './chips'
 import { hourFmt } from './format'
 import type { InsightsPeriod } from './range'
+import { SEGMENTED_FIX } from './segmentedFix'
 
 /** Signed delta label: "+9.8 h", "−2 h" (dir 0: no change). */
 export function delta(cur: number, prev: number, unit = ''): { text: string; dir: 1 | -1 | 0 } {
@@ -67,6 +68,9 @@ const WEEKDAYS = Array.from({ length: 7 }, (_, i) => fmtDate(new Date(2026, 10, 
 /** Monday-first weekday data (as the server sends it) in the user's week order. */
 const inWeekOrder = <T,>(a: T[], weekStart: 0 | 1): T[] => (weekStart === 0 && a.length === 7 ? [a[6], ...a.slice(0, 6)] : a)
 
+const WEEK = [0, 1, 2, 3, 4, 5, 6]
+const DAY_HOURS = Array.from({ length: 24 }, (_, h) => h)
+
 function Heat({ heat, labels }: { heat: number[][]; labels: string[] }) {
   const [ref, { w }] = useSize<HTMLDivElement>()
   const [tip, setTip] = useState<ChartTip | null>(null)
@@ -87,15 +91,18 @@ function Heat({ heat, labels }: { heat: number[][]; labels: string[] }) {
         ))}
       </div>
       <div className="grid min-w-0 gap-1">
+        {/* biome-ignore lint/a11y/noStaticElementInteractions: the hover tooltip only repeats each cell's <title> */}
         <div ref={ref} className="relative" onMouseLeave={() => setTip(null)}>
           {w > 0 && (
             <svg width={w} height={7 * ch + 6 * gap} role="img" aria-label="Busy hours by weekday" className="block overflow-visible">
-              {heat.map((row, d) =>
-                row.map((v, hr) => {
+              {WEEK.map((d) =>
+                DAY_HOURS.map((hr) => {
+                  const v = heat[d]?.[hr] ?? 0
                   const text = `${labels[d]} ${hourFmt.format(new Date(2000, 0, 1, hr))}: ${hours(v)}`
                   const x = hr * (cw + gap)
                   const y = d * (ch + gap)
                   return (
+                    // biome-ignore lint/a11y/noStaticElementInteractions: hover shows the cell's <title> as a tooltip
                     <rect
                       key={`${d}-${hr}`}
                       x={x}
@@ -193,6 +200,7 @@ export function InsightsPanel({
         <Icon name="chart" className="text-accent" />
         <h2 className="min-w-0 flex-auto text-base">Insights</h2>
         <Segmented<InsightsPeriod>
+          className={SEGMENTED_FIX}
           label="Period"
           value={period}
           onChange={onPeriod}

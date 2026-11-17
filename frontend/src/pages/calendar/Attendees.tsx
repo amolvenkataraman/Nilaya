@@ -109,27 +109,26 @@ export function Attendees({
           }}
         />
         {hits.length > 0 && (
-          <ul
-            className="absolute top-[calc(100%+2px)] right-0 left-0 z-5 rounded-md bg-surface p-1 shadow-pop"
+          <div
+            className="absolute top-[calc(100%+2px)] right-0 left-0 z-5 grid rounded-md bg-surface p-1 shadow-pop"
             role="listbox"
             aria-label="Contacts"
           >
             {hits.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected="false"
-                  className="flex w-full items-center gap-2 rounded-sm border-0 bg-transparent px-2 py-1.5 text-left text-sm text-fg hover:bg-hover"
-                  onClick={() => pick({ contact_id: c.id, name: c.name, email: c.email })}
-                >
-                  <Icon name="user" size={13} />
-                  <span className="min-w-0 truncate">{c.name}</span>
-                  {c.email && <span className="min-w-0 truncate text-xs text-muted">{c.email}</span>}
-                </button>
-              </li>
+              <button
+                key={c.id}
+                type="button"
+                role="option"
+                aria-selected="false"
+                className="flex w-full items-center gap-2 rounded-sm border-0 bg-transparent px-2 py-1.5 text-left text-sm text-fg hover:bg-hover"
+                onClick={() => pick({ contact_id: c.id, name: c.name, email: c.email })}
+              >
+                <Icon name="user" size={13} />
+                <span className="min-w-0 truncate">{c.name}</span>
+                {c.email && <span className="min-w-0 truncate text-xs text-muted">{c.email}</span>}
+              </button>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </div>

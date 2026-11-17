@@ -140,7 +140,7 @@ export function TaskChip({
       {timed && <span className="flex-none text-muted tabular-nums">{chipTime(new Date(task.due!), tz)}</span>}
       <button
         type="button"
-        className={cn('min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left text-fg', task.done && 'text-muted line-through')}
+        className={cn('min-w-0 flex-1 truncate border-0 bg-transparent p-0 text-left', task.done ? 'text-muted line-through' : 'text-fg')}
         onClick={() => onOpen(task)}
         aria-label={`Open ${label}`}
       >

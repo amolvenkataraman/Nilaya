@@ -73,7 +73,7 @@ export function TimeGrid({
             {HOURS.map(
               (h) =>
                 h > 0 && (
-                  <span key={h} className={hourLabel} style={{ top: pct(h * 60) }}>
+                  <span key={h} className={cn(hourText, 'right-2')} style={{ top: pct(h * 60) }}>
                     {hourFmt.format(new Date(2000, 0, 1, h))}
                   </span>
                 ),
@@ -82,7 +82,7 @@ export function TimeGrid({
               HOURS.map(
                 (h) =>
                   h > 0 && (
-                    <span key={`home${h}`} className={cn(hourLabel, 'right-auto left-1.5 opacity-70')} style={{ top: pct(h * 60) }}>
+                    <span key={`home${h}`} className={cn(hourText, 'left-1.5 opacity-70')} style={{ top: pct(h * 60) }}>
                       {homeHours[h]}
                     </span>
                   ),
@@ -95,7 +95,7 @@ export function TimeGrid({
   )
 }
 
-const hourLabel = 'absolute right-2 -translate-y-1/2 text-2xs whitespace-nowrap text-muted tabular-nums'
+const hourText = 'absolute -translate-y-1/2 text-2xs whitespace-nowrap text-muted tabular-nums'
 
 /** A day's column: hour lines every --hour, a faint hover tint when it can be clicked to create. */
 export const dayColumn = (interactive = true) =>

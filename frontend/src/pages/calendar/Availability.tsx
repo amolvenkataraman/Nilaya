@@ -130,7 +130,7 @@ export default function AvailabilityPage({ bare = false }: { bare?: boolean }) {
         <div className="grid gap-1.5 border-b border-border px-2 pt-1.5 pb-2">
           <div className={cn('flex items-center gap-1', bare && 'flex-wrap gap-y-1.5')}>
             {nav}
-            {bare && avail.loading && <span className="spinner" aria-label="Loading" />}
+            {bare && avail.loading && <output className="spinner" aria-label="Loading" />}
           </div>
         </div>
       )}
@@ -153,19 +153,17 @@ export default function AvailabilityPage({ bare = false }: { bare?: boolean }) {
             head={(d) => <DayHeader day={d} today={isSameDay(d, now)} onClick={() => setDate(d)} />}
           >
             {days.map((d, i) => (
-              <div
+              <ul
                 key={d.getTime()}
                 className={dayColumn(false)}
-                role="list"
                 aria-label={`${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}: ${perDay[i].length ? `${perDay[i].length} busy` : 'free'}`}
               >
                 {perDay[i].map((b) => {
                   const label = `Busy ${fmtTime(new Date(b.s))} – ${fmtTime(new Date(b.e))}`
                   const short = b.z - b.a < 45
                   return (
-                    <div
+                    <li
                       key={`${b.s}-${b.e}`}
-                      role="listitem"
                       className={cn(
                         'absolute right-1 left-0.5 z-1 flex overflow-hidden rounded-[5px] px-1.5 text-xs leading-tight text-fg',
                         'bg-[repeating-linear-gradient(135deg,color-mix(in_srgb,var(--app-accent)_16%,var(--app-surface))_0_6px,color-mix(in_srgb,var(--app-accent)_24%,var(--app-surface))_6px_12px)]',
@@ -180,11 +178,11 @@ export default function AvailabilityPage({ bare = false }: { bare?: boolean }) {
                       <span className="text-muted tabular-nums">
                         {fmtTime(new Date(b.s))} – {fmtTime(new Date(b.e))}
                       </span>
-                    </div>
+                    </li>
                   )
                 })}
                 {isSameDay(d, now) && <NowLine min={now.getHours() * 60 + now.getMinutes()} />}
-              </div>
+              </ul>
             ))}
           </TimeGrid>
         </>
@@ -205,7 +203,7 @@ export default function AvailabilityPage({ bare = false }: { bare?: boolean }) {
           </Link>
           {!phone && nav}
           <span className="flex-1" />
-          {avail.loading && <span className="spinner" aria-label="Loading" />}
+          {avail.loading && <output className="spinner" aria-label="Loading" />}
         </>
       }
     >

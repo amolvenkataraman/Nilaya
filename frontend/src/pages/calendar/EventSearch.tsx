@@ -51,6 +51,7 @@ export function EventSearch({ calendars, onPick }: { calendars?: Calendar[]; onP
       </Button>
     )
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: focus leaving the field and its results closes the search
     <div
       className="relative flex h-8 w-[min(18rem,40vw)] items-center gap-1.5 rounded-sm border border-accent bg-surface px-2"
       onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node | null) && setOpen(false)}
@@ -79,50 +80,49 @@ export function EventSearch({ calendars, onPick }: { calendars?: Calendar[]; onP
           }
         }}
       />
-      {res.isFetching && <span className="spinner" />}
+      {res.isFetching && <output className="spinner" aria-label="Searching" />}
       {q.length >= 2 && !res.isPending && (
         // Clicks on results keep focus in the field (else it would blur and close before the click lands).
-        <ul
-          className="absolute top-[calc(100%+4px)] right-0 z-60 max-h-[60vh] w-[min(26rem,90vw)] overflow-auto rounded-md bg-surface p-1 shadow-pop"
+        <div
+          className="absolute top-[calc(100%+4px)] right-0 z-60 grid max-h-[60vh] w-[min(26rem,90vw)] overflow-auto rounded-md bg-surface p-1 shadow-pop"
           role="listbox"
           aria-label="Matching events"
           onMouseDown={(e) => e.preventDefault()}
         >
-          {items.length === 0 && <li className="p-2 text-sm text-muted">No events match "{q}".</li>}
+          {items.length === 0 && <p className="m-0 p-2 text-sm text-muted">No events match "{q}".</p>}
           {items.map((e, i) => {
             const s = e.all_day ? eventDays(e).first : new Date(e.start) // all-day: its calendar date
             const z = e.all_day ? undefined : tz // timed: in the display zone
             return (
-              <li key={e.id}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected={i === active}
-                  className={cn(
-                    'flex w-full items-center gap-2 rounded-sm border-0 px-2 py-1.75 text-left text-sm text-fg',
-                    i === active ? 'bg-hover' : 'bg-transparent',
+              <button
+                key={e.id}
+                type="button"
+                role="option"
+                aria-selected={i === active}
+                className={cn(
+                  'flex w-full items-center gap-2 rounded-sm border-0 px-2 py-1.75 text-left text-sm text-fg',
+                  i === active ? 'bg-hover' : 'bg-transparent',
+                )}
+                onMouseMove={() => setActive(i)}
+                onClick={() => pick(e)}
+              >
+                <span className="size-2 flex-none rounded-full" style={{ background: e.display_colour || colour(e.calendar_id) }} />
+                <span className="min-w-0 flex-auto truncate">
+                  {e.name}
+                  {e.location && <span className="text-muted"> · {e.location}</span>}
+                </span>
+                <span className="text-xs text-muted tabular-nums">
+                  {fmtDateIn(
+                    s,
+                    { month: 'short', day: 'numeric', year: s.getFullYear() !== today.getFullYear() ? 'numeric' : undefined },
+                    z,
                   )}
-                  onMouseMove={() => setActive(i)}
-                  onClick={() => pick(e)}
-                >
-                  <span className="size-2 flex-none rounded-full" style={{ background: e.display_colour || colour(e.calendar_id) }} />
-                  <span className="min-w-0 flex-auto truncate">
-                    {e.name}
-                    {e.location && <span className="text-muted"> · {e.location}</span>}
-                  </span>
-                  <span className="text-xs text-muted tabular-nums">
-                    {fmtDateIn(
-                      s,
-                      { month: 'short', day: 'numeric', year: s.getFullYear() !== today.getFullYear() ? 'numeric' : undefined },
-                      z,
-                    )}
-                    {e.all_day ? '' : (e.kind === 'deadline' ? ' · due ' : ' · ') + fmtTimeIn(s, z)}
-                  </span>
-                </button>
-              </li>
+                  {e.all_day ? '' : (e.kind === 'deadline' ? ' · due ' : ' · ') + fmtTimeIn(s, z)}
+                </span>
+              </button>
             )
           })}
-        </ul>
+        </div>
       )}
     </div>
   )

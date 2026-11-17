@@ -7,12 +7,15 @@ import { ColourPicker } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { CAL_COLOURS } from './colours'
 
+/** The ring the shared ColourPicker draws around the chosen swatch. */
+const CHOSEN = 'shadow-[0_0_0_2px_var(--app-surface),0_0_0_4px_var(--app-fg)]'
 const RAINBOW = 'conic-gradient(#ef4444, #f59e0b, #10b981, #3b82f6, #8b5cf6, #ef4444)'
 
 export function ColourChoice({
   value,
   onChange,
   none,
+  noneColour,
   label = 'Colour',
   delay = 0,
 }: {
@@ -21,13 +24,36 @@ export function ColourChoice({
   onChange: (colour: string) => void
   /** Label of the "no colour" choice (sends ''); leave out to not offer one. */
   none?: string
+  /** What "no colour" falls back to (the calendar's colour), drawn in that choice's swatch. */
+  noneColour?: string
   label?: string
   delay?: number
 }) {
   const custom = !!value && !CAL_COLOURS.includes(value)
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <ColourPicker value={value || null} onChange={(c) => onChange(c ?? '')} colours={CAL_COLOURS} none={none} label={label} />
+      {none && noneColour && (
+        // biome-ignore lint/a11y/useSemanticElements: a swatch radio, drawn like the shared ColourPicker's
+        <button
+          type="button"
+          role="radio"
+          aria-checked={!value}
+          aria-label={none}
+          title={none}
+          onClick={() => onChange('')}
+          className={cn('grid size-6 place-items-center rounded-full border-0 text-white', !value && CHOSEN)}
+          style={{ background: noneColour }}
+        >
+          {!value && <Icon name="check" size={12} />}
+        </button>
+      )}
+      <ColourPicker
+        value={value || null}
+        onChange={(c) => onChange(c ?? '')}
+        colours={CAL_COLOURS}
+        none={noneColour ? undefined : none}
+        label={label}
+      />
       <CustomColour value={custom ? value : ''} onPick={onChange} delay={delay} />
     </div>
   )
@@ -47,7 +73,7 @@ function CustomColour({ value, onPick, delay }: { value: string; onPick: (c: str
       className={cn(
         'relative grid size-6 cursor-pointer place-items-center rounded-full text-white',
         'focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-accent',
-        value && 'shadow-[0_0_0_2px_var(--app-surface),0_0_0_4px_var(--app-fg)]',
+        value && CHOSEN,
       )}
       style={{ background: value ? shown : RAINBOW }}
       title="Custom colour"
