@@ -58,9 +58,10 @@ export function GuidesSection() {
           <div className="grid grid-cols-[repeat(auto-fill,minmax(15rem,1fr))]">
             {apps.data.map((a) => (
               <div key={a.app} className="-mt-px flex items-center gap-1 border-t border-border py-1.5 pr-2 pl-4 text-sm">
-                <span className="min-w-0 flex-1 truncate">
-                  {a.label}
-                  <span className="text-xs text-muted"> · /api/v2/{a.app}/guide.md</span>
+                {/* The app name never truncates (it used to shrink to its first letter); the path gives way. */}
+                <span className="flex min-w-0 flex-1 items-baseline whitespace-nowrap">
+                  <span className="shrink-0">{a.label}</span>
+                  <span className="min-w-0 truncate text-xs text-muted">&nbsp;· /api/v2/{a.app}/guide.md</span>
                 </span>
                 <a className={ghost} href={apiUrl(`${encodeURIComponent(a.app)}/guide.md`)} {...newTab}>
                   Open

@@ -6,6 +6,9 @@ import { ApiError, get } from '../../lib/api'
 import { dateFormatter } from '../../lib/dates'
 import { Icon } from '../../components/Icon'
 import { ErrorBox, SkeletonRows, useNow } from '../../components/ui'
+import { cn } from '../../lib/cn'
+import { cardClass } from '../settings/Card'
+import { Chip } from '../settings/Chip'
 import { PublicFrame, PublicNotice, usePublicTitle } from './PublicFrame'
 
 interface Countdown {
@@ -50,7 +53,7 @@ export default function CountdownPage() {
   if (q.isPending)
     return (
       <PublicFrame>
-        <div className="card">
+        <div className={cardClass}>
           <SkeletonRows rows={4} />
         </div>
       </PublicFrame>
@@ -60,10 +63,10 @@ export default function CountdownPage() {
       <PublicFrame>
         {q.error instanceof ApiError && q.error.status === 404 ? (
           <PublicNotice icon="clock" title="This countdown isn't available">
-            <p className="muted small">The event doesn't exist, has no {which} time, or isn't shared publicly.</p>
+            <p className="text-sm text-muted">The event doesn't exist, has no {which} time, or isn't shared publicly.</p>
           </PublicNotice>
         ) : (
-          <div className="card">
+          <div className={cardClass}>
             <ErrorBox error={q.error} retry={() => q.refetch()} />
           </div>
         )}
@@ -83,42 +86,51 @@ export default function CountdownPage() {
   const verb = c.deadline ? 'Due' : c.which === 'start' ? 'Started' : 'Ended'
   return (
     <PublicFrame>
-      <section className={'card cd' + (past ? ' past' : '')}>
-        <p className="cd-kicker">
+      <section className={cn(cardClass, 'mt-8 grid justify-items-center gap-4 px-6 py-8 text-center max-sm:px-3 max-sm:py-6')}>
+        <p className="inline-flex items-center gap-1.5 text-xs font-semibold tracking-[0.06em] text-accent uppercase">
           <Icon name="clock" size={14} />
           {c.deadline ? 'Countdown' : `Countdown to ${c.which}`}
         </p>
-        <h1 className="cd-name">
+        <h1 className="flex flex-wrap items-center justify-center gap-2 text-[clamp(1.375rem,4vw,2rem)] font-semibold tracking-[-0.02em] wrap-anywhere">
           {c.name}
-          {c.busy && (
-            <span className="chip cd-busy" title="A private event: only its time is shared">
-              Private
-            </span>
-          )}
+          {c.busy && <Chip title="A private event: only its time is shared">Private</Chip>}
         </h1>
         <div
-          className="cd-units"
+          className={cn('grid w-full max-w-[34rem] grid-cols-4 gap-3 max-sm:gap-1.5', past && 'motion-safe:animate-pulse')}
           role="timer"
           aria-live="off"
           aria-label={past ? `${verb} ${t.days} days ${t.hours} hours ago` : `${t.days} days ${t.hours} hours ${t.minutes} minutes left`}
         >
           {units.map(([n, label], i) => (
-            <div key={label} className="cd-unit">
-              <span className="cd-num tabular">{i === 0 ? n : pad(n)}</span>
-              <span className="cd-label">{label}</span>
+            <div
+              key={label}
+              className={cn(
+                'grid gap-1 rounded-md border px-1 py-4 max-sm:px-0.5 max-sm:py-3',
+                past ? 'border-[color-mix(in_srgb,var(--app-danger)_25%,transparent)] bg-danger-soft' : 'border-border bg-surface-2',
+              )}
+            >
+              <span
+                className={cn(
+                  'text-[clamp(1.75rem,7vw,3.25rem)] leading-none font-[650] tracking-[-0.02em] tabular-nums',
+                  past && 'text-danger',
+                )}
+              >
+                {i === 0 ? n : pad(n)}
+              </span>
+              <span className="text-xs tracking-[0.05em] text-muted uppercase">{label}</span>
             </div>
           ))}
         </div>
-        <p className="cd-when">
+        <p className="grid gap-1 text-sm">
           {past ? (
             <strong>
               {verb} {t.days ? `${t.days} day${t.days === 1 ? '' : 's'}, ` : ''}
               {t.hours} h {pad(t.minutes)} min ago
             </strong>
           ) : (
-            <span className="muted">{c.deadline ? 'Due' : c.which === 'start' ? 'Starts' : 'Ends'}</span>
+            <span className="text-muted">{c.deadline ? 'Due' : c.which === 'start' ? 'Starts' : 'Ends'}</span>
           )}
-          <span className="tabular">{when.format(target)}</span>
+          <span className="tabular-nums">{when.format(target)}</span>
         </p>
       </section>
     </PublicFrame>
