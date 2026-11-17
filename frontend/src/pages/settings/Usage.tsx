@@ -7,7 +7,7 @@ import { cn } from '../../lib/cn'
 import { addDays, dayKey, fmtDate, parseDayKey, startOfDay } from '../../lib/dates'
 import { type UsageSummary, usageQuery } from './api'
 import { Card, CardBody, CardCount, CardHead, cardClass } from './Card'
-import { SectionHead, segmentedReset } from './SettingsSection'
+import { SectionHead } from './SettingsSection'
 
 const PERIODS = [
   { value: '7', label: '7 days' },
@@ -66,7 +66,7 @@ export function UsagePage() {
             Page views and API calls (including in-page data loads) per person, app and day: which apps actually get used. Staff only.
           </p>
         </div>
-        <Segmented label="Period" value={period} onChange={setPeriod} options={PERIODS} className={segmentedReset} />
+        <Segmented label="Period" value={period} onChange={setPeriod} options={PERIODS} />
       </SectionHead>
       <QueryView
         query={q}

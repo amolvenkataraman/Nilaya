@@ -6,7 +6,6 @@ import { Button, buttonClass, Segmented } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { fmtDate } from '../../lib/dates'
 import type { CalView } from './range'
-import { SEGMENTED_FIX } from './segmentedFix'
 
 const VIEWS: CalView[] = ['month', 'week', 'day', 'agenda']
 const cap = (v: string) => v[0].toUpperCase() + v.slice(1)
@@ -48,7 +47,7 @@ function Views({ view, phone, onView, className }: Pick<TopbarProps, 'view' | 'p
   return (
     <Segmented<CalView>
       label="View"
-      className={cn(SEGMENTED_FIX, className)}
+      className={cn(className)}
       value={view}
       onChange={onView}
       options={VIEWS.map((v) => ({

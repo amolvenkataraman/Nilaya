@@ -53,7 +53,6 @@ import {
 import { EventMore } from './EventMore'
 import { isUncategorized, minutesText } from './format'
 import { HOME_ZONE, fromZoneInput, gmtLabel, useCalPrefs, zoneCity } from './zone'
-import { SEGMENTED_FIX } from './segmentedFix'
 
 export type { EventDraft } from './eventForm'
 
@@ -202,7 +201,7 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
               autoFocus
             />
             <Segmented<Kind>
-              className={`${SEGMENTED_FIX} justify-self-start`}
+              className={`justify-self-start`}
               label="Type"
               value={f.kind}
               onChange={(k) => set('kind', k)}

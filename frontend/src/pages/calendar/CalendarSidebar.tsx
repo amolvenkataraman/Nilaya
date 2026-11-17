@@ -14,7 +14,6 @@ import { CalendarMenu } from './CalendarMenu'
 import { pillSm } from './chips'
 import { useReadable } from './colours'
 import { HOME_ZONE, fmtTimeIn, gmtLabel, zoneCity, type WeekStart, type Zone } from './zone'
-import { SEGMENTED_FIX } from './segmentedFix'
 
 export type SidebarDialog = 'subscribe' | 'categories' | 'person'
 
@@ -166,7 +165,7 @@ export function CalendarSidebar({ mini, calendars, peek, show, view, open, refre
           <span className="text-sm">Week starts on</span>
           <Segmented
             label="Week starts on"
-            className={cn(SEGMENTED_FIX, '[&>button]:min-w-11 [&>button]:justify-center')}
+            className={cn('[&>button]:min-w-11 [&>button]:justify-center')}
             value={String(view.weekStart)}
             onChange={(v) => view.setWeekStart(Number(v) as WeekStart)}
             options={[

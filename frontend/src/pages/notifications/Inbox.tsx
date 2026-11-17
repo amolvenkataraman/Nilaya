@@ -22,7 +22,7 @@ import { cn } from '../../lib/cn'
 import { dayDiff, fmtDate, groupByDay } from '../../lib/dates'
 import { cardClass } from '../settings/Card'
 import { Kbd } from '../settings/Chip'
-import { SettingsSection, searchBoxReset, segmentedReset } from '../settings/SettingsSection'
+import { SettingsSection } from '../settings/SettingsSection'
 import { inboxPagesQuery, sourcesQuery, useClearRead, useDeleteNotification, useInboxReads } from './api'
 
 function dayLabel(d: Date | null, now = new Date()): string {
@@ -128,7 +128,6 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <Segmented
           label="Show"
-          className={segmentedReset}
           value={unreadOnly ? 'unread' : 'all'}
           onChange={(v) => setParams(v === 'unread' ? { unread: '1' } : {})}
           options={[
@@ -145,7 +144,7 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
           ))}
         </Select>
         <SearchBox
-          className={cn('min-w-48 flex-1 max-md:basis-full', searchBoxReset)}
+          className={'min-w-48 flex-1 max-md:basis-full'}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search notifications"

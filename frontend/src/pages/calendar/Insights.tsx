@@ -13,7 +13,6 @@ import type { Insights as InsightsData } from '../../lib/types'
 import { pill } from './chips'
 import { hourFmt } from './format'
 import type { InsightsPeriod } from './range'
-import { SEGMENTED_FIX } from './segmentedFix'
 
 /** Signed delta label: "+9.8 h", "−2 h" (dir 0: no change). */
 function delta(cur: number, prev: number, unit = ''): { text: string; dir: 1 | -1 | 0 } {
@@ -200,7 +199,6 @@ export function InsightsPanel({
         <Icon name="chart" className="text-accent" />
         <h2 className="min-w-0 flex-auto text-base">Insights</h2>
         <Segmented<InsightsPeriod>
-          className={SEGMENTED_FIX}
           label="Period"
           value={period}
           onChange={onPeriod}

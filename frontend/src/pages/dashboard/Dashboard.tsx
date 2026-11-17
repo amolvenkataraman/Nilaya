@@ -12,7 +12,7 @@ import { useMe, useOverview } from '../../lib/queries'
 // is still fetched only when the card is near the viewport (DashSlot lazy).
 import { HabitsTodayCard } from '../habits/HabitsToday'
 import { Kbd } from '../settings/Chip'
-import { searchBoxReset } from '../settings/SettingsSection'
+
 import { AgendaCard } from './AgendaCard'
 import { DashSlot, dashGrid } from './DashCard'
 import { InboxCard } from './InboxCard'
@@ -74,13 +74,7 @@ export default function Dashboard() {
                 if (q) window.open(`https://duckduckgo.com/?q=${encodeURIComponent(q)}`, '_blank', 'noopener,noreferrer')
               }}
             >
-              <SearchBox
-                className={searchBoxReset}
-                name="q"
-                placeholder="Search DuckDuckGo"
-                aria-label="Search DuckDuckGo"
-                maxLength={300}
-              />
+              <SearchBox name="q" placeholder="Search DuckDuckGo" aria-label="Search DuckDuckGo" maxLength={300} />
             </form>
           </search>
           <div className="flex gap-2 max-md:hidden">
