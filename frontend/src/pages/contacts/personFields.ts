@@ -1,5 +1,6 @@
-// Small pure helpers shared by the Contacts views.
-import { fmtDate } from '../../lib/dates'
+// How contact fields are worded and parsed: keep-in-touch intervals, relationship labels, birthdays
+// (with or without a year). Pure, shared by the list, the person pane, the form and the merge dialog.
+import { dayDiff, fmtDate, parseDayKey } from '../../lib/dates'
 
 export const KIT = [
   [0, 'Off'],
@@ -57,24 +58,10 @@ export function fmtBirthday(b: string): string {
   return fmtDate(d, p.year ? { month: 'long', day: 'numeric', year: 'numeric' } : { month: 'long', day: 'numeric' })
 }
 
-// The app-wide "g then a letter" jump (Shell) shares letters with page shortcuts (g n, g t, g s…):
-// page shortcuts ignore the key that follows a "g".
-let gAt = 0
-if (typeof window !== 'undefined') {
-  window.addEventListener(
-    'keydown',
-    (e) => {
-      const el = e.target as HTMLElement | null
-      if (
-        e.key === 'g' &&
-        !e.metaKey &&
-        !e.ctrlKey &&
-        !e.altKey &&
-        !(el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)))
-      )
-        gAt = Date.now()
-    },
-    true,
-  )
+/** "Overdue by 3 days", "Due today", "Next catch-up in 5 days" for a keep-in-touch due date. */
+export function kitStatus(nextDue: string): string {
+  const days = dayDiff(new Date(), parseDayKey(nextDue))
+  if (days < 0) return `Overdue by ${-days} day${days === -1 ? '' : 's'}`
+  if (days === 0) return 'Due today'
+  return `Next catch-up in ${days} day${days === 1 ? '' : 's'}`
 }
-export const afterG = (e: KeyboardEvent) => e.key !== 'g' && Date.now() - gAt < 900

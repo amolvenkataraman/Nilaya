@@ -1,5 +1,5 @@
-// /api/v2/contacts/ types and hooks (query keys under ['contacts']).
-import { keepPreviousData, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+// /api/v2/contacts/ types, queries and mutations (query keys under ['contacts']).
+import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api, apiUrl, del, get, patch, post, upload } from '../../lib/api'
 import { queryGroup } from '../../lib/batch'
 
@@ -187,10 +187,21 @@ export type Filter = '' | 'favorites' | 'overdue' | 'kit' | 'recent' | 'birthday
 
 export const AVATAR_MAX = 2_000_000
 
+export const contactKeys = {
+  all: ['contacts'] as const,
+  /** The calendar's attendee search uses the same shape, so a name search is cached once for both. */
+  list: (params: Record<string, unknown>) => ['contacts', 'list', params] as const,
+  person: (id: string) => ['contacts', 'person', id] as const,
+  duplicates: ['contacts', 'duplicates'] as const,
+  stats: ['contacts', 'stats'] as const,
+  tags: ['contacts', 'tags'] as const,
+  meta: ['contacts', 'meta'] as const,
+}
+
 /** Refresh contact queries after a write; meta never changes and the edited person was just set. */
 function refresh(qc: QueryClient, keepPerson?: string) {
   return qc.invalidateQueries({
-    queryKey: ['contacts'],
+    queryKey: contactKeys.all,
     predicate: (q) => q.queryKey[1] !== 'meta' && !(keepPerson && q.queryKey[1] === 'person' && q.queryKey[2] === keepPerson),
   })
 }
@@ -205,36 +216,37 @@ export const exportHref = (format: 'vcf' | 'csv', ids?: string[]) =>
 export const usePeople = (params: { q?: string; filter?: Filter; tag?: string; group?: string; sort?: string }) =>
   useQuery({
     // `limit` is part of the key so the calendar's 8-result attendee search never fills this list.
-    queryKey: ['contacts', 'list', { ...params, limit: 500 }],
+    queryKey: contactKeys.list({ ...params, limit: 500 }),
     queryFn: ({ signal }) => get<{ items: PersonBrief[]; total: number }>('contacts/', { ...params, limit: 500 }, signal),
     placeholderData: keepPreviousData,
   })
 /** Small name search (relationship picker); same key and size as the calendar's attendee search. */
 export const usePeopleSearch = (q: string) =>
   useQuery({
-    queryKey: ['contacts', 'list', { q, filter: undefined, tag: undefined, sort: 'name' }],
+    queryKey: contactKeys.list({ q, filter: undefined, tag: undefined, sort: 'name' }),
     queryFn: ({ signal }) => get<{ items: PersonBrief[] }>('contacts/', { q, sort: 'name', limit: 8 }, signal),
     enabled: q.length >= 2,
     staleTime: 60_000,
   })
-export const usePerson = (id: string | null) =>
-  useQuery({ queryKey: ['contacts', 'person', id], queryFn: () => get<PersonDetail>(`contacts/${id}`), enabled: !!id })
+export const personQuery = (id: string) =>
+  queryOptions({ queryKey: contactKeys.person(id), queryFn: ({ signal }) => get<PersonDetail>(`contacts/${id}`, undefined, signal) })
+export const usePerson = (id: string | null) => useQuery({ ...personQuery(id ?? ''), enabled: !!id })
 // Meta, tags and stats: fetched together (first load, or invalidating ['contacts']) they cost one
 // GET /contacts/overview; refetched alone, each uses its own endpoint.
 const side = queryGroup(
   'contacts/overview',
   {
-    meta: { key: ['contacts', 'meta'], path: 'contacts/meta' },
-    tags: { key: ['contacts', 'tags'], path: 'contacts/tags' },
-    stats: { key: ['contacts', 'stats'], path: 'contacts/stats' },
+    meta: { key: contactKeys.meta, path: 'contacts/meta' },
+    tags: { key: contactKeys.tags, path: 'contacts/tags' },
+    stats: { key: contactKeys.stats, path: 'contacts/stats' },
   },
   (all, k) => all[k],
 )
-export const useContactStats = () => useQuery({ queryKey: ['contacts', 'stats'], queryFn: side<ContactStats>('stats') })
-export const useContactTags = () => useQuery({ queryKey: ['contacts', 'tags'], queryFn: side<Tag[]>('tags') })
-export const useContactMeta = () => useQuery({ queryKey: ['contacts', 'meta'], queryFn: side<ContactMeta>('meta'), staleTime: Infinity })
+export const useContactStats = () => useQuery({ queryKey: contactKeys.stats, queryFn: side<ContactStats>('stats') })
+export const useContactTags = () => useQuery({ queryKey: contactKeys.tags, queryFn: side<Tag[]>('tags') })
+export const useContactMeta = () => useQuery({ queryKey: contactKeys.meta, queryFn: side<ContactMeta>('meta'), staleTime: Infinity })
 export const useDuplicates = () =>
-  useQuery({ queryKey: ['contacts', 'duplicates'], queryFn: () => get<DuplicatePair[]>('contacts/duplicates') })
+  useQuery({ queryKey: contactKeys.duplicates, queryFn: ({ signal }) => get<DuplicatePair[]>('contacts/duplicates', undefined, signal) })
 
 /** `toastErrors: false` when the caller shows the error itself (the edit form). */
 export function useSavePerson(toastErrors = true) {
@@ -243,7 +255,7 @@ export function useSavePerson(toastErrors = true) {
     mutationFn: ({ id, body }: { id?: string; body: PersonIn }) =>
       id ? patch<PersonDetail>(`contacts/${id}`, body) : post<PersonDetail>('contacts/', body),
     onSuccess: (p) => {
-      qc.setQueryData(['contacts', 'person', p.id], p)
+      qc.setQueryData(contactKeys.person(p.id), p)
       refresh(qc, p.id)
     },
     meta: toastErrors ? undefined : { errorMessage: () => null },
@@ -255,7 +267,7 @@ export function useDeletePerson() {
   return useMutation({
     mutationFn: (id: string) => del(`contacts/${id}`),
     onSuccess: (_r, id) => {
-      qc.removeQueries({ queryKey: ['contacts', 'person', id] })
+      qc.removeQueries({ queryKey: contactKeys.person(id) })
       refresh(qc)
     },
   })
@@ -266,7 +278,7 @@ export function useBulkDelete() {
   return useMutation({
     mutationFn: (ids: string[]) => post<void>('contacts/bulk-delete', { ids }),
     onSuccess: (_r, ids) => {
-      for (const id of ids) qc.removeQueries({ queryKey: ['contacts', 'person', id] })
+      for (const id of ids) qc.removeQueries({ queryKey: contactKeys.person(id) })
       refresh(qc)
     },
   })
@@ -276,7 +288,7 @@ export function useAvatar(personId: string) {
   const qc = useQueryClient()
   const done = (p: PersonDetail) => {
     avatarVersion.set(p.id, Date.now())
-    qc.setQueryData(['contacts', 'person', p.id], p)
+    qc.setQueryData(contactKeys.person(p.id), p)
     refresh(qc, p.id)
   }
   const set = useMutation({
@@ -352,8 +364,8 @@ export function useMerge() {
     mutationFn: (body: { keep_id: string; other_id: string; fields: Record<string, 'keep' | 'other'> }) =>
       post<PersonDetail>('contacts/merge', body),
     onSuccess: (p, v) => {
-      qc.removeQueries({ queryKey: ['contacts', 'person', v.other_id] })
-      qc.setQueryData(['contacts', 'person', p.id], p)
+      qc.removeQueries({ queryKey: contactKeys.person(v.other_id) })
+      qc.setQueryData(contactKeys.person(p.id), p)
       refresh(qc, p.id)
     },
   })
@@ -364,7 +376,7 @@ export function useDismissDuplicate() {
   return useMutation({
     mutationFn: (body: { a_id: string; b_id: string }) => post<void>('contacts/duplicates/dismiss', body),
     onSuccess: (_r, v) =>
-      qc.setQueryData<DuplicatePair[]>(['contacts', 'duplicates'], (old) =>
+      qc.setQueryData<DuplicatePair[]>(contactKeys.duplicates, (old) =>
         old?.filter((d) => !((d.a.id === v.a_id && d.b.id === v.b_id) || (d.a.id === v.b_id && d.b.id === v.a_id))),
       ),
   })
@@ -396,8 +408,8 @@ export function useMergeMany() {
       return out!
     },
     onSuccess: (p, v) => {
-      for (const id of v.others) qc.removeQueries({ queryKey: ['contacts', 'person', id] })
-      qc.setQueryData(['contacts', 'person', p.id], p)
+      for (const id of v.others) qc.removeQueries({ queryKey: contactKeys.person(id) })
+      qc.setQueryData(contactKeys.person(p.id), p)
       refresh(qc, p.id)
     },
     // Some merges may have gone through before the failure: refresh everything.
@@ -413,7 +425,7 @@ export interface ContactSettings {
 // Same key as Notifications › Reminders, so both screens share one cached copy.
 const SETTINGS_KEY = ['settings', 'contacts/settings']
 export const useContactSettings = (enabled = true) =>
-  useQuery({ queryKey: SETTINGS_KEY, queryFn: () => get<ContactSettings>('contacts/settings'), enabled })
+  useQuery({ queryKey: SETTINGS_KEY, queryFn: ({ signal }) => get<ContactSettings>('contacts/settings', undefined, signal), enabled })
 export function useSaveContactSettings() {
   const qc = useQueryClient()
   return useMutation({

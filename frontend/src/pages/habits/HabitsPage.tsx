@@ -5,7 +5,7 @@ import { Link, Route, Routes, useLocation, useNavigate, useParams, useSearchPara
 import { AppShell, SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
 import { Dialog, ErrorBox, SkeletonRows, useHotkey } from '../../components/ui'
-import { afterG } from '../contacts/util'
+import { afterG } from './gPrefix'
 import { dayKey, fmtLongDate, parseDayKey } from '../../lib/dates'
 import { useArchiveHabit, useCheck, useHabits, useReorder, useToday, type Habit, type TodayRow } from './api'
 import { GridView } from './GridView'
