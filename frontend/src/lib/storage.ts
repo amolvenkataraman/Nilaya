@@ -5,6 +5,8 @@
 import { useCallback, useState } from 'react'
 
 type Pref = boolean | string | number | readonly unknown[] | Set<unknown> | Record<string, unknown>
+/** `false` as a default means a boolean preference, not the literal type false. */
+type Widen<T> = T extends boolean ? boolean : T extends string ? string : T extends number ? number : T
 
 function decode<T extends Pref>(raw: string, fallback: T): T {
   if (typeof fallback === 'boolean') return (raw === '1' || raw === 'true') as T
@@ -21,12 +23,12 @@ function encode(value: Pref): string {
   return JSON.stringify(value instanceof Set ? [...value] : value)
 }
 
-export function readPref<T extends Pref>(key: string, fallback: T): T {
+export function readPref<T extends Pref>(key: string, fallback: T): Widen<T> {
   try {
     const raw = localStorage.getItem(key)
-    return raw === null ? fallback : decode(raw, fallback)
+    return (raw === null ? fallback : decode(raw, fallback)) as Widen<T>
   } catch {
-    return fallback
+    return fallback as Widen<T>
   }
 }
 
@@ -40,13 +42,13 @@ export function writePref(key: string, value: Pref | null): void {
 }
 
 /** useState that remembers its value on this device under `key`. */
-export function usePref<T extends Pref>(key: string, fallback: T): [T, (next: T | ((prev: T) => T)) => void] {
+export function usePref<T extends Pref>(key: string, fallback: T): [Widen<T>, (next: Widen<T> | ((prev: Widen<T>) => Widen<T>)) => void] {
   const [value, setValue] = useState(() => readPref(key, fallback))
   const set = useCallback(
-    (next: T | ((prev: T) => T)) =>
+    (next: Widen<T> | ((prev: Widen<T>) => Widen<T>)) =>
       setValue((prev) => {
-        const v = typeof next === 'function' ? (next as (p: T) => T)(prev) : next
-        writePref(key, v)
+        const v = typeof next === 'function' ? (next as (p: Widen<T>) => Widen<T>)(prev) : next
+        writePref(key, v as Pref)
         return v
       }),
     [key],
