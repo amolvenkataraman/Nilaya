@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import {
   Button,
+  cardClass,
   Chip,
   Confirm,
   EmptyState,
@@ -19,7 +20,6 @@ import {
 import { cn } from '../../lib/cn'
 import { shortStamp } from '../../lib/dates'
 import type { Channel, ChannelType } from '../../lib/types'
-import { cardClass } from '../settings/Card'
 import { ItemRow } from '../settings/ItemRow'
 import { SettingsSection } from '../settings/SettingsSection'
 import { channelsQuery, channelTypesQuery, MIN_PRIORITY, useChannelPatch, useDeleteChannel, useTestChannel } from './api'

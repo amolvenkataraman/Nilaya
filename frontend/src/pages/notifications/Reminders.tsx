@@ -2,9 +2,8 @@
 // the nudges the Habits and Contacts apps send. Every change saves at once and says "Saved".
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { ErrorBox, Input, Select, SkeletonRows, Switch } from '../../components/ui'
+import { cardClass, ErrorBox, Input, Select, SkeletonRows, Switch } from '../../components/ui'
 import type { ReminderSettings } from '../../lib/types'
-import { cardClass } from '../settings/Card'
 import { SavedMark, SaveStatus, SettingRow, SettingsSection, settingControl } from '../settings/SettingsSection'
 import { remindersQuery, useAppSettings, useSaveReminders } from './api'
 

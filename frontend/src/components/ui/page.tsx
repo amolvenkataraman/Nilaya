@@ -1,10 +1,10 @@
-// The page frame and heading every Photos screen uses: a padded column (`pageClass`) and a title row with an
+// A page's frame and heading: a padded column (`pageClass`) and a title row with an
 // optional back link, a muted subtitle and actions on the right.
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import { Icon } from '../../components/Icon'
-import { buttonClass } from '../../components/ui'
 import { cn } from '../../lib/cn'
+import { Icon } from '../Icon'
+import { buttonClass } from './button'
 
 /** A page's padded column. `wide` lets it use the whole width (the timeline, grids, tables). */
 export const pageClass = (wide = false) =>

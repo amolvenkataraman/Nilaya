@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import {
   Button,
+  cardClass,
   Chip,
   Confirm,
   Dialog,
@@ -19,7 +20,6 @@ import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { fmtDate, shortStamp } from '../../lib/dates'
 import { type ApiKey, type KeyApp, useApiKeys, useKeyApps, useRevokeKey, useSaveKey } from './api'
-import { cardClass } from './Card'
 import { ItemRow } from './ItemRow'
 import { SecretBox } from './SecretBox'
 import { SettingsSection } from './SettingsSection'

@@ -6,7 +6,7 @@ import { useUnreadCount } from '../../lib/queries'
 import { InboxTab } from './Inbox'
 import { ChannelsTab } from './Channels'
 import { AppReminders, RemindersTab } from './Reminders'
-import { pageClass } from '../settings/SettingsSection'
+import { pageClass } from '../../components/ui'
 
 const TABS = ['inbox', 'channels', 'reminders'] as const
 type Tab = (typeof TABS)[number]
@@ -38,7 +38,7 @@ export default function NotificationsPage() {
   )
   return (
     <AppShell app="notifications" sidebar={sidebar}>
-      <div className={cn(pageClass, 'max-w-[52rem]')}>
+      <div className={cn(pageClass(true), 'max-w-[52rem]')}>
         {tab === 'inbox' && <InboxTab unreadOnly={unreadOnly} />}
         {tab === 'channels' && <ChannelsTab />}
         {tab === 'reminders' && (

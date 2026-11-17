@@ -7,9 +7,6 @@ import { Link } from 'react-router'
 import { cn } from '../../lib/cn'
 import { Icon } from '../../components/Icon'
 
-/** The page column's padding and centring (the old `.page`); pages add their max width (Settings 52rem). */
-export const pageClass = 'mx-auto w-full px-6 pt-5 pb-8 max-md:px-4 max-md:pt-3.5 max-md:pb-6'
-
 export function SettingsSection({
   id,
   title,

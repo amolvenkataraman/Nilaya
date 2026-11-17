@@ -1,10 +1,9 @@
 // Home › This week: scheduled hours against last week, hours per weekday, the top categories and the week's facts.
 import { Columns, HBars } from '../../components/charts'
 import { Icon } from '../../components/Icon'
-import { ErrorBox } from '../../components/ui'
+import { CardBody, CardLink, ErrorBox } from '../../components/ui'
 import { addDays, dayKey, startOfWeek, weekdayName } from '../../lib/dates'
 import { useInsights } from '../../lib/queries'
-import { CardBody, CardLink } from '../settings/Card'
 import { DashCard } from './DashCard'
 
 const hours = (v: number) => `${v >= 10 ? v.toFixed(0) : v.toFixed(1).replace(/\.0$/, '')} h`

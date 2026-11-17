@@ -5,11 +5,22 @@ import { useNavigate } from 'react-router'
 import { Columns } from '../../components/charts'
 import { Icon } from '../../components/Icon'
 import { layerOpen } from '../../components/layers'
-import { Button, buttonClass, Confirm, ErrorBox, Menu, MenuItem, MenuSeparator, SkeletonRows, useHotkey } from '../../components/ui'
+import {
+  Button,
+  buttonClass,
+  cardClass,
+  Confirm,
+  ErrorBox,
+  Menu,
+  MenuItem,
+  MenuSeparator,
+  SkeletonRows,
+  TitledCard,
+  useHotkey,
+} from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { fmtDate, fmtTime, parseDayKey } from '../../lib/dates'
 import { useArchiveHabit, useDeleteHabit, useHabits, usePauseHabit, useStats, useToday, type Habit } from './api'
-import { Card, cardClass } from './Card'
 import { DayDialog, type DayTarget } from './DayEditor'
 import { HabitBadge, HabitIcon, hc } from './HabitBadge'
 import { Heatmap, ScoreTrend } from './HabitCharts'
@@ -177,15 +188,15 @@ export function HabitDetail({ id, onEdit }: { id: string; onEdit: (h: Habit) => 
             </Tile>
           </div>
 
-          <Card id="heat-h" title="Last 12 months">
+          <TitledCard titleId="heat-h" title="Last 12 months">
             <Heatmap stats={s} habit={habit} />
-          </Card>
+          </TitledCard>
 
           <div className="grid grid-cols-2 gap-3 max-md:grid-cols-1">
-            <Card id="trend-h" title="Strength over time">
+            <TitledCard titleId="trend-h" title="Strength over time">
               <ScoreTrend points={s.score_trend} />
-            </Card>
-            <Card id="wd-h" title="By weekday">
+            </TitledCard>
+            <TitledCard titleId="wd-h" title="By weekday">
               {s.weekdays.some((w) => w.judged) ? (
                 <Columns
                   title="Completion by weekday"
@@ -197,11 +208,11 @@ export function HabitDetail({ id, onEdit }: { id: string; onEdit: (h: Habit) => 
               ) : (
                 <div className={empty}>Not enough history yet.</div>
               )}
-            </Card>
+            </TitledCard>
           </div>
 
           {habit.kind === 'measurable' && (
-            <Card id="tot-h" title={`Totals${habit.unit ? ` (${habit.unit})` : ''}`}>
+            <TitledCard titleId="tot-h" title={`Totals${habit.unit ? ` (${habit.unit})` : ''}`}>
               <dl className="m-0 grid grid-cols-3 gap-x-4 gap-y-3 max-md:grid-cols-2 [&_dd]:m-0 [&_dd]:text-md [&_dd]:font-semibold [&_dd]:tabular-nums [&_dt]:text-xs [&_dt]:text-muted">
                 <div>
                   <dt>This week</dt>
@@ -228,11 +239,11 @@ export function HabitDetail({ id, onEdit }: { id: string; onEdit: (h: Habit) => 
                   <dd>{s.totals.days}</dd>
                 </div>
               </dl>
-            </Card>
+            </TitledCard>
           )}
 
-          <Card
-            id="notes-h"
+          <TitledCard
+            titleId="notes-h"
             title="Notes"
             bodyClass={s.notes.length ? 'px-4 pt-1 pb-3' : ''}
             action={
@@ -270,7 +281,7 @@ export function HabitDetail({ id, onEdit }: { id: string; onEdit: (h: Habit) => 
             ) : (
               <div className={empty}>No notes yet. Add one from Today or the Progress grid (right-click or long-press a day).</div>
             )}
-          </Card>
+          </TitledCard>
         </>
       )}
       <Confirm

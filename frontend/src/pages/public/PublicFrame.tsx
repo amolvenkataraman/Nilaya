@@ -4,11 +4,10 @@
 import { type ReactNode, useEffect } from 'react'
 import { Link, useLocation } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { buttonClass } from '../../components/ui'
+import { buttonClass, cardClass } from '../../components/ui'
 import { loginUrl } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { signedIn } from '../../lib/session'
-import { cardClass } from '../settings/Card'
 // The shared album's styles (sa-*) until SharedAlbum.tsx moves to Tailwind; nothing else is left in it.
 
 export function usePublicTitle(title: string) {

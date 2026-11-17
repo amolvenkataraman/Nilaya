@@ -1,7 +1,6 @@
 // Settings › Appearance: the theme, kept per browser (lib/theme) so each device can differ.
-import { Segmented, type SegmentOption } from '../../components/ui'
+import { cardClass, Segmented, type SegmentOption } from '../../components/ui'
 import { setTheme, type ThemePref, useTheme } from '../../lib/theme'
-import { cardClass } from './Card'
 import { SettingRow, SettingsSection } from './SettingsSection'
 
 const OPTIONS: SegmentOption<ThemePref>[] = [

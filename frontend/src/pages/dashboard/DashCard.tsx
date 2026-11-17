@@ -2,10 +2,9 @@
 // mounting only near the viewport, so the area is named once instead of on the boundary, the placeholder
 // and the card. A card fills its slot: a titled head with actions, then the body.
 import { type ReactNode, useEffect, useRef, useState } from 'react'
-import { SkeletonRows } from '../../components/ui'
+import { cardClass, CardHead, SkeletonRows } from '../../components/ui'
 import { Boundary } from '../../components/resilience'
 import { cn } from '../../lib/cn'
-import { CardHead, cardClass } from '../settings/Card'
 
 export type DashArea = 'agenda' | 'tasks' | 'week' | 'habits' | 'inbox' | 'links'
 

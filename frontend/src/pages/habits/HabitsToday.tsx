@@ -1,10 +1,9 @@
 // The dashboard's Habits card: today's due habits with one-tap check-ins, self-contained (its own query).
 import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { buttonClass, QueryView, SkeletonRows } from '../../components/ui'
+import { buttonClass, cardClass, CardHead, QueryView, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { useToday } from './api'
-import { cardClass, CardHead } from './Card'
 import { HabitRow } from './HabitRow'
 
 export function HabitsTodayCard({ className = '' }: { className?: string }) {
@@ -12,7 +11,7 @@ export function HabitsTodayCard({ className = '' }: { className?: string }) {
   return (
     <section className={cn(cardClass, className)} aria-labelledby="habits-card-h">
       <CardHead
-        id="habits-card-h"
+        titleId="habits-card-h"
         title={
           <>
             <Icon name="repeat" className="text-muted" />

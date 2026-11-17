@@ -1,12 +1,11 @@
 // Settings › Calendar feeds: private ICS addresses for phone calendar apps. A new address is shown once.
 import { useState } from 'react'
-import { Button, Chip, Confirm, EmptyState, Menu, MenuItem, QueryView, Select, SkeletonRows } from '../../components/ui'
+import { Button, cardClass, Chip, Confirm, EmptyState, Menu, MenuItem, QueryView, Select, SkeletonRows } from '../../components/ui'
 import { Icon } from '../../components/Icon'
 import { shortStamp } from '../../lib/dates'
 import { plural } from '../../lib/format'
 import { type Feed, useCreateFeed, useFeeds, useRevokeFeed } from './api'
 import { day } from './ApiKeys'
-import { cardClass } from './Card'
 import { ItemRow } from './ItemRow'
 import { SecretBox } from './SecretBox'
 import { SettingRow, SettingsSection, settingControl } from './SettingsSection'

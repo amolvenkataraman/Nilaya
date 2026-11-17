@@ -3,9 +3,8 @@
 // focused row; Space and Enter only when the row itself has focus, not a button inside it.
 import { useNavigate } from 'react-router'
 import { layerOpen } from '../../components/layers'
-import { useHotkey } from '../../components/ui'
+import { afterG, useHotkey } from '../../components/ui'
 import { useCheck, type Habit, type TodayRow } from './api'
-import { afterG } from './gPrefix'
 import { stepOf, useSkipToday } from './HabitRow'
 
 const focusedRowId = () => (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('[data-hid]')?.dataset.hid

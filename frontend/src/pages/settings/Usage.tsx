@@ -2,11 +2,21 @@
 import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Columns, HBars } from '../../components/charts'
-import { EmptyState, QueryView, Segmented, SkeletonRows, useIsPhone } from '../../components/ui'
+import {
+  Card,
+  CardBody,
+  cardClass,
+  CardCount,
+  CardHead,
+  EmptyState,
+  QueryView,
+  Segmented,
+  SkeletonRows,
+  useIsPhone,
+} from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { addDays, dayKey, fmtDate, parseDayKey, startOfDay } from '../../lib/dates'
 import { type UsageSummary, usageQuery } from './api'
-import { Card, CardBody, CardCount, CardHead, cardClass } from './Card'
 import { SectionHead } from './SettingsSection'
 
 const PERIODS = [

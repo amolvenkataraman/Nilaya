@@ -1,11 +1,10 @@
-// A bordered surface with an optional titled head, body padding and foot: the old `.card` family in Tailwind.
-// Usage, Home's cards (through DashCard), the profile page and the public pages share it; a candidate for
-// components/ui.
+// A bordered surface with an optional titled head and a padded body: Home's cards, Usage, profile pages, the habit
+// page's sections and the public pages.
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 import { Link } from 'react-router'
 import { cn } from '../../lib/cn'
-import { buttonClass } from '../../components/ui'
-import { Icon } from '../../components/Icon'
+import { Icon } from '../Icon'
+import { buttonClass } from './button'
 
 export const cardClass = 'min-w-0 rounded-md border border-border bg-surface shadow-card'
 
@@ -48,4 +47,31 @@ export function CardLink({ to, children, label }: { to: string; children?: React
 
 export function CardBody({ className, children }: { className?: string; children: ReactNode }) {
   return <div className={cn('px-4 py-3', className)}>{children}</div>
+}
+
+/** A card with a head and a padded body in one: the common case (the habit page's sections). */
+export function TitledCard({
+  titleId,
+  title,
+  icon,
+  action,
+  bodyClass = 'px-4 py-3',
+  children,
+}: {
+  titleId: string
+  title: ReactNode
+  icon?: string
+  action?: ReactNode
+  /** Replaces the body's padding. */
+  bodyClass?: string
+  children: ReactNode
+}) {
+  return (
+    <section className={cardClass} aria-labelledby={titleId}>
+      <CardHead titleId={titleId} title={title} icon={icon}>
+        {action}
+      </CardHead>
+      <div className={cn('overflow-hidden', bodyClass)}>{children}</div>
+    </section>
+  )
 }

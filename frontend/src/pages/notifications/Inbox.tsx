@@ -8,6 +8,7 @@ import { layerOpen } from '../../components/layers'
 import { NotificationRow, useOpenNotification } from '../../components/NotificationBell'
 import {
   Button,
+  cardClass,
   Confirm,
   EmptyState,
   Kbd,
@@ -21,7 +22,6 @@ import {
 } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { dayDiff, fmtDate, groupByDay } from '../../lib/dates'
-import { cardClass } from '../settings/Card'
 import { SettingsSection } from '../settings/SettingsSection'
 import { inboxPagesQuery, sourcesQuery, useClearRead, useDeleteNotification, useInboxReads } from './api'
 

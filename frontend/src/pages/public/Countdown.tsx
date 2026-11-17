@@ -5,9 +5,8 @@ import { useQuery } from '@tanstack/react-query'
 import { ApiError, get } from '../../lib/api'
 import { dateFormatter } from '../../lib/dates'
 import { Icon } from '../../components/Icon'
-import { Chip, ErrorBox, SkeletonRows, useNow } from '../../components/ui'
+import { cardClass, Chip, ErrorBox, SkeletonRows, useNow } from '../../components/ui'
 import { cn } from '../../lib/cn'
-import { cardClass } from '../settings/Card'
 import { PublicFrame, PublicNotice, usePublicTitle } from './PublicFrame'
 
 interface Countdown {

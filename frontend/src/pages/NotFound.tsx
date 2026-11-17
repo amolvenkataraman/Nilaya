@@ -2,14 +2,12 @@
 // lazily loaded code, since only a reload can fix that).
 import { Link, useRouteError } from 'react-router'
 import { AppShell } from '../components/AppShell'
-import { Button, buttonClass } from '../components/ui'
+import { Button, buttonClass, cardClass, pageClass } from '../components/ui'
 import { cn } from '../lib/cn'
 import { isStaleChunkError, reloadForNewBuild } from '../lib/newBuild'
-import { cardClass } from './settings/Card'
-import { pageClass } from './settings/SettingsSection'
 
 const box = cn(cardClass, 'mx-auto my-[10vh] grid gap-2 px-4 py-3')
-const page = cn(pageClass, 'max-w-[96rem]')
+const page = cn(pageClass(true), 'max-w-[96rem]')
 
 export function NotFound() {
   return (

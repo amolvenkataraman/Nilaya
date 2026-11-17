@@ -2,14 +2,13 @@
 // that changed are sent). A taken username is reported under its field; other failures as a toast.
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router'
-import { Avatar, Button, buttonClass, Chip, Input, Select, Textarea } from '../../components/ui'
+import { Avatar, Button, buttonClass, cardClass, Chip, Input, Select, Textarea } from '../../components/ui'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { plural } from '../../lib/format'
 import { useUpdateMe } from '../../lib/queries'
 import type { Me, MePatch } from '../../lib/types'
 import { userPath } from '../users/UserLink'
-import { cardClass } from './Card'
 import { PictureDialog } from './PictureDialog'
 import { SaveStatus, SettingRow, SettingsFoot, SettingsSection, SettingValue } from './SettingsSection'
 

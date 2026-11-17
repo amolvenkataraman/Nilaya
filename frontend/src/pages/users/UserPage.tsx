@@ -5,13 +5,11 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { AppShell } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Avatar, Button, buttonClass, Chip, EmptyState, ErrorBox, SkeletonRows } from '../../components/ui'
+import { Avatar, Button, buttonClass, cardClass, Chip, EmptyState, ErrorBox, pageClass, SkeletonRows } from '../../components/ui'
 import { ApiError } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { useMe } from '../../lib/queries'
-import { cardClass } from '../settings/Card'
 import { PictureDialog } from '../settings/PictureDialog'
-import { pageClass } from '../settings/SettingsSection'
 import { type Person, personQuery } from './api'
 
 export default function UserPage() {
@@ -42,7 +40,7 @@ export default function UserPage() {
   )
   return (
     <AppShell app="home" title="Profile" pageTitle={p?.name ?? 'Profile'} topbar={topbar}>
-      <div className={cn(pageClass, 'max-w-[40rem]')}>
+      <div className={cn(pageClass(true), 'max-w-[40rem]')}>
         {p ? (
           <article className={cn(cardClass, 'overflow-hidden')}>
             <div

@@ -25,14 +25,31 @@ export function useHotkey(match: (e: KeyboardEvent) => boolean, fn: (e: Keyboard
   }, [allowInInputs])
 }
 
+// The app-wide "g then a letter" jump (Shell) shares letters with page shortcuts (g n, g t…), so page shortcuts
+// ignore the key that follows a "g". This only notes when a "g" was pressed (capture phase, before any handler).
+let gAt = 0
+if (typeof window !== 'undefined') {
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      if (e.key === 'g' && !e.metaKey && !e.ctrlKey && !e.altKey && !isTyping(e)) gAt = Date.now()
+    },
+    true,
+  )
+}
+/** True for the key right after a "g" (within Shell's 900 ms window). */
+export const afterG = (e: KeyboardEvent) => e.key !== 'g' && Date.now() - gAt < 900
+
 // Overlays live in ./ui/ on Base UI; re-exported here so pages keep one import.
 export { Button, buttonClass } from './ui/button'
 export { Confirm, Dialog, Drawer, DrawerBody, DrawerHead } from './ui/dialog'
+export { Card, CardBody, CardCount, CardHead, CardLink, cardClass, TitledCard } from './ui/card'
 export { Chip, type ChipSize, type ChipTone, chipClass, Dot, Kbd } from './ui/chip'
 export { ColourPicker, SearchBox, Segmented, type SegmentOption } from './ui/controls'
 export { EmptyState, ErrorBox, SkeletonRows } from './ui/feedback'
 export { Field, FieldRow, fieldClass, Input, Select, Textarea } from './ui/form'
 export { Menu, MenuItem, MenuLabel, MenuSeparator, Popover, type TriggerProps } from './ui/menu'
+export { PageHead, pageClass } from './ui/page'
 export { QueryView } from './ui/query-view'
 
 // ---------------------------------------------------------------- misc

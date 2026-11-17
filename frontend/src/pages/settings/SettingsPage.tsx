@@ -4,18 +4,16 @@ import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { AppShell, SideItem, SideSection, sideItemClass } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { ErrorBox, SkeletonRows } from '../../components/ui'
+import { cardClass, ErrorBox, pageClass, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { useMe } from '../../lib/queries'
 import { ApiKeysSection } from './ApiKeys'
 import { AppearanceSection } from './Appearance'
-import { cardClass } from './Card'
 import { FeedsSection } from './Feeds'
 import { GuidesSection } from './Guides'
 import { AdminSection, MoreSection } from './MoreLinks'
 import { PasswordSection } from './Password'
 import { ProfileSection } from './Profile'
-import { pageClass } from './SettingsSection'
 import { ShortcutsSection } from './Shortcuts'
 import { UsagePage } from './Usage'
 
@@ -117,7 +115,7 @@ export default function SettingsPage() {
   )
   return (
     <AppShell app="settings" sidebar={sidebar} pageTitle={usage ? 'Usage' : 'Settings'}>
-      <div className={cn(pageClass, usage ? 'max-w-[72rem]' : 'max-w-[52rem]')}>
+      <div className={cn(pageClass(true), usage ? 'max-w-[72rem]' : 'max-w-[52rem]')}>
         {usage ? (
           me.isPending ? (
             loading

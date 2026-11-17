@@ -7,7 +7,8 @@ import { Button, ErrorBox, Segmented, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { addDays, dayKey, fmtDate, isSameDay, parseDayKey } from '../../lib/dates'
 import { useCheck, useEntries, useHabits, type Entry, type Habit } from './api'
-import { DayDialog, useLongPress, type DayTarget } from './DayEditor'
+import { useLongPress } from '../../lib/useLongPress'
+import { DayDialog, type DayTarget } from './DayEditor'
 import { HabitBadge, hc } from './HabitBadge'
 import { dayMet, fmtNum, isScheduled } from './habitRules'
 
@@ -211,7 +212,7 @@ function Cell({
   const check = useCheck()
   const value = entry && !entry.skipped ? entry.value : 0
   const edit = () => onEdit({ habit: h, day, value: entry?.value ?? 0, skipped: !!entry?.skipped, note: entry?.note ?? '' })
-  const press = useLongPress(edit)
+  const press = useLongPress(edit, { rightClick: true })
   const before = day < h.start_date || (!!h.end_date && day > h.end_date)
   const met = !!entry && !entry.skipped && dayMet(h, value) && (h.goal === 'at_least' ? value > 0 : true)
   const over = h.goal === 'at_most' && value > h.target
@@ -254,7 +255,7 @@ function Cell({
         style={part ? ({ ['--frac' as string]: frac } as CSSProperties) : undefined}
         {...press.handlers}
         onClick={() => {
-          if (press.wasLong()) return
+          if (press.consumed()) return
           if (yesno) check.mutate({ habit: h, date: day, done: !met, current: value })
           else edit()
         }}

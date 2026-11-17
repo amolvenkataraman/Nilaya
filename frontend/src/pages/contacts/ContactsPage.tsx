@@ -9,7 +9,7 @@ import { AppShell, SIDE_EMPTY, SideItem, SideSection, sideItemClass } from '../.
 import { Icon } from '../../components/Icon'
 import { layerOpen } from '../../components/layers'
 import { toast } from '../../components/toast'
-import { Button, Confirm, isTyping, SearchBox, useDebounced, useHotkey, useIsPhone } from '../../components/ui'
+import { afterG, Button, Confirm, isTyping, SearchBox, useDebounced, useHotkey, useIsPhone } from '../../components/ui'
 import { plural } from '../../lib/format'
 import {
   exportHref,
@@ -28,7 +28,6 @@ import {
 import { ContactList } from './ContactList'
 import { ContactsOverview } from './ContactsOverview'
 import { DuplicatesPane } from './Duplicates'
-import { afterG } from './gPrefix'
 import { ImportDialog } from './ImportDialog'
 import { LabelsDialog } from './LabelsDialog'
 import { MergeManyDialog } from './MergeDialogs'

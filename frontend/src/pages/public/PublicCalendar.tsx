@@ -6,12 +6,11 @@ import { Link, useLocation, useParams, useSearchParams } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
-import { Button, buttonClass, ErrorBox, SkeletonRows, useMediaQuery } from '../../components/ui'
+import { Button, buttonClass, cardClass, ErrorBox, SkeletonRows, useMediaQuery } from '../../components/ui'
 import { ApiError, get, loginUrl, post } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { addDays, addMonths, dateFormatter, dayKey, fmtTime, isSameDay, monthGrid, startOfDay } from '../../lib/dates'
 import { signedIn } from '../../lib/session'
-import { cardClass } from '../settings/Card'
 import { PublicFrame, PublicNotice, usePublicTitle } from './PublicFrame'
 
 interface PublicCal {

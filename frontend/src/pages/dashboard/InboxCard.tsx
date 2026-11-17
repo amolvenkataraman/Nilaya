@@ -2,9 +2,8 @@
 // instead of "all caught up".
 import { Icon } from '../../components/Icon'
 import { NotificationRow, useOpenNotification } from '../../components/NotificationBell'
-import { Button, QueryView } from '../../components/ui'
+import { Button, CardLink, QueryView } from '../../components/ui'
 import { DASH_INBOX_LIMIT, useInbox, useReadAll } from '../../lib/queries'
-import { CardLink } from '../settings/Card'
 import { DashCard } from './DashCard'
 
 export function InboxCard() {

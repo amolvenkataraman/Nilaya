@@ -1,7 +1,7 @@
 // Edit one habit's day: amount (or done), "skip this day" and a note. Opened from the grid
 // (right-click / long-press a cell, or click a measurable one), a Today row's menu and the
 // detail page's notes. Saves through PUT /habits/entries/{id}/{day}.
-import { useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { useId, useState } from 'react'
 import { Button, Dialog, Field, Input, Textarea } from '../../components/ui'
 import { fmtDate, parseDayKey } from '../../lib/dates'
 import { useSetEntry, type Habit } from './api'
@@ -119,43 +119,4 @@ function DayForm({ id, t, onDone }: { id: string; t: DayTarget; onDone: () => vo
       </Field>
     </form>
   )
-}
-
-/** Right-click or long-press (touch) handlers; `wasLong()` lets the click that follows a long press be ignored. */
-export function useLongPress(open: () => void, ms = 500) {
-  const timer = useRef<number | undefined>(undefined)
-  const fired = useRef(false)
-  const start = useRef<[number, number]>([0, 0])
-  useEffect(() => () => window.clearTimeout(timer.current), [])
-  const cancel = () => window.clearTimeout(timer.current)
-  return {
-    wasLong: () => {
-      const f = fired.current
-      fired.current = false
-      return f
-    },
-    handlers: {
-      onContextMenu: (e: { preventDefault: () => void }) => {
-        e.preventDefault()
-        if (fired.current) return // a long press already opened it (Android also fires contextmenu)
-        open()
-      },
-      onPointerDown: (e: ReactPointerEvent) => {
-        fired.current = false
-        if (e.pointerType !== 'touch') return
-        start.current = [e.clientX, e.clientY]
-        cancel()
-        timer.current = window.setTimeout(() => {
-          fired.current = true
-          open()
-        }, ms)
-      },
-      onPointerMove: (e: ReactPointerEvent) => {
-        if (Math.abs(e.clientX - start.current[0]) + Math.abs(e.clientY - start.current[1]) > 10) cancel()
-      },
-      onPointerUp: cancel,
-      onPointerCancel: cancel,
-      onPointerLeave: cancel,
-    },
-  }
 }
