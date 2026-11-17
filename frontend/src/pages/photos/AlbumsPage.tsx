@@ -14,6 +14,7 @@ import { AlbumDialog } from './AlbumDialog'
 import { albumMeta, albumSpan } from './albumText'
 import { chipClass } from './chip'
 import { PageHead, pageClass } from './PageHead'
+import { segmentedFix } from './segmentedFix'
 import { pulse } from './skeleton'
 
 type Sort = 'name' | 'items' | 'size' | 'mine' | 'last-desc' | 'last-asc' | 'first-asc' | 'first-desc'
@@ -84,6 +85,7 @@ export function AlbumsPage() {
               ))}
             </select>
             <Segmented
+              className={segmentedFix}
               label="View"
               value={view === 'list' ? 'list' : 'grid'}
               onChange={setView}

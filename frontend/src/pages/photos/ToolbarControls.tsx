@@ -2,6 +2,7 @@
 // size switch (desktop only; phones pick a size by pinching in the browser).
 import { Icon } from '../../components/Icon'
 import { Button, Menu, MenuItem, MenuLabel, Segmented } from '../../components/ui'
+import { segmentedFix } from './segmentedFix'
 import { selection } from './selection'
 import { TILE_LABELS, setTileLabel, tileLabel } from './tileLabel'
 
@@ -70,7 +71,13 @@ const SIZES = (['s', 'm', 'l'] as const).map((z) => ({
 
 export function ZoomSwitch({ zoom, setZoom }: { zoom: Zoom; setZoom: (z: Zoom) => void }) {
   return (
-    <Segmented value={zoom} onChange={setZoom} options={SIZES} label="Thumbnail size" className="ml-auto max-md:hidden [&>button]:px-2" />
+    <Segmented
+      value={zoom}
+      onChange={setZoom}
+      options={SIZES}
+      label="Thumbnail size"
+      className={`ml-auto max-md:hidden [&>button]:px-2 ${segmentedFix}`}
+    />
   )
 }
 

@@ -31,7 +31,7 @@ export function PageHead({
           <Icon name="chevronLeft" size={18} />
         </Link>
       )}
-      <div className="min-w-0 flex-1">
+      <div className="min-w-0 flex-auto">
         <h1 className="truncate">{title}</h1>
         {sub && <p className="text-sm text-muted tabular-nums">{sub}</p>}
       </div>

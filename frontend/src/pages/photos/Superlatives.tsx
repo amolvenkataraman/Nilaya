@@ -343,7 +343,8 @@ const ItemRow = memo(function ItemRow({
         onClick={(e) => picks.toggle(p, items, e.shiftKey)}
         aria-label={`Select ${p.filename}`}
       />
-      <span className={cn(rankClass(rank <= 3), 'max-md:hidden')}>{rank}</span>
+      {/* On phones only the top three keep their badge (the classic layout); the rest give the name room. */}
+      <span className={cn(rankClass(rank <= 3), rank > 3 && 'max-md:hidden')}>{rank}</span>
       <button
         type="button"
         className="relative size-12 flex-none cursor-zoom-in overflow-hidden rounded-sm border-0 bg-surface-2 p-0"
