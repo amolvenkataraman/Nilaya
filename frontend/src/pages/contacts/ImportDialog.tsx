@@ -25,6 +25,9 @@ const MODES = [
   { value: 'skip', label: 'Skip' },
 ] as const
 
+// Segmented's buttons keep the browser's border and grey fill; the class below clears them until it does.
+const segmentedFix = '[&>button]:border-0 [&>button[aria-pressed=false]]:bg-transparent'
+
 interface Props {
   open: boolean
   onClose: () => void
@@ -160,7 +163,13 @@ function ImportWizard({ open, onClose }: Props) {
             </div>
             <div className="grid justify-items-start gap-1">
               <span className="text-xs text-muted">Existing contacts</span>
-              <Segmented label="Existing contacts" value={opts.mode} options={MODES} onChange={(mode) => change({ mode })} />
+              <Segmented
+                className={segmentedFix}
+                label="Existing contacts"
+                value={opts.mode}
+                options={MODES}
+                onChange={(mode) => change({ mode })}
+              />
             </div>
           </div>
           <div className="grid grid-cols-3 gap-2">

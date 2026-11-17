@@ -36,7 +36,7 @@ export function Interactions({ person }: { person: PersonDetail }) {
           })
         }
       />
-      <ol className="grid gap-px">
+      <ol className="m-0 grid list-none gap-px p-0">
         {person.interactions.map((i) =>
           editing === i.id ? (
             <li key={i.id} className="rounded-sm bg-surface-2 p-2">

@@ -85,6 +85,9 @@ const SCHEDULES = [
 const ACCENT = 'var(--app-accent)'
 const SWATCHES = HABIT_COLOURS.map(([hex]) => hex || ACCENT)
 
+// Segmented's buttons keep the browser's border and grey fill; the class below clears them until it does.
+const segmentedFix = '[&>button]:border-0 [&>button[aria-pressed=false]]:bg-transparent'
+
 const fromHabit = (h: Habit): Form => ({
   name: h.name,
   description: h.description,
@@ -264,7 +267,7 @@ function HabitForm({ open, habit, onClose, onSaved }: Props) {
                     key={t.name}
                     type="button"
                     className={cn(
-                      'inline-flex h-7.5 items-center gap-1.5 rounded-full border px-3 text-xs font-medium text-fg',
+                      'inline-flex h-7.5 items-center gap-1.5 rounded-full border px-3 py-0 text-xs font-medium text-fg',
                       '[&_svg]:text-(--hc) dark:[&_svg]:text-[color-mix(in_srgb,var(--hc)_70%,white)]',
                       on
                         ? 'border-(--hc) bg-[color-mix(in_srgb,var(--hc)_14%,var(--app-surface))]'
@@ -291,6 +294,7 @@ function HabitForm({ open, habit, onClose, onSaved }: Props) {
 
         <Group label="Type">
           <Segmented
+            className={segmentedFix}
             label="Type"
             value={f.kind}
             options={KINDS}
@@ -343,7 +347,13 @@ function HabitForm({ open, habit, onClose, onSaved }: Props) {
           hint={f.period !== 'day' ? 'Shows on these days until the goal is met.' : 'Days off the schedule never break a streak.'}
         >
           <div className="flex flex-wrap items-center gap-2">
-            <Segmented label="Schedule" value={f.schedule} options={SCHEDULES} onChange={(v) => set('schedule', v)} />
+            <Segmented
+              className={segmentedFix}
+              label="Schedule"
+              value={f.schedule}
+              options={SCHEDULES}
+              onChange={(v) => set('schedule', v)}
+            />
             {f.schedule === 'weekdays' && <DayPicker value={f.weekdays} onChange={(v) => set('weekdays', v)} label="Scheduled days" />}
             {f.schedule === 'interval' && (
               <label className="flex items-center gap-2 text-sm" htmlFor="h-interval">

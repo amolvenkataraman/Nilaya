@@ -35,6 +35,7 @@ export interface ContactListProps {
   onDeleteLabel: (t: Tag) => void
 }
 
+// `sticky` isn't generated (an older stylesheet owns that class name, see tailwind.css), hence [position:sticky].
 export function ContactList(props: ContactListProps) {
   const { items, filter, search, activeId, selected, onSelect } = props
   const list = useRef<HTMLElement>(null)
@@ -76,7 +77,7 @@ export function ContactList(props: ContactListProps) {
           <div key={g.letter}>
             {letters && (
               <div
-                className="sticky top-0 z-1 border-b border-border bg-surface px-4 py-1 text-xs font-semibold text-muted"
+                className="[position:sticky] top-0 z-1 border-b border-border bg-surface px-4 py-1 text-xs font-semibold text-muted"
                 aria-hidden="true"
               >
                 {g.letter}
@@ -168,7 +169,7 @@ function BulkBar({ items, selected, onSelect, onMerge, onDeleteSelected }: Conta
   const link = buttonClass({ variant: 'ghost', size: 'sm', className: 'text-fg! hover:no-underline' })
   return (
     <div
-      className="sticky top-0 z-2 flex min-h-13 items-center gap-1 border-b border-border bg-surface pt-2.5 pr-3 pb-2 pl-[1.0625rem]"
+      className="[position:sticky] top-0 z-2 flex min-h-13 items-center gap-1 border-b border-border bg-surface pt-2.5 pr-3 pb-2 pl-[1.0625rem]"
       role="toolbar"
       aria-label="Selected contacts"
     >
@@ -270,7 +271,7 @@ function Row({
       </button>
       <button
         type="button"
-        className="flex min-w-0 flex-1 items-center gap-2 border-0 bg-transparent py-2 pl-2 text-left text-inherit"
+        className="flex min-w-0 flex-1 items-center gap-2 border-0 bg-transparent py-2 pr-0 pl-2 text-left text-inherit"
         onClick={selecting ? onToggle : onOpen}
       >
         <span className="grid min-w-0 flex-1">
