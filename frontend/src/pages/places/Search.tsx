@@ -1,29 +1,19 @@
-// Top search of Places: filters your places (the list below) and, from 3 characters, also searches
-// the map (GET /places/geocode?q=, OpenStreetMap Nominatim through the server; debounced 450 ms).
-// 503 = the server is in offline mode: "Map search is off", and no more requests this session.
-import { useEffect, useRef, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+// Top search of Places: filters your places (the list below) and, from 3 characters, also searches the map
+// (useGeocode: the server's geocoder, debounced; "Map search is off" in offline mode). A combobox: arrow keys
+// move the active option (announced through aria-activedescendant), Enter picks it, Escape closes; the results
+// close when focus leaves the box.
+import { useEffect, useId, useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { useDebounced } from '../../components/ui'
-import { ApiError, get } from '../../lib/api'
-import { usePlaceSearch, type Group, type Pin } from './api'
+import { Button, useDebounced } from '../../components/ui'
+import { cn } from '../../lib/cn'
+import { type GeoHit, useGeocode } from '../../lib/map/useGeocode'
+import { type Group, type Pin, statusOf, usePlaceSearch } from './api'
+import { StatusDot } from './StatusDot'
 
-export interface GeoHit {
-  lat: number
-  lon: number
-  name: string
-  address: string
-  bbox?: [number, number, number, number]
-}
-interface Nominatim {
-  lat: string
-  lon: string
-  display_name?: string
-  name?: string
-  boundingbox?: string[]
-}
-
-let mapSearchOff = false
+const option =
+  'flex w-full min-w-0 items-center gap-2 rounded-sm border-0 bg-transparent px-2 py-1.75 text-left text-sm text-fg [&>svg]:flex-none [&>svg]:text-muted'
+const head = 'px-2 pt-1.5 pb-0.5 text-xs font-semibold tracking-[0.04em] text-muted uppercase'
+const note = 'flex items-center gap-1.5 p-2 text-xs text-muted'
 
 export function PlaceSearch({
   text,
@@ -44,48 +34,13 @@ export function PlaceSearch({
 }) {
   const [open, setOpen] = useState(false)
   const [active, setActive] = useState(-1)
-  const box = useRef<HTMLFormElement>(null)
-  const q = useDebounced(text.trim(), 450)
-  const [off, setOff] = useState(mapSearchOff)
-  const geo = useQuery({
-    queryKey: ['places', 'geocode', q],
-    queryFn: async ({ signal }) => {
-      try {
-        const r = await get<Nominatim[]>('places/geocode', { q }, signal)
-        return (Array.isArray(r) ? r : []).slice(0, 6).flatMap((x): GeoHit[] => {
-          const lat = parseFloat(x.lat)
-          const lon = parseFloat(x.lon)
-          if (!Number.isFinite(lat) || !Number.isFinite(lon)) return []
-          const address = String(x.display_name ?? '')
-          const bb = (x.boundingbox ?? []).map(Number)
-          return [
-            {
-              lat,
-              lon,
-              name: String(x.name || address.split(',')[0] || 'Result'),
-              address,
-              bbox: bb.length === 4 && bb.every(Number.isFinite) ? (bb as [number, number, number, number]) : undefined,
-            },
-          ]
-        })
-      } catch (e) {
-        if (e instanceof ApiError && e.status === 503) {
-          mapSearchOff = true
-          setOff(true)
-          return []
-        }
-        throw e
-      }
-    },
-    enabled: open && !off && q.length >= 3,
-    staleTime: 60 * 60_000,
-    retry: false,
-  })
+  const id = useId()
+  const geo = useGeocode(text, open)
   const needle = text.trim().toLowerCase()
   // Places on the map match instantly; the server also searches groups that are turned off (not archived).
   const dq = useDebounced(needle, 250)
   const all = usePlaceSearch(open ? dq : '')
-  const groupOf = (id: number) => groups.find((g) => g.id === id)
+  const groupOf = (gid: number) => groups.find((g) => g.id === gid)
   const shown = needle
     ? places.filter((p) => p.name.toLowerCase().includes(needle) || (p.address ?? '').toLowerCase().includes(needle)).slice(0, 5)
     : []
@@ -93,73 +48,108 @@ export function PlaceSearch({
     ? (all.data ?? []).filter((p) => !shown.some((x) => x.id === p.id) && !places.some((x) => x.id === p.id)).slice(0, 6)
     : []
   const local = [...shown, ...more]
-  const hits = geo.data ?? []
-  const items: ({ kind: 'place'; p: Pin } | { kind: 'hit'; h: GeoHit })[] = [
-    ...local.map((p) => ({ kind: 'place' as const, p })),
-    ...hits.map((h) => ({ kind: 'hit' as const, h })),
-  ]
+  const hits = geo.hits
+  const count = local.length + hits.length
+  // biome-ignore lint/correctness/useExhaustiveDependencies: new text or new map hits start the choice over
   useEffect(() => setActive(-1), [needle, hits.length])
-  useEffect(() => {
-    if (!open) return
-    const down = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false)
-    document.addEventListener('pointerdown', down, true)
-    return () => document.removeEventListener('pointerdown', down, true)
-  }, [open])
   const pick = (i: number) => {
-    const it = items[i]
-    if (!it) return
     setOpen(false)
-    if (it.kind === 'place') onPlace(it.p)
-    else onText(''), onHit(it.h)
+    if (i < local.length) onPlace(local[i])
+    else if (hits[i - local.length]) {
+      onText('')
+      onHit(hits[i - local.length])
+    }
   }
   const show = open && !!needle
-  const waiting = !off && needle.length >= 3 && (q !== text.trim() || geo.isFetching)
+  const optId = (i: number) => `${id}-opt-${i}`
   return (
-    <form ref={box} className="pl-search" role="search" onSubmit={(e) => (e.preventDefault(), items.length && pick(Math.max(active, 0)))}>
+    // biome-ignore lint/a11y/useSemanticElements: a form, for Enter to pick; role=search makes it a landmark
+    <form
+      className={
+        'relative flex h-9 w-[min(22rem,100%)] items-center gap-2 rounded-full border border-transparent bg-surface-2 pr-1 pl-3 text-muted ' +
+        'focus-within:border-border focus-within:bg-surface focus-within:shadow-[0_1px_3px_rgba(16,24,40,.08)] max-md:min-w-20 max-md:flex-1'
+      }
+      role="search"
+      onSubmit={(e) => {
+        e.preventDefault()
+        if (count) pick(Math.max(active, 0))
+      }}
+      onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setOpen(false)}
+    >
       <Icon name="search" />
       <input
+        className="min-w-0 flex-1 border-0 bg-transparent text-sm text-fg outline-none"
         value={text}
-        onChange={(e) => (onText(e.target.value), setOpen(true))}
+        onChange={(e) => {
+          onText(e.target.value)
+          setOpen(true)
+        }}
         onFocus={() => setOpen(true)}
         placeholder="Search your places and the map"
         aria-label="Search places and the map"
         maxLength={200}
         role="combobox"
         aria-expanded={show}
-        aria-controls="pl-search-results"
+        aria-controls={`${id}-list`}
         aria-autocomplete="list"
+        aria-activedescendant={show && active >= 0 && active < count ? optId(active) : undefined}
         onKeyDown={(e) => {
           if (e.key === 'Escape') {
-            if (show) e.stopPropagation(), setOpen(false)
-          } else if (e.key === 'ArrowDown') e.preventDefault(), setOpen(true), setActive((a) => Math.min(a + 1, items.length - 1))
-          else if (e.key === 'ArrowUp') e.preventDefault(), setActive((a) => Math.max(a - 1, 0))
+            if (show) {
+              e.stopPropagation()
+              setOpen(false)
+            }
+          } else if (e.key === 'ArrowDown') {
+            e.preventDefault()
+            setOpen(true)
+            setActive((a) => Math.min(a + 1, count - 1))
+          } else if (e.key === 'ArrowUp') {
+            e.preventDefault()
+            setActive((a) => Math.max(a - 1, 0))
+          }
         }}
       />
       {text && (
-        <button type="button" className="btn ghost icon sm" onClick={() => onText('')} aria-label="Clear search">
+        <Button variant="ghost" size="sm" icon onClick={() => onText('')} aria-label="Clear search">
           <Icon name="x" size={14} />
-        </button>
+        </Button>
       )}
       {show && (
-        <div className="pl-search-results" id="pl-search-results" role="listbox" aria-label="Search results">
-          {local.length > 0 && <div className="pl-sr-head">Your places</div>}
+        <div
+          id={`${id}-list`}
+          role="listbox"
+          aria-label="Search results"
+          // Focusable so a click on a heading or note keeps the results open (focus stays inside the form).
+          tabIndex={-1}
+          className={
+            'absolute top-[calc(100%+6px)] left-0 z-1000 grid max-h-[60vh] w-[min(26rem,calc(100vw-1rem))] gap-px overflow-auto rounded-md bg-surface p-1 text-fg shadow-pop outline-none ' +
+            'max-md:fixed max-md:top-13 max-md:right-2 max-md:left-2 max-md:w-auto'
+          }
+        >
+          {local.length > 0 && (
+            <div className={head} role="presentation">
+              Your places
+            </div>
+          )}
           {local.map((p, i) => {
             const g = groupOf(p.group_id)
             const off = !!g && !g.visible
             return (
-              <div key={p.id} className="pl-sr-row">
+              <div key={p.id} className="flex min-w-0 items-center gap-1" role="presentation">
                 <button
                   type="button"
+                  id={optId(i)}
                   role="option"
+                  tabIndex={-1}
                   aria-selected={active === i}
-                  className={active === i ? 'on' : ''}
+                  className={cn(option, 'flex-1', active === i && 'bg-hover')}
                   onMouseMove={() => setActive(i)}
                   onClick={() => pick(i)}
                 >
-                  <span className={'pl-status-dot st-' + (p.status ?? 'saved')} aria-hidden="true" />
-                  <span className="grow truncate">
+                  <StatusDot status={statusOf(p)} />
+                  <span className="min-w-0 flex-1 truncate">
                     {p.name}
-                    <span className="muted xsmall">
+                    <span className="text-xs text-muted">
                       {' '}
                       · {g?.name ?? ''}
                       {off ? ' (hidden)' : ''}
@@ -168,54 +158,62 @@ export function PlaceSearch({
                   </span>
                 </button>
                 {off && g && (
-                  <button type="button" className="btn ghost sm pl-sr-show" onClick={() => onShowGroup(g)} title={`Turn on ${g.name}`}>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="px-2 text-accent!"
+                    onClick={() => onShowGroup(g)}
+                    title={`Turn on ${g.name}`}
+                  >
                     Show group
-                  </button>
+                  </Button>
                 )}
               </div>
             )
           })}
-          {hits.length > 0 && <div className="pl-sr-head">On the map</div>}
+          {hits.length > 0 && (
+            <div className={head} role="presentation">
+              On the map
+            </div>
+          )}
           {hits.map((h, j) => {
             const i = local.length + j
             return (
               <button
                 type="button"
+                id={optId(i)}
                 role="option"
-                key={h.address + j}
+                tabIndex={-1}
+                key={`${h.address}${h.lat}`}
                 aria-selected={active === i}
-                className={active === i ? 'on' : ''}
+                className={cn(option, active === i && 'bg-hover')}
                 onMouseMove={() => setActive(i)}
                 onClick={() => pick(i)}
               >
                 <Icon name="pin" size={13} />
-                <span className="grow" style={{ minWidth: 0 }}>
-                  <span className="truncate" style={{ display: 'block' }}>
-                    {h.name}
-                  </span>
-                  <span className="muted xsmall truncate" style={{ display: 'block' }}>
-                    {h.address}
-                  </span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate">{h.name}</span>
+                  <span className="block truncate text-xs text-muted">{h.address}</span>
                 </span>
               </button>
             )
           })}
-          {off ? (
-            <div className="pl-sr-note">
+          {geo.off ? (
+            <div className={note}>
               <Icon name="info" size={13} />
               Map search is off on this server (offline mode).
             </div>
           ) : needle.length < 3 ? (
-            !local.length && <div className="pl-sr-note">Type 3 letters to search the map.</div>
-          ) : waiting ? (
-            <div className="pl-sr-note">
+            !local.length && <div className={note}>Type 3 letters to search the map.</div>
+          ) : geo.waiting ? (
+            <div className={note}>
               <span className="spinner" />
               Searching the map…
             </div>
           ) : geo.error ? (
-            <div className="pl-sr-note error-text">{(geo.error as Error).message}</div>
+            <div className="flex items-center gap-1.5 p-2 text-xs text-danger">{(geo.error as Error).message}</div>
           ) : !hits.length && !local.length ? (
-            <div className="pl-sr-note">No results.</div>
+            <div className={note}>No results.</div>
           ) : null}
         </div>
       )}

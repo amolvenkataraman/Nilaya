@@ -1,8 +1,8 @@
-// Places API hooks (local to this page). The API also returns status/visited_on, newer than lib/types.
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { api, del, get, patch, post, upload } from '../../lib/api'
-import type { Photo, Place as BasePlace, PlaceCategory, PlaceGroup } from '../../lib/types'
+// Places API: types, query factories and mutations. The API also returns status/visited_on, newer than lib/types.
+import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from '../../components/toast'
+import { api, del, get, patch, post, upload } from '../../lib/api'
+import type { Place as BasePlace, Photo, PlaceCategory, PlaceGroup } from '../../lib/types'
 
 export type PlaceStatus = 'saved' | 'want_to_go' | 'visited'
 export interface Place extends BasePlace {
@@ -20,6 +20,9 @@ export const STATUSES: { key: PlaceStatus; label: string; icon: string }[] = [
   { key: 'want_to_go', label: 'Want to go', icon: 'flag' },
   { key: 'visited', label: 'Visited', icon: 'check' },
 ]
+/** Unknown or missing statuses count as saved. */
+export const statusOf = (p: { status?: string | null }): PlaceStatus =>
+  p.status === 'visited' || p.status === 'want_to_go' ? p.status : 'saved'
 
 /** Category glyphs (Icon names; GET /places/categories has no icon field). The classic map's set, redrawn
  *  in the app's icon style. Unlisted keys ("other", anything new) get a plain dot on the map. */
@@ -40,12 +43,8 @@ const CATEGORY_ICON: Record<string, string> = {
 }
 export const categoryIcon = (key: string): string | undefined => CATEGORY_ICON[key]
 
-export interface PlaceFilter {
-  group?: number
-  category?: string
-  status?: PlaceStatus
-  q?: string
-}
+/** "★★★☆☆" for a 1-5 rating ('' for none). */
+export const stars = (n: number | null | undefined) => (n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '')
 
 /** A group with my per-person map visibility (hidden by default) and the owner's archive flag. */
 export interface Group extends PlaceGroup {
@@ -55,23 +54,28 @@ export interface Group extends PlaceGroup {
 export const usePlaceGroups = (includeArchived = false) =>
   useQuery({
     queryKey: ['places', 'groups', includeArchived],
-    queryFn: () => get<Group[]>('places/groups', { include_archived: includeArchived || undefined }),
+    queryFn: ({ signal }) => get<Group[]>('places/groups', { include_archived: includeArchived || undefined }, signal),
     staleTime: 5 * 60_000,
     placeholderData: (prev) => prev,
   })
 
-export const VISIBLE_KEY = ['places', 'pins', 'visible'] as const
-export const fetchVisiblePins = (signal?: AbortSignal) => get<Pin[]>('places/pins', { visible: true }, signal)
-/** The map's normal load: pins of the groups I turned on (never archived ones). Off while nothing is on. */
-export const useVisiblePlaces = (enabled: boolean) =>
-  useQuery({ queryKey: VISIBLE_KEY, queryFn: ({ signal }) => fetchVisiblePins(signal), enabled, staleTime: 5 * 60_000 })
+/** The map's normal load: pins of the groups I turned on (never archived ones). */
+export const visiblePinsQuery = queryOptions({
+  queryKey: ['places', 'pins', 'visible'],
+  queryFn: ({ signal }) => get<Pin[]>('places/pins', { visible: true }, signal),
+  staleTime: 5 * 60_000,
+})
+const VISIBLE_KEY = visiblePinsQuery.queryKey
+/** Off while no group is on. */
+export const useVisiblePlaces = (enabled: boolean) => useQuery({ ...visiblePinsQuery, enabled })
 
 /** One full place (description, notes, address…): when its panel opens, or before editing it. */
-export const placeQuery = (id: string) => ({
-  queryKey: ['places', 'one', id],
-  queryFn: () => get<Place>(`places/${id}`),
-  staleTime: 60_000,
-})
+export const placeQuery = (id: string) =>
+  queryOptions({
+    queryKey: ['places', 'one', id],
+    queryFn: ({ signal }) => get<Place>(`places/${id}`, undefined, signal),
+    staleTime: 60_000,
+  })
 export const usePlace = (id: string | null) => useQuery({ ...placeQuery(id ?? ''), enabled: !!id })
 /** Text filter over the groups that are on: matched on the server (address, notes and description aren't in pins). */
 export const useVisibleTextMatches = (q: string, enabled: boolean) =>
@@ -105,12 +109,19 @@ export function useGroupVisibility() {
       const snaps = qc.getQueriesData<Group[]>({ queryKey: ['places', 'groups'] })
       patchGroups(qc, (g) => (g.id === id ? { ...g, visible } : g))
       if (!visible) qc.setQueryData<Pin[]>(VISIBLE_KEY, (old) => old?.filter((p) => p.group_id !== id))
-      return { rollback: () => snaps.forEach(([k, d]) => qc.setQueryData(k, d)) }
+      return {
+        rollback: () => {
+          for (const [k, d] of snaps) qc.setQueryData(k, d)
+        },
+      }
     },
     onSuccess: (_r, { visible }) => {
       if (visible) qc.invalidateQueries({ queryKey: VISIBLE_KEY })
     },
-    onError: (_e, _v, ctx) => (ctx?.rollback(), qc.invalidateQueries({ queryKey: VISIBLE_KEY })),
+    onError: (_e, _v, ctx) => {
+      ctx?.rollback()
+      qc.invalidateQueries({ queryKey: VISIBLE_KEY })
+    },
   })
 }
 
@@ -130,12 +141,10 @@ export function useShowOnlyGroup() {
   })
 }
 export const usePlaceCategories = () =>
-  useQuery({ queryKey: ['places', 'categories'], queryFn: () => get<PlaceCategory[]>('places/categories'), staleTime: Infinity })
-export const usePlaces = (f: PlaceFilter) =>
   useQuery({
-    queryKey: ['places', 'list', f],
-    queryFn: ({ signal }) => get<Place[]>('places/', { group: f.group, category: f.category, status: f.status, q: f.q }, signal),
-    placeholderData: (prev) => prev,
+    queryKey: ['places', 'categories'],
+    queryFn: ({ signal }) => get<PlaceCategory[]>('places/categories', undefined, signal),
+    staleTime: Number.POSITIVE_INFINITY,
   })
 
 function useInvalidate() {
@@ -180,15 +189,7 @@ export function useDeleteGroup() {
   })
 }
 
-// ---------------------------------------------------------------- parity with the classic Places page
-
-/** Every place once; filters, search and counts are done in the browser (one request, no refetch per filter). */
-export const useAllPlaces = () =>
-  useQuery({
-    queryKey: ['places', 'list', 'all'],
-    queryFn: ({ signal }) => get<Place[]>('places/', undefined, signal),
-    staleTime: 5 * 60_000,
-  })
+// ---------------------------------------------------------------- photos, suggestions, stats, import
 
 export interface PlacePhotos {
   count: number
@@ -200,8 +201,15 @@ export interface PlacePhotos {
 export const usePlacePhotos = (id: string | null) =>
   useQuery({
     queryKey: ['places', 'photos', id],
-    queryFn: () => get<PlacePhotos>(`places/${id}/photos`),
+    queryFn: ({ signal }) => get<PlacePhotos>(`places/${id}/photos`, undefined, signal),
     enabled: !!id,
+    staleTime: 30 * 60_000,
+  })
+/** Photos near a spot (a suggestion; Photos › Map's "photos near here" asks for 24). */
+export const usePhotosNear = (lat: number, lng: number, limit = 12) =>
+  useQuery({
+    queryKey: ['places', 'photos-near', lat.toFixed(4), lng.toFixed(4)],
+    queryFn: ({ signal }) => get<PlacePhotos>('places/photos-near', { latitude: lat.toFixed(6), longitude: lng.toFixed(6), limit }, signal),
     staleTime: 30 * 60_000,
   })
 
@@ -220,7 +228,7 @@ export interface Suggestion {
 export const useSuggestions = (enabled: boolean) =>
   useQuery({
     queryKey: ['places', 'suggestions'],
-    queryFn: () => get<Suggestion[]>('places/suggestions', { limit: 30 }),
+    queryFn: ({ signal }) => get<Suggestion[]>('places/suggestions', { limit: 30 }, signal),
     enabled,
     staleTime: 60 * 60_000,
   })
@@ -232,7 +240,12 @@ export interface PlaceStats {
   most_visited: { id: string; name: string; category: string; visits: number; last_visit: string | null }[]
 }
 export const usePlaceStats = (enabled: boolean) =>
-  useQuery({ queryKey: ['places', 'stats'], queryFn: () => get<PlaceStats>('places/stats'), enabled, staleTime: 10 * 60_000 })
+  useQuery({
+    queryKey: ['places', 'stats'],
+    queryFn: ({ signal }) => get<PlaceStats>('places/stats', undefined, signal),
+    enabled,
+    staleTime: 10 * 60_000,
+  })
 
 export interface ImportResult {
   format: string
@@ -251,15 +264,3 @@ export async function importPlaces(file: File, groupId: number, dryRun: boolean)
   fd.append('dry_run', dryRun ? 'true' : 'false')
   return upload<ImportResult>('places/import', fd)
 }
-
-/** Great-circle distance in metres. */
-export function distanceM(a: { lat: number; lon: number }, b: { lat: number; lon: number }): number {
-  const R = 6371e3
-  const toRad = (d: number) => (d * Math.PI) / 180
-  const dLat = toRad(b.lat - a.lat)
-  const dLon = toRad(b.lon - a.lon)
-  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLon / 2) ** 2
-  return 2 * R * Math.asin(Math.sqrt(h))
-}
-export const fmtDistance = (m: number) =>
-  m < 1000 ? `${Math.round(m)} m` : m < 10_000 ? `${(m / 1000).toFixed(1)} km` : `${Math.round(m / 1000)} km`
