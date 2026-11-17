@@ -40,7 +40,8 @@ export function Toaster() {
     () => items,
   )
   return (
-    <div className="pointer-events-none fixed bottom-5 left-1/2 z-90 grid -translate-x-1/2 justify-items-center gap-2 max-md:bottom-[calc(1rem+env(safe-area-inset-bottom,0px))]">
+    // `toasts` is a hook: the Tasks bulk bar lifts the stack above itself.
+    <div className="toasts pointer-events-none fixed bottom-5 left-1/2 z-90 grid -translate-x-1/2 justify-items-center gap-2 max-md:bottom-[calc(1rem+env(safe-area-inset-bottom,0px))]">
       {list.map((t) => (
         // Errors interrupt the screen reader (alert); everything else waits its turn (status).
         <div

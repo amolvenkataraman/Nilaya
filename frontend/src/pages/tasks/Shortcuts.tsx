@@ -94,6 +94,12 @@ export const COMMANDS: readonly Command[] = [
 
 const GROUPS: readonly Group[] = ['General', 'Tasks', 'Go to', 'Layout']
 
+/** The same table as text, by group, for Settings › Keyboard shortcuts. */
+export const HELP: [group: string, rows: [keys: string, label: string][]][] = GROUPS.map((g) => [
+  g,
+  COMMANDS.filter((c) => c.group === g).map((c): [string, string] => [c.shown, c.label]),
+])
+
 export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Dialog open={open} onClose={onClose} title="Keyboard shortcuts" width="40rem">
