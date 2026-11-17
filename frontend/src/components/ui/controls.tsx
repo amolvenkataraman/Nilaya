@@ -121,7 +121,7 @@ export function SearchBox({
       )}
     >
       <Icon name="search" size={14} />
-      <input type="search" className="h-full min-w-0 flex-1 bg-transparent text-fg outline-none placeholder:text-muted" {...input} />
+      <input type="search" className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-fg outline-none placeholder:text-muted" {...input} />
       {kbd && <kbd className="kbd">{kbd}</kbd>}
     </label>
   )

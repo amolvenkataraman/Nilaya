@@ -1,6 +1,9 @@
+// The bell in the top bar (unread badge, the latest notifications) and the notification row the inbox and Home use.
+import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router'
 import { Icon } from './Icon'
-import { Menu, SkeletonRows } from './ui'
+import { Button, Chip, EmptyState, Popover, QueryView, SkeletonRows, buttonClass } from './ui'
+import { cn } from '../lib/cn'
 import { useInbox, useMarkRead, useReadAll, useUnreadCount } from '../lib/queries'
 import { appRoute, safeHref } from '../lib/api'
 import { fmtStamp, shortStamp } from '../lib/dates'
@@ -42,7 +45,8 @@ export function ago(iso: string, now = new Date()): string {
   return shortStamp(iso, now)
 }
 
-/** One notification: source icon, title, 2-line body, relative time, unread dot, hover actions. */
+/** One notification: source icon, title, 2-line body, relative time, unread dot, hover actions.
+ *  `notif` and `data-notif` stay as hooks (the inbox scrolls to the selected row by its data-notif). */
 export function NotificationRow({
   n,
   onOpen,
@@ -59,32 +63,64 @@ export function NotificationRow({
   const mark = useMarkRead()
   const src = sourceStyle(n.source)
   const href = safeHref(n.url)
+  const act = buttonClass({ variant: 'ghost', size: 'sm', icon: true })
   return (
-    <div className={'notif' + (n.read ? '' : ' unread') + (compact ? ' compact' : '') + (selected ? ' selected' : '')} data-notif={n.id}>
-      <span className="notif-src" style={{ '--hue': src.hue } as React.CSSProperties} aria-hidden="true">
+    <div
+      className={cn(
+        'notif group/notif relative flex items-start gap-2.5 rounded-sm hover:bg-hover',
+        compact ? 'py-2 pr-1.5 pl-2' : 'py-2.5 pr-2 pl-2.5',
+        selected && 'bg-hover shadow-[inset_2px_0_0_var(--app-accent)]',
+      )}
+      data-notif={n.id}
+    >
+      <span
+        className={cn(
+          'grid size-7 flex-none place-items-center rounded-[30%] text-(--hue)',
+          'bg-[color-mix(in_srgb,var(--hue)_13%,var(--app-surface))]',
+          'dark:bg-[color-mix(in_srgb,var(--hue)_24%,var(--app-surface))] dark:text-[color-mix(in_srgb,var(--hue)_60%,white)]',
+        )}
+        style={{ '--hue': src.hue } as CSSProperties}
+        aria-hidden="true"
+      >
         <Icon name={src.icon} size={14} />
       </span>
-      <button className="notif-main" onClick={() => onOpen(n)}>
-        <span className="notif-line">
-          <span className="notif-title">
+      <button
+        type="button"
+        className="grid min-w-0 flex-1 cursor-pointer gap-0.5 border-0 bg-transparent p-0 text-left"
+        onClick={() => onOpen(n)}
+      >
+        <span className="flex min-w-0 items-baseline gap-2">
+          <span
+            className={cn(
+              'min-w-0 flex-1 text-sm leading-[1.35] [overflow-wrap:anywhere]',
+              n.read ? 'text-muted' : 'font-semibold text-fg',
+            )}
+          >
             {n.title}
             {n.priority >= 15 && (
-              <span className={'chip notif-prio' + (n.priority >= 20 ? ' danger' : ' warning')}>
+              <Chip tone={n.priority >= 20 ? 'danger' : 'warning'} className="ml-1.5 h-4 align-[1px] text-3xs">
                 {n.priority >= 20 ? 'Urgent' : 'High'}
-              </span>
+              </Chip>
             )}
           </span>
-          <time className="notif-time" dateTime={n.created_on} title={fmtStamp(n.created_on)}>
+          <time className="flex-none text-xs text-muted tabular-nums" dateTime={n.created_on} title={fmtStamp(n.created_on)}>
             {ago(n.created_on)}
           </time>
         </span>
-        {n.body && <span className="notif-body">{n.body}</span>}
-        {n.source && <span className="notif-meta">{n.source}</span>}
+        {n.body && <span className="line-clamp-2 text-xs whitespace-pre-line text-muted [overflow-wrap:anywhere]">{n.body}</span>}
+        {n.source && <span className="text-2xs text-muted opacity-85">{n.source}</span>}
       </button>
-      <span className="notif-dot" aria-label={n.read ? undefined : 'Unread'} />
-      <span className="notif-acts">
+      <span className={cn('mt-1.5 size-2 flex-none rounded-full', !n.read && 'bg-accent')} aria-label={n.read ? undefined : 'Unread'} />
+      <span
+        className={cn(
+          'absolute top-1.5 right-1.5 hidden gap-px rounded-sm bg-surface p-0.5 shadow-[0_0_0_1px_var(--app-border),0_2px_6px_rgba(16,24,40,0.08)]',
+          'group-hover/notif:flex group-focus-within/notif:flex touch:static touch:flex touch:bg-transparent touch:shadow-none',
+          selected && 'flex',
+        )}
+      >
         <button
-          className="btn ghost icon sm"
+          type="button"
+          className={act}
           onClick={() => mark.mutate({ id: n.id, read: !n.read })}
           aria-label={n.read ? 'Mark as unread' : 'Mark as read'}
           title={n.read ? 'Mark as unread (E)' : 'Mark as read (E)'}
@@ -92,12 +128,12 @@ export function NotificationRow({
           <Icon name={n.read ? 'mail' : 'check'} size={14} />
         </button>
         {href && !compact && (
-          <button className="btn ghost icon sm" onClick={() => onOpen(n)} aria-label="Open link" title="Open (Enter)">
+          <button type="button" className={act} onClick={() => onOpen(n)} aria-label="Open link" title="Open (Enter)">
             <Icon name="external" size={14} />
           </button>
         )}
         {onDelete && (
-          <button className="btn ghost icon sm" onClick={() => onDelete(n)} aria-label="Delete notification" title="Delete (#)">
+          <button type="button" className={act} onClick={() => onDelete(n)} aria-label="Delete notification" title="Delete (#)">
             <Icon name="trash" size={14} />
           </button>
         )}
@@ -111,51 +147,63 @@ export function NotificationBell() {
   const navigate = useNavigate()
   const open = useOpenNotification()
   return (
-    <Menu
+    <Popover
       align="end"
       width="min(24rem, calc(100vw - 16px))"
       label="Notifications"
+      flush
       trigger={(p) => (
         <button
           {...p}
-          className="btn ghost icon bell"
+          type="button"
+          className={buttonClass({ variant: 'ghost', icon: true, className: 'relative' })}
           aria-label={unread ? `Notifications, ${unread} unread` : 'Notifications'}
           title="Notifications"
         >
           <Icon name="bell" size={18} />
-          {unread > 0 && <span className="bell-badge">{unread > 99 ? '99+' : unread}</span>}
+          {unread > 0 && (
+            <span className="absolute top-0.5 right-px grid h-3.75 min-w-3.75 place-items-center rounded-full bg-danger px-0.75 text-[0.5625rem] font-bold text-white tabular-nums shadow-[0_0_0_2px_var(--app-surface)]">
+              {unread > 99 ? '99+' : unread}
+            </span>
+          )}
         </button>
       )}
     >
-      {(close) => <BellPanel close={close} onOpen={(n) => (close(), open(n))} onAll={() => (close(), navigate('/notifications'))} />}
-    </Menu>
+      {(close) => <BellPanel onOpen={(n) => (close(), open(n))} onAll={() => (close(), navigate('/notifications'))} />}
+    </Popover>
   )
 }
 
-function BellPanel({ onOpen, onAll }: { close: () => void; onOpen: (n: Notification) => void; onAll: () => void }) {
+function BellPanel({ onOpen, onAll }: { onOpen: (n: Notification) => void; onAll: () => void }) {
   const inbox = useInbox(false, 8)
   const readAll = useReadAll()
   const unread = inbox.data?.unread ?? 0
   return (
-    <div className="bell-panel">
-      <div className="bell-head">
+    <div className="flex max-h-[min(32rem,75vh)] flex-col">
+      <div className="flex items-center gap-2 border-b border-border py-2.5 pr-2 pl-3.5 text-sm">
         <strong>Notifications</strong>
-        {unread > 0 && <span className="chip accent">{unread} new</span>}
-        <span className="spacer" />
-        <button className="btn ghost sm" disabled={!unread} onClick={() => readAll.mutate()}>
+        {unread > 0 && <Chip tone="accent">{unread} new</Chip>}
+        <span className="flex-1" />
+        <Button variant="ghost" size="sm" disabled={!unread} onClick={() => readAll.mutate()}>
           Mark all read
-        </button>
+        </Button>
       </div>
-      <div className="bell-list">
-        {inbox.isPending ? (
-          <SkeletonRows rows={4} />
-        ) : !inbox.data?.items.length ? (
-          <div className="empty">No notifications yet.</div>
-        ) : (
-          inbox.data.items.map((n) => <NotificationRow key={n.id} n={n} onOpen={onOpen} compact />)
-        )}
+      <div className="overflow-auto p-1">
+        <QueryView
+          query={inbox}
+          skeleton={<SkeletonRows rows={4} />}
+          isEmpty={(d) => !d.items.length}
+          empty={<EmptyState>No notifications yet.</EmptyState>}
+        >
+          {(d) => d.items.map((n) => <NotificationRow key={n.id} n={n} onOpen={onOpen} compact />)}
+        </QueryView>
       </div>
-      <button role="menuitem" className="bell-foot" onClick={onAll}>
+      <button
+        type="button"
+        role="menuitem"
+        className="flex h-10 items-center justify-center gap-1.5 rounded-b-md border-0 border-t border-border bg-bg text-sm font-medium text-accent hover:bg-hover"
+        onClick={onAll}
+      >
         Open inbox <Icon name="arrowRight" size={14} />
       </button>
     </div>

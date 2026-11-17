@@ -1,9 +1,10 @@
+// Ctrl/⌘ K: jump to a page, project or task, or run an action. A Base UI dialog (focus trap, Escape, outside click).
+import { Dialog as BaseDialog } from '@base-ui/react/dialog'
 import { useEffect, useRef, useState } from 'react'
-import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Icon } from './Icon'
-import { useDebounced } from './ui'
+import { EmptyState, useDebounced } from './ui'
 import { NAV } from './nav'
 import { get } from '../lib/api'
 import { useCreateTask, useProjects } from '../lib/queries'
@@ -12,6 +13,7 @@ import { cycleTheme } from '../lib/theme'
 import { dueLabel } from '../lib/dates'
 import type { TaskPage } from '../lib/types'
 import { useLayer } from './layers'
+import { cn } from '../lib/cn'
 
 interface Item {
   id: string
@@ -128,73 +130,92 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
     list.current?.querySelector<HTMLElement>(`[data-i="${active}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [active])
 
-  if (!open) return null
   let lastGroup = ''
-  return createPortal(
-    <>
-      <div className="scrim" onClick={onClose} />
-      <div className="palette" role="dialog" aria-modal="true" aria-label="Command palette">
-        <div className="palette-input">
-          <Icon name="search" size={18} />
-          <input
-            ref={input}
-            autoFocus
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search pages, projects and tasks…"
-            role="combobox"
-            aria-expanded="true"
-            aria-controls="palette-list"
-            aria-activedescendant={items[active] ? `pi-${active}` : undefined}
-            onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') e.preventDefault(), setActive((a) => Math.min(a + 1, items.length - 1))
-              else if (e.key === 'ArrowUp') e.preventDefault(), setActive((a) => Math.max(a - 1, 0))
-              else if (e.key === 'Enter') e.preventDefault(), items[active]?.run()
-              else if (e.key === 'Escape') e.preventDefault(), onClose()
-            }}
-          />
-          {tasks.isFetching && <span className="spinner" aria-label="Searching" />}
-          <span className="kbd">Esc</span>
-        </div>
-        <div className="palette-list" id="palette-list" role="listbox" ref={list}>
-          {items.length === 0 && <div className="empty">No matches.</div>}
-          {items.map((it, i) => {
-            const header = it.group !== lastGroup ? it.group : null
-            lastGroup = it.group
-            return (
-              <div key={it.id}>
-                {header && <div className="palette-group">{header}</div>}
-                <div
-                  id={`pi-${i}`}
-                  data-i={i}
-                  role="option"
-                  aria-selected={i === active}
-                  className={'palette-item' + (i === active ? ' active' : '')}
-                  onMouseMove={() => i !== active && setActive(i)}
-                  onClick={() => it.run()}
-                >
-                  {it.colour ? <span className="dot" style={{ background: it.colour }} /> : <Icon name={it.icon} />}
-                  <span className="grow truncate">{it.label}</span>
-                  {it.hint && <span className="palette-hint">{it.hint}</span>}
+  return (
+    <BaseDialog.Root open={open} onOpenChange={(o) => !o && onClose()}>
+      <BaseDialog.Portal>
+        <BaseDialog.Backdrop className="fixed inset-0 z-70 bg-scrim transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0" />
+        <BaseDialog.Popup
+          aria-label="Command palette"
+          initialFocus={input}
+          className={cn(
+            'fixed top-[12vh] left-1/2 z-80 flex max-h-[min(34rem,76vh)] w-[min(40rem,calc(100vw-1.5rem))] -translate-x-1/2 flex-col overflow-hidden',
+            'rounded-[calc(var(--app-radius)+4px)] bg-surface shadow-pop outline-none max-md:top-2 max-md:max-h-[70vh]',
+            'transition-[opacity,translate,scale] duration-150 ease-out data-ending-style:opacity-0 data-starting-style:translate-y-1.5 data-starting-style:scale-[0.985] data-starting-style:opacity-0',
+          )}
+        >
+          <div className="flex h-13 items-center gap-2.5 border-b border-border px-3.5 text-muted">
+            <Icon name="search" size={18} />
+            <input
+              ref={input}
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Search pages, projects and tasks…"
+              role="combobox"
+              aria-expanded="true"
+              aria-controls="palette-list"
+              aria-activedescendant={items[active] ? `pi-${active}` : undefined}
+              className="min-w-0 flex-1 border-0 bg-transparent p-0 text-md text-fg outline-none"
+              onKeyDown={(e) => {
+                if (e.key === 'ArrowDown') {
+                  e.preventDefault()
+                  setActive((a) => Math.min(a + 1, items.length - 1))
+                } else if (e.key === 'ArrowUp') {
+                  e.preventDefault()
+                  setActive((a) => Math.max(a - 1, 0))
+                } else if (e.key === 'Enter') {
+                  e.preventDefault()
+                  items[active]?.run()
+                }
+              }}
+            />
+            {tasks.isFetching && <span className="spinner" aria-label="Searching" />}
+            <span className="kbd">Esc</span>
+          </div>
+          <div className="overflow-auto p-1.5" id="palette-list" role="listbox" ref={list}>
+            {items.length === 0 && <EmptyState>No matches.</EmptyState>}
+            {items.map((it, i) => {
+              const header = it.group !== lastGroup ? it.group : null
+              lastGroup = it.group
+              return (
+                <div key={it.id}>
+                  {header && <div className="px-2.5 pt-2 pb-1 text-xs font-medium text-muted">{header}</div>}
+                  {/* biome-ignore lint/a11y/useKeyWithClickEvents: the input above drives the keyboard (aria-activedescendant) */}
+                  <div
+                    id={`pi-${i}`}
+                    data-i={i}
+                    role="option"
+                    tabIndex={-1}
+                    aria-selected={i === active}
+                    className={cn(
+                      'flex h-9 cursor-pointer items-center gap-2.5 rounded-sm px-2.5 text-sm [&>svg]:shrink-0 [&>svg]:text-muted',
+                      i === active && 'bg-hover [&>svg]:text-accent',
+                    )}
+                    onMouseMove={() => i !== active && setActive(i)}
+                    onClick={() => it.run()}
+                  >
+                    {it.colour ? <span className="dot" style={{ background: it.colour }} /> : <Icon name={it.icon} />}
+                    <span className="min-w-0 flex-1 truncate">{it.label}</span>
+                    {it.hint && <span className="text-xs text-muted tabular-nums">{it.hint}</span>}
+                  </div>
                 </div>
-              </div>
-            )
-          })}
-        </div>
-        <div className="palette-foot">
-          <span>
-            <span className="kbd">↑</span> <span className="kbd">↓</span> to move
-          </span>
-          <span>
-            <span className="kbd">Enter</span> to open
-          </span>
-          <span className="spacer" />
-          <span>
-            <span className="kbd">G</span> then a letter jumps
-          </span>
-        </div>
-      </div>
-    </>,
-    document.body,
+              )
+            })}
+          </div>
+          <div className="flex items-center gap-4 border-t border-border bg-bg px-3.5 py-2 text-xs text-muted max-md:hidden">
+            <span>
+              <span className="kbd">↑</span> <span className="kbd">↓</span> to move
+            </span>
+            <span>
+              <span className="kbd">Enter</span> to open
+            </span>
+            <span className="flex-1" />
+            <span>
+              <span className="kbd">G</span> then a letter jumps
+            </span>
+          </div>
+        </BaseDialog.Popup>
+      </BaseDialog.Portal>
+    </BaseDialog.Root>
   )
 }

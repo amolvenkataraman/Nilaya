@@ -24,7 +24,7 @@ type Align = 'start' | 'center' | 'end'
 type Side = 'top' | 'bottom' | 'left' | 'right'
 
 const surface =
-  'z-89 min-w-48 max-w-[min(22rem,calc(100vw-16px))] rounded-md bg-surface p-1 text-sm shadow-pop outline-none ' +
+  'z-89 min-w-48 max-w-[min(22rem,calc(100vw-16px))] rounded-md bg-surface text-sm shadow-pop outline-none ' +
   'origin-(--transform-origin) transition-[opacity,scale] duration-100 ease-out data-ending-style:opacity-0 data-starting-style:scale-[0.98] data-starting-style:opacity-0'
 
 /** Inside a Base UI menu, items are Base UI items; inside a Popover they're plain buttons that look the same. */
@@ -49,7 +49,7 @@ export function Menu({ trigger, children, align = 'start', side = 'bottom', widt
       <BaseMenu.Trigger render={(props) => trigger(props as TriggerProps)} />
       <BaseMenu.Portal>
         <BaseMenu.Positioner side={side} align={align} sideOffset={4} collisionPadding={8} className="z-89 outline-none">
-          <BaseMenu.Popup aria-label={label} style={width ? { width } : undefined} className={cn('menu', surface)}>
+          <BaseMenu.Popup aria-label={label} style={width ? { width } : undefined} className={cn('menu p-1', surface)}>
             <InMenu.Provider value={true}>{children(close)}</InMenu.Provider>
           </BaseMenu.Popup>
         </BaseMenu.Positioner>
@@ -132,8 +132,13 @@ export function Popover({
   side = 'bottom',
   width,
   label,
+  flush = false,
   className,
-}: MenuProps & { className?: string }) {
+}: MenuProps & {
+  /** No inner padding: for panels with their own header and footer edges (the notification bell). */
+  flush?: boolean
+  className?: string
+}) {
   const [open, setOpen] = useState(false)
   const close = useCallback(() => setOpen(false), [])
   useLayer('popover', open)
@@ -145,7 +150,7 @@ export function Popover({
           <BasePopover.Popup
             aria-label={label}
             style={width ? { width } : undefined}
-            className={cn('menu', surface, className)}
+            className={cn('menu', surface, !flush && 'p-1', className)}
             onKeyDown={moveBetweenItems}
           >
             {children(close)}

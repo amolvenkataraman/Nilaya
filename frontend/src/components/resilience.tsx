@@ -6,6 +6,11 @@ import { ApiError } from '../lib/api'
 import { isStaleChunkError, reloadForNewBuild } from '../lib/newBuild'
 import { SESSION_CACHE, ownerId } from '../lib/owner'
 import { Icon } from './Icon'
+import { Button } from './ui/button'
+import { cn } from '../lib/cn'
+
+const INLINE_FAIL =
+  'flex items-center gap-2 rounded-sm bg-surface-2 py-1.5 pr-2 pl-3 text-xs text-muted [&>svg]:shrink-0 [&>svg]:text-warning'
 
 // ---------------------------------------------------------------- per-section boundary
 export class Boundary extends Component<{ children: ReactNode; label?: string; className?: string }, { error: Error | null }> {
@@ -21,12 +26,12 @@ export class Boundary extends Component<{ children: ReactNode; label?: string; c
   render() {
     if (!this.state.error) return this.props.children
     return (
-      <div className={'inline-fail ' + (this.props.className ?? '')} role="alert">
+      <div className={cn(INLINE_FAIL, this.props.className)} role="alert">
         <Icon name="alert" size={14} />
         <span>Couldn't load{this.props.label ? ` ${this.props.label}` : ''}</span>
-        <button className="btn ghost sm" onClick={() => this.setState({ error: null })}>
+        <Button variant="ghost" size="sm" className="ml-auto" onClick={() => this.setState({ error: null })}>
           Retry
-        </button>
+        </Button>
       </div>
     )
   }
@@ -35,13 +40,13 @@ export class Boundary extends Component<{ children: ReactNode; label?: string; c
 /** Small inline notice for a failed request whose section still renders (e.g. events over a calendar grid). */
 export function InlineFail({ what, retry }: { what: string; retry?: () => void }) {
   return (
-    <div className="inline-fail" role="status">
+    <div className={INLINE_FAIL} role="status">
       <Icon name="alert" size={14} />
       <span>Couldn't load {what}</span>
       {retry && (
-        <button className="btn ghost sm" onClick={retry}>
+        <Button variant="ghost" size="sm" className="ml-auto" onClick={retry}>
           Retry
-        </button>
+        </Button>
       )}
     </div>
   )
@@ -79,15 +84,19 @@ export function NetworkBanner() {
   const [failing, saved, offline] = snap.split('|').map(Number)
   if (!offline && failing < 2) return null
   return (
-    <div className="net-banner" role="status" aria-live="polite">
+    <div
+      className="sticky top-12 z-24 flex flex-none items-center justify-center gap-2 border-b border-border bg-warning-soft px-3 py-1.25 text-xs text-fg [&>svg]:text-warning"
+      role="status"
+      aria-live="polite"
+    >
       <Icon name="alert" size={14} />
       <span>
         {offline ? "You're offline." : "Can't reach the server, retrying…"}
         {saved ? ' Showing a saved copy.' : ''}
       </span>
-      <button className="btn ghost sm" onClick={() => qc.refetchQueries({ type: 'active' })}>
+      <Button variant="ghost" size="sm" onClick={() => qc.refetchQueries({ type: 'active' })}>
         Retry now
-      </button>
+      </Button>
     </div>
   )
 }

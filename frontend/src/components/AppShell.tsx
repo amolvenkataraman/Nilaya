@@ -156,7 +156,7 @@ export function AppShell({ app: appId, title, pageTitle, topbar, sidebar, sideba
           </>
         )}
         <main id="content" className={cn('min-w-0 flex-1 outline-none', fullHeight && 'h-full overflow-auto')} tabIndex={-1}>
-          <Boundary label="this page" className="page-fail">
+          <Boundary label="this page" className="mx-auto my-6 max-w-120">
             {children}
           </Boundary>
         </main>
