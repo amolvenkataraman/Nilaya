@@ -1,4 +1,7 @@
-// Loading and error states: skeleton rows while a list loads, an error line with Retry when it can't.
+// Loading, error and empty states: skeleton rows while a list loads, an error line with Retry when it can't,
+// and a quiet message (with an optional next step) when there's nothing to show.
+import type { ReactNode } from 'react'
+import { cn } from '../../lib/cn'
 import { Icon } from '../Icon'
 import { Button } from './button'
 
@@ -26,6 +29,27 @@ export function ErrorBox({ error, retry }: { error: unknown; retry?: () => void 
           Retry
         </Button>
       )}
+    </div>
+  )
+}
+
+/** Nothing to show yet: a muted line, an icon, and a way forward when there is one. */
+export function EmptyState({
+  icon,
+  children,
+  action,
+  className,
+}: {
+  icon?: string
+  children: ReactNode
+  action?: ReactNode
+  className?: string
+}) {
+  return (
+    <div className={cn('grid justify-items-center gap-2 p-4 text-center text-sm text-muted', className)}>
+      {icon && <Icon name={icon} size={24} />}
+      <div>{children}</div>
+      {action}
     </div>
   )
 }
