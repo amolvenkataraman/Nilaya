@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { useMediaQuery } from '../../components/ui'
+import { useIsPhone } from '../../components/ui'
 import { dayKey, fmtDate, fmtTime, isSameDay } from '../../lib/dates'
 import type { CalEvent, Task } from '../../lib/types'
 import { BirthdayChip, PhotoBadge, TaskChip, isAllDayTask, type Birthday } from './extras'
@@ -88,7 +88,7 @@ export function WeekView({
 }: Props) {
   const { tz } = useCalPrefs()
   // A second gutter with the home zone's hours while another zone is shown (not on phones: too narrow).
-  const narrowView = useMediaQuery('(max-width: 760px)')
+  const narrowView = useIsPhone()
   const dual = !!tz && !narrowView
   const scroller = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)

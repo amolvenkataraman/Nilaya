@@ -5,6 +5,7 @@ import { parseTaskState, serializeTaskState, nextTaskState } from './qs'
 import { justify } from './justify'
 import { previewQuick } from './quick'
 import { contrast, readable, inkOn, SURFACE } from './colour'
+import { readPref, writePref } from './storage'
 
 const U = '462e4def-457f-4e97-9482-7eeaa1fdfd71'
 
@@ -187,5 +188,29 @@ describe('favicon', () => {
     expect(svg).toContain('<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"></rect><path d="M3 9.5h18M8 3v3M16 3v3"></path>')
     expect(faviconSvg('apps', '#000')).toContain('fill="currentColor" stroke="none"')
     expect(faviconUrl('calendar', '#0891b2')).toBe('data:image/svg+xml,' + encodeURIComponent(svg))
+  })
+})
+
+describe('device preferences', () => {
+  afterEach(() => vi.unstubAllGlobals())
+  it('keep the stored formats and fall back when storage is broken', () => {
+    const store = new Map<string, string>([
+      ['flag', '1'],
+      ['set', '["a","b"]'],
+      ['bad', '{oops'],
+    ])
+    vi.stubGlobal('localStorage', { getItem: (k: string) => store.get(k) ?? null, setItem: (k: string, v: string) => store.set(k, v) })
+    expect(readPref('flag', false)).toBe(true)
+    expect([...readPref('set', new Set<string>())]).toEqual(['a', 'b'])
+    expect(readPref('bad', { x: 1 })).toEqual({ x: 1 })
+    writePref('flag', false)
+    writePref('set', new Set(['c']))
+    expect([store.get('flag'), store.get('set')]).toEqual(['0', '["c"]'])
+    vi.stubGlobal('localStorage', {
+      getItem: () => {
+        throw new Error('blocked')
+      },
+    })
+    expect(readPref('flag', true)).toBe(true)
   })
 })

@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { Route, Routes, useSearchParams } from 'react-router'
 import { AppShell, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Drawer, Menu, MenuItem, MenuSeparator, useHotkey, useMediaQuery, useNow } from '../../components/ui'
+import { Drawer, Menu, MenuItem, MenuSeparator, useHotkey, useIsPhone, useMediaQuery, useNow } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { get } from '../../lib/api'
 import { addMonths, dayKey, fmtDate, isSameDay, monthGrid, parseDayKey } from '../../lib/dates'
@@ -83,7 +83,7 @@ function CalendarMain() {
   const now = useNow(60_000)
   const todayZ = zoneDay(now.getTime(), tz) // today's date in the display zone
   const state = parseCalState(params, todayZ)
-  const phone = useMediaQuery('(max-width: 760px)')
+  const phone = useIsPhone()
   const narrow = useMediaQuery('(max-width: 1100px)')
   const roomyTop = useMediaQuery('(min-width: 1500px)') // room for the zone chip beside the title
   const weekDays = phone ? 3 : 7

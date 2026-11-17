@@ -16,7 +16,7 @@ import {
   SkeletonRows,
   isTyping,
   useDebounced,
-  useMediaQuery,
+  useIsPhone,
 } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { safeHref } from '../../lib/api'
@@ -92,7 +92,7 @@ export default function ContactsPage() {
   const [confirmBulk, setConfirmBulk] = useState(false)
   const bulkDelete = useBulkDelete()
   const deleteTag = useDeleteTag()
-  const phone = useMediaQuery('(max-width: 760px)')
+  const phone = useIsPhone()
   const qc = useQueryClient()
   const searchRef = useRef<HTMLInputElement>(null)
   const [labels, setLabels] = useState<{ edit: number | null } | null>(null)

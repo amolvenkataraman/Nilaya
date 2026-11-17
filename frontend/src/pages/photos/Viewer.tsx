@@ -18,7 +18,7 @@ import { get, post, safeHref } from '../../lib/api'
 import { fmtDate, fmtTime } from '../../lib/dates'
 import type { Photo } from '../../lib/types'
 import { Icon } from '../../components/Icon'
-import { Confirm, Menu, MenuItem, MenuSeparator, isTyping } from '../../components/ui'
+import { Confirm, Menu, MenuItem, MenuSeparator, PHONE_QUERY, isTyping } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { fmtDuration } from './util'
 import { fmtBytes } from '../../lib/format'
@@ -492,7 +492,7 @@ function useFit(stage: RefObject<HTMLDivElement | null>, W: number, H: number): 
     if (!size || !W || !H) return null
     // Same padding as .viewer-media (3.5rem top; 4.5rem sides and 1.5rem bottom, or 0 and 1rem on phones).
     const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
-    const phone = window.matchMedia('(max-width: 760px)').matches
+    const phone = window.matchMedia(PHONE_QUERY).matches
     const top = 3.5 * rem,
       side = phone ? 0 : 4.5 * rem,
       bottom = (phone ? 1 : 1.5) * rem

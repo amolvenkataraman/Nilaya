@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { MenuSeparator, Popover, useMediaQuery } from '../../components/ui'
+import { MenuSeparator, Popover, useIsPhone } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { post, safeHref } from '../../lib/api'
 import { fmtDate, isSameDay, relTime } from '../../lib/dates'
@@ -66,7 +66,7 @@ export function EventPeek({
   onEdit: (e: CalEvent) => void
 }) {
   const isTop = useLayer('popover', true)
-  const phone = useMediaQuery('(max-width: 760px)')
+  const phone = useIsPhone()
   const { tz } = useCalPrefs()
   const ref = useRef<HTMLDivElement>(null)
   const [style, setStyle] = useState<CSSProperties>({ visibility: 'hidden' })

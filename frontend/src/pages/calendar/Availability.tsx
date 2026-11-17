@@ -6,7 +6,7 @@ import { Link, useParams, useSearchParams } from 'react-router'
 import { useQueries, useQuery } from '@tanstack/react-query'
 import { AppShell } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Avatar, ErrorBox, useMediaQuery, useNow } from '../../components/ui'
+import { Avatar, ErrorBox, useIsPhone, useNow } from '../../components/ui'
 import { ApiError, get } from '../../lib/api'
 import { addDays, dayKey, fmtDate, fmtTime, isSameDay, parseDayKey, startOfDay } from '../../lib/dates'
 import { rangeTitle, stepDate, viewRange } from './util'
@@ -37,7 +37,7 @@ const HOURS = Array.from({ length: 24 }, (_, h) => h)
 export default function AvailabilityPage({ bare = false }: { bare?: boolean }) {
   const { username = '' } = useParams()
   const [params, setParams] = useSearchParams()
-  const phone = useMediaQuery('(max-width: 760px)')
+  const phone = useIsPhone()
   const n = phone ? 3 : 7
   const raw = params.get('date')
   const date = raw && /^\d{4}-\d{2}-\d{2}$/.test(raw) ? parseDayKey(raw) : startOfDay(new Date())

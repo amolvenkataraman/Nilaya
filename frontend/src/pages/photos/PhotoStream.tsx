@@ -10,7 +10,7 @@ import { SelectionBar, labelText, select, selection, tileLabel, tileTitle } from
 import { justify } from '../../lib/justify'
 import type { Photo, PhotoPage } from '../../lib/types'
 import { Icon } from '../../components/Icon'
-import { ErrorBox, useMediaQuery } from '../../components/ui'
+import { ErrorBox, useIsPhone } from '../../components/ui'
 import { Viewer } from './Viewer'
 import { layerOpen } from '../../components/layers'
 
@@ -355,7 +355,7 @@ export function PhotoStream({
   itemsRef.current = items
   const getOrder = useCallback(() => itemsRef.current, [])
   const [ref, width] = useWidth<HTMLDivElement>()
-  const phone = useMediaQuery('(max-width: 760px)')
+  const phone = useIsPhone()
   const rem = remPx()
   const target = Math.round(rem * ROW_REM[zoom][phone ? 0 : 1])
   const gap = Math.max(2, Math.round(rem * (phone ? 0.125 : 0.25)))

@@ -6,7 +6,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { Icon } from './Icon'
-import { Avatar, Menu, MenuItem, MenuSeparator, useMediaQuery, MenuLabel } from './ui'
+import { Avatar, Menu, MenuItem, MenuLabel, MenuSeparator, useIsPhone } from './ui'
 import { NotificationBell } from './NotificationBell'
 import { APPS, STAFF_APPS, type AppDef } from './nav'
 import { logout, useGlobals, usePageTitle } from './Shell'
@@ -33,8 +33,6 @@ export interface AppShellProps {
   children: ReactNode
 }
 
-const PHONE = '(max-width: 760px)'
-
 function readOpen(app: string): boolean {
   try {
     return localStorage.getItem(`app.sidebar.${app}`) !== '0'
@@ -59,7 +57,7 @@ export function AppShell({ app: appId, title, pageTitle, topbar, sidebar, sideba
   const app = APPS.find((a) => a.id === appId) ?? APPS[0]
   usePageTitle(pageTitle ?? app.label)
   useAppFavicon(app)
-  const phone = useMediaQuery(PHONE)
+  const phone = useIsPhone()
   const [open, setOpen] = useState(() => readOpen(appId))
   const [drawer, setDrawer] = useState(false)
   useLayer('drawer', drawer)

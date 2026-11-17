@@ -115,3 +115,7 @@ export function useMediaQuery(q: string): boolean {
   }, [q])
   return m
 }
+
+/** The phone layout's breakpoint (Tailwind's `md` starts just above it). */
+export const PHONE_QUERY = '(max-width: 760px)'
+export const useIsPhone = () => useMediaQuery(PHONE_QUERY)

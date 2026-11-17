@@ -2,7 +2,7 @@
 import { useMemo, useState } from 'react'
 import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { Columns, HBars } from '../../components/charts'
-import { ErrorBox, SkeletonRows, useMediaQuery } from '../../components/ui'
+import { ErrorBox, SkeletonRows, useIsPhone } from '../../components/ui'
 import { get } from '../../lib/api'
 import { addDays, dayKey, fmtDate, parseDayKey, startOfDay } from '../../lib/dates'
 
@@ -72,7 +72,7 @@ export function UsagePage() {
     if (!d) return null
     return { views: d.apps.reduce((a, x) => a + n(x.views), 0), calls: d.apps.reduce((a, x) => a + n(x.calls), 0) }
   }, [d])
-  const phone = useMediaQuery('(max-width: 760px)')
+  const phone = useIsPhone()
   const chart = useMemo(() => (d ? series(d, phone ? 5 : 10) : null), [d, phone])
   const cells = useMemo(() => new Map(d?.matrix.map((m) => [`${m.user__username}|${m.app}`, m]) ?? []), [d])
 
