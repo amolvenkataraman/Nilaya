@@ -119,6 +119,12 @@ export function SettingValue({ children, className }: { children: ReactNode; cla
  *  phones. `!` because fieldClass sets w-full. */
 export const settingControl = 'md:w-auto! md:min-w-48'
 
+/** Segmented's buttons keep the browser's border and grey background without the old stylesheet (there's no
+ *  preflight); pass as its className until components/ui/controls.tsx resets them itself. */
+export const segmentedReset = '*:border-0 *:aria-[pressed=false]:bg-transparent'
+/** The same for SearchBox's input (it keeps the browser's inset border). */
+export const searchBoxReset = '[&_input]:border-0 [&_input]:p-0'
+
 /** The card's foot: a status on the left, buttons on the right. */
 export function SettingsFoot({ children }: { children: ReactNode }) {
   return <div className="flex items-center gap-2 rounded-b-md border-t border-border bg-bg px-4 py-2.5">{children}</div>

@@ -2,7 +2,7 @@
 import { Segmented, type SegmentOption } from '../../components/ui'
 import { setTheme, type ThemePref, useTheme } from '../../lib/theme'
 import { cardClass } from './Card'
-import { SettingRow, SettingsSection } from './SettingsSection'
+import { SettingRow, SettingsSection, segmentedReset } from './SettingsSection'
 
 const OPTIONS: SegmentOption<ThemePref>[] = [
   { value: 'system', label: 'System', icon: 'monitor' },
@@ -20,7 +20,7 @@ export function AppearanceSection() {
     >
       <div className={cardClass}>
         <SettingRow label="Theme" inline>
-          <Segmented label="Theme" value={pref} onChange={setTheme} options={OPTIONS} />
+          <Segmented label="Theme" value={pref} onChange={setTheme} options={OPTIONS} className={segmentedReset} />
         </SettingRow>
       </div>
     </SettingsSection>

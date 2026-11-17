@@ -1,11 +1,12 @@
+// Notifications: the inbox (all or unread) and its settings (delivery channels, reminders) as tabs in the URL.
+import { cn } from '../../lib/cn'
 import { useSearchParams } from 'react-router'
 import { AppShell, SideItem, SideSection } from '../../components/AppShell'
 import { useUnreadCount } from '../../lib/queries'
 import { InboxTab } from './Inbox'
 import { ChannelsTab } from './Channels'
 import { AppReminders, RemindersTab } from './Reminders'
-import '../settings/settings.css'
-import './notifications.css'
+import { pageClass } from '../settings/SettingsSection'
 
 const TABS = ['inbox', 'channels', 'reminders'] as const
 type Tab = (typeof TABS)[number]
@@ -37,7 +38,7 @@ export default function NotificationsPage() {
   )
   return (
     <AppShell app="notifications" sidebar={sidebar}>
-      <div className="page set-page notif-page">
+      <div className={cn(pageClass, 'max-w-[52rem]')}>
         {tab === 'inbox' && <InboxTab unreadOnly={unreadOnly} />}
         {tab === 'channels' && <ChannelsTab />}
         {tab === 'reminders' && (

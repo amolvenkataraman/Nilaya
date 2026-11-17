@@ -1,6 +1,6 @@
 // Small pills for a status or a label (Staff, Expired, "Normal and up") and key caps for shortcuts. Built here
 // for Settings, Notifications, Users, Home and the public pages while the old `.chip`/`.kbd` classes go away;
-// candidates for components/ui.
+// to be replaced by components/ui/chip.tsx (master has Chip, Kbd and Dot there now).
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 
@@ -14,13 +14,31 @@ const tones: Record<ChipTone, string> = {
   success: 'border-transparent bg-success-soft text-success',
 }
 
-export function chipClass(tone: ChipTone = 'default', className?: string): string {
-  return cn('inline-flex h-5 items-center gap-1 rounded-full border px-1.75 text-xs font-medium whitespace-nowrap', tones[tone], className)
+export function chipClass(tone: ChipTone = 'default', className?: string, small = false): string {
+  return cn(
+    'inline-flex items-center gap-1 rounded-full border px-1.75 text-xs font-medium whitespace-nowrap',
+    small ? 'h-4.5' : 'h-5',
+    tones[tone],
+    className,
+  )
 }
 
-export function Chip({ tone, className, title, children }: { tone?: ChipTone; className?: string; title?: string; children: ReactNode }) {
+export function Chip({
+  tone,
+  small,
+  className,
+  title,
+  children,
+}: {
+  tone?: ChipTone
+  /** A notch lower, for meta lines. */
+  small?: boolean
+  className?: string
+  title?: string
+  children: ReactNode
+}) {
   return (
-    <span className={chipClass(tone, className)} title={title}>
+    <span className={chipClass(tone, className, small)} title={title}>
       {children}
     </span>
   )

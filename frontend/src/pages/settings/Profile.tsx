@@ -82,7 +82,7 @@ export function ProfileSection({ me }: { me: Me }) {
         <div className="flex items-center gap-3.5 border-b border-border p-4 max-md:flex-wrap">
           <button
             type="button"
-            className="relative flex shrink-0 rounded-full"
+            className="relative flex shrink-0 rounded-full border-0 bg-transparent p-0"
             onClick={() => setPicture(true)}
             aria-label="Change profile picture"
             title="Change profile picture"

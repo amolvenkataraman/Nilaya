@@ -1,20 +1,29 @@
+// Notifications › Inbox: every notification, grouped by day, loaded 30 at a time as you scroll. Search, source
+// and the unread filter run on the server. Keyboard: J/K move, Enter opens, E toggles read, # deletes.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
-import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
+import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { layerOpen } from '../../components/layers'
-import { Confirm, ErrorBox, SkeletonRows, useDebounced, useHotkey } from '../../components/ui'
 import { NotificationRow, useOpenNotification } from '../../components/NotificationBell'
-import { toast } from '../../components/toast'
-import { del, get, post } from '../../lib/api'
-import { useMarkRead, useReadAll } from '../../lib/queries'
+import {
+  Button,
+  Confirm,
+  EmptyState,
+  QueryView,
+  SearchBox,
+  Segmented,
+  Select,
+  SkeletonRows,
+  useDebounced,
+  useHotkey,
+} from '../../components/ui'
+import { cn } from '../../lib/cn'
 import { dayDiff, fmtDate, groupByDay } from '../../lib/dates'
-import type { Inbox } from '../../lib/types'
-
-const PAGE = 30
-type Pages = InfiniteData<Inbox, string | undefined>
-// Not under ['notifications','inbox'] on purpose: those caches hold a flat Inbox, this one holds pages.
-const pageKey = (unreadOnly: boolean, q: string, source: string) => ['notifications', 'page', unreadOnly, q, source] as const
+import { cardClass } from '../settings/Card'
+import { Kbd } from '../settings/Chip'
+import { SettingsSection, searchBoxReset, segmentedReset } from '../settings/SettingsSection'
+import { inboxPagesQuery, sourcesQuery, useClearRead, useDeleteNotification, useInboxReads } from './api'
 
 function dayLabel(d: Date | null, now = new Date()): string {
   if (!d) return 'Undated'
@@ -30,75 +39,24 @@ function dayLabel(d: Date | null, now = new Date()): string {
   )
 }
 
-function patchPages(qc: ReturnType<typeof useQueryClient>, fn: (d: Pages) => Pages) {
-  qc.setQueriesData<Pages>({ queryKey: ['notifications', 'page'] }, (old) => (old ? fn(old) : old))
-}
+const noModifier = (e: KeyboardEvent) => !e.metaKey && !e.ctrlKey && !e.altKey && !layerOpen()
 
 export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
-  const qc = useQueryClient()
   const open = useOpenNotification()
-  const readAll = useReadAll()
-  // Search and source filter on the server (they combine with unread_only and the before cursor).
+  const reads = useInboxReads()
+  const remove = useDeleteNotification()
+  const clear = useClearRead()
+  const [, setParams] = useSearchParams()
   const [source, setSource] = useState('')
   const [search, setSearch] = useState('')
   const needle = useDebounced(search.trim(), 250)
-  const sourcesQ = useQuery({
-    queryKey: ['notifications', 'sources'],
-    queryFn: () => get<string[]>('notifications/sources'),
-    staleTime: 60_000,
-  })
-  const q = useInfiniteQuery({
-    queryKey: pageKey(unreadOnly, needle, source),
-    queryFn: ({ pageParam, signal }) =>
-      get<Inbox>(
-        'notifications/',
-        { unread_only: unreadOnly || undefined, q: needle || undefined, source: source || undefined, limit: PAGE, before: pageParam },
-        signal,
-      ),
-    placeholderData: (prev) => prev,
-    initialPageParam: undefined as string | undefined,
-    getNextPageParam: (last) => (last.items.length < PAGE ? undefined : last.items[last.items.length - 1].created_on),
-  })
-
-  // NotificationRow / the bell mark items read through the shared mutation; mirror it here instantly.
-  useEffect(
-    () =>
-      qc.getMutationCache().subscribe((ev) => {
-        if (ev.type !== 'added') return
-        const v = ev.mutation.state.variables as { id?: unknown; read?: unknown } | undefined
-        if (!v || typeof v.id !== 'string' || Object.keys(v).some((k) => k !== 'id' && k !== 'read')) return
-        const read = v.read === undefined ? true : !!v.read
-        patchPages(qc, (d) => ({
-          ...d,
-          pages: d.pages.map((p) => ({ ...p, items: p.items.map((n) => (n.id === v.id ? { ...n, read } : n)) })),
-        }))
-      }),
-    [qc],
-  )
-
-  const remove = useMutation({
-    mutationFn: (id: string) => del(`notifications/${id}`),
-    onMutate: (id) => {
-      const snaps = qc.getQueriesData<Pages>({ queryKey: ['notifications', 'page'] })
-      patchPages(qc, (d) => ({ ...d, pages: d.pages.map((p) => ({ ...p, items: p.items.filter((n) => n.id !== id) })) }))
-      return { snaps }
-    },
-    onError: (_e, _id, ctx) => {
-      ctx?.snaps.forEach(([k, d]) => qc.setQueryData(k, d))
-    },
-    onSettled: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
-  })
-
-  const all = useMemo(() => q.data?.pages.flatMap((p) => p.items) ?? [], [q.data])
-  const unread = q.data?.pages[0]?.unread ?? 0
-  const [, setParams] = useSearchParams()
-  const sources = sourcesQ.data ?? []
-  const items = all
+  const sources = useQuery(sourcesQuery()).data ?? []
+  const q = useInfiniteQuery(inboxPagesQuery(unreadOnly, needle, source))
+  const items = useMemo(() => q.data?.pages.flatMap((p) => p.items) ?? [], [q.data])
   const groups = useMemo(() => groupByDay(items, (n) => n.created_on), [items])
+  const unread = q.data?.pages[0]?.unread ?? 0
   const [confirmClear, setConfirmClear] = useState(false)
-  const mark = useMarkRead()
 
-  // Keyboard: j/k move, Enter opens, e toggles read, # deletes.
   const [sel, setSel] = useState<string | null>(null)
   const selected = items.find((n) => n.id === sel) ?? null
   const move = (dir: 1 | -1) => {
@@ -109,16 +67,19 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
     document.querySelector(`[data-notif="${next.id}"]`)?.scrollIntoView({ block: 'nearest' })
   }
   useHotkey(
-    (e) => (e.key === 'j' || e.key === 'k') && !e.metaKey && !e.ctrlKey && !layerOpen(),
-    (e) => (e.preventDefault(), move(e.key === 'j' ? 1 : -1)),
+    (e) => (e.key === 'j' || e.key === 'k') && noModifier(e),
+    (e) => {
+      e.preventDefault()
+      move(e.key === 'j' ? 1 : -1)
+    },
   )
   useHotkey(
     (e) => e.key === 'Enter' && !!selected && !layerOpen(),
     () => selected && open(selected),
   )
   useHotkey(
-    (e) => e.key === 'e' && !!selected && !layerOpen(),
-    () => selected && mark.mutate({ id: selected.id, read: !selected.read }),
+    (e) => e.key === 'e' && !!selected && noModifier(e),
+    () => selected && reads.mark(selected, !selected.read),
   )
   useHotkey(
     (e) => e.key === '#' && !!selected && !layerOpen(),
@@ -132,121 +93,120 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
 
   // Infinite scroll, with the button as a fallback.
   const sentinel = useRef<HTMLDivElement>(null)
+  const { hasNextPage, isFetchingNextPage, fetchNextPage } = q
   useEffect(() => {
     const el = sentinel.current
-    if (!el || !q.hasNextPage) return
-    const io = new IntersectionObserver((es) => es.some((x) => x.isIntersecting) && !q.isFetchingNextPage && q.fetchNextPage(), {
-      rootMargin: '600px 0px',
-    })
+    if (!el || !hasNextPage) return
+    const io = new IntersectionObserver(
+      (es) => {
+        if (es.some((x) => x.isIntersecting) && !isFetchingNextPage) fetchNextPage()
+      },
+      { rootMargin: '600px 0px' },
+    )
     io.observe(el)
     return () => io.disconnect()
-  }, [q.hasNextPage, q.isFetchingNextPage, q])
-
-  const clearRead = async () => {
-    patchPages(qc, (d) => ({ ...d, pages: d.pages.map((p) => ({ ...p, items: p.items.filter((n) => !n.read) })) }))
-    try {
-      const r = await post<{ deleted: number }>('notifications/clear-read')
-      toast.show(r.deleted ? `Cleared ${r.deleted} read notification${r.deleted === 1 ? '' : 's'}` : 'Nothing to clear')
-    } catch (e) {
-      toast.fail(e)
-    }
-    qc.invalidateQueries({ queryKey: ['notifications'] })
-  }
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage])
 
   return (
-    <div className="set-section">
-      <div className="set-section-head">
-        <div className="grow">
-          <h1>Inbox</h1>
-          <p>{unread ? `${unread} unread` : 'Everything is read'}</p>
-        </div>
-        <button className="btn sm" disabled={!all.length && !needle && !source} onClick={() => setConfirmClear(true)}>
-          <Icon name="trash" size={14} />
-          Clear read
-        </button>
-        <button
-          className="btn sm"
-          disabled={!unread || readAll.isPending}
-          onClick={() => {
-            patchPages(qc, (d) => ({ ...d, pages: d.pages.map((p) => ({ unread: 0, items: p.items.map((n) => ({ ...n, read: true })) })) }))
-            readAll.mutate()
-          }}
-        >
-          <Icon name="check" size={14} />
-          Mark all read
-        </button>
-      </div>
-
-      <div className="inbox-tools">
-        <div className="seg" role="group" aria-label="Show">
-          <button aria-pressed={!unreadOnly} onClick={() => setParams({})}>
-            All
-          </button>
-          <button aria-pressed={unreadOnly} onClick={() => setParams({ unread: '1' })}>
-            Unread{unread ? ` ${unread}` : ''}
-          </button>
-        </div>
-        <select className="select inbox-source" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Source">
+    <SettingsSection
+      page
+      title="Inbox"
+      description={unread ? `${unread} unread` : 'Everything is read'}
+      actions={
+        <>
+          <Button size="sm" disabled={!items.length && !needle && !source} onClick={() => setConfirmClear(true)}>
+            <Icon name="trash" size={14} />
+            Clear read
+          </Button>
+          <Button size="sm" disabled={!unread || reads.readingAll} onClick={reads.readAll}>
+            <Icon name="check" size={14} />
+            Mark all read
+          </Button>
+        </>
+      }
+    >
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <Segmented
+          label="Show"
+          className={segmentedReset}
+          value={unreadOnly ? 'unread' : 'all'}
+          onChange={(v) => setParams(v === 'unread' ? { unread: '1' } : {})}
+          options={[
+            { value: 'all', label: 'All' },
+            { value: 'unread', label: `Unread${unread ? ` ${unread}` : ''}` },
+          ]}
+        />
+        <Select className="w-auto! min-w-36" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Source">
           <option value="">All sources</option>
           {sources.map((s) => (
             <option key={s} value={s}>
               {s}
             </option>
           ))}
-        </select>
-        <label className="inbox-search">
-          <Icon name="search" size={14} />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search notifications"
-            aria-label="Search notifications"
-          />
-        </label>
+        </Select>
+        <SearchBox
+          className={cn('min-w-48 flex-1 max-md:basis-full', searchBoxReset)}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Search notifications"
+          aria-label="Search notifications"
+        />
       </div>
 
-      <div className="set-card inbox-card">
-        {q.isPending ? (
-          <SkeletonRows rows={6} avatar />
-        ) : q.isError && !q.data ? (
-          <ErrorBox error={q.error} retry={() => q.refetch()} />
-        ) : !items.length ? (
-          <div className="empty inbox-empty">
-            {needle || source ? 'No notifications match.' : unreadOnly ? "You're all caught up." : 'No notifications yet.'}
-          </div>
-        ) : (
-          groups.map((g) => (
-            <div key={g.key} className="inbox-group">
-              <h3 className="inbox-day">{dayLabel(g.date)}</h3>
-              {g.items.map((n) => (
-                <div key={n.id} className="inbox-row" onMouseDown={() => setSel(n.id)}>
-                  <NotificationRow n={n} onOpen={open} onDelete={(x) => remove.mutate(x.id)} selected={n.id === sel} />
-                </div>
-              ))}
-            </div>
-          ))
-        )}
+      <div className={cardClass}>
+        <QueryView
+          query={q}
+          skeleton={<SkeletonRows rows={6} avatar />}
+          isEmpty={() => !items.length}
+          empty={
+            <EmptyState className="py-10">
+              {needle || source ? 'No notifications match.' : unreadOnly ? "You're all caught up." : 'No notifications yet.'}
+            </EmptyState>
+          }
+        >
+          {() =>
+            groups.map((g, i) => (
+              <div key={g.key} className={cn(i > 0 && 'border-t border-border')}>
+                <h3
+                  className={cn(
+                    'sticky top-12 z-1 bg-[color-mix(in_srgb,var(--app-surface)_94%,transparent)] px-4 pt-2 pb-1.5 text-xs font-semibold text-muted backdrop-blur-[6px]',
+                    i === 0 && 'rounded-t-md',
+                  )}
+                >
+                  {dayLabel(g.date)}
+                </h3>
+                {g.items.map((n) => (
+                  // The row is its own button; this only picks the row the keys act on. Inbox rows sit a little
+                  // further in than the bell's (`!` until NotificationRow takes a padding option).
+                  // biome-ignore lint/a11y/noStaticElementInteractions: selection for the keyboard shortcuts
+                  <div key={n.id} className="mx-1 last:mb-1.5 [&_.notif]:pl-3!" onMouseDown={() => setSel(n.id)}>
+                    <NotificationRow n={n} onOpen={open} onDelete={(x) => remove.mutate(x.id)} selected={n.id === sel} />
+                  </div>
+                ))}
+              </div>
+            ))
+          }
+        </QueryView>
         <div ref={sentinel} />
         {q.hasNextPage && (
-          <div className="inbox-more">
-            <button className="btn sm" onClick={() => q.fetchNextPage()} disabled={q.isFetchingNextPage}>
+          <div className="flex justify-center border-t border-border p-3">
+            <Button size="sm" onClick={() => q.fetchNextPage()} disabled={q.isFetchingNextPage}>
               {q.isFetchingNextPage ? 'Loading…' : 'Load more'}
-            </button>
+            </Button>
           </div>
         )}
       </div>
-      <p className="help inbox-keys">
-        <span className="kbd">J</span>/<span className="kbd">K</span> move · <span className="kbd">Enter</span> open ·{' '}
-        <span className="kbd">E</span> read/unread · <span className="kbd">#</span> delete
+      <p className="mt-2 text-xs text-muted max-md:hidden">
+        <Kbd>J</Kbd>/<Kbd>K</Kbd> move · <Kbd>Enter</Kbd> open · <Kbd>E</Kbd> read/unread · <Kbd>#</Kbd> delete
       </p>
       <Confirm
         open={confirmClear}
         title="Clear read notifications?"
         body="Deletes every read notification in your inbox, not just the ones shown."
         confirmLabel="Clear"
-        onConfirm={clearRead}
+        onConfirm={() => clear.mutate()}
         onClose={() => setConfirmClear(false)}
       />
-    </div>
+    </SettingsSection>
   )
 }

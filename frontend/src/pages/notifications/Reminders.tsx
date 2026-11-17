@@ -1,11 +1,12 @@
+// Notifications › Reminders: the automatic reminders for events, deadlines and tasks, the morning agenda, and
+// the nudges the Habits and Contacts apps send. Every change saves at once and says "Saved".
 import { useEffect, useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { Icon } from '../../components/Icon'
-import { ErrorBox, SkeletonRows, Switch } from '../../components/ui'
-import { get, patch } from '../../lib/api'
+import { useQuery } from '@tanstack/react-query'
+import { ErrorBox, Input, Select, SkeletonRows, Switch } from '../../components/ui'
 import type { ReminderSettings } from '../../lib/types'
-
-const KEY = ['notifications', 'reminders'] as const
+import { cardClass } from '../settings/Card'
+import { SavedMark, SaveStatus, SettingRow, SettingsSection, settingControl } from '../settings/SettingsSection'
+import { remindersQuery, useAppSettings, useSaveReminders } from './api'
 
 // 0 minutes = off (see GET /notifications/reminders). Max 10080 (a week).
 const EVENT = [0, 5, 10, 15, 30, 60, 120, 1440]
@@ -20,62 +21,46 @@ function minutesLabel(m: number): string {
   return `${m} minutes before`
 }
 
+/** True for 2.5 s after `flash()`: the "Saved" mark. */
+function useFlash(): [boolean, () => void] {
+  const [on, setOn] = useState(0)
+  useEffect(() => {
+    if (!on) return
+    const t = setTimeout(() => setOn(0), 2500)
+    return () => clearTimeout(t)
+  }, [on])
+  return [on > 0, () => setOn((n) => n + 1)]
+}
+
 type Status = 'idle' | 'saving' | 'saved' | 'error'
 
 export function RemindersTab() {
-  const qc = useQueryClient()
-  const q = useQuery({ queryKey: KEY, queryFn: () => get<ReminderSettings>('notifications/reminders') })
+  const q = useQuery(remindersQuery())
   const [status, setStatus] = useState<Status>('idle')
-  const save = useMutation({
-    mutationFn: (body: Partial<ReminderSettings>) => patch<ReminderSettings>('notifications/reminders', body),
-    onMutate: (body) => {
-      setStatus('saving')
-      const prev = qc.getQueryData<ReminderSettings>(KEY)
-      if (prev) qc.setQueryData<ReminderSettings>(KEY, { ...prev, ...body })
-      return { prev }
-    },
-    onError: (_e, _b, ctx) => {
-      if (ctx?.prev) qc.setQueryData(KEY, ctx.prev)
-      setStatus('error')
-    },
-    onSuccess: (s) => {
-      qc.setQueryData(KEY, s)
-      setStatus('saved')
-    },
-  })
+  const save = useSaveReminders(setStatus)
   useEffect(() => {
     if (status !== 'saved') return
     const t = setTimeout(() => setStatus('idle'), 2500)
     return () => clearTimeout(t)
   }, [status])
-
   const s = q.data
   const set = (body: Partial<ReminderSettings>) => save.mutate(body)
 
   return (
-    <div className="set-section">
-      <div className="set-section-head">
-        <div className="grow">
-          <h1>Automatic reminders</h1>
-          <p>Notifications sent for your calendar and tasks, through the bell and your delivery channels.</p>
-        </div>
-        <span className={'set-status' + (status === 'saved' ? ' ok' : status === 'error' ? ' err' : '')} role="status" aria-live="polite">
+    <SettingsSection
+      page
+      title="Automatic reminders"
+      description="Notifications sent for your calendar and tasks, through the bell and your delivery channels."
+      actions={
+        <SaveStatus tone={status === 'saved' ? 'ok' : status === 'error' ? 'err' : undefined}>
           {status === 'saving' && 'Saving…'}
-          {status === 'saved' && (
-            <>
-              <Icon name="check" size={12} />
-              Saved
-            </>
-          )}
+          {status === 'saved' && <SavedMark />}
           {status === 'error' && (save.error as Error)?.message}
-        </span>
-      </div>
-      <div className="set-card">
-        {q.isPending ? (
-          <SkeletonRows rows={5} />
-        ) : !s ? (
-          q.isError && <ErrorBox error={q.error} retry={() => q.refetch()} />
-        ) : (
+        </SaveStatus>
+      }
+    >
+      <div className={cardClass}>
+        {s ? (
           <>
             <MinutesRow
               id="rm-event"
@@ -101,151 +86,100 @@ export function RemindersTab() {
               presets={TODO}
               onChange={(v) => set({ todo_minutes: v })}
             />
-            <div className="set-row">
-              <span className="set-label">
-                Morning agenda<small>A summary of the day's events and tasks</small>
-              </span>
-              <div className="set-control">
-                <input
-                  type="time"
-                  className="input"
-                  aria-label="Agenda time"
-                  value={s.agenda_time.slice(0, 5)}
-                  disabled={!s.daily_agenda}
-                  onChange={(e) => e.target.value && set({ agenda_time: e.target.value + ':00' })}
-                />
-                <Switch
-                  checked={s.daily_agenda}
-                  onChange={(v) => set({ daily_agenda: v })}
-                  label={<span className="sr-only">Send a morning agenda</span>}
-                />
-              </div>
-            </div>
-            <div className="set-row inline">
-              <span className="set-label">
-                Deadlines become tasks<small>Each new calendar deadline also gets a task in your Inbox</small>
-              </span>
-              <div className="set-control">
-                <Switch
-                  checked={s.deadlines_to_todos}
-                  onChange={(v) => set({ deadlines_to_todos: v })}
-                  label={<span className="sr-only">Turn deadlines into tasks</span>}
-                />
-              </div>
-            </div>
+            <SettingRow label="Morning agenda" hint="A summary of the day's events and tasks">
+              <Input
+                type="time"
+                className={settingControl}
+                aria-label="Agenda time"
+                value={s.agenda_time.slice(0, 5)}
+                disabled={!s.daily_agenda}
+                onChange={(e) => e.target.value && set({ agenda_time: `${e.target.value}:00` })}
+              />
+              <Switch
+                checked={s.daily_agenda}
+                onChange={(v) => set({ daily_agenda: v })}
+                label={<span className="sr-only">Send a morning agenda</span>}
+              />
+            </SettingRow>
+            <SettingRow label="Deadlines become tasks" hint="Each new calendar deadline also gets a task in your Inbox" inline>
+              <Switch
+                checked={s.deadlines_to_todos}
+                onChange={(v) => set({ deadlines_to_todos: v })}
+                label={<span className="sr-only">Turn deadlines into tasks</span>}
+              />
+            </SettingRow>
           </>
+        ) : q.error ? (
+          <ErrorBox error={q.error} retry={() => q.refetch()} />
+        ) : (
+          <SkeletonRows rows={5} />
         )}
       </div>
-    </div>
+    </SettingsSection>
   )
-}
-
-/** Reminder settings owned by another app (habits, contacts): immediate save + "Saved". */
-function useAppSettings<T extends object>(path: string) {
-  const qc = useQueryClient()
-  const key = ['settings', path]
-  const q = useQuery({ queryKey: key, queryFn: () => get<T>(path), retry: false })
-  const [saved, setSaved] = useState(false)
-  const m = useMutation({
-    mutationFn: (body: Partial<T>) => patch<T>(path, body),
-    onMutate: (body) => {
-      const prev = qc.getQueryData<T>(key)
-      if (prev) qc.setQueryData<T>(key, { ...prev, ...body })
-      return { prev }
-    },
-    onError: (_e, _b, ctx) => ctx?.prev && qc.setQueryData(key, ctx.prev),
-    onSuccess: (v) => (qc.setQueryData(key, v), setSaved(true), setTimeout(() => setSaved(false), 2500)),
-  })
-  return { q, save: m.mutate, saved, error: m.error as Error | null }
 }
 
 export function AppReminders() {
-  const habits = useAppSettings<{ evening_nudge: boolean; nudge_time: string }>('habits/settings')
+  const [saved, flash] = useFlash()
+  const habits = useAppSettings<{ evening_nudge: boolean; nudge_time: string }>('habits/settings', flash)
   const contacts = useAppSettings<{ birthday_reminders: 'off' | 'day_before' | 'on_day'; keep_in_touch_reminders: boolean }>(
     'contacts/settings',
+    flash,
   )
   if (habits.q.isError && contacts.q.isError) return null
-  const status = habits.saved || contacts.saved
+  const error = habits.error ?? contacts.error
   return (
-    <div className="set-section">
-      <div className="set-section-head">
-        <div className="grow">
-          <h1>Habits and contacts</h1>
-          <p>Nudges from the Habits and Contacts apps.</p>
-        </div>
-        <span className={'set-status' + (status ? ' ok' : '')} role="status" aria-live="polite">
-          {status && (
-            <>
-              <Icon name="check" size={12} />
-              Saved
-            </>
-          )}
-        </span>
-      </div>
-      <div className="set-card">
+    <SettingsSection
+      page
+      title="Habits and contacts"
+      description="Nudges from the Habits and Contacts apps."
+      actions={<SaveStatus tone={saved ? 'ok' : undefined}>{saved && <SavedMark />}</SaveStatus>}
+    >
+      <div className={cardClass}>
         {habits.q.data && (
-          <div className="set-row">
-            <span className="set-label">
-              Habits evening nudge<small>A reminder about habits not done yet today</small>
-            </span>
-            <div className="set-control">
-              <input
-                type="time"
-                className="input"
-                aria-label="Nudge time"
-                value={habits.q.data.nudge_time.slice(0, 5)}
-                disabled={!habits.q.data.evening_nudge}
-                onChange={(e) => e.target.value && habits.save({ nudge_time: e.target.value + ':00' })}
-              />
-              <Switch
-                checked={habits.q.data.evening_nudge}
-                onChange={(v) => habits.save({ evening_nudge: v })}
-                label={<span className="sr-only">Evening nudge</span>}
-              />
-            </div>
-          </div>
+          <SettingRow label="Habits evening nudge" hint="A reminder about habits not done yet today">
+            <Input
+              type="time"
+              className={settingControl}
+              aria-label="Nudge time"
+              value={habits.q.data.nudge_time.slice(0, 5)}
+              disabled={!habits.q.data.evening_nudge}
+              onChange={(e) => e.target.value && habits.save({ nudge_time: `${e.target.value}:00` })}
+            />
+            <Switch
+              checked={habits.q.data.evening_nudge}
+              onChange={(v) => habits.save({ evening_nudge: v })}
+              label={<span className="sr-only">Evening nudge</span>}
+            />
+          </SettingRow>
         )}
         {contacts.q.data && (
           <>
-            <div className="set-row">
-              <label className="set-label" htmlFor="rm-bday">
-                Birthdays<small>Reminders for your contacts' birthdays</small>
-              </label>
-              <div className="set-control">
-                <select
-                  id="rm-bday"
-                  className="select"
-                  value={contacts.q.data.birthday_reminders}
-                  onChange={(e) => contacts.save({ birthday_reminders: e.target.value as 'off' })}
-                >
-                  <option value="off">Off</option>
-                  <option value="day_before">The day before</option>
-                  <option value="on_day">On the day</option>
-                </select>
-              </div>
-            </div>
-            <div className="set-row inline">
-              <span className="set-label">
-                Keep in touch<small>When it's time to reach out to someone</small>
-              </span>
-              <div className="set-control">
-                <Switch
-                  checked={contacts.q.data.keep_in_touch_reminders}
-                  onChange={(v) => contacts.save({ keep_in_touch_reminders: v })}
-                  label={<span className="sr-only">Keep in touch reminders</span>}
-                />
-              </div>
-            </div>
+            <SettingRow label="Birthdays" hint="Reminders for your contacts' birthdays" htmlFor="rm-bday">
+              <Select
+                id="rm-bday"
+                className={settingControl}
+                value={contacts.q.data.birthday_reminders}
+                onChange={(e) => contacts.save({ birthday_reminders: e.target.value as 'off' })}
+              >
+                <option value="off">Off</option>
+                <option value="day_before">The day before</option>
+                <option value="on_day">On the day</option>
+              </Select>
+            </SettingRow>
+            <SettingRow label="Keep in touch" hint="When it's time to reach out to someone" inline>
+              <Switch
+                checked={contacts.q.data.keep_in_touch_reminders}
+                onChange={(v) => contacts.save({ keep_in_touch_reminders: v })}
+                label={<span className="sr-only">Keep in touch reminders</span>}
+              />
+            </SettingRow>
           </>
         )}
         {(habits.q.isPending || contacts.q.isPending) && <SkeletonRows rows={2} />}
-        {(habits.error || contacts.error) && (
-          <p className="error-text" style={{ padding: '0.5rem 1rem' }}>
-            {(habits.error ?? contacts.error)!.message}
-          </p>
-        )}
+        {error && <p className="px-4 py-2 text-xs text-danger">{error.message}</p>}
       </div>
-    </div>
+    </SettingsSection>
   )
 }
 
@@ -266,20 +200,14 @@ function MinutesRow({
 }) {
   const options = presets.includes(value) ? presets : [...presets, value].sort((a, b) => a - b)
   return (
-    <div className="set-row">
-      <label className="set-label" htmlFor={id}>
-        {label}
-        <small>{hint}</small>
-      </label>
-      <div className="set-control">
-        <select id={id} className="select" value={value} onChange={(e) => onChange(Number(e.target.value))}>
-          {options.map((m) => (
-            <option key={m} value={m}>
-              {minutesLabel(m)}
-            </option>
-          ))}
-        </select>
-      </div>
-    </div>
+    <SettingRow label={label} hint={hint} htmlFor={id}>
+      <Select id={id} className={settingControl} value={value} onChange={(e) => onChange(Number(e.target.value))}>
+        {options.map((m) => (
+          <option key={m} value={m}>
+            {minutesLabel(m)}
+          </option>
+        ))}
+      </Select>
+    </SettingRow>
   )
 }
