@@ -40,8 +40,12 @@ export function Segmented<T extends string>({
           title={o.title}
           onClick={() => onChange(o.value)}
           className={cn(
-            'inline-flex h-6.5 items-center gap-1.25 rounded-xs px-2.5 text-xs font-medium text-muted hover:text-fg',
-            o.value === value && 'bg-surface text-fg shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_var(--app-border)]',
+            // No preflight: a button brings the browser's border and background unless told otherwise. One
+            // background class per state, since cn() doesn't resolve conflicts.
+            'inline-flex h-6.5 items-center gap-1.25 rounded-xs border-0 px-2.5 text-xs font-medium',
+            o.value === value
+              ? 'bg-surface text-fg shadow-[0_1px_2px_rgba(16,24,40,0.08),0_0_0_1px_var(--app-border)]'
+              : 'bg-transparent text-muted hover:text-fg',
           )}
         >
           {o.icon && <Icon name={o.icon} size={14} />}
@@ -67,7 +71,7 @@ export function ColourPicker({
   none?: string
   label?: string
 }) {
-  const swatch = 'grid size-6 place-items-center rounded-full border-0 text-white'
+  const swatch = 'grid size-6 place-items-center rounded-full'
   const chosen = 'shadow-[0_0_0_2px_var(--app-surface),0_0_0_4px_var(--app-fg)]'
   return (
     <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
@@ -93,7 +97,7 @@ export function ColourPicker({
           aria-label={c}
           title={c}
           onClick={() => onChange(c)}
-          className={cn(swatch, value === c && chosen)}
+          className={cn(swatch, 'border-0 text-white', value === c && chosen)}
           style={{ background: c }}
         >
           {value === c && <Icon name="check" size={12} />}

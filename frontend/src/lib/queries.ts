@@ -1,5 +1,13 @@
 // React Query hooks for the V2 API. Query keys are hierarchical so one invalidate refreshes an area.
-import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
+import {
+  keepPreviousData,
+  useInfiniteQuery,
+  useMutation,
+  useQuery,
+  useQueryClient,
+  type QueryClient,
+  type InfiniteData,
+} from '@tanstack/react-query'
 import { del, get, patch, post } from './api'
 import type {
   AgendaItem,
@@ -82,6 +90,13 @@ export const useInbox = (unreadOnly = false, limit = 30) =>
     queryFn: () => get<Inbox>('notifications/', { unread_only: unreadOnly || undefined, limit }),
   })
 
+/** The notifications page's paged inbox (['notifications', 'page', …]): change rows in place, so a read mark shows at once. */
+function patchInboxPages(qc: QueryClient, fn: (n: Notification) => Notification) {
+  qc.setQueriesData<InfiniteData<{ items: Notification[] }>>({ queryKey: ['notifications', 'page'] }, (old) =>
+    old ? { ...old, pages: old.pages.map((pg) => ({ ...pg, items: pg.items.map(fn) })) } : old,
+  )
+}
+
 export function useMarkRead() {
   const qc = useQueryClient()
   return useMutation({
@@ -96,6 +111,7 @@ export function useMarkRead() {
         return { unread: Math.max(0, old.unread + delta), items: old.items.map((n) => (n.id === id ? { ...n, read } : n)) }
       })
       qc.setQueryData<Count>(keys.notifCount, (old) => (old ? { unread: Math.max(0, old.unread + (read ? -1 : 1)) } : old))
+      patchInboxPages(qc, (n) => (n.id === id ? { ...n, read } : n))
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   })
@@ -110,6 +126,7 @@ export function useReadAll() {
         old ? { unread: 0, items: old.items.map((n) => ({ ...n, read: true })) } : old,
       )
       qc.setQueryData<Count>(keys.notifCount, { unread: 0 })
+      patchInboxPages(qc, (n) => ({ ...n, read: true }))
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ['notifications'] }),
   })

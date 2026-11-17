@@ -59,7 +59,7 @@ export function Menu({ trigger, children, align = 'start', side = 'bottom', widt
 }
 
 const item =
-  'flex min-h-8 w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.25 text-left text-sm text-fg no-underline outline-none ' +
+  'flex min-h-8 w-full cursor-default items-center gap-2 rounded-sm px-2 py-1.25 text-left text-sm no-underline outline-none ' +
   'select-none data-highlighted:bg-hover data-disabled:opacity-50 hover:no-underline [&>svg]:shrink-0 [&>svg]:text-muted'
 
 export function MenuItem({
@@ -83,7 +83,7 @@ export function MenuItem({
   disabled?: boolean
 }) {
   const inMenu = useContext(InMenu)
-  const className = cn(item, danger && 'text-danger', active && 'bg-hover')
+  const className = cn(item, 'border-0', danger ? 'text-danger' : 'text-fg', active ? 'bg-hover' : 'bg-transparent')
   const inner = (
     <>
       {icon && <Icon name={icon} />}
