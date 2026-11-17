@@ -1,60 +1,54 @@
-import { Suspense, lazy, useEffect, useState } from 'react'
-import { Link, Route, Routes, useLocation, useSearchParams } from 'react-router'
+// The Photos app: top bar (search, filters, select, tile label, thumbnail size), sidebar (views, explore,
+// albums, places, libraries, hidden mode, tools) and the routes. The timeline itself (filters read from the URL
+// by parseTimelineState) and "On this day" live here too; the other screens are their own files, and the
+// rarely opened ones load on demand.
 import { useQuery } from '@tanstack/react-query'
-import { get, safeHref } from '../../lib/api'
-import { photoSummaryQuery } from '../../lib/photoQueries'
-import { addDays, fmtDate, fmtTime, isSameDay, parseDayKey } from '../../lib/dates'
-import type { Photo, PhotoSummary, YearGroup } from '../../lib/types'
+import { lazy, Suspense, useEffect, useState } from 'react'
+import { Link, Route, Routes, useLocation, useSearchParams } from 'react-router'
 import { AppShell, SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { useHotkey } from '../../components/ui'
-import { PhotoStream, type Zoom } from './PhotoStream'
-import { usePhotoParam } from './usePhotoParam'
-import { Viewer } from './Viewer'
+import { buttonClass, useHotkey } from '../../components/ui'
+import { safeHref } from '../../lib/api'
+import { cn } from '../../lib/cn'
+import { fmtDate, fmtTime, isSameDay, parseDayKey } from '../../lib/dates'
 import { fmtBytes } from '../../lib/format'
-import { LabelMenu, SelectToggle } from './ToolbarControls'
-import { FiltersButton, Scrubber } from './Filters'
+import { photoSummaryQuery } from '../../lib/photoQueries'
+import { usePref } from '../../lib/storage'
+import type { Photo, PhotoSummary } from '../../lib/types'
+import { startIngest, useAlbums, useHiddenMode, useLibraries, useLibraryVisibility, useToggleHidden } from './actions'
 import { AlbumPage } from './AlbumPage'
 import { AlbumsPage } from './AlbumsPage'
 import { DayPage } from './DayPage'
+import { FiltersButton, Scrubber } from './Filters'
+import { PageHead, pageClass } from './PageHead'
+import { PhotoStream, type Zoom } from './PhotoStream'
+import { onThisDayQuery } from './queries'
 import { SearchBox, SearchResults } from './Search'
 import { SuperlativesPage } from './Superlatives'
-import { startIngest, useAlbums, useHiddenMode, useLibraries, useLibraryVisibility, useToggleHidden } from './actions'
-import { PageHead } from './PageHead'
-import './photos.css'
+import { isPlainTimeline, parseTimelineState } from './timelineState'
+import { LabelMenu, SelectToggle, ZoomSwitch } from './ToolbarControls'
+import { usePhotoParam } from './usePhotoParam'
+import { Viewer } from './Viewer'
 
-// Rarely opened screens load on demand, so the timeline doesn't pull in Leaflet (map, games) or Explore.
+// Rarely opened screens load on demand, so the timeline doesn't pull in Leaflet (map, games) or the stats pages.
 const PhotoMapPage = lazy(() => import('./PhotoMap').then((m) => ({ default: m.PhotoMapPage })))
 const GeoguessrPage = lazy(() => import('./Games').then((m) => ({ default: m.GeoguessrPage })))
 const LocatePage = lazy(() => import('./Games').then((m) => ({ default: m.LocatePage })))
-const BrowsePage = lazy(() => import('./Explore').then((m) => ({ default: m.BrowsePage })))
-const StatsPage = lazy(() => import('./Explore').then((m) => ({ default: m.StatsPage })))
-const StoragePage = lazy(() => import('./Explore').then((m) => ({ default: m.StoragePage })))
+const BrowsePage = lazy(() => import('./BrowsePage').then((m) => ({ default: m.BrowsePage })))
+const StatsPage = lazy(() => import('./StatsPage').then((m) => ({ default: m.StatsPage })))
+const StoragePage = lazy(() => import('./StoragePage').then((m) => ({ default: m.StoragePage })))
 
 const useSummary = () => useQuery(photoSummaryQuery<PhotoSummary>())
 
-const ZOOM_KEY = 'app.photos.zoom'
-function readZoom(): Zoom {
-  try {
-    const v = localStorage.getItem(ZOOM_KEY)
-    return v === 's' || v === 'l' ? v : 'm'
-  } catch {
-    return 'm'
-  }
-}
+/** Screens without a photo grid (no zoom, filters, select or label controls). */
+const NO_GRID = /\/(map|stats|storage|browse|superlatives|geoguessr|locate)\/?$/
 
 export default function PhotosPage() {
-  const [zoom, setZoomState] = useState<Zoom>(readZoom)
-  const setZoom = (z: Zoom) => {
-    setZoomState(z)
-    try {
-      localStorage.setItem(ZOOM_KEY, z)
-    } catch {
-      /* ignore */
-    }
-  }
+  const [storedZoom, setZoom] = usePref<string>('app.photos.zoom', 'm')
+  const zoom: Zoom = storedZoom === 's' || storedZoom === 'l' ? storedZoom : 'm'
   const location = useLocation()
   const albumPage = /\/albums\/[^/]+/.test(location.pathname)
+  const showZoom = (!/\/albums\/?$/.test(location.pathname) || albumPage) && !NO_GRID.test(location.pathname)
   const hidden = useHiddenMode().data?.show ?? false
   const toggleHidden = useToggleHidden()
   // Shift+H: show/hide hidden photos (as on the classic pages).
@@ -70,27 +64,38 @@ export default function PhotosPage() {
       app="photos"
       pageTitle="Photos"
       topbar={
-        <Toolbar
-          zoom={zoom}
-          setZoom={setZoom}
-          showZoom={
-            (!/\/albums\/?$/.test(location.pathname) || albumPage) &&
-            !/\/(map|stats|storage|browse|superlatives|geoguessr|locate)\/?$/.test(location.pathname)
-          }
-        />
+        <>
+          <SearchBox />
+          {showZoom && (
+            <>
+              <FiltersButton />
+              <SelectToggle />
+              <LabelMenu />
+              <ZoomSwitch zoom={zoom} setZoom={setZoom} />
+            </>
+          )}
+        </>
       }
       sidebar={<Sidebar />}
     >
       {hidden && (
-        <div className="ph-hidden-pill" role="status">
+        <div
+          className="fixed bottom-18 left-1/2 z-30 inline-flex -translate-x-1/2 items-center gap-2 rounded-full bg-fg py-1.25 pr-1.5 pl-3 text-xs font-medium text-bg shadow-pop"
+          role="status"
+        >
           <Icon name="ban" size={14} />
           <span>Showing hidden photos</span>
-          <button onClick={() => toggleHidden.mutate(false)} disabled={toggleHidden.isPending}>
+          <button
+            type="button"
+            className="rounded-full border-0 bg-[color-mix(in_srgb,var(--app-bg)_18%,transparent)] px-2.5 py-0.75 text-xs font-semibold hover:bg-[color-mix(in_srgb,var(--app-bg)_30%,transparent)]"
+            onClick={() => toggleHidden.mutate(false)}
+            disabled={toggleHidden.isPending}
+          >
             Turn off
           </button>
         </div>
       )}
-      <Suspense fallback={<div className="app-loading" aria-busy="true" />}>
+      <Suspense fallback={<div aria-busy="true" />}>
         <Routes>
           <Route index element={<TimelinePage zoom={zoom} />} />
           <Route path="albums" element={<AlbumsPage />} />
@@ -110,48 +115,11 @@ export default function PhotosPage() {
   )
 }
 
-// ---------------------------------------------------------------- top bar
-function Toolbar({ zoom, setZoom, showZoom }: { zoom: Zoom; setZoom: (z: Zoom) => void; showZoom: boolean }) {
-  return (
-    <>
-      <SearchBox />
-      {showZoom && <FiltersButton />}
-      {showZoom && <SelectToggle />}
-      {showZoom && <LabelMenu />}
-      {showZoom && (
-        <div className="seg ph-zoom" role="group" aria-label="Thumbnail size">
-          {(['s', 'm', 'l'] as Zoom[]).map((z) => (
-            <button
-              key={z}
-              aria-pressed={zoom === z}
-              onClick={() => setZoom(z)}
-              title={{ s: 'Small thumbnails', m: 'Medium thumbnails', l: 'Large thumbnails' }[z]}
-            >
-              <ZoomGlyph z={z} />
-              <span className="sr-only">{{ s: 'Small', m: 'Medium', l: 'Large' }[z]}</span>
-            </button>
-          ))}
-        </div>
-      )}
-    </>
-  )
-}
-
-function ZoomGlyph({ z }: { z: Zoom }) {
-  const n = { s: 3, m: 2, l: 1 }[z]
-  const cell = 12 / n
-  const rects = []
-  for (let r = 0; r < n; r++)
-    for (let c = 0; c < n; c++)
-      rects.push(<rect key={`${r}${c}`} x={c * cell + 0.75} y={r * cell + 0.75} width={cell - 1.5} height={cell - 1.5} rx="1" />)
-  return (
-    <svg width="0.75rem" height="0.75rem" viewBox="0 0 12 12" fill="currentColor" aria-hidden="true">
-      {rects}
-    </svg>
-  )
-}
-
 // ---------------------------------------------------------------- sidebar
+/** A sidebar row that isn't a link (the libraries, the hidden-mode switch): SideItem's look. */
+const sideRow = 'flex h-8 w-full min-w-0 items-center rounded-sm px-2 text-sm text-fg'
+const check = 'm-0 size-3.5 flex-none accent-accent'
+
 function Sidebar() {
   const location = useLocation()
   const [params] = useSearchParams()
@@ -163,23 +131,16 @@ function Sidebar() {
   const { toggle, only } = useLibraryVisibility()
   // Local echo so the controlled checkbox flips in the same event (the query cache notifies a tick later).
   const [echo, setEcho] = useState<Record<number, boolean>>({})
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new list from the server replaces the echo
   useEffect(() => setEcho({}), [libs])
   const [hiddenEcho, setHiddenEcho] = useState<boolean | null>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the server's answer replaces the echo
   useEffect(() => setHiddenEcho(null), [hidden?.show])
   const onTimeline = location.pathname === '/photos' || location.pathname === '/photos/'
   const kind = params.get('kind')
   const city = params.get('city')
   const country = params.get('country')
-  const plain =
-    onTimeline &&
-    !kind &&
-    !city &&
-    !country &&
-    !params.get('q') &&
-    !params.get('camera') &&
-    !params.get('objects') &&
-    !params.get('after') &&
-    !['camera_make', 'north', 'min_blur', 'max_blur', 'order'].some((k) => params.get(k))
+  const plain = onTimeline && isPlainTimeline(params)
   const canIngest = !!libs?.some((l) => l.role === 'owner' || l.role === 'editor')
   const at = (p: string) => location.pathname === `/photos/${p}`
   return (
@@ -232,7 +193,7 @@ function Sidebar() {
         <SideSection title="Places">
           {s.countries.map((c) => (
             <SideItem
-              key={'n' + c.name}
+              key={`n${c.name}`}
               icon="map"
               label={c.name}
               to={`/photos?country=${encodeURIComponent(c.name)}`}
@@ -242,7 +203,7 @@ function Sidebar() {
           ))}
           {s.cities.slice(0, 6).map((c) => (
             <SideItem
-              key={'c' + c.name}
+              key={`c${c.name}`}
               icon="pin"
               label={c.name}
               to={`/photos?city=${encodeURIComponent(c.name)}`}
@@ -257,21 +218,33 @@ function Sidebar() {
           {libs.map((l) => (
             <div
               key={l.id}
-              className={'side-item ph-lib' + (l.visible ? '' : ' off')}
+              className={cn(sideRow, 'group/lib gap-1.5')}
               title={`${l.name} (${l.role})${l.visible ? '' : ': hidden from the timeline and stats'}`}
             >
-              <label className="ph-lib-check">
+              <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
                 <input
                   type="checkbox"
+                  className={check}
                   checked={echo[l.id] ?? l.visible}
-                  onChange={(e) => (setEcho((x) => ({ ...x, [l.id]: e.target.checked })), toggle(l.id, e.target.checked))}
+                  onChange={(e) => {
+                    setEcho((x) => ({ ...x, [l.id]: e.target.checked }))
+                    toggle(l.id, e.target.checked)
+                  }}
                   aria-label={`Show ${l.name} in the timeline`}
                 />
-                <span className="grow truncate">{l.name}</span>
+                <span
+                  className={cn(
+                    'min-w-0 flex-1 truncate',
+                    !l.visible && 'text-muted line-through decoration-[color-mix(in_srgb,var(--app-muted)_50%,transparent)]',
+                  )}
+                >
+                  {l.name}
+                </span>
               </label>
               {libs.length > 1 && (
                 <button
-                  className="ph-lib-only"
+                  type="button"
+                  className="hidden rounded-xs border-0 bg-transparent px-1 text-xs text-accent group-focus-within/lib:inline-block group-hover/lib:inline-block hover:bg-accent-soft touch:inline-block"
                   onClick={() => only.mutate(l.id)}
                   disabled={only.isPending}
                   aria-label={`Show only ${l.name}`}
@@ -280,24 +253,32 @@ function Sidebar() {
                   Only
                 </button>
               )}
-              <span className="side-count">{l.count.toLocaleString()}</span>
+              <span className="text-xs text-muted tabular-nums group-focus-within/lib:hidden group-hover/lib:hidden touch:hidden">
+                {l.count.toLocaleString()}
+              </span>
             </div>
           ))}
         </SideSection>
       )}
       <SideSection title="More">
         {canIngest && <SideItem icon="refresh" label="Ingest new photos" onClick={startIngest} />}
-        <label className="side-item ph-hidden-toggle" title="Shift+H. Only your own hidden photos; turns itself off after 30 minutes.">
+        <label
+          className={cn(sideRow, 'cursor-pointer gap-2.5 hover:bg-hover [&>svg]:flex-none [&>svg]:text-muted')}
+          title="Shift+H. Only your own hidden photos; turns itself off after 30 minutes."
+        >
           <Icon name="ban" size={16} />
-          <span className="grow truncate">Show hidden photos</span>
+          <span className="min-w-0 flex-1 truncate">Show hidden photos</span>
           <input
             type="checkbox"
             role="switch"
+            className={check}
             checked={hiddenEcho ?? !!hidden?.show}
+            aria-checked={hiddenEcho ?? !!hidden?.show}
             disabled={!hidden || toggleHidden.isPending}
-            onChange={(e) => (
-              setHiddenEcho(e.target.checked), toggleHidden.mutate(e.target.checked, { onError: () => setHiddenEcho(null) })
-            )}
+            onChange={(e) => {
+              setHiddenEcho(e.target.checked)
+              toggleHidden.mutate(e.target.checked, { onError: () => setHiddenEcho(null) })
+            }}
           />
         </label>
       </SideSection>
@@ -309,31 +290,14 @@ function Sidebar() {
 /** Rarely used tools, folded away at the bottom of the sidebar (open state remembered). */
 function Tools({ open }: { open: boolean }) {
   const location = useLocation()
-  const [shown, setShown] = useState(() => {
-    try {
-      return localStorage.getItem('app.photos.tools') === '1'
-    } catch {
-      return false
-    }
-  })
+  const [shown, setShown] = usePref<boolean>('app.photos.tools', false)
   const at = (p: string) => location.pathname === `/photos/${p}`
   return (
-    <details
-      className="side-section side-tools"
-      open={shown || open}
-      onToggle={(e) => {
-        const v = (e.currentTarget as HTMLDetailsElement).open
-        setShown(v)
-        try {
-          localStorage.setItem('app.photos.tools', v ? '1' : '0')
-        } catch {
-          /* ignore */
-        }
-      }}
-    >
-      <summary className="side-title">
-        <span className="grow">Tools</span>
-        <Icon name="chevronDown" size={12} />
+    // side-section: the shared sidebar spacing between sections.
+    <details className="side-section group/tools" open={shown || open} onToggle={(e) => setShown(e.currentTarget.open)}>
+      <summary className="side-title cursor-pointer list-none rounded-sm hover:text-fg! [&::-webkit-details-marker]:hidden">
+        <span className="flex-1">Tools</span>
+        <Icon name="chevronDown" size={12} className="-rotate-90 transition-transform duration-150 ease-out group-open/tools:rotate-0" />
       </summary>
       <SideItem icon="globe" label="Geoguessr" to="/photos/geoguessr" active={at('geoguessr')} />
       <SideItem icon="pin" label="Add missing locations" to="/photos/locate" active={at('locate')} />
@@ -344,7 +308,7 @@ function Tools({ open }: { open: boolean }) {
 // ---------------------------------------------------------------- timeline
 function Summary() {
   const s = useSummary().data
-  if (!s) return <span className="sk" style={{ display: 'inline-block', width: '16rem', height: '0.75rem' }} />
+  if (!s) return <span className="inline-block h-3 w-64 animate-[sk_1.3s_ease-in-out_infinite] rounded-xs bg-surface-2" />
   const n = (x: number) => x.toLocaleString()
   const range =
     s.first && s.last
@@ -366,8 +330,6 @@ function Summary() {
   )
 }
 
-const validIso = (v: string | null) => (v && v.length <= 40 && !isNaN(Date.parse(v)) ? new Date(v) : null)
-
 /** "Mon, Nov 3, 2026, 10:00 AM – 12:30 PM" (or across days). */
 function fmtRange(a: Date | null, b: Date | null): string {
   const day = (d: Date) => fmtDate(d, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
@@ -384,64 +346,14 @@ function TimelinePage({ zoom }: { zoom: Zoom }) {
 }
 
 function Timeline({ zoom, params }: { zoom: Zoom; params: URLSearchParams }) {
-  const kind = params.get('kind') === 'videos' ? 'videos' : 'all'
-  const city = (params.get('city') ?? '').slice(0, 128)
-  const country = (params.get('country') ?? '').slice(0, 64)
-  const camera = (params.get('camera') ?? '').slice(0, 128)
-  const objects = (params.get('objects') ?? '').slice(0, 256)
-  const make = (params.get('camera_make') ?? '').slice(0, 64)
-  const num = (k: string) => {
-    const v = params.get(k)
-    return v && Number.isFinite(Number(v)) ? Number(v) : undefined
-  }
-  const [north, south, east, west] = (['north', 'south', 'east', 'west'] as const).map(num)
-  const area = north !== undefined && south !== undefined && east !== undefined && west !== undefined
-  const minBlur = num('min_blur'),
-    maxBlur = num('max_blur')
-  const sharpness = minBlur !== undefined || maxBlur !== undefined
-  const oldest = params.get('order') === 'oldest'
-  // ?after=<ISO>&before=<ISO>&title=… (an event's photos, linked from Calendar) or ?from=YYYY-MM-DD (filters).
-  const after = validIso(params.get('after'))
-  const before = validIso(params.get('before'))
-  const eventTitle = (params.get('title') ?? '').trim().slice(0, 200)
-  const fromKey = /^\d{4}-\d{2}-\d{2}$/.test(params.get('from') ?? '') ? params.get('from')! : ''
-  const filter: Record<string, string | number | boolean | undefined> = {}
-  if (kind === 'videos') filter.video = true
-  if (city) filter.city = city
-  if (country) filter.country = country
-  if (camera) filter.camera = camera
-  if (objects) filter.objects = objects
-  if (make) filter.camera_make = make
-  if (area) Object.assign(filter, { north, south, east, west })
-  if (minBlur !== undefined) filter.min_blur = minBlur
-  if (maxBlur !== undefined) filter.max_blur = maxBlur
-  if (oldest) filter.order = 'oldest'
-  const rangeStart = after ?? (fromKey ? parseDayKey(fromKey) : null)
-  if (rangeStart) filter.after = rangeStart.toISOString()
-  const sharpLabel = sharpness
-    ? `Sharpness ${minBlur !== undefined && maxBlur !== undefined ? `${minBlur}–${maxBlur}` : minBlur !== undefined ? `over ${minBlur}` : `under ${maxBlur}`}`
-    : ''
-  const place = [
-    city || country,
-    camera && `Camera: ${camera}`,
-    make && `Make: ${make}`,
-    objects && objects.split(',').join(', '),
-    area && 'In this map area',
-    sharpLabel,
-  ]
-    .filter(Boolean)
-    .join(' · ')
-  // ?date=YYYY-MM-DD (from Calendar's photo badges / filters): start the timeline at the end of that day.
-  const dateKey = /^\d{4}-\d{2}-\d{2}$/.test(params.get('date') ?? '') ? params.get('date')! : ''
-  const day = dateKey ? parseDayKey(dateKey) : null
+  const t = parseTimelineState(params)
+  const { place, videos, oldest, after, before, eventTitle, fromKey, day } = t
   const ranged = !!(after || before)
-  // Oldest first pages forward in time from the start of the range (the cursor is the last item shown).
-  const startBefore = oldest ? undefined : before ? before.toISOString() : day ? addDays(day, 1).toISOString() : undefined
   const fromLabel = fromKey ? `From ${fmtDate(parseDayKey(fromKey), { month: 'short', day: 'numeric', year: 'numeric' })}` : ''
   const title = ranged
     ? `Photos from ${eventTitle || fmtRange(after, before)}`
     : place ||
-      (kind === 'videos'
+      (videos
         ? 'Videos'
         : oldest && !day && !fromKey
           ? 'Oldest first'
@@ -459,7 +371,7 @@ function Timeline({ zoom, params }: { zoom: Zoom; params: URLSearchParams }) {
       Filtered photos{fromLabel ? ` · ${fromLabel.toLowerCase()}` : ''}
       {oldest ? ' · oldest first' : ''}
     </>
-  ) : kind === 'videos' ? (
+  ) : videos ? (
     `All your videos, ${oldest ? 'oldest' : 'newest'} first`
   ) : oldest && !day && !fromKey ? (
     'Your whole library from the first photo on'
@@ -474,33 +386,35 @@ function Timeline({ zoom, params }: { zoom: Zoom; params: URLSearchParams }) {
   ) : (
     <Summary />
   )
-  const filtered = !!(place || kind === 'videos' || day || ranged || fromKey || oldest)
+  const filtered = !!(place || videos || day || ranged || fromKey || oldest)
+  const scrubber = !place && !ranged && !fromKey && !oldest && !videos
   return (
-    <div className="page ph-page">
+    // The month scrubber sits over the right edge: leave it room (it hides on narrow screens).
+    <div className={cn(pageClass(true), 'has-[[data-scrubber]]:pr-14 max-[1000px]:has-[[data-scrubber]]:pr-4')}>
       <SearchBox inline />
       <PageHead title={title} sub={sub}>
         {filtered && (
-          <Link to="/photos" className="btn sm">
+          <Link to="/photos" className={buttonClass({ size: 'sm' })}>
             <Icon name="x" size={14} />
             {ranged ? 'Clear' : day && !place ? 'Back to latest' : 'Clear filter'}
           </Link>
         )}
       </PageHead>
       {!filtered && <OnThisDay />}
-      {!place && !ranged && !fromKey && !oldest && kind === 'all' && <ScrubberFromSummary />}
+      {scrubber && <ScrubberFromSummary />}
       <PhotoStream
-        dayInfo={!place && kind === 'all'}
-        startBefore={startBefore}
+        dayInfo={!place && !videos}
+        startBefore={t.startBefore}
         queryKey={['photos', 'timeline']}
         path="photos/timeline"
-        params={Object.keys(filter).length ? filter : undefined}
+        params={t.filter}
         zoom={zoom}
         empty={
           ranged
             ? 'No photos were taken in this time range.'
             : place
               ? `No photos match ${place}.`
-              : kind === 'videos'
+              : videos
                 ? 'No videos yet.'
                 : filtered
                   ? 'No photos in this range.'
@@ -517,28 +431,41 @@ function ScrubberFromSummary() {
 }
 
 function OnThisDay() {
-  const q = useQuery({ queryKey: ['photos', 'on-this-day'], queryFn: () => get<YearGroup[]>('photos/on-this-day'), staleTime: 30 * 60_000 })
+  const q = useQuery(onThisDayQuery)
   const viewer = usePhotoParam()
   const groups = q.data ?? []
   if (!groups.length) return null
   const all: Photo[] = groups.flatMap((g) => g.items)
   const thisYear = new Date().getFullYear()
   return (
-    <section className="otd" aria-label="On this day">
-      <h2 className="otd-head">
+    <section className="mb-5" aria-label="On this day">
+      <h2 className="mb-2 flex items-center gap-1.5 text-sm [&>svg]:text-accent">
         <Icon name="sparkle" size={15} />
         On this day
       </h2>
-      <div className="otd-strip">
+      <div className="flex snap-x snap-mandatory gap-2 overflow-x-auto pb-1">
         {groups.map((g) => {
           const cover = g.items[0]
           const src = safeHref(cover.thumb_url)
           const ago = thisYear - g.year
           return (
-            <button key={g.year} className="otd-card" onClick={() => viewer.open(cover.id, 'otd')}>
-              {src && <img src={src} alt="" loading="lazy" decoding="async" />}
-              <span className="otd-label">
-                <strong>{ago === 1 ? '1 year ago' : `${ago} years ago`}</strong>
+            <button
+              key={g.year}
+              type="button"
+              className="group/otd relative aspect-[4/5] w-40 flex-none cursor-pointer snap-start overflow-hidden rounded-md border-0 bg-surface-2 p-0 text-left max-md:w-32"
+              onClick={() => viewer.open(cover.id, 'otd')}
+            >
+              {src && (
+                <img
+                  src={src}
+                  alt=""
+                  loading="lazy"
+                  decoding="async"
+                  className="size-full object-cover transition-transform duration-300 ease-out group-hover/otd:scale-[1.03]"
+                />
+              )}
+              <span className="absolute inset-x-0 bottom-0 grid bg-[linear-gradient(transparent,rgba(0,0,0,0.65))] px-2.5 pt-6 pb-2 text-xs text-white">
+                <strong className="text-sm">{ago === 1 ? '1 year ago' : `${ago} years ago`}</strong>
                 <span>
                   {g.year} · {g.items.length} {g.items.length === 1 ? 'item' : 'items'}
                 </span>
