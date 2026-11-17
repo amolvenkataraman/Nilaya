@@ -1,21 +1,27 @@
 // Photos › Superlatives: every ranking from GET /photos/superlatives/{category}?limit= (one request per
 // ranking and size, cached for an hour; the server counts an original imported as its own item once).
-// Item rankings list photos with the number they're ranked by; day rankings list local days.
-import { useEffect, useState } from 'react'
-import { Link, useSearchParams } from 'react-router'
+// Item rankings list photos with the number they're ranked by (select some to delete, Shift for a range;
+// the viewer steps through the ranking); day rankings list local days.
+import { memo, useEffect, useMemo, useState } from 'react'
+import { Link } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { get, safeHref } from '../../lib/api'
-import { fmtDate } from '../../lib/dates'
 import { Icon } from '../../components/Icon'
-import { ErrorBox, SkeletonRows } from '../../components/ui'
-import { usePhotoParam } from './PhotoStream'
-import { Viewer } from './Viewer'
-import { DeleteDialog } from './select'
-import { refreshAll } from './actions'
-import { PageHead } from './PageHead'
-import { fmtDuration, fmtHms } from './util'
+import { Button, ErrorBox, SkeletonRows, buttonClass, fieldClass } from '../../components/ui'
+import { get, safeHref } from '../../lib/api'
+import { cn } from '../../lib/cn'
+import { fmtDate } from '../../lib/dates'
 import { fmtBytes, plural } from '../../lib/format'
-import './superlatives.css'
+import type { Photo } from '../../lib/types'
+import { refreshAll } from './actions'
+import { DeleteDialog } from './DeleteDialog'
+import { PageHead, pageClass } from './PageHead'
+import { photoQuery } from './queries'
+import { StatTile, helpClass } from './StatCards'
+import { createSelection } from './store'
+import { useParamSetter } from './useParamSetter'
+import { usePhotoParam } from './usePhotoParam'
+import { fmtDuration, fmtHms } from './util'
+import { Viewer } from './Viewer'
 
 const HOUR = 60 * 60_000
 const LIMITS = [20, 50, 100, 200] as const
@@ -101,16 +107,13 @@ interface Out {
   summary: Summary | null
 }
 
+/** The picked items of the ranking on screen (one ranking at a time, so one store). */
+const picks = createSelection<RankedItem>((p) => p.id)
+
 export function SuperlativesPage() {
-  const [params, setParams] = useSearchParams()
+  const [params, setParam] = useParamSetter()
   const cat: Cat = CATS.find((c) => c.id === params.get('cat')) ?? CATS[0]
   const limit = LIMITS.find((n) => String(n) === params.get('limit')) ?? 50
-  const set = (k: 'cat' | 'limit', v: string) => {
-    const p = new URLSearchParams(params)
-    p.set(k, v)
-    p.delete('photo')
-    setParams(p, { replace: true })
-  }
   const q = useQuery({
     queryKey: ['photos', 'superlatives', cat.id, limit],
     queryFn: ({ signal }) => get<Out>(`photos/superlatives/${cat.id}`, { limit }, signal),
@@ -120,18 +123,29 @@ export function SuperlativesPage() {
   const chip = (c: Cat) => (
     <button
       key={c.id}
+      type="button"
       role="tab"
       aria-selected={cat.id === c.id}
-      className={'chip' + (cat.id === c.id ? ' accent' : '')}
-      onClick={() => set('cat', c.id)}
+      className={cn(
+        'inline-flex h-7 cursor-pointer items-center gap-1 rounded-full border px-3 text-sm font-medium whitespace-nowrap',
+        cat.id === c.id ? 'border-transparent bg-accent-soft text-accent' : 'border-border bg-surface-2 text-muted hover:text-fg',
+      )}
+      onClick={() => setParam('cat', c.id)}
     >
       {c.name}
     </button>
   )
+  const group =
+    'mr-0.5 ml-1 text-xs font-semibold tracking-[0.04em] text-muted uppercase md:not-first:ml-3 max-md:not-first:mt-1 max-md:not-first:basis-full'
   return (
-    <div className="page ph-page">
+    <div className={pageClass(true)}>
       <PageHead title="Superlatives" sub="Rankings across your visible libraries">
-        <select className="select sm-select" value={limit} onChange={(e) => set('limit', e.target.value)} aria-label="How many to show">
+        <select
+          className={cn(fieldClass.select, 'w-auto! text-xs!')}
+          value={limit}
+          onChange={(e) => setParam('limit', e.target.value)}
+          aria-label="How many to show"
+        >
           {LIMITS.map((n) => (
             <option key={n} value={n}>
               Top {n}
@@ -139,13 +153,13 @@ export function SuperlativesPage() {
           ))}
         </select>
       </PageHead>
-      <div className="sup-cats" role="tablist" aria-label="Ranking">
-        <span className="sup-group">Items</span>
+      <div className="mb-2 flex flex-wrap items-center gap-1.5" role="tablist" aria-label="Ranking">
+        <span className={group}>Items</span>
         {CATS.filter((c) => c.kind === 'item').map(chip)}
-        <span className="sup-group">Days</span>
+        <span className={group}>Days</span>
         {CATS.filter((c) => c.kind === 'day').map(chip)}
       </div>
-      <p className="help sup-desc">{cat.desc}</p>
+      <p className={cn(helpClass, 'mb-3')}>{cat.desc}</p>
       {q.data && q.data.category === cat.id ? (
         <>
           {q.isError && <ErrorBox error={q.error} retry={() => q.refetch()} />}
@@ -164,21 +178,11 @@ export function SuperlativesPage() {
   )
 }
 
-function Kpi({ label, value, sub }: { label: string; value: string; sub?: string }) {
-  return (
-    <div className="card ex-tile">
-      <span className="label">{label}</span>
-      <span className="ex-value tabular">{value}</span>
-      {sub && <span className="muted xsmall tabular ex-tile-sub">{sub}</span>}
-    </div>
-  )
-}
-
 const longDate = (iso: string | null) => (iso ? fmtDate(new Date(iso), { month: 'short', day: 'numeric', year: 'numeric' }) : 'Undated')
 
 function metricOf(p: RankedItem, m: Metric): { value: string; sub: string } {
-  const opt = fmtBytes(p.size_kb),
-    tot = fmtBytes(p.size_total_kb)
+  const opt = fmtBytes(p.size_kb)
+  const tot = fmtBytes(p.size_total_kb)
   const gap = Math.max(0, p.size_total_kb - p.size_kb)
   if (m === 'length') return { value: fmtDuration(p.length_s) || '0:00', sub: tot }
   if (m === 'mp')
@@ -187,127 +191,200 @@ function metricOf(p: RankedItem, m: Metric): { value: string; sub: string } {
   return { value: tot, sub: gap > 0 ? `${opt} optimized · +${fmtBytes(gap)}` : 'no original kept' }
 }
 
+/** A ranked item as the viewer needs it until its full record loads (thumbnail as the placeholder). */
+const asPhoto = (p: RankedItem): Photo => ({
+  id: p.id,
+  thumb_url: p.thumb_url,
+  url: '',
+  width: p.width,
+  height: p.height,
+  aspect: p.width && p.height ? p.width / p.height : 1,
+  date_taken: p.date_taken,
+  video: p.video,
+  length: p.length_s,
+  city: null,
+  country: null,
+  lat: null,
+  lon: null,
+  camera: null,
+  album_id: 0,
+  size_kb: p.size_kb,
+  size_total_kb: p.size_total_kb,
+  megapixels: p.megapixels,
+  has_raw: p.has_raw,
+  has_orig: p.has_orig,
+})
+
+/** The viewer over the ranking, in rank order: the open item is its full record (GET /photos/{id}). */
+function RankingViewer({ items, id, onGo, onClose }: { items: RankedItem[]; id: string; onGo: (id: string) => void; onClose: () => void }) {
+  const full = useQuery(photoQuery(id)).data
+  const photos = useMemo(() => items.map((p) => (p.id === id && full?.id === id ? full : asPhoto(p))), [items, id, full])
+  return <Viewer id={id} items={photos} onGo={onGo} onClose={onClose} />
+}
+
+const listClass = 'm-0 mb-3 grid max-w-[64rem] list-none gap-px rounded-md border border-border bg-surface p-1'
+const rowClass = 'flex items-center gap-3 rounded-sm px-2 py-1.5 text-sm max-md:gap-2'
+const rankClass = (top: boolean) =>
+  cn(
+    'flex-none text-center text-xs font-semibold tabular-nums',
+    top ? 'mx-0.5 inline-grid size-6 place-items-center rounded-full bg-accent-soft text-accent' : 'w-7 text-muted',
+  )
+const metaClass = 'flex flex-wrap items-center gap-x-2.5 gap-y-0.5 text-xs text-muted tabular-nums'
+const metaChip =
+  'inline-flex h-[1.125rem] items-center gap-1 rounded-full border border-border bg-surface-2 px-1.5 text-2xs font-semibold whitespace-nowrap text-muted'
+const metricClass = 'grid max-w-48 flex-none justify-items-end gap-0.5 text-right max-md:max-w-28'
+const metricValue = 'text-md whitespace-nowrap tabular-nums max-md:text-sm'
+
 function Items({ data, metric, loading }: { data: Out; metric: Metric; loading: boolean }) {
   const viewer = usePhotoParam()
   const qc = useQueryClient()
-  const [picked, setPicked] = useState<Set<string>>(new Set())
   const [confirm, setConfirm] = useState(false)
-  useEffect(() => setPicked(new Set()), [data.category]) // a new ranking starts with nothing picked
   const items = data.items
   const s = data.summary
-  const toggle = (id: string) =>
-    setPicked((old) => {
-      const n = new Set(old)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
-      return n
-    })
-  const all = items.length > 0 && items.every((p) => picked.has(p.id))
-  if (!items.length) return <div className="empty left">Nothing to rank here yet.</div>
+  // A new ranking starts with nothing picked; leaving the page drops the selection.
+  useEffect(() => {
+    picks.setMode(false)
+    return () => picks.setMode(false)
+  }, [data.category])
+  const count = picks.useSelect((x) => x.picked.size)
+  const all = count > 0 && items.every((p) => picks.get().picked.has(p.id))
+  if (!items.length) return <div className="p-4 text-sm text-muted">Nothing to rank here yet.</div>
   return (
     <>
       {s && (
-        <div className="ph-sup-kpis">
-          <Kpi label="Items" value={s.count.toLocaleString()} sub={`${plural(s.photos, 'photo')} · ${plural(s.videos, 'video')}`} />
-          <Kpi
+        <div className="mb-3 grid max-w-[64rem] grid-cols-[repeat(auto-fill,minmax(12rem,1fr))] gap-3 max-md:grid-cols-2">
+          <StatTile label="Items" value={s.count.toLocaleString()} sub={`${plural(s.photos, 'photo')} · ${plural(s.videos, 'video')}`} />
+          <StatTile
             label="Total on disk"
             value={fmtBytes(s.size_total_kb)}
             sub={`${fmtBytes(s.size_kb)} optimized · ${fmtBytes(Math.max(0, s.size_total_kb - s.size_kb))} overhead`}
           />
-          {s.videos > 0 && <Kpi label="Video time" value={fmtHms(s.length_s)} sub={plural(s.videos, 'video')} />}
-          {s.max_megapixels != null && <Kpi label="Highest resolution" value={`${s.max_megapixels.toFixed(1)} MP`} />}
+          {s.videos > 0 && <StatTile label="Video time" value={fmtHms(s.length_s)} sub={plural(s.videos, 'video')} />}
+          {s.max_megapixels != null && <StatTile label="Highest resolution" value={`${s.max_megapixels.toFixed(1)} MP`} />}
         </div>
       )}
-      <div className={'sup-bar' + (picked.size ? ' on' : '')}>
-        <label className="sup-check">
+      <div className={cn('mb-1 flex min-h-9 max-w-[64rem] items-center gap-2 rounded-md px-2', count > 0 && 'bg-accent-soft')}>
+        <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
           <input
             type="checkbox"
+            className="m-0 size-4 flex-none cursor-pointer"
             checked={all}
             ref={(el) => {
-              if (el) el.indeterminate = picked.size > 0 && !all
+              if (el) el.indeterminate = count > 0 && !all
             }}
-            onChange={() => setPicked(all ? new Set() : new Set(items.map((p) => p.id)))}
+            onChange={() => (all ? picks.clear() : picks.setMany(items, true))}
             aria-label="Select all"
           />
-          <span>{picked.size ? `${picked.size} selected` : 'Select'}</span>
+          <span>{count ? `${count} selected` : 'Select'}</span>
         </label>
-        {picked.size > 0 && (
+        {count > 0 && (
           <>
-            <button className="btn sm ghost" onClick={() => setPicked(new Set())}>
+            <Button size="sm" variant="ghost" onClick={picks.clear}>
               Clear
-            </button>
-            <span className="spacer" />
-            <button className="btn sm danger" onClick={() => setConfirm(true)}>
+            </Button>
+            <span className="flex-1" />
+            <Button size="sm" variant="danger" onClick={() => setConfirm(true)}>
               <Icon name="trash" size={14} />
               <span>Delete selected</span>
-            </button>
+            </Button>
           </>
         )}
-        {loading && <span className="spinner sm" aria-label="Loading" />}
+        {loading && <span className="spinner" aria-label="Loading" />}
       </div>
-      <ol className="ph-sup-list sup-items">
-        {items.map((p, i) => {
-          const src = safeHref(p.thumb_url)
-          const m = metricOf(p, metric)
-          const dims = p.width && p.height ? `${p.width} × ${p.height}` : ''
-          return (
-            <li key={p.id} className={picked.has(p.id) ? 'picked' : undefined}>
-              <input
-                type="checkbox"
-                className="sup-row-check"
-                checked={picked.has(p.id)}
-                onChange={() => toggle(p.id)}
-                aria-label={`Select ${p.filename}`}
-              />
-              <span className={'ph-rank' + (i < 3 ? ' top' : '')}>{i + 1}</span>
-              <button className="ph-sup-thumb" onClick={() => viewer.open(p.id)} aria-label={`View ${p.filename}`}>
-                {src && <img src={src} alt="" loading="lazy" />}
-                {p.video && (
-                  <span className="ph-video">
-                    <Icon name="play" size={10} />
-                    {p.length_s ? fmtDuration(p.length_s) : ''}
-                  </span>
-                )}
-              </button>
-              <span className="sup-main">
-                <span className="sup-name truncate" title={p.filename}>
-                  {p.filename}
-                </span>
-                <span className="sup-meta muted xsmall tabular">
-                  <span>{longDate(p.date_taken)}</span>
-                  <span>{p.library}</span>
-                  <span>@{p.owner}</span>
-                  {dims && (
-                    <span>
-                      {dims}
-                      {p.megapixels ? ` · ${p.megapixels.toFixed(1)} MP` : ''}
-                    </span>
-                  )}
-                  {p.has_raw && <span className="chip xs">RAW</span>}
-                  {p.has_orig && <span className="chip xs">ORIG</span>}
-                </span>
-              </span>
-              <span className="sup-metric">
-                <strong className="tabular">{m.value}</strong>
-                <span className="muted xsmall tabular">{m.sub}</span>
-              </span>
-            </li>
-          )
-        })}
+      <ol className={listClass}>
+        {items.map((p, i) => (
+          <ItemRow key={p.id} p={p} rank={i + 1} metric={metric} items={items} onOpen={viewer.open} />
+        ))}
       </ol>
-      <p className="help">
+      <p className={helpClass}>
         Open an item to delete it or just its original from the viewer's menu. Deleting needs owner or editor access to the library.
       </p>
       {confirm && (
-        <DeleteDialog ids={[...picked]} onClose={() => setConfirm(false)} onDone={() => (setPicked(new Set()), refreshAll(qc))} />
+        <DeleteDialog
+          ids={[...picks.get().picked.keys()]}
+          onClose={() => setConfirm(false)}
+          onDone={() => {
+            picks.setMode(false)
+            refreshAll(qc)
+          }}
+        />
       )}
-      {viewer.current && <Viewer id={viewer.current} items={[]} onGo={viewer.go} onClose={viewer.close} />}
+      {viewer.current && <RankingViewer items={items} id={viewer.current} onGo={viewer.go} onClose={viewer.close} />}
     </>
   )
 }
 
+/** One ranked item; subscribed only to its own picked state, so ticking one row re-renders that row. */
+const ItemRow = memo(function ItemRow({
+  p,
+  rank,
+  metric,
+  items,
+  onOpen,
+}: {
+  p: RankedItem
+  rank: number
+  metric: Metric
+  items: RankedItem[]
+  onOpen: (id: string) => void
+}) {
+  const picked = picks.useSelect((x) => x.picked.has(p.id))
+  const src = safeHref(p.thumb_url)
+  const m = metricOf(p, metric)
+  const dims = p.width && p.height ? `${p.width} × ${p.height}` : ''
+  return (
+    <li className={cn(rowClass, picked ? 'bg-accent-soft' : 'hover:bg-hover')}>
+      <input
+        type="checkbox"
+        className="m-0 size-4 flex-none cursor-pointer"
+        checked={picked}
+        onChange={() => undefined}
+        onClick={(e) => picks.toggle(p, items, e.shiftKey)}
+        aria-label={`Select ${p.filename}`}
+      />
+      <span className={cn(rankClass(rank <= 3), 'max-md:hidden')}>{rank}</span>
+      <button
+        type="button"
+        className="relative size-12 flex-none cursor-zoom-in overflow-hidden rounded-sm border-0 bg-surface-2 p-0"
+        onClick={() => onOpen(p.id)}
+        aria-label={`View ${p.filename}`}
+      >
+        {src && <img src={src} alt="" loading="lazy" className="size-full object-cover" />}
+        {p.video && (
+          <span className="absolute right-0.5 bottom-0.5 inline-flex items-center gap-0.5 rounded-full bg-black/55 px-1 py-px text-3xs font-semibold text-white tabular-nums [&_svg]:fill-current [&_svg]:stroke-none">
+            <Icon name="play" size={10} />
+            {p.length_s ? fmtDuration(p.length_s) : ''}
+          </span>
+        )}
+      </button>
+      <span className="grid min-w-0 flex-1 gap-0.5">
+        <span className="truncate font-medium" title={p.filename}>
+          {p.filename}
+        </span>
+        <span className={metaClass}>
+          <span>{longDate(p.date_taken)}</span>
+          <span>{p.library}</span>
+          <span>@{p.owner}</span>
+          {dims && (
+            <span>
+              {dims}
+              {p.megapixels ? ` · ${p.megapixels.toFixed(1)} MP` : ''}
+            </span>
+          )}
+          {p.has_raw && <span className={metaChip}>RAW</span>}
+          {p.has_orig && <span className={metaChip}>ORIG</span>}
+        </span>
+      </span>
+      <span className={metricClass}>
+        <strong className={metricValue}>{m.value}</strong>
+        <span className="text-xs text-muted tabular-nums">{m.sub}</span>
+      </span>
+    </li>
+  )
+})
+
 function Days({ days, metric }: { days: RankedDay[]; metric: string }) {
-  if (!days.length) return <div className="empty left">No days to rank yet.</div>
+  if (!days.length) return <div className="p-4 text-sm text-muted">No days to rank yet.</div>
   const value = (d: RankedDay) =>
     metric === 'photos'
       ? plural(d.photos, 'photo')
@@ -317,28 +394,28 @@ function Days({ days, metric }: { days: RankedDay[]; metric: string }) {
           ? fmtHms(d.length_s)
           : fmtBytes(d.size_kb)
   return (
-    <ol className="ph-sup-list sup-days">
+    <ol className={listClass}>
       {days.map((d, i) => {
         const [y, mo, da] = d.date.split('-').map(Number)
         const label = fmtDate(new Date(y, mo - 1, da), { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
         return (
-          <li key={d.date}>
-            <span className={'ph-rank' + (i < 3 ? ' top' : '')}>{i + 1}</span>
-            <span className="sup-main">
-              <Link className="sup-name" to={`/photos/day/${d.date}`}>
+          <li key={d.date} className={cn(rowClass, 'hover:bg-hover')}>
+            <span className={rankClass(i < 3)}>{i + 1}</span>
+            <span className="grid min-w-0 flex-1 gap-0.5">
+              <Link className="font-medium text-fg" to={`/photos/day/${d.date}`}>
                 {label}
               </Link>
-              <span className="sup-meta muted xsmall tabular">
+              <span className={metaClass}>
                 <span>{plural(d.photos, 'photo')}</span>
                 {d.videos > 0 && <span>{plural(d.videos, 'video')}</span>}
                 <span>{fmtBytes(d.size_kb)}</span>
                 {d.length_s > 0 && <span>{fmtHms(d.length_s)} of video</span>}
               </span>
             </span>
-            <span className="sup-metric">
-              <strong className="tabular">{value(d)}</strong>
+            <span className={metricClass}>
+              <strong className={metricValue}>{value(d)}</strong>
             </span>
-            <Link className="btn sm sup-day-btn" to={`/photos/day/${d.date}`}>
+            <Link className={buttonClass({ size: 'sm', className: 'max-md:hidden' })} to={`/photos/day/${d.date}`}>
               View day
             </Link>
           </li>
