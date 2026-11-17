@@ -1,6 +1,5 @@
 // Shared UI primitives: hotkeys, skeletons, avatar, switch, error box; overlays re-exported from ./ui/.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Icon } from './Icon'
 
 // ---------------------------------------------------------------- hotkeys
 export function isTyping(e: KeyboardEvent): boolean {
@@ -28,21 +27,11 @@ export function useHotkey(match: (e: KeyboardEvent) => boolean, fn: (e: Keyboard
 // Overlays live in ./ui/ on Base UI; re-exported here so pages keep one import.
 export { Button, buttonClass } from './ui/button'
 export { Confirm, Dialog, Drawer, DrawerBody, DrawerHead } from './ui/dialog'
+export { ErrorBox, SkeletonRows } from './ui/feedback'
 export { Menu, MenuItem, MenuLabel, MenuSeparator, Popover, type TriggerProps } from './ui/menu'
+export { QueryView } from './ui/query-view'
 
 // ---------------------------------------------------------------- misc
-export function SkeletonRows({ rows = 4, avatar = false }: { rows?: number; avatar?: boolean }) {
-  return (
-    <div className="sk-rows" aria-busy="true" aria-label="Loading">
-      {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="row" style={{ padding: '0.5rem 1rem' }}>
-          {avatar && <span className="sk" style={{ width: '1rem', height: '1rem', borderRadius: '50%' }} />}
-          <span className="sk sk-line" style={{ width: `${55 + ((i * 17) % 35)}%` }} />
-        </div>
-      ))}
-    </div>
-  )
-}
 
 export function Avatar({ name, src, size = 1.75 }: { name: string; src?: string | null; size?: number }) {
   const [broken, setBroken] = useState(false)
@@ -92,20 +81,6 @@ export function Switch({
       <span className="track" />
       {label && <span>{label}</span>}
     </label>
-  )
-}
-
-export function ErrorBox({ error, retry }: { error: unknown; retry?: () => void }) {
-  return (
-    <div className="error-box" role="alert">
-      <Icon name="alert" />
-      <span className="grow">{(error as Error)?.message || 'Something went wrong.'}</span>
-      {retry && (
-        <button className="btn sm" onClick={retry}>
-          Retry
-        </button>
-      )}
-    </div>
   )
 }
 

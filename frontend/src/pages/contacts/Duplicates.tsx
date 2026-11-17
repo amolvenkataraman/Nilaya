@@ -3,7 +3,7 @@
 import { useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { Avatar, Dialog, ErrorBox, SkeletonRows } from '../../components/ui'
+import { Avatar, Dialog, QueryView, SkeletonRows } from '../../components/ui'
 import { toast } from '../../components/toast'
 import {
   avatarSrc,
@@ -107,70 +107,73 @@ export function DuplicatesPane({ onOpen, onBack }: { onOpen: (id: string) => voi
           interactions and relationships are combined.
         </p>
       </header>
-      {dupes.isPending ? (
-        <SkeletonRows rows={4} avatar />
-      ) : dupes.error ? (
-        <ErrorBox error={dupes.error} retry={() => dupes.refetch()} />
-      ) : !groups.length ? (
-        <div className="c-empty">
-          <Icon name="check" size={28} />
-          <p>No likely duplicates. Nice and tidy.</p>
-        </div>
-      ) : (
-        <>
-          <p className="muted xsmall">
-            {plural(dupes.data!.length, 'possible duplicate')}
-            {groups.length !== dupes.data!.length ? ` in ${plural(groups.length, 'group')}` : ''}
-          </p>
-          <ul className="c-dupe-list">
-            {groups.map((g) => (
-              <li key={g[0].a.id + g[0].b.id} className="c-dupe-group">
-                {g.length > 1 && (
-                  <div className="c-dupe-foot">
-                    <span className="muted xsmall grow">{plural(groupPeople(g).length, 'record')} that look like the same person</span>
-                    <button className="btn sm" onClick={() => setMergingGroup(groupPeople(g))}>
-                      Merge all into one…
-                    </button>
-                  </div>
-                )}
-                {g.map((pair) => (
-                  <div key={pair.a.id + pair.b.id} className="c-dupe">
-                    <div className="c-dupe-people">
-                      <PersonCell p={pair.a} onOpen={onOpen} />
-                      <Icon name="link" size={14} className="muted c-dupe-join" />
-                      <PersonCell p={pair.b} onOpen={onOpen} />
-                    </div>
+      <QueryView
+        query={dupes}
+        skeleton={<SkeletonRows rows={4} avatar />}
+        isEmpty={() => !groups.length}
+        empty={
+          <div className="c-empty">
+            <Icon name="check" size={28} />
+            <p>No likely duplicates. Nice and tidy.</p>
+          </div>
+        }
+      >
+        {(data) => (
+          <>
+            <p className="muted xsmall">
+              {plural(data.length, 'possible duplicate')}
+              {groups.length !== data.length ? ` in ${plural(groups.length, 'group')}` : ''}
+            </p>
+            <ul className="c-dupe-list">
+              {groups.map((g) => (
+                <li key={g[0].a.id + g[0].b.id} className="c-dupe-group">
+                  {g.length > 1 && (
                     <div className="c-dupe-foot">
-                      <div className="c-chips grow">
-                        {pair.reasons.map((r) => (
-                          <span key={r} className="chip">
-                            {r}
-                          </span>
-                        ))}
-                      </div>
-                      <button
-                        className="btn sm"
-                        disabled={dismiss.isPending}
-                        onClick={() =>
-                          dismiss.mutate(
-                            { a_id: pair.a.id, b_id: pair.b.id },
-                            { onSuccess: () => toast.show('Marked as different people') },
-                          )
-                        }
-                      >
-                        Not duplicates
-                      </button>
-                      <button className="btn primary sm" onClick={() => setMerging(pair)}>
-                        Merge…
+                      <span className="muted xsmall grow">{plural(groupPeople(g).length, 'record')} that look like the same person</span>
+                      <button className="btn sm" onClick={() => setMergingGroup(groupPeople(g))}>
+                        Merge all into one…
                       </button>
                     </div>
-                  </div>
-                ))}
-              </li>
-            ))}
-          </ul>
-        </>
-      )}
+                  )}
+                  {g.map((pair) => (
+                    <div key={pair.a.id + pair.b.id} className="c-dupe">
+                      <div className="c-dupe-people">
+                        <PersonCell p={pair.a} onOpen={onOpen} />
+                        <Icon name="link" size={14} className="muted c-dupe-join" />
+                        <PersonCell p={pair.b} onOpen={onOpen} />
+                      </div>
+                      <div className="c-dupe-foot">
+                        <div className="c-chips grow">
+                          {pair.reasons.map((r) => (
+                            <span key={r} className="chip">
+                              {r}
+                            </span>
+                          ))}
+                        </div>
+                        <button
+                          className="btn sm"
+                          disabled={dismiss.isPending}
+                          onClick={() =>
+                            dismiss.mutate(
+                              { a_id: pair.a.id, b_id: pair.b.id },
+                              { onSuccess: () => toast.show('Marked as different people') },
+                            )
+                          }
+                        >
+                          Not duplicates
+                        </button>
+                        <button className="btn primary sm" onClick={() => setMerging(pair)}>
+                          Merge…
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+      </QueryView>
       {merging && <MergeDialog pair={merging} onClose={() => setMerging(null)} />}
       {mergingGroup && <MergeManyDialog people={mergingGroup} onClose={() => setMergingGroup(null)} onMerged={(p) => onOpen(p.id)} />}
     </section>

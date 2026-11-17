@@ -6,7 +6,7 @@ import { ApiError, api, get, patch, post, safeHref } from '../../lib/api'
 import type { Album } from '../../lib/types'
 import { useMe } from '../../lib/queries'
 import { Icon } from '../../components/Icon'
-import { Confirm, Dialog, ErrorBox, Menu, MenuItem, Switch } from '../../components/ui'
+import { Confirm, Dialog, ErrorBox, Menu, MenuItem, QueryView, Switch } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { PhotoStream, type Zoom } from './PhotoStream'
 import { albumContext } from './select'
@@ -502,52 +502,53 @@ function ShareDialog({ album, onClose }: { album: Album; onClose: () => void }) 
       <div className="label" style={{ marginTop: '0.75rem' }}>
         People with access
       </div>
-      {members.isPending ? (
-        <p className="muted small">Loading…</p>
-      ) : members.isError ? (
-        <ErrorBox error={members.error} retry={() => members.refetch()} />
-      ) : !members.data.length ? (
-        <p className="muted small">Only you. Add someone by username above.</p>
-      ) : (
-        <ul className="ph-members">
-          {members.data.map((m) => (
-            <li key={m.id}>
-              <span className="avatar" aria-hidden="true">
-                {(m.name || m.username).slice(0, 1).toUpperCase()}
-              </span>
-              <span className="grow" style={{ minWidth: 0 }}>
-                <span className="truncate" style={{ display: 'block' }}>
-                  {m.name}
+      <QueryView
+        query={members}
+        skeleton={<p className="muted small">Loading…</p>}
+        isEmpty={(d) => !d.length}
+        empty={<p className="muted small">Only you. Add someone by username above.</p>}
+      >
+        {(list) => (
+          <ul className="ph-members">
+            {list.map((m) => (
+              <li key={m.id}>
+                <span className="avatar" aria-hidden="true">
+                  {(m.name || m.username).slice(0, 1).toUpperCase()}
                 </span>
-                <span className="muted xsmall">@{m.username}</span>
-              </span>
-              <select
-                className="select sm-select"
-                value={m.role}
-                onChange={(e) => change.mutate({ id: m.id, role: e.target.value as 'viewer' | 'editor' })}
-                aria-label={`Role for ${m.username}`}
-              >
-                <option value="viewer">Can view</option>
-                <option value="editor">Can edit</option>
-              </select>
-              {confirmId === m.id ? (
-                <button className="btn sm danger" onClick={() => drop.mutate(m.id)} disabled={drop.isPending}>
-                  Remove?
-                </button>
-              ) : (
-                <button
-                  className="btn ghost icon sm"
-                  onClick={() => setConfirmId(m.id)}
-                  aria-label={`Stop sharing with ${m.username}`}
-                  title="Stop sharing"
+                <span className="grow" style={{ minWidth: 0 }}>
+                  <span className="truncate" style={{ display: 'block' }}>
+                    {m.name}
+                  </span>
+                  <span className="muted xsmall">@{m.username}</span>
+                </span>
+                <select
+                  className="select sm-select"
+                  value={m.role}
+                  onChange={(e) => change.mutate({ id: m.id, role: e.target.value as 'viewer' | 'editor' })}
+                  aria-label={`Role for ${m.username}`}
                 >
-                  <Icon name="x" size={14} />
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+                  <option value="viewer">Can view</option>
+                  <option value="editor">Can edit</option>
+                </select>
+                {confirmId === m.id ? (
+                  <button className="btn sm danger" onClick={() => drop.mutate(m.id)} disabled={drop.isPending}>
+                    Remove?
+                  </button>
+                ) : (
+                  <button
+                    className="btn ghost icon sm"
+                    onClick={() => setConfirmId(m.id)}
+                    aria-label={`Stop sharing with ${m.username}`}
+                    title="Stop sharing"
+                  >
+                    <Icon name="x" size={14} />
+                  </button>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </QueryView>
     </Dialog>
   )
 }

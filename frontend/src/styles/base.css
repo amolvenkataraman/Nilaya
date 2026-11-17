@@ -179,7 +179,6 @@ button.chip:hover { color: var(--app-fg); }
 
 .empty { padding: 1rem; color: var(--app-muted); font-size: var(--fs-sm); text-align: center; }
 .empty.left { text-align: left; }
-.error-box { padding: 0.75rem 1rem; color: var(--app-danger); font-size: var(--fs-sm); display: flex; gap: var(--sp-2); align-items: center; }
 
 /* ---------- Skeletons */
 .sk { display: block; border-radius: 4px; background: var(--app-surface-2); animation: sk 1.3s ease-in-out infinite; }

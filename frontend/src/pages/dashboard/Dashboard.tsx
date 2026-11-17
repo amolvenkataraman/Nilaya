@@ -4,7 +4,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { AppShell, AppLogo } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { ErrorBox, SkeletonRows, useNow } from '../../components/ui'
+import { ErrorBox, QueryView, SkeletonRows, useNow } from '../../components/ui'
 import { TaskRow } from '../../components/TaskRow'
 import { QuickAddInput } from '../../components/QuickAdd'
 import { HBars, Columns } from '../../components/charts'
@@ -499,15 +499,17 @@ function InboxCard({ className }: { className: string }) {
         </Link>
       </div>
       <div className="dash-inbox">
-        {inbox.isPending ? (
-          <SkeletonRows rows={3} />
-        ) : !inbox.data?.items.length ? (
-          <div className="empty">
-            <Icon name="check" size={14} /> You're all caught up.
-          </div>
-        ) : (
-          inbox.data.items.map((n) => <NotificationRow key={n.id} n={n} onOpen={open} compact />)
-        )}
+        <QueryView
+          query={inbox}
+          isEmpty={(d) => !d.items.length}
+          empty={
+            <div className="empty">
+              <Icon name="check" size={14} /> You're all caught up.
+            </div>
+          }
+        >
+          {(d) => d.items.map((n) => <NotificationRow key={n.id} n={n} onOpen={open} compact />)}
+        </QueryView>
       </div>
     </section>
   )
