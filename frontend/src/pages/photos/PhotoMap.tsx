@@ -5,17 +5,17 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
-import { keepPreviousData, useQuery } from '@tanstack/react-query'
+import { useQuery } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { get, safeHref } from '../../lib/api'
 import { fmtDate } from '../../lib/dates'
 import type { Photo } from '../../lib/types'
-import { HeatLayer, realPoints, type HeatPoint } from './heat'
+import { HeatLayer } from './heat'
+import { photoPointsQuery, snapBox, WORLD, type Box, type HeatPoint } from './points'
 import { HeatFilterControls, heatParams, useHeatFilter } from './HeatFilters'
 import { photosInArea } from './util'
 
-type Box = { south: number; west: number; north: number; east: number }
 const CLUSTER_PX = 72
 const CLUSTER_KEY = 'app.photos.mapClusters'
 const short = (n: number) =>
@@ -147,13 +147,7 @@ export function PhotoMapPage() {
       if (t) clearTimeout(t)
       t = setTimeout(() => {
         const b = m.getBounds()
-        const f = (v: number, up: boolean) => (up ? Math.ceil(v * 100) : Math.floor(v * 100)) / 100
-        setBox({
-          south: f(Math.max(-90, b.getSouth()), false),
-          west: f(Math.max(-180, b.getWest()), false),
-          north: f(Math.min(90, b.getNorth()), true),
-          east: f(Math.min(180, b.getEast()), true),
-        })
+        setBox(snapBox({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() }))
       }, 350)
     }
     m.on('moveend', report)
@@ -165,7 +159,7 @@ export function PhotoMapPage() {
     })
     map.current = m
     // First query: the whole world, so the first fit shows every photo whatever the viewport's shape.
-    const first = setTimeout(() => setBox({ south: -90, west: -180, north: 90, east: 180 }), 0)
+    const first = setTimeout(() => setBox(WORLD), 0)
     const ro = new ResizeObserver(() => m.invalidateSize())
     ro.observe(el.current)
     return () => {
@@ -180,14 +174,7 @@ export function PhotoMapPage() {
     }
   }, [])
 
-  const points = useQuery({
-    queryKey: ['photos', 'points', box, heatParams(heatFilter)],
-    queryFn: ({ signal }) => get<HeatPoint[]>('photos/points', { ...box!, ...heatParams(heatFilter) }, signal),
-    select: realPoints,
-    enabled: !!box,
-    staleTime: 30 * 60_000,
-    placeholderData: keepPreviousData,
-  })
+  const points = useQuery(photoPointsQuery(box, heatParams(heatFilter)))
   const fitted = useRef(false)
   useEffect(() => {
     const pts = points.data

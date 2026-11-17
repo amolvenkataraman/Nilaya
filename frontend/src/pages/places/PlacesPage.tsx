@@ -47,11 +47,11 @@ import { PlaceDetail, PlaceRow, StatsTab, SuggestedTab, SuggestionDetail, type T
 import { photosInArea } from '../photos/util'
 import { HeatFilterControls, heatParams, useHeatFilter } from '../photos/HeatFilters'
 import { PlaceSearch } from './Search'
-import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
-import { apiUrl, get } from '../../lib/api'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { apiUrl } from '../../lib/api'
 import { userKey } from '../../lib/owner'
 import { useMe } from '../../lib/queries'
-import { realPoints, type HeatPoint } from '../photos/heat'
+import { photoPointsQuery, snapBox } from '../photos/points'
 import { toast } from '../../components/toast'
 import { PlaceMap, type MapFocus } from './PlaceMap'
 import './places.css'
@@ -101,20 +101,10 @@ export default function PlacesPage() {
   const boxTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const onBounds = (b: { south: number; west: number; north: number; east: number }) => {
     if (boxTimer.current) clearTimeout(boxTimer.current)
-    // Debounce 350 ms; snap to 2 decimals so small pans reuse the cached box.
-    boxTimer.current = setTimeout(() => {
-      const f = (v: number, up: boolean) => (up ? Math.ceil(v * 100) : Math.floor(v * 100)) / 100
-      setBox({ south: f(b.south, false), west: f(b.west, false), north: f(b.north, true), east: f(b.east, true) })
-    }, 350)
+    // Debounce 350 ms; snapped so small pans (and Photos › Map) reuse the cached box.
+    boxTimer.current = setTimeout(() => setBox(snapBox(b)), 350)
   }
-  const heat = useQuery({
-    queryKey: ['photos', 'points', box, heatParams(heatFilter)],
-    queryFn: ({ signal }) => get<HeatPoint[]>('photos/points', { ...box!, ...heatParams(heatFilter) }, signal),
-    select: realPoints,
-    enabled: heatOn && !!box,
-    staleTime: 30 * 60_000,
-    placeholderData: keepPreviousData,
-  })
+  const heat = useQuery({ ...photoPointsQuery(box, heatParams(heatFilter)), enabled: heatOn && !!box })
   const toggleHeat = () =>
     setHeatOn((v) => {
       try {

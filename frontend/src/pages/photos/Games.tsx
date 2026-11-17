@@ -14,13 +14,13 @@ import type { Photo } from '../../lib/types'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { useDebounced, useHotkey } from '../../components/ui'
-import { HeatLayer, realPoints, type HeatPoint } from './heat'
+import { HeatLayer } from './heat'
+import { photoPointsQuery, WORLD } from './points'
 import { closeness, distanceM, fmtDistance, score } from './game'
 import { layerOpen } from '../../components/layers'
 
 type LatLng = { lat: number; lng: number }
 const START: [number, number] = [43.57, -79.98] // starting view (southern Ontario)
-const WORLD = { south: -90, west: -180, north: 90, east: 180 }
 
 /** A Leaflet map with the same OSM tiles as the rest of the app; `onClick` gets wrapped coordinates. */
 function useMap(el: React.RefObject<HTMLDivElement | null>, onClick: (p: LatLng) => void) {
@@ -394,13 +394,8 @@ export function LocatePage() {
       /* ignore */
     }
   }
-  const points = useQuery({
-    queryKey: ['photos', 'points', WORLD, '', false],
-    queryFn: ({ signal }) => get<HeatPoint[]>('photos/points', WORLD, signal),
-    select: realPoints,
-    enabled: heat,
-    staleTime: 30 * 60_000,
-  })
+  const points = useQuery({ ...photoPointsQuery(WORLD), enabled: heat })
+
   const heatLayer = useRef<HeatLayer | null>(null)
   useEffect(() => {
     const m = map.current

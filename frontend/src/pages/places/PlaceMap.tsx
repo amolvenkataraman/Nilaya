@@ -7,7 +7,8 @@ import 'leaflet/dist/leaflet.css'
 import { categoryIcon, STATUSES, type Pin as Place, type Suggestion } from './api'
 import { iconMarkup } from '../../lib/favicon'
 import { Icon } from '../../components/Icon'
-import { HeatLayer, type HeatPoint } from '../photos/heat'
+import { HeatLayer } from '../photos/heat'
+import type { HeatPoint } from '../photos/points'
 
 interface Props {
   places: Place[]
