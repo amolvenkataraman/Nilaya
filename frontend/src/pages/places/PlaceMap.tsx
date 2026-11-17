@@ -1,14 +1,22 @@
-// Leaflet map of places. Places are teardrop pins (status colour, category glyph, visited badge) drawn as
-// divIcons whose HTML is built only from constants; popups and tooltips are built from DOM text nodes,
-// never HTML strings, so place names and notes are always plain text.
+// Leaflet map of places (on lib/map). Places are teardrop pins (status colour, category glyph, visited badge)
+// drawn as divIcons whose HTML is built only from constants; popups and tooltips are built from DOM text nodes,
+// never HTML strings, so place names and notes are always plain text. Nearby pins merge into count markers
+// (gridCluster) until zoomed in; big sets are culled to the view.
 import { useEffect, useRef, useState } from 'react'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import { categoryIcon, STATUSES, type Pin as Place, type Suggestion } from './api'
-import { iconMarkup } from '../../lib/favicon'
 import { Icon } from '../../components/Icon'
-import { HeatLayer } from '../photos/heat'
-import type { HeatPoint } from '../photos/points'
+import { buttonClass } from '../../components/ui'
+import { cn } from '../../lib/cn'
+import { iconMarkup } from '../../lib/favicon'
+import { countMarker } from '../../lib/map/countMarker'
+import { type Box, directionsUrl, fmtCoords } from '../../lib/map/geo'
+import { gridCluster } from '../../lib/map/gridCluster'
+import { useHeatLayer } from '../../lib/map/heat'
+import { HeatRamp } from '../../lib/map/HeatFilters'
+import L from '../../lib/map/leaflet'
+import type { HeatPoint } from '../../lib/map/points'
+import { useLeafletMap } from '../../lib/map/useLeafletMap'
+import { useViewportBox } from '../../lib/map/useViewportBox'
+import { categoryIcon, type Pin as Place, STATUSES, type Suggestion, stars, statusOf } from './api'
 
 interface Props {
   places: Place[]
@@ -22,8 +30,8 @@ interface Props {
   onSuggestion?: (s: Suggestion) => void
   /** Photo heat map points (null = layer off). */
   heat?: HeatPoint[] | null
-  /** Visible box after each move/zoom (the page debounces and fetches heat points for it). */
-  onBounds?: (b: { south: number; west: number; north: number; east: number }) => void
+  /** The visible box, debounced and snapped (the page fetches heat points for it). */
+  onBox?: (b: Box) => void
   /** "Add place" mode: the next map click adds a place there (no popup). */
   addMode?: boolean
   /** Fly here (a search result or a suggestion); `label` set = offer "Add a place here" with that name. */
@@ -44,41 +52,35 @@ export interface MapFocus {
   address?: string
 }
 
-/** Marker colour by status (legend below the map). */
-function statusColour(status?: string): string {
-  const css = getComputedStyle(document.documentElement)
-  const v = (n: string, d: string) => css.getPropertyValue(n).trim() || d
-  return status === 'visited'
-    ? v('--app-success', '#2f855a')
-    : status === 'want_to_go'
-      ? v('--app-warning', '#b7791f')
-      : v('--app-accent', '#0f6d77')
+/** The accent colour for vector layers (suggestion rings), read from the tokens. */
+function accentColour(): string {
+  return getComputedStyle(document.documentElement).getPropertyValue('--app-accent').trim() || '#0f6d77'
 }
 const CLUSTER_PX = 44
+const USER_DOT = '#2563eb'
 
 /** Teardrop outline on a 28x36 box (the classic map's shape); the tip is at (14, 35). */
 export const PIN_PATH = 'M14 1C6.8 1 1 6.7 1 13.7 1 23.2 14 35 14 35s13-11.8 13-21.3C27 6.7 21.2 1 14 1z'
 const glyph = (inner: string) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${inner}</svg>`
 const DOT = '<circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/>'
-const safeStatus = (s?: string) => (s === 'visited' || s === 'want_to_go' ? s : 'saved')
-const statusLabel = (s?: string) => STATUSES.find((x) => x.key === safeStatus(s))!.label
+const statusLabel = (s?: string) => STATUSES.find((x) => x.key === statusOf({ status: s }))?.label ?? 'Saved'
 
 /** One divIcon per (category, status, selected), built once: the HTML is constants only (Icon path data and
- *  fixed class names; unknown categories get a dot), so no place text ever reaches innerHTML. */
+ *  fixed class names from lib/map/map.css; unknown categories get a dot), so no place text reaches innerHTML. */
 const pinIcons = new Map<string, L.DivIcon>()
 function pinIcon(category: string, status: string | undefined, selected: boolean): L.DivIcon {
-  const st = safeStatus(status)
+  const st = statusOf({ status })
   const name = categoryIcon(category)
   const key = `${name ?? ''}|${st}|${selected ? 1 : 0}`
   let icon = pinIcons.get(key)
   if (!icon) {
-    const badge = st === 'visited' ? `<span class="pm-pin-badge">${glyph(iconMarkup('check'))}</span>` : ''
+    const badge = st === 'visited' ? `<span class="map-pin-badge">${glyph(iconMarkup('check'))}</span>` : ''
     icon = L.divIcon({
-      className: 'pm-pin-icon',
+      className: 'map-pin-icon',
       html:
-        `<div class="pm-pin st-${st}${selected ? ' is-selected' : ''}"><svg class="pm-pin-shape" viewBox="0 0 28 36" aria-hidden="true" focusable="false"><path d="${PIN_PATH}"/></svg>` +
-        `<span class="pm-pin-glyph">${glyph(name ? iconMarkup(name) : DOT)}</span>${badge}</div>`,
+        `<div class="map-pin st-${st}${selected ? ' is-selected' : ''}"><svg class="map-pin-shape" viewBox="0 0 28 36" aria-hidden="true" focusable="false"><path d="${PIN_PATH}"/></svg>` +
+        `<span class="map-pin-glyph">${glyph(name ? iconMarkup(name) : DOT)}</span>${badge}</div>`,
       iconSize: [28, 36],
       iconAnchor: [14, 35],
       tooltipAnchor: [0, -30],
@@ -95,6 +97,16 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: s
   if (text !== undefined) e.textContent = text
   return e
 }
+// Popup content classes. `.leaflet-container a` colours links, so the Directions button restates its colour.
+const pop = {
+  wrap: 'grid gap-1',
+  title: 'pr-4 text-sm font-semibold [overflow-wrap:anywhere]',
+  meta: 'text-xs text-muted',
+  text: 'text-xs whitespace-pre-line [overflow-wrap:anywhere]',
+  actions: 'mt-1.5 flex gap-1.5',
+  button: buttonClass({ size: 'sm', className: 'text-fg! hover:no-underline' }),
+  primary: buttonClass({ size: 'sm', variant: 'primary', className: 'text-accent-fg!' }),
+}
 
 export function PlaceMap({
   places,
@@ -107,76 +119,73 @@ export function PlaceMap({
   suggestions,
   onSuggestion,
   heat,
-  onBounds,
+  onBox,
   addMode,
   focus,
   userPos,
   fit,
 }: Props) {
-  const box = useRef<HTMLDivElement>(null)
-  const map = useRef<L.Map | null>(null)
+  const box = useRef<HTMLElement>(null)
   const layer = useRef<L.LayerGroup | null>(null)
   const markers = useRef(new Map<string, L.Marker>())
   const fitted = useRef(false)
   // Latest callbacks for Leaflet handlers created once.
-  const cb = useRef({ onSelect, onEdit, onAddAt, categoryLabel, canEdit, onSuggestion, onBounds, addMode })
-  cb.current = { onSelect, onEdit, onAddAt, categoryLabel, canEdit, onSuggestion, onBounds, addMode }
+  const cb = useRef({ onSelect, onEdit, onAddAt, categoryLabel, canEdit, onSuggestion, addMode })
+  cb.current = { onSelect, onEdit, onAddAt, categoryLabel, canEdit, onSuggestion, addMode }
   const me = useRef<L.CircleMarker | null>(null)
-  const heatLayer = useRef<HeatLayer | null>(null)
   const ghosts = useRef<L.LayerGroup | null>(null)
   const [zoomTick, setZoomTick] = useState(0)
   // The selected place's popup waits for a fly to end: the fly's moveend redraws every pin (closing popups).
   const pendingPopup = useRef<string | null>(null)
   const flying = useRef(false)
 
+  // Canvas renderer for the vector layers (suggestions, your location); pins are cheap divIcons, and big sets
+  // are culled to the view and clustered below, so the DOM stays small.
+  const map = useLeafletMap(box, {
+    center: [20, 0],
+    zoom: 2,
+    preferCanvas: true,
+    onClick: ({ lat, lng }, e) => {
+      if (cb.current.addMode) return cb.current.onAddAt(lat, lng)
+      if (map.current) addPopup(map.current, e.latlng, lat, lng)
+      cb.current.onSelect(null)
+    },
+  })
+  const view = useViewportBox(map)
+  const onBoxRef = useRef(onBox)
+  onBoxRef.current = onBox
   useEffect(() => {
-    if (!box.current) return
-    // Canvas renderer for the vector layers (suggestions, your location); pins are cheap divIcons, and big
-    // sets are culled to the view and clustered below, so the DOM stays small.
-    const m = L.map(box.current, { zoomControl: false, worldCopyJump: true, preferCanvas: true }).setView([20, 0], 2)
-    L.control.zoom({ position: 'bottomright' }).addTo(m)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(m)
+    if (view) onBoxRef.current?.(view)
+  }, [view])
+  useHeatLayer(map, heat ?? null)
+
+  useEffect(() => {
+    const m = map.current
+    if (!m || !box.current) return
     layer.current = L.layerGroup().addTo(m)
     ghosts.current = L.layerGroup().addTo(m)
     // Zoom or pan: re-cluster what's in view. Zero-length moves (a focused pin's or popup's auto-pan that had
     // nothing to do still fires moveend) are skipped, so a redraw can't feed itself.
     let seen = ''
-    m.on('moveend', () => {
+    const onMove = () => {
       const c = m.getCenter()
       const sz = m.getSize()
-      const view = `${m.getZoom()}:${c.lat.toFixed(7)}:${c.lng.toFixed(7)}:${sz.x}x${sz.y}` // size: a resize widens the culled view
-      if (view !== seen) (seen = view), setZoomTick((t) => t + 1)
-    })
-    const report = () => {
-      const b = m.getBounds()
-      cb.current.onBounds?.({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() })
+      const v = `${m.getZoom()}:${c.lat.toFixed(7)}:${c.lng.toFixed(7)}:${sz.x}x${sz.y}` // size: a resize widens the culled view
+      if (v !== seen) {
+        seen = v
+        setZoomTick((t) => t + 1)
+      }
     }
-    m.on('moveend', report)
-    const firstReport = setTimeout(report, 0)
-    m.on('click', (e: L.LeafletMouseEvent) => {
-      const { lat, lng } = e.latlng.wrap()
-      if (cb.current.addMode) return cb.current.onAddAt(lat, lng)
-      addPopup(m, e.latlng, lat, lng)
-      cb.current.onSelect(null)
-    })
-    map.current = m
-    ;(box.current as HTMLDivElement & { _leafletMap?: L.Map })._leafletMap = m // handle for tests (no global)
-    const ro = new ResizeObserver(() => m.invalidateSize())
-    ro.observe(box.current)
+    m.on('moveend', onMove)
+    ;(box.current as HTMLElement & { _leafletMap?: L.Map })._leafletMap = m // handle for tests (no global)
     return () => {
-      clearTimeout(firstReport)
-      ro.disconnect()
-      m.remove()
-      heatLayer.current = null
-      map.current = null
+      m.off('moveend', onMove)
       markers.current.clear()
     }
-  }, [])
+  }, [map])
 
   // Redraw markers when the places or zoom change. Nearby markers cluster (pixel grid) until zoomed in.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: zoomTick is the trigger for a moved view
   useEffect(() => {
     const m = map.current
     const g = layer.current
@@ -191,28 +200,19 @@ export function PlaceMap({
     g.clearLayers()
     markers.current.clear()
     const zoom = m.getZoom()
-    const cells = new Map<string, Place[]>()
     // Big sets: only what's in (or near) the view gets markers; panning re-runs this.
-    const view = places.length > 300 ? m.getBounds().pad(0.35) : null
-    const cellPx = places.length > 1000 ? CLUSTER_PX * 1.4 : CLUSTER_PX // fewer, bigger clusters for big sets
-    for (const p of places) {
-      if (view && !view.contains([p.latitude, p.longitude]) && p.id !== selected) continue
-      const pt = m.project([p.latitude, p.longitude], zoom)
-      const key = zoom >= 16 ? p.id : `${Math.floor(pt.x / cellPx)}:${Math.floor(pt.y / cellPx)}`
-      const cell = cells.get(key)
-      if (cell) cell.push(p)
-      else cells.set(key, [p])
-    }
-    for (const group of cells.values()) {
+    const inView = places.length > 300 ? m.getBounds().pad(0.35) : null
+    const shown = inView ? places.filter((p) => p.id === selected || inView.contains([p.latitude, p.longitude])) : places
+    const cells = gridCluster(shown, {
+      latLng: (p) => [p.latitude, p.longitude],
+      project: (lat, lng) => m.project([lat, lng], zoom),
+      // Fewer, bigger clusters for big sets; from zoom 16 every place is its own pin.
+      cellPx: zoom >= 16 ? 0 : places.length > 1000 ? CLUSTER_PX * 1.4 : CLUSTER_PX,
+    })
+    for (const c of cells) {
+      const group = c.items
       if (group.length > 1 && !group.some((p) => p.id === selected)) {
-        const lat = group.reduce((s, p) => s + p.latitude, 0) / group.length
-        const lon = group.reduce((s, p) => s + p.longitude, 0) / group.length
-        const icon = L.divIcon({ className: 'pm-cluster', html: '', iconSize: [34, 34] })
-        const mk = L.marker([lat, lon], { icon, keyboard: true, title: `${group.length} places` })
-        mk.on('add', () => {
-          const node = mk.getElement()
-          if (node) node.replaceChildren(el('span', '', String(group.length)))
-        })
+        const mk = countMarker([c.lat, c.lng], { text: String(group.length), size: 34, title: `${group.length} places` })
         // Tooltips are built on first hover (hundreds of clusters redraw after every move).
         mk.once('mouseover', () =>
           mk
@@ -229,9 +229,7 @@ export function PlaceMap({
             )
             .openTooltip(),
         )
-        mk.on('click', () =>
-          m.fitBounds(L.latLngBounds(group.map((p) => [p.latitude, p.longitude] as [number, number])), { padding: [60, 60], maxZoom: 17 }),
-        )
+        mk.on('click', () => m.fitBounds(L.latLngBounds([c.south, c.west], [c.north, c.east]), { padding: [60, 60], maxZoom: 17 }))
         mk.addTo(g)
         continue
       }
@@ -251,7 +249,7 @@ export function PlaceMap({
         })
         // Leaflet treats string content as HTML, so tooltips and popups always get DOM nodes.
         mk.once('mouseover', () => mk.bindTooltip(el('span', '', p.name), { direction: 'top' }).openTooltip())
-        mk.bindPopup(() => popup(p), { className: 'pm-popup', autoPanPadding: [24, 24] })
+        mk.bindPopup(() => popup(p), { autoPanPadding: [24, 24] })
         mk.on('click', () => cb.current.onSelect(p.id))
         mk.on('keydown', (e: L.LeafletKeyboardEvent) => {
           if (e.originalEvent.key !== 'Enter' && e.originalEvent.key !== ' ') return
@@ -264,44 +262,44 @@ export function PlaceMap({
       }
     }
     if (focusedId) markers.current.get(focusedId)?.getElement()?.focus({ preventScroll: true })
-    if (reopen) markers.current.get(selected!)?.openPopup()
+    if (reopen && selected) markers.current.get(selected)?.openPopup()
     else if (pendingPopup.current && !flying.current) {
       markers.current.get(pendingPopup.current)?.openPopup()
       pendingPopup.current = null
     }
     if (!fitted.current && places.length) {
       fitted.current = true
-      const b = L.latLngBounds(places.map((p) => [p.latitude, p.longitude] as [number, number]))
-      m.fitBounds(b, { padding: [48, 48], maxZoom: 14 })
+      m.fitBounds(L.latLngBounds(places.map((p) => [p.latitude, p.longitude] as [number, number])), { padding: [48, 48], maxZoom: 14 })
     }
-  }, [places, zoomTick, selected])
+  }, [places, zoomTick, selected, map])
 
   /** Popup with the coordinates (and a found name) and "Add a place here". Text nodes only. */
   function addPopup(m: L.Map, at: L.LatLngExpression, lat: number, lng: number, label?: string, address?: string) {
-    const wrap = el('div', 'pm-pop')
-    if (label) wrap.append(el('div', 'pm-pop-title', label))
-    if (address && address !== label) wrap.append(el('div', 'pm-pop-text', address))
-    wrap.append(el('div', 'pm-pop-meta', `${lat.toFixed(5)}, ${lng.toFixed(5)}`))
-    const add = el('button', 'btn primary sm', 'Add a place here')
+    const wrap = el('div', pop.wrap)
+    if (label) wrap.append(el('div', pop.title, label))
+    if (address && address !== label) wrap.append(el('div', pop.text, address))
+    wrap.append(el('div', pop.meta, fmtCoords(lat, lng)))
+    const add = el('button', pop.primary, 'Add a place here')
     add.type = 'button'
     add.addEventListener('click', () => {
       m.closePopup()
       cb.current.onAddAt(lat, lng, label, address)
     })
     wrap.append(add)
-    L.popup({ closeButton: !!label, className: 'pm-popup', autoPanPadding: [24, 24] })
+    L.popup({ closeButton: !!label, autoPanPadding: [24, 24] })
       .setLatLng(at)
       .setContent(wrap)
       .openOn(m)
   }
 
-  // Crosshair while adding.
+  // Crosshair while adding. A class on the element Leaflet owns (React re-rendering className would drop Leaflet's).
   useEffect(() => {
-    box.current?.classList.toggle('adding', !!addMode)
+    box.current?.classList.toggle('map-crosshair', !!addMode)
     if (addMode) map.current?.closePopup()
-  }, [addMode])
+  }, [addMode, map])
 
   // Fly to a search result / suggestion.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new key is a new request to fly
   useEffect(() => {
     const m = map.current
     if (!m || !focus) return
@@ -332,45 +330,33 @@ export function PlaceMap({
       radius: 6,
       color: '#fff',
       weight: 2,
-      fillColor: '#2563eb',
+      fillColor: USER_DOT,
       fillOpacity: 1,
       interactive: false,
-      className: 'pm-me',
     }).addTo(m)
-  }, [userPos?.lat, userPos?.lon])
+  }, [userPos, map])
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: fit once per new key
   useEffect(() => {
     const m = map.current
     if (!m || !fit?.points.length) return
     m.fitBounds(L.latLngBounds(fit.points), { padding: [48, 48], maxZoom: 15 })
   }, [fit?.key])
 
-  // Photo heat map layer.
-  useEffect(() => {
-    const m = map.current
-    if (!m) return
-    if (!heat) {
-      heatLayer.current?.remove()
-      heatLayer.current = null
-      return
-    }
-    if (!heatLayer.current || !m.hasLayer(heatLayer.current.leaflet)) heatLayer.current = new HeatLayer(heat).addTo(m) as HeatLayer
-    else heatLayer.current.setPoints(heat)
-  }, [heat])
-
-  // Photo-derived suggestions as dashed "ghost" pins.
+  // Photo-derived suggestions as dashed "ghost" rings.
   useEffect(() => {
     const g = ghosts.current
     if (!g) return
     g.clearLayers()
+    const colour = accentColour()
     for (const sug of suggestions ?? []) {
       const mk = L.circleMarker([sug.latitude, sug.longitude], {
         radius: 8,
-        color: statusColour(),
+        color: colour,
         weight: 2,
         dashArray: '3 3',
         fillOpacity: 0.12,
-        fillColor: statusColour(),
+        fillColor: colour,
       })
       mk.bindTooltip(el('span', '', `${sug.name}: ${sug.photos} photos on ${sug.days} days`), { direction: 'top', offset: [0, -8] })
       mk.on('click', () => cb.current.onSuggestion?.(sug))
@@ -379,6 +365,7 @@ export function PlaceMap({
   }, [suggestions])
 
   // Fly to the selected place and open its popup (the redraw above already gave it the selected pin).
+  // biome-ignore lint/correctness/useExhaustiveDependencies: places is a trigger (a pin may arrive after selection)
   useEffect(() => {
     const m = map.current
     if (!m) return
@@ -398,31 +385,29 @@ export function PlaceMap({
       const t = setTimeout(() => markers.current.get(selected)?.openPopup(), 0)
       return () => clearTimeout(t)
     }
-  }, [selected, places])
+  }, [selected, places, map])
 
   function popup(p: Place): HTMLElement {
-    const wrap = el('div', 'pm-pop')
-    wrap.append(el('div', 'pm-pop-title', p.name))
+    const wrap = el('div', pop.wrap)
+    wrap.append(el('div', pop.title, p.name))
     const st =
-      p.status === 'visited' ? `Visited${p.visited_on ? ' ' + p.visited_on : ''}` : p.status === 'want_to_go' ? 'Want to go' : 'Saved'
-    const meta = [cb.current.categoryLabel(p.category), st, p.rating ? `${'★'.repeat(p.rating)}${'☆'.repeat(5 - p.rating)}` : '']
-      .filter(Boolean)
-      .join(' · ')
-    if (meta) wrap.append(el('div', 'pm-pop-meta', meta))
-    if (p.address) wrap.append(el('div', 'pm-pop-text', p.address))
-    if (p.description) wrap.append(el('div', 'pm-pop-text', p.description))
-    if (p.notes) wrap.append(el('div', 'pm-pop-meta', p.notes))
-    const details = el('button', 'btn sm', 'Details')
+      p.status === 'visited' ? `Visited${p.visited_on ? ` ${p.visited_on}` : ''}` : p.status === 'want_to_go' ? 'Want to go' : 'Saved'
+    const meta = [cb.current.categoryLabel(p.category), st, stars(p.rating)].filter(Boolean).join(' · ')
+    if (meta) wrap.append(el('div', pop.meta, meta))
+    if (p.address) wrap.append(el('div', pop.text, p.address))
+    if (p.description) wrap.append(el('div', pop.text, p.description))
+    if (p.notes) wrap.append(el('div', pop.meta, p.notes))
+    const details = el('button', pop.button, 'Details')
     details.type = 'button'
     details.addEventListener('click', () => cb.current.onSelect(p.id))
-    const actions = el('div', 'pm-pop-actions')
-    const dir = el('a', 'btn sm', 'Directions')
-    dir.href = `https://www.openstreetmap.org/directions?to=${p.latitude.toFixed(6)}%2C${p.longitude.toFixed(6)}`
+    const actions = el('div', pop.actions)
+    const dir = el('a', pop.button, 'Directions')
+    dir.href = directionsUrl(p.latitude, p.longitude)
     dir.target = '_blank'
     dir.rel = 'noopener noreferrer'
     actions.append(details, dir)
     if (cb.current.canEdit(p)) {
-      const edit = el('button', 'btn sm', 'Edit')
+      const edit = el('button', pop.button, 'Edit')
       edit.type = 'button'
       edit.addEventListener('click', () => cb.current.onEdit(p))
       actions.append(edit)
@@ -431,18 +416,29 @@ export function PlaceMap({
     return wrap
   }
 
+  const pinFill = { saved: 'fill-accent', want_to_go: 'fill-warning', visited: 'fill-success' } as const
+  const dot = 'size-2.5 flex-none rounded-full border-[1.5px]'
   return (
     <>
-      <div ref={box} className="pm-map" role="region" aria-label="Map of places" />
-      <ul className="pm-legend" aria-label="Map legend">
+      <section ref={box} className="absolute inset-0 bg-surface-2" aria-label="Map of places" />
+      <ul
+        className="absolute bottom-3 left-3 z-500 m-0 flex max-w-[calc(100%-6rem)] flex-wrap gap-x-3 gap-y-1 rounded-md bg-[color-mix(in_srgb,var(--app-surface)_92%,transparent)] px-2.5 py-1.5 text-xs text-fg shadow-pop max-md:hidden"
+        aria-label="Map legend"
+      >
         {STATUSES.map((s) => (
-          <li key={s.key}>
-            <span className={'pm-pin-key st-' + s.key} aria-hidden="true">
-              <svg viewBox="0 0 28 36">
+          <li key={s.key} className="inline-flex items-center gap-1.5">
+            <span className={cn('relative inline-block h-3.5 w-2.75 flex-none', s.key === 'visited' && 'mr-0.75')} aria-hidden="true">
+              <svg
+                viewBox="0 0 28 36"
+                className={cn(
+                  'block size-full overflow-visible stroke-white stroke-2 drop-shadow-[0_0_0.5px_rgba(0,0,0,0.5)]',
+                  pinFill[s.key],
+                )}
+              >
                 <path d={PIN_PATH} />
               </svg>
               {s.key === 'visited' && (
-                <span className="pm-pin-badge">
+                <span className="absolute -top-0.5 -right-1 box-border flex size-[7px] rounded-full bg-white p-[0.5px] text-success shadow-[0_0_0_1px_var(--app-success)] [&>svg]:size-full">
                   <Icon name="check" size={7} />
                 </span>
               )}
@@ -451,23 +447,23 @@ export function PlaceMap({
           </li>
         ))}
         {suggestions && suggestions.length > 0 && (
-          <li>
-            <span className="pm-dot ghost" />
+          <li className="inline-flex items-center gap-1.5">
+            <span className={cn(dot, 'border-dashed border-accent bg-transparent')} />
             Suggested
           </li>
         )}
-        <li>
-          <span className="pm-dot cluster">3</span>Group
+        <li className="inline-flex items-center gap-1.5">
+          <span className="inline-grid h-4 min-w-4 place-items-center rounded-full bg-fg px-1 text-3xs text-bg">3</span>Group
         </li>
         {userPos && (
-          <li>
-            <span className="pm-dot" style={{ background: '#2563eb' }} />
+          <li className="inline-flex items-center gap-1.5">
+            <span className={cn(dot, 'border-white bg-[#2563eb] shadow-[0_0_0_1px_var(--app-border)]')} />
             You
           </li>
         )}
         {heat && (
-          <li className="pm-heat-key">
-            Photos <span className="pm-ramp" aria-hidden="true" /> more
+          <li className="inline-flex items-center gap-1.5">
+            Photos <HeatRamp /> more
           </li>
         )}
       </ul>

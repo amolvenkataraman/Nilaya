@@ -6,12 +6,12 @@ import { useQuery } from '@tanstack/react-query'
 import { photoSummaryQuery } from '../../lib/photoQueries'
 import type { PhotoSummary } from '../../lib/types'
 import { Icon } from '../../components/Icon'
-import { isTyping } from '../../components/ui'
-import { PhotoStream, type Zoom } from './PhotoStream'
-import { PageHead } from './parts'
-import { countLabel, dropSpan, type SearchPage, type SearchTerm } from './searchTerms'
-import './search.css'
 import { layerOpen } from '../../components/layers'
+import { buttonClass, isTyping } from '../../components/ui'
+import { cn } from '../../lib/cn'
+import { PageHead, pageClass } from './PageHead'
+import { PhotoStream, type Zoom } from './PhotoStream'
+import { countLabel, dropSpan, type SearchPage, type SearchTerm } from './searchTerms'
 
 const MAX = 200
 const href = (q: string) => (q ? `/photos?q=${encodeURIComponent(q)}` : '/photos')
@@ -49,10 +49,26 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
     if (current) navigate('/photos')
   }
   return (
-    <form className={'ph-search ph-smart' + (inline ? ' ph-inline' : '')} role="search" onSubmit={(e) => (e.preventDefault(), submit())}>
+    // biome-ignore lint/a11y/useSemanticElements: a form, for Enter to submit; role=search makes it a landmark
+    <form
+      className={cn(
+        'group items-center gap-2 rounded-full border px-3 text-muted transition-[background,border-color,box-shadow] duration-120',
+        'focus-within:border-border focus-within:bg-surface focus-within:shadow-[0_1px_3px_rgba(16,24,40,.08)]',
+        // The top-bar box gives way to the inline one on phones.
+        inline
+          ? 'mb-3.5 hidden h-10 w-full border-border bg-surface max-md:flex'
+          : 'flex h-9 w-[min(26rem,100%)] border-transparent bg-surface-2 max-md:hidden',
+      )}
+      role="search"
+      onSubmit={(e) => {
+        e.preventDefault()
+        submit()
+      }}
+    >
       <Icon name="search" />
       <input
         ref={input}
+        className={cn('min-w-0 flex-1 border-0 bg-transparent text-fg outline-none', inline ? 'text-md' : 'text-sm')}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
@@ -68,11 +84,20 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
         maxLength={MAX}
       />
       {text ? (
-        <button type="button" className="ph-search-clear" onClick={clear} aria-label="Clear search">
+        <button
+          type="button"
+          className="-mr-1.5 inline-grid size-5.5 flex-none cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted hover:bg-hover hover:text-fg"
+          onClick={clear}
+          aria-label="Clear search"
+        >
           <Icon name="x" size={14} />
         </button>
       ) : (
-        <kbd className="ph-search-kbd" aria-hidden="true">
+        // biome-ignore lint/a11y/noAriaHiddenOnFocusable: a visual hint only; the shortcut is announced by the field
+        <kbd
+          className="inline-grid h-4.5 min-w-4.5 place-items-center rounded-xs border border-border bg-surface px-1 font-sans text-2xs leading-none font-medium text-muted group-focus-within:invisible max-md:hidden"
+          aria-hidden="true"
+        >
           /
         </kbd>
       )}
@@ -90,6 +115,21 @@ const ICON: Record<SearchTerm['type'], string> = {
   library: 'layers',
   text: 'search',
 }
+/** Each kind of term has its own tint (--tc), lighter in dark mode. */
+const TERM_COLOUR: Record<SearchTerm['type'], string> = {
+  place: '[--tc:#0f9d58] dark:[--tc:#34c47c]',
+  object: '[--tc:#e8710a] dark:[--tc:#ff9a3d]',
+  camera: '[--tc:#7c4dff] dark:[--tc:#a78bfa]',
+  date: '[--tc:var(--app-accent)]',
+  media: '[--tc:#d93025] dark:[--tc:#f87171]',
+  album: '[--tc:#00897b] dark:[--tc:#2dd4bf]',
+  library: '[--tc:#00897b] dark:[--tc:#2dd4bf]',
+  text: '[--tc:var(--app-muted)]',
+}
+const termClass =
+  'inline-flex h-7 max-w-full min-w-0 items-center gap-1.25 rounded-full border border-[color-mix(in_srgb,var(--tc)_22%,transparent)] ' +
+  'bg-[color-mix(in_srgb,var(--tc)_10%,var(--app-surface))] pr-1 pl-2.25 text-xs whitespace-nowrap text-fg [&>svg]:shrink-0 [&>svg]:text-(--tc)'
+const termsClass = '-mt-1 mb-2 flex flex-wrap items-center gap-x-2 gap-y-1.5'
 const kindOf = (t: SearchTerm) => (t.type === 'date' && /^\d{4}$/.test(t.value) ? 'Year' : t.kind)
 
 /** The results: the normal day-grouped stream (selection, viewer) under how the query was read. */
@@ -111,13 +151,13 @@ export function SearchResults({ zoom }: { zoom: Zoom }) {
       'Nothing understood'
     )
   ) : (
-    <span className="sk" style={{ display: 'inline-block', width: '9rem', height: '0.75rem' }} />
+    <span className="inline-block h-3 w-36 animate-[sk_1.3s_ease-in-out_infinite] rounded-xs bg-surface-2" />
   )
   return (
-    <div className="page ph-page">
+    <div className={pageClass(true)}>
       <SearchBox inline />
-      <PageHead title={<span className="ph-sq-title">{q}</span>} sub={sub}>
-        <Link to="/photos" className="btn sm">
+      <PageHead title={<span className="before:text-muted before:content-['“'] after:text-muted after:content-['”']">{q}</span>} sub={sub}>
+        <Link to="/photos" className={buttonClass({ size: 'sm' })}>
           <Icon name="x" size={14} />
           Clear search
         </Link>
@@ -140,8 +180,8 @@ function Interpretation({ q, page }: { q: string; page: SearchPage | null }) {
   const navigate = useNavigate()
   if (!page)
     return (
-      <div className="ph-sq" aria-hidden="true">
-        <span className="sk" style={{ width: '14rem', height: '1.5rem', borderRadius: 999 }} />
+      <div className={termsClass} aria-hidden="true">
+        <span className="block h-6 w-56 animate-[sk_1.3s_ease-in-out_infinite] rounded-full bg-surface-2" />
       </div>
     )
   const terms = page.interpreted
@@ -152,25 +192,31 @@ function Interpretation({ q, page }: { q: string; page: SearchPage | null }) {
   return (
     <>
       {terms.length > 0 && (
-        <div className="ph-sq" role="list" aria-label="How your search was read">
+        // biome-ignore lint/a11y/useSemanticElements: terms wrap inline with their groups; a list element would break the flow
+        <div className={termsClass} role="list" aria-label="How your search was read">
           {order.map((type) => (
-            <span key={type} className="ph-sq-group">
+            <span
+              key={type}
+              className="inline-flex max-w-full min-w-0 flex-wrap items-center gap-1.5 not-first:before:mr-0.5 not-first:before:h-4 not-first:before:w-px not-first:before:bg-border not-first:before:content-['']"
+            >
               {terms
                 .filter((t) => t.type === type)
                 .map((t, i) => (
-                  <span key={t.value + i} className="ph-sq-or">
-                    {i > 0 && <span className="ph-sq-join">or</span>}
+                  <span key={t.value + t.span.join()} className="inline-flex max-w-full min-w-0 items-center gap-1.5">
+                    {i > 0 && <span className="text-xs text-muted">or</span>}
+                    {/* biome-ignore lint/a11y/useSemanticElements: see the list above */}
                     <span
                       role="listitem"
-                      className={'ph-term t-' + t.type}
+                      className={cn(termClass, TERM_COLOUR[t.type])}
                       title={[t.detail, t.typo ? `Read "${t.typo}" as ${t.label}` : ''].filter(Boolean).join('\n') || undefined}
                     >
                       <Icon name={t.type === 'media' && t.value === 'video' ? 'video' : ICON[t.type]} size={12} />
-                      <span className="ph-term-kind">{kindOf(t)}</span>
-                      <span className="ph-term-val">{t.label}</span>
-                      {t.detail && <span className="ph-term-more">{t.detail.split(', ').length} models</span>}
+                      <span className="font-medium text-muted after:content-[':']">{kindOf(t)}</span>
+                      <span className="overflow-hidden font-semibold text-ellipsis">{t.label}</span>
+                      {t.detail && <span className="text-muted">{t.detail.split(', ').length} models</span>}
                       <button
                         type="button"
+                        className="inline-grid size-5 flex-none cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted hover:bg-[color-mix(in_srgb,var(--tc)_18%,transparent)] hover:text-fg"
                         onClick={() => navigate(href(dropSpan(q, t.span)))}
                         aria-label={`Remove ${kindOf(t)}: ${t.label}`}
                         title="Remove"
@@ -185,7 +231,7 @@ function Interpretation({ q, page }: { q: string; page: SearchPage | null }) {
         </div>
       )}
       {(typos.length > 0 || page.unmatched.length > 0) && (
-        <p className="ph-sq-note">
+        <p className="mb-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">
           {typos.map((t) => (
             <span key={t.value}>
               Read “{t.typo}” as {t.label}
@@ -210,17 +256,21 @@ function NoResults({ q, page }: { q: string; page: SearchPage | null }) {
     .slice(0, 4)
   const understood = !!page?.interpreted.length
   return (
-    <div className="ph-sq-empty">
-      <Icon name="search" size={22} />
+    // data-empty-card: the stream's empty wrapper drops its padding for this card.
+    <div
+      data-empty-card
+      className="mt-3 flex max-w-[36rem] items-start gap-3.5 rounded-md border border-border bg-surface px-4.5 py-4 text-left text-fg"
+    >
+      <Icon name="search" size={22} className="mt-0.5 flex-none text-muted" />
       <div>
-        <strong>
+        <strong className="text-sm">
           {understood
             ? page!.interpreted.length > 1
               ? 'No photos match all of these'
               : 'No photos match this'
             : `Couldn't understand “${q}”`}
         </strong>
-        <p>
+        <p className="mt-1 text-sm leading-[1.45] text-muted">
           {understood
             ? page!.interpreted.length > 1
               ? 'Terms of different kinds must all match; remove one above to widen the search.'
@@ -228,10 +278,14 @@ function NoResults({ q, page }: { q: string; page: SearchPage | null }) {
             : 'Search by place (city or country), thing (dog, car, food), camera (pixel 7, canon), date (2019, june 2023, last summer), type (videos, raw) or album name.'}
         </p>
         {examples.length > 0 && (
-          <div className="ph-sq-try">
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 text-xs text-muted">
             <span>Try</span>
             {examples.map((x) => (
-              <Link key={x} className="chip" to={href(x)}>
+              <Link
+                key={x}
+                className="inline-flex h-6 items-center gap-1 rounded-full border border-border bg-surface-2 px-2.5 text-xs font-medium whitespace-nowrap text-fg hover:border-accent hover:text-accent hover:no-underline"
+                to={href(x)}
+              >
                 {x}
               </Link>
             ))}

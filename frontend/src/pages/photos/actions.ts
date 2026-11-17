@@ -1,4 +1,5 @@
-// Photos: shared queries and write actions (albums, libraries/Sources, hidden mode, ingest, originals).
+// Photos: shared queries and write actions (albums, libraries/Sources, hidden mode, ingest, originals, hiding,
+// downloading and copying links: the action bar and the viewer use the same ones).
 import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { photoAlbumsQuery, photoHiddenModeQuery, photoLibrariesQuery } from '../../lib/photoQueries'
 import { ApiError, api, patch, post } from '../../lib/api'
@@ -11,12 +12,6 @@ export type AlbumMember = { id: number; username: string; name: string; role: 'e
 export const useAlbums = () => useQuery(photoAlbumsQuery<Album[]>())
 export const useLibraries = () => useQuery(photoLibrariesQuery<Library[]>())
 export const useHiddenMode = () => useQuery(photoHiddenModeQuery<HiddenMode>())
-
-/** Can the user change files in this library (owner/editor)? Libraries are matched by name (details.library). */
-export function canEditLibrary(libs: Library[] | undefined, name: string | undefined): boolean {
-  if (!libs || !name) return false
-  return libs.some((l) => l.name === name && (l.role === 'owner' || l.role === 'editor'))
-}
 
 // Keys whose data depends on which libraries are visible / whether hidden photos show.
 const LISTING = new Set(['timeline', 'summary', 'stats', 'storage', 'browse', 'superlatives', 'days', 'on-this-day', 'libraries', 'counts'])
@@ -145,9 +140,10 @@ export async function deleteAlbum(qc: QueryClient, album: Album) {
 export async function removeFromAlbum(qc: QueryClient, album: Album, ids: string[]) {
   try {
     const r = await api<{ removed: number }>(`photos/albums/${album.id}/photos`, { method: 'DELETE', body: { ids } })
-    const refresh = () => (
-      qc.invalidateQueries({ queryKey: ['photos', 'album', album.id] }), qc.invalidateQueries({ queryKey: ['photos', 'albums'] })
-    )
+    const refresh = () => {
+      qc.invalidateQueries({ queryKey: ['photos', 'album', album.id] })
+      qc.invalidateQueries({ queryKey: ['photos', 'albums'] })
+    }
     refresh()
     toast.show(
       `Removed ${r.removed} from "${album.name}"`,
@@ -183,4 +179,33 @@ export function copyLinks(urls: (string | null)[]) {
   const links = urls.filter(Boolean).map((u) => new URL(u!, location.origin).href)
   if (!links.length) return
   toast.copy(links.join('\n'), links.length === 1 ? 'Link copied' : `Copied ${links.length} links`)
+}
+
+// ---------------------------------------------------------------- hide, download
+/** Hide or unhide photos (only your own change; the server skips the rest). Returns how many changed. */
+export async function setPhotosHidden(ids: string[], hidden: boolean): Promise<number> {
+  const r = await post<{ changed: number }>('photos/hide', { ids, hidden })
+  return r.changed
+}
+
+/** Toast action that reverts a hide/unhide. */
+export const undoHide = (qc: QueryClient, ids: string[], hidden: boolean) => ({
+  label: 'Undo',
+  run: () => setPhotosHidden(ids, !hidden).then(() => qc.invalidateQueries({ queryKey: ['photos'] })),
+})
+
+/** Download originals through the browser, spaced out: browsers throttle bursts of downloads. */
+export function downloadFiles(urls: (string | null)[]) {
+  urls.forEach((href, i) => {
+    if (!href) return
+    setTimeout(() => {
+      const a = document.createElement('a')
+      a.href = href
+      a.download = ''
+      a.rel = 'noopener'
+      document.body.append(a)
+      a.click()
+      a.remove()
+    }, i * 350)
+  })
 }

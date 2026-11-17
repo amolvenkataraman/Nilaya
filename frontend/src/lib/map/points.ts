@@ -1,16 +1,10 @@
-// Photo locations for heat maps (Photos › Map, Places, Geoguessr): one query shape, so the same area and
-// filters share one cached request across pages. No Leaflet here, so it costs nothing to import.
+// Photo locations for heat maps (Photos › Map, Places, Geoguessr, location entry): one query shape, so the same
+// area and filters share one cached request across pages. No Leaflet here, so it costs nothing to import.
 import { keepPreviousData, queryOptions } from '@tanstack/react-query'
-import { get } from '../../lib/api'
+import { get } from '../api'
+import type { Box } from './geo'
 
 export type HeatPoint = { lat: number; lng: number; count: number }
-export interface Box {
-  south: number
-  west: number
-  north: number
-  east: number
-}
-export const WORLD: Box = { south: -90, west: -180, north: 90, east: 180 }
 
 /** A coordinate of exactly 0 is broken GPS (e.g. EXIF longitude 0.0), not a place: never draw it. */
 export const realPoints = (pts: HeatPoint[]) => pts.filter((p) => p.lat !== 0 && p.lng !== 0)

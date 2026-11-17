@@ -1,0 +1,58 @@
+/* Leaflet, restyled to Nilaya's tokens. Only what Leaflet itself renders lives here (controls, popups,
+ * tooltips, tiles, divIcon markers built as HTML strings); everything React renders over a map uses Tailwind.
+ * Imported by leaflet.ts right after leaflet.css, so these rules win over Leaflet's defaults. */
+
+/* Leaflet gives its panes and controls z-index 400–1000, which would paint over dialogs, drawers, menus and the
+ * photo viewer. Each map gets its own stacking context so its layers stay inside it. */
+.leaflet-container { isolation: isolate; z-index: 0; font: inherit; background: var(--app-surface-2); }
+
+/* Dark theme: dim the light OSM tiles (the classic map's filter); heat and markers are untouched. */
+[data-bs-theme='dark'] .leaflet-tile-pane { filter: brightness(0.72) contrast(1.12) saturate(0.85); }
+
+.leaflet-control-zoom.leaflet-bar { border: 0; box-shadow: var(--pop-shadow); border-radius: var(--app-radius); overflow: hidden; }
+.leaflet-container .leaflet-control-zoom a { background: var(--app-surface); color: var(--app-fg); border-bottom-color: var(--app-border); width: 2rem; height: 2rem; line-height: 2rem; }
+.leaflet-container .leaflet-control-zoom a:hover { background: var(--app-surface-2); }
+.leaflet-control-attribution.leaflet-control { background: color-mix(in srgb, var(--app-surface) 80%, transparent); color: var(--app-muted); font-size: 0.625rem; }
+.leaflet-control-attribution a { color: var(--app-muted); }
+
+.leaflet-popup-content-wrapper { background: var(--app-surface); color: var(--app-fg); border-radius: var(--app-radius); box-shadow: var(--pop-shadow); }
+.leaflet-popup-tip { background: var(--app-surface); box-shadow: none; }
+.leaflet-popup-content { margin: 0.75rem 0.875rem; font-size: 0.8125rem; line-height: 1.45; min-width: 11rem; }
+.leaflet-container a.leaflet-popup-close-button { color: var(--app-muted); }
+
+.leaflet-tooltip { background: var(--app-surface); color: var(--app-fg); border: 0; box-shadow: var(--pop-shadow); font: 500 0.75rem var(--app-font); padding: 0.1875rem 0.5rem; }
+.leaflet-tooltip-top::before { border-top-color: var(--app-surface); }
+
+/* Click-to-place modes (adding a place, a Geoguessr guess, a photo's location). */
+.map-crosshair, .map-crosshair .leaflet-interactive, .map-crosshair.leaflet-grab { cursor: crosshair !important; }
+
+/* Count markers (gridCluster): a dark disc with the number. `heat` is the photo-count variant (Photos › Map). */
+.map-cluster {
+  display: grid; place-items: center; border-radius: 50%; background: color-mix(in srgb, var(--app-fg) 88%, transparent); color: var(--app-bg);
+  font: 600 0.75rem/1 var(--app-font); font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-surface) 80%, transparent), 0 2px 6px rgba(0, 0, 0, 0.25);
+}
+.map-cluster.heat {
+  background: color-mix(in srgb, var(--app-fg) 86%, transparent); font-size: 0.6875rem; cursor: pointer; transition: transform 0.12s;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--app-surface) 75%, transparent), 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.map-cluster.heat:hover { transform: scale(1.08); }
+.map-cluster:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 2px; }
+
+/* Place pins (Google Maps style): a teardrop in the status colour with the category glyph in white; visited adds
+ * a small check badge, so status isn't told by colour alone. Built as divIcon HTML (see places/PlaceMap). */
+.map-pin-icon { background: none; border: 0; border-radius: 50% 50% 50% 50% / 40% 40% 60% 60%; }
+.map-pin-icon:focus-visible { outline: 2px solid var(--app-accent); outline-offset: 1px; }
+.map-pin { position: relative; width: 28px; height: 36px; --pin: var(--app-accent); filter: drop-shadow(0 1px 1.5px rgba(0, 0, 0, 0.35)); transition: transform 0.12s ease; transform-origin: 50% 100%; }
+.map-pin.st-want_to_go { --pin: var(--app-warning); }
+.map-pin.st-visited { --pin: var(--app-success); }
+.map-pin-shape { display: block; width: 28px; height: 36px; fill: var(--pin); stroke: #fff; stroke-width: 1.5; }
+.map-pin-glyph { position: absolute; top: 6px; left: 7px; width: 14px; height: 14px; display: flex; color: #fff; pointer-events: none; }
+.map-pin-glyph svg, .map-pin-badge svg { width: 100%; height: 100%; display: block; }
+.map-pin-badge {
+  position: absolute; top: -2px; right: -3px; width: 11px; height: 11px; padding: 1.5px; box-sizing: border-box; border-radius: 50%;
+  background: #fff; color: var(--pin); box-shadow: 0 0 0 1px var(--pin); pointer-events: none;
+}
+.map-pin-icon:hover .map-pin { transform: scale(1.08); }
+.map-pin.is-selected, .map-pin-icon:hover .map-pin.is-selected { transform: scale(1.15); filter: drop-shadow(0 2px 3px rgba(0, 0, 0, 0.45)); }
+@media (prefers-reduced-motion: reduce) { .map-pin { transition: none; } }

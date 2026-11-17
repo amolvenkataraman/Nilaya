@@ -1,18 +1,30 @@
-// An infinite, day-grouped, justified photo stream (timeline or one album) + the viewer.
-import { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode, type RefObject } from 'react'
+// An infinite, day-grouped, justified photo stream (the timeline, an album, a day, search results) and its
+// viewer. Pages of 120 load as the end comes within ~1.5 screens; JustifiedDays keeps only the rows near the
+// viewport in the DOM, so a long scroll through a big library stays light. Tiles are memoized and subscribe
+// to their own selected state, so selecting one photo or loading a page doesn't re-render every tile.
 import { useInfiniteQuery, useQueries } from '@tanstack/react-query'
-import { Link, useLocation, useNavigate, useSearchParams } from 'react-router'
-import { get, safeHref } from '../../lib/api'
-import { dayKey, fmtDate, groupByDay } from '../../lib/dates'
-import { dayLabel, fmtDuration } from './util'
-import { fmtBytes } from '../../lib/format'
-import { SelectionBar, labelText, select, selection, tileLabel, tileTitle } from './select'
-import { justify } from '../../lib/justify'
-import type { Photo, PhotoPage } from '../../lib/types'
+import { memo, type ReactNode, type RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { ErrorBox, useIsPhone } from '../../components/ui'
-import { Viewer } from './Viewer'
 import { layerOpen } from '../../components/layers'
+import { ErrorBox, useIsPhone } from '../../components/ui'
+import { get, safeHref } from '../../lib/api'
+import { cn } from '../../lib/cn'
+import { dayKey, fmtDate, groupByDay } from '../../lib/dates'
+import { fmtBytes } from '../../lib/format'
+import { type Box, justify } from '../../lib/justify'
+import type { Photo, PhotoPage } from '../../lib/types'
+import { JustifiedDays } from './JustifiedDays'
+import { type DayInfo, dayInfoQuery } from './queries'
+import { SelectionBar } from './SelectionBar'
+import { selection } from './selection'
+import { labelText, tileLabel, tileTitle } from './tileLabel'
+import { useLatest } from './useLatest'
+import { useLongPress } from './useLongPress'
+import { usePhotoParam } from './usePhotoParam'
+import { dayLabel, fmtDuration } from './util'
+import { Viewer } from './Viewer'
+import { pulse } from './skeleton'
 
 const PAGE = 120
 
@@ -21,7 +33,7 @@ export type Zoom = 's' | 'm' | 'l'
 const ROW_REM: Record<Zoom, [number, number]> = { s: [4.5, 8], m: [7, 12.5], l: [10.5, 18] }
 
 function remPx(): number {
-  return parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+  return Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
 }
 
 /** Width of an element, tracked with ResizeObserver. */
@@ -39,32 +51,11 @@ function useWidth<T extends HTMLElement>(): [RefObject<T | null>, number] {
   return [ref, w]
 }
 
-/** Open/close the viewer through ?photo=<id> so Back closes it. */
-export function usePhotoParam() {
-  const [params] = useSearchParams()
-  const navigate = useNavigate()
-  const location = useLocation()
-  const current = params.get('photo')
-  const withPhoto = (id: string | null) => {
-    const p = new URLSearchParams(location.search)
-    if (id) p.set('photo', id)
-    else p.delete('photo')
-    const qs = p.toString()
-    return location.pathname + (qs ? '?' + qs : '')
-  }
-  // `source` says which strip opened the viewer (e.g. 'otd'), so only that strip renders it.
-  const source = (location.state as { source?: string } | null)?.source ?? null
-  const open = (id: string, from?: string) => navigate(withPhoto(id), { state: { viewer: true, source: from } })
-  const go = (id: string) => navigate(withPhoto(id), { replace: true, state: location.state })
-  const close = () => {
-    if ((location.state as { viewer?: boolean } | null)?.viewer) navigate(-1)
-    else navigate(withPhoto(null), { replace: true })
-  }
-  return { current, source, open, go, close }
-}
+/** Shared by the video length badge here and on Superlatives thumbnails. */
+export const videoBadge =
+  'absolute top-1.5 right-1.5 inline-flex items-center gap-1 rounded-full bg-[rgba(0,0,0,0.55)] px-1.5 py-px text-2xs font-semibold text-white tabular-nums [&_svg]:fill-current [&_svg]:stroke-none'
 
-/** One tile. Memoized, and subscribed only to its own selected state, so selecting one photo or
- *  loading another page doesn't re-render every tile. `order` returns the stream (for Shift ranges). */
+/** One tile. `order` returns the stream (for Shift ranges). */
 export const Thumb = memo(function Thumb({
   photo,
   width,
@@ -83,13 +74,19 @@ export const Thumb = memo(function Thumb({
   const mode = selection.useSelect((s) => s.mode)
   const picked = selection.useSelect((s) => s.picked.has(photo.id))
   const label = tileLabel.use()
-  const press = useRef<{ t: ReturnType<typeof setTimeout>; x: number; y: number; fired: boolean } | null>(null)
+  const press = useLongPress(() => selection.toggle(photo, order()))
   const when = photo.date_taken ? new Date(photo.date_taken) : null
-  const aria = `${photo.video ? 'Video' : 'Photo'}${when ? ' from ' + fmtDate(when, { dateStyle: 'medium', timeStyle: 'short' } as Intl.DateTimeFormatOptions) : ''}${photo.city ? ', ' + photo.city : ''}`
+  const aria = `${photo.video ? 'Video' : 'Photo'}${when ? ` from ${fmtDate(when, { dateStyle: 'medium', timeStyle: 'short' })}` : ''}${photo.city ? `, ${photo.city}` : ''}`
   const text = labelText(photo, label)
   return (
     <button
-      className={'ph-tile' + (loaded ? ' loaded' : '') + (mode ? ' selecting' : '') + (picked ? ' picked' : '')}
+      type="button"
+      className={cn(
+        'group/tile relative flex-none cursor-zoom-in overflow-hidden rounded-none border-0 p-0',
+        'focus-visible:z-1 focus-visible:rounded-none focus-visible:outline-3 focus-visible:-outline-offset-3 focus-visible:outline-accent',
+        "after:pointer-events-none after:absolute after:inset-0 after:bg-[linear-gradient(180deg,rgba(0,0,0,0.18),transparent_35%)] after:opacity-0 after:transition-opacity after:duration-150 after:content-[''] hover:after:opacity-100",
+        picked ? 'bg-[color-mix(in_srgb,var(--app-accent)_18%,var(--app-surface-2))]' : 'bg-surface-2',
+      )}
       style={{ width, height }}
       aria-label={aria}
       aria-pressed={mode ? picked : undefined}
@@ -97,31 +94,13 @@ export const Thumb = memo(function Thumb({
         e.currentTarget.title = tileTitle(photo)
       }}
       onClick={(e) => {
-        if (press.current?.fired) return void (press.current = null)
+        if (press.consumed()) return
         if (mode || e.shiftKey || e.metaKey || e.ctrlKey) {
           e.preventDefault()
-          select.toggle(photo, order(), e.shiftKey)
+          selection.toggle(photo, order(), e.shiftKey)
         } else onOpen(photo.id)
       }}
-      onPointerDown={(e) => {
-        if (e.pointerType === 'mouse') return
-        const st = {
-          x: e.clientX,
-          y: e.clientY,
-          fired: false,
-          t: setTimeout(() => {
-            st.fired = true
-            select.toggle(photo, order())
-          }, 500),
-        }
-        press.current = st
-      }}
-      onPointerMove={(e) => {
-        const p = press.current
-        if (p && !p.fired && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) clearTimeout(p.t), (press.current = null)
-      }}
-      onPointerUp={() => press.current && !press.current.fired && (clearTimeout(press.current.t), (press.current = null))}
-      onContextMenu={(e) => press.current?.fired && e.preventDefault()}
+      {...press.handlers}
     >
       {src && (
         <img
@@ -133,27 +112,40 @@ export const Thumb = memo(function Thumb({
           height={height}
           onLoad={() => setLoaded(true)}
           draggable={false}
+          className={cn(
+            'size-full object-cover [transition:opacity_0.25s_ease,transform_0.25s_var(--ease)]',
+            loaded ? 'opacity-100' : 'opacity-0',
+            picked && 'scale-[0.88] rounded-[6px]',
+          )}
         />
       )}
       <span
-        className="ph-pick"
+        className={cn(
+          'absolute top-1.5 left-1.5 z-2 grid size-5 place-items-center rounded-full border-2 shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-opacity duration-120',
+          picked ? 'border-accent bg-accent text-white' : 'border-[rgba(255,255,255,0.9)] bg-[rgba(0,0,0,0.25)] text-transparent',
+          mode ? 'opacity-100' : 'opacity-0 group-hover/tile:opacity-100 group-focus-visible/tile:opacity-100',
+        )}
         aria-hidden="true"
         onClick={(e) => {
           e.stopPropagation()
-          select.toggle(photo, order(), e.shiftKey)
+          selection.toggle(photo, order(), e.shiftKey)
         }}
       >
         <Icon name="check" size={12} />
       </span>
       {(photo.has_raw || photo.has_orig) && (
-        <span className="ph-badges">
+        <span className="absolute top-1.5 right-1.5 z-1 flex gap-0.5 [&>span]:rounded-[3px] [&>span]:bg-[rgba(0,0,0,0.6)] [&>span]:px-1 [&>span]:text-white [&>span]:[font:700_0.5625rem/1.5_var(--app-font)] [&>span]:tracking-[0.04em]">
           {photo.has_raw && <span>RAW</span>}
           {photo.has_orig && <span>ORIG</span>}
         </span>
       )}
-      {text && width > 88 && <span className="ph-label">{text}</span>}
+      {text && width > 88 && (
+        <span className="absolute bottom-1.5 left-1.5 z-1 max-w-[calc(100%-4.5rem)] truncate rounded-[3px] bg-[rgba(0,0,0,0.55)] px-1.25 text-3xs leading-normal text-white tabular-nums">
+          {text}
+        </span>
+      )}
       {photo.video && (
-        <span className="ph-video">
+        <span className={videoBadge}>
           <Icon name="play" size={10} />
           {fmtDuration(photo.length)}
         </span>
@@ -162,42 +154,11 @@ export const Thumb = memo(function Thumb({
   )
 })
 
-type DayInfo = { photos: number; videos: number; size_kb: number }
+type Day = ReturnType<typeof groupByDay<Photo>>[number]
 
-const DayGroup = memo(function DayGroup({
-  date,
-  dayKeyStr,
-  items,
-  width,
-  target,
-  gap,
-  onOpen,
-  info,
-  order,
-  link,
-}: {
-  date: Date | null
-  dayKeyStr: string
-  items: Photo[]
-  width: number
-  target: number
-  gap: number
-  onOpen: (id: string) => void
-  info?: DayInfo
-  order: () => Photo[]
-  link: boolean
-}) {
-  const rows = useMemo(
-    () =>
-      justify(
-        items.map((p) => p.aspect),
-        width,
-        target,
-        gap,
-      ),
-    [items, width, target, gap],
-  )
-  const height = rows.reduce((s, r) => s + r.height, 0) + gap * Math.max(0, rows.length - 1)
+/** "Fri, Jul 31  Goa · Panaji  +2    10 photos · 1 video · 56.6 MB", with select-all-of-the-day. */
+function DayHeader({ day, info, link }: { day: Day; info?: DayInfo; link: boolean }) {
+  const { date, items, key } = day
   const allPicked = selection.useSelect((s) => s.picked.size > 0 && items.length > 0 && items.every((p) => s.picked.has(p.id)))
   const places = useMemo(() => {
     const counts = new Map<string, number>()
@@ -210,54 +171,52 @@ const DayGroup = memo(function DayGroup({
   const v = info ? info.videos : items.filter((p) => p.video).length
   const ph = info ? info.photos : items.length - v
   return (
-    <section className="ph-day" style={{ containIntrinsicSize: `auto ${height + 40}px` }} data-day={dayKeyStr}>
-      <h2 className="ph-day-head">
-        <button
-          className={'ph-day-pick' + (allPicked ? ' on' : '')}
-          aria-pressed={allPicked}
-          aria-label={`Select all from ${date ? dayLabel(date) : 'this day'}`}
-          onClick={() => select.setMany(items, !allPicked)}
+    <h2 className="mb-2 flex items-center gap-2 pt-1 text-sm font-semibold tracking-[-0.005em] max-md:flex-wrap max-md:gap-y-0">
+      <button
+        type="button"
+        className={cn(
+          'grid size-4.5 flex-none place-items-center rounded-full border-[1.5px] p-0 transition-opacity duration-120',
+          allPicked
+            ? 'border-accent bg-accent text-white opacity-100'
+            : 'border-muted bg-transparent text-transparent opacity-0 group-hover/day:opacity-100 focus-visible:opacity-100 touch:opacity-100',
+        )}
+        aria-pressed={allPicked}
+        aria-label={`Select all from ${date ? dayLabel(date) : 'this day'}`}
+        onClick={() => selection.setMany(items, !allPicked)}
+      >
+        <Icon name="check" size={11} />
+      </button>
+      {date && link ? (
+        <Link to={`/photos/day/${key}`} className="text-inherit hover:text-accent hover:no-underline" title="All photos from this day">
+          {dayLabel(date)}
+        </Link>
+      ) : (
+        <span>{date ? dayLabel(date) : 'Undated'}</span>
+      )}
+      {places.length > 0 && (
+        <span
+          className="text-xs font-normal text-muted max-md:min-w-0 max-md:flex-1 max-md:truncate"
+          title={places.map(([k, n]) => `${k}: ${n}`).join('\n')}
         >
-          <Icon name="check" size={11} />
-        </button>
-        {date && link ? (
-          <Link to={`/photos/day/${dayKeyStr}`} className="ph-day-link" title="All photos from this day">
-            {dayLabel(date)}
-          </Link>
-        ) : (
-          <span>{date ? dayLabel(date) : 'Undated'}</span>
-        )}
-        {places.length > 0 && (
-          <span className="ph-day-place" title={places.map(([k, n]) => `${k}: ${n}`).join('\n')}>
-            {places
-              .slice(0, 5)
-              .map(([k]) => k.split(',')[0])
-              .join(' · ')}
-            {places.length > 5 ? ` +${places.length - 5}` : ''}
-          </span>
-        )}
-        <span className="ph-day-count tabular">
-          {[
-            ph ? `${ph} photo${ph === 1 ? '' : 's'}` : '',
-            v ? `${v} video${v === 1 ? '' : 's'}` : '',
-            info?.size_kb ? fmtBytes(info.size_kb) : '',
-          ]
-            .filter(Boolean)
+          {places
+            .slice(0, 5)
+            .map(([k]) => k.split(',')[0])
             .join(' · ')}
+          {places.length > 5 ? ` +${places.length - 5}` : ''}
         </span>
-      </h2>
-      <div className="ph-rows" style={{ gap }}>
-        {rows.map((row, i) => (
-          <div className="ph-row" key={i} style={{ height: row.height, gap }}>
-            {row.boxes.map((b) => (
-              <Thumb key={items[b.index].id} photo={items[b.index]} width={b.width} height={b.height} onOpen={onOpen} order={order} />
-            ))}
-          </div>
-        ))}
-      </div>
-    </section>
+      )}
+      <span className="ml-auto text-xs font-normal text-muted tabular-nums max-md:ml-0 max-md:basis-full max-md:pl-6.5">
+        {[
+          ph ? `${ph} photo${ph === 1 ? '' : 's'}` : '',
+          v ? `${v} video${v === 1 ? '' : 's'}` : '',
+          info?.size_kb ? fmtBytes(info.size_kb) : '',
+        ]
+          .filter(Boolean)
+          .join(' · ')}
+      </span>
+    </h2>
   )
-})
+}
 
 type Cursor = { before?: string; before_id?: string }
 
@@ -300,15 +259,13 @@ export function PhotoStream({
     staleTime: 5 * 60_000,
   })
   const items = useMemo(() => q.data?.pages.flatMap((p) => p.items) ?? [], [q.data])
-  const onItemsRef = useRef(onItems)
-  onItemsRef.current = onItems
-  useEffect(() => onItemsRef.current?.(items), [items])
-  const onFirstRef = useRef(onFirstPage)
-  onFirstRef.current = onFirstPage
+  const onItemsRef = useLatest(onItems)
+  useEffect(() => onItemsRef.current?.(items), [items, onItemsRef])
+  const onFirstRef = useLatest(onFirstPage)
   const first = q.data?.pages[0]
   useEffect(() => {
     if (first) onFirstRef.current?.(first)
-  }, [first])
+  }, [first, onFirstRef])
   // Per-day totals ("10 photos · 1 video · 56.6 MB"): one /photos/days request per loaded page, cached.
   const pageRanges = useMemo(
     () =>
@@ -316,32 +273,24 @@ export function PhotoStream({
         .map((pg) => {
           const ds = pg.items.map((p) => p.date_taken).filter(Boolean) as string[]
           if (!ds.length) return null
-          const a = dayKey(new Date(ds[0])),
-            b = dayKey(new Date(ds[ds.length - 1])) // newest or oldest first
+          const a = dayKey(new Date(ds[0]))
+          const b = dayKey(new Date(ds[ds.length - 1])) // newest or oldest first
           return (a < b ? [a, b] : [b, a]) as readonly [string, string]
         })
         .filter(Boolean) as (readonly [string, string])[],
     [q.data],
   )
-  const dayQs = useQueries({
-    queries: dayInfo
-      ? pageRanges.map(([start, end]) => ({
-          queryKey: ['photos', 'days', start, end],
-          queryFn: () => get<Record<string, DayInfo>>('photos/days', { start, end }),
-          staleTime: 30 * 60_000,
-        }))
-      : [],
-  })
+  const dayQs = useQueries({ queries: dayInfo ? pageRanges.map(([start, end]) => dayInfoQuery(start, end)) : [] })
   const dayMap = useMemo(() => Object.assign({}, ...dayQs.map((d) => d.data ?? {})) as Record<string, DayInfo>, [dayQs])
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) =>
-      e.key === 'Escape' && selection.get().mode && !layerOpen(['dialog', 'viewer']) && select.setMode(false)
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && selection.get().mode && !layerOpen(['dialog', 'viewer'])) selection.setMode(false)
+    }
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [])
-  useEffect(() => () => select.setMode(false), [])
-  // Reuse unchanged day groups (same photos), so a new page re-renders only the days it touched.
-  type Day = ReturnType<typeof groupByDay<Photo>>[number]
+  useEffect(() => () => selection.setMode(false), [])
+  // Reuse unchanged day groups (same photos), so a new page re-lays out only the days it touched.
   const prevDays = useRef(new Map<string, Day>())
   const days = useMemo(() => {
     const out = groupByDay(items, (p) => p.date_taken).map((d) => {
@@ -351,21 +300,25 @@ export function PhotoStream({
     prevDays.current = new Map(out.map((d) => [d.key, d]))
     return out
   }, [items])
-  const itemsRef = useRef(items)
-  itemsRef.current = items
-  const getOrder = useCallback(() => itemsRef.current, [])
+  const itemsRef = useLatest(items)
+  const getOrder = useCallback(() => itemsRef.current, [itemsRef])
   const [ref, width] = useWidth<HTMLDivElement>()
   const phone = useIsPhone()
   const rem = remPx()
   const target = Math.round(rem * ROW_REM[zoom][phone ? 0 : 1])
   const gap = Math.max(2, Math.round(rem * (phone ? 0.125 : 0.25)))
   const viewer = usePhotoParam()
-  const openRef = useRef(viewer.open)
-  openRef.current = viewer.open
-  const onOpen = useCallback((id: string) => openRef.current(id), [])
+  const openRef = useLatest(viewer.open)
+  const onOpen = useCallback((id: string) => openRef.current(id), [openRef])
+  const renderTile = useCallback(
+    (p: Photo, b: Box) => <Thumb key={p.id} photo={p} width={b.width} height={b.height} onOpen={onOpen} order={getOrder} />,
+    [onOpen, getOrder],
+  )
+  const renderHeader = useCallback((d: Day) => <DayHeader day={d} info={dayMap[d.key]} link={dayLinks} />, [dayMap, dayLinks])
 
   // Load the next page when the sentinel comes within ~1.5 screens.
   const sentinel = useRef<HTMLDivElement>(null)
+  // biome-ignore lint/correctness/useExhaustiveDependencies: items.length re-arms the observer after each page
   useEffect(() => {
     const el = sentinel.current
     if (!el) return
@@ -380,33 +333,30 @@ export function PhotoStream({
   }, [q.hasNextPage, q.isFetchingNextPage, q.fetchNextPage, items.length])
 
   return (
-    <div ref={ref} className="ph-stream">
+    <div ref={ref} className="min-h-[50vh]">
       <SelectionBar />
       {q.isPending ? (
         <StreamSkeleton width={width} target={target} gap={gap} />
       ) : q.isError && !q.data ? (
         <ErrorBox error={q.error} retry={() => q.refetch()} />
       ) : !items.length ? (
-        <div className="empty left">{empty}</div>
+        <div className="p-4 text-sm text-muted has-[>[data-empty-card]]:p-0">{empty}</div>
       ) : (
-        width > 0 &&
-        days.map((d) => (
-          <DayGroup
-            key={d.key}
-            dayKeyStr={d.key}
-            date={d.date}
-            items={d.items}
+        width > 0 && (
+          <JustifiedDays
+            sections={days}
             width={width}
             target={target}
             gap={gap}
-            onOpen={onOpen}
-            info={dayMap[d.key]}
-            order={getOrder}
-            link={dayLinks}
+            sectionGap={Math.round(rem * 1.25)}
+            headerGuess={Math.round(rem * (phone ? 3 : 1.93))}
+            renderHeader={renderHeader}
+            renderTile={renderTile}
+            sectionClassName="group/day"
           />
-        ))
+        )
       )}
-      <div ref={sentinel} className="ph-sentinel" aria-hidden="true" />
+      <div ref={sentinel} className="h-px" aria-hidden="true" />
       {q.isFetchingNextPage && <StreamSkeleton width={width} target={target} gap={gap} rows={1} />}
       {viewer.current && !viewer.source && (
         <Viewer
@@ -421,17 +371,19 @@ export function PhotoStream({
   )
 }
 
+const PATTERN = [1.5, 0.75, 1.33, 1, 1.5, 0.75, 1.33, 1.78, 1, 0.75, 1.5, 1.33]
+
 function StreamSkeleton({ width, target, gap, rows = 3 }: { width: number; target: number; gap: number; rows?: number }) {
-  const pattern = [1.5, 0.75, 1.33, 1, 1.5, 0.75, 1.33, 1.78, 1, 0.75, 1.5, 1.33]
-  const r = width ? justify(pattern.concat(pattern), width, target, gap).slice(0, rows) : []
+  const r = width ? justify(PATTERN.concat(PATTERN), width, target, gap).slice(0, rows) : []
   return (
-    <div className="ph-day" aria-busy="true" aria-label="Loading photos">
-      <span className="sk" style={{ width: '8rem', height: '0.875rem', margin: '0.25rem 0 0.75rem' }} />
-      <div className="ph-rows" style={{ gap }}>
+    <div className="mb-5" role="status" aria-busy="true" aria-label="Loading photos">
+      <span className={cn(pulse, 'mt-1 mb-3 h-3.5 w-32 rounded-xs')} />
+      <div className="flex flex-col" style={{ gap }}>
         {r.map((row, i) => (
-          <div key={i} className="ph-row" style={{ height: row.height, gap }}>
+          // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
+          <div key={i} className="flex" style={{ height: row.height, gap }}>
             {row.boxes.map((b) => (
-              <span key={b.index} className="sk" style={{ width: b.width, height: b.height, borderRadius: 0 }} />
+              <span key={b.index} className={pulse} style={{ width: b.width, height: b.height }} />
             ))}
           </div>
         ))}

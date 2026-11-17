@@ -10,7 +10,6 @@ import { cn } from '../../lib/cn'
 import { signedIn } from '../../lib/session'
 import { cardClass } from '../settings/Card'
 // The shared album's styles (sa-*) until SharedAlbum.tsx moves to Tailwind; nothing else is left in it.
-import './public.css'
 
 export function usePublicTitle(title: string) {
   useEffect(() => {

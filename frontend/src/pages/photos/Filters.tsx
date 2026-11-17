@@ -1,46 +1,23 @@
-// Photos filters drawer (like the classic Filters panel) and the timeline's month scrubber.
-import { useMemo, useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router'
+// Photos filters drawer (like the classic Filters panel) and the timeline's month scrubber. The drawer edits a
+// draft of the FILTER_KEYS params and writes them all on "Show photos".
 import { useQuery } from '@tanstack/react-query'
+import { type ReactNode, useMemo, useState } from 'react'
+import { useNavigate, useSearchParams } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { Drawer, DrawerBody, DrawerHead, Switch } from '../../components/ui'
-import { get } from '../../lib/api'
+import { Button, buttonClass, Drawer, DrawerBody, DrawerHead, Field, FieldRow, Input, Select, Switch } from '../../components/ui'
+import { cn } from '../../lib/cn'
 import { fmtDate } from '../../lib/dates'
+import { chipClass } from './chip'
+import { browseQuery } from './queries'
+import { BOUNDS, FILTER_KEYS, type FilterKey, filterCount } from './timelineState'
 
-type Item = { display: string; value: string; count: number; country?: string }
-const browse = (cat: string, enabled: boolean) => ({
-  queryKey: ['photos', 'browse', cat],
-  queryFn: () => get<Item[]>(`photos/browse/${cat}`),
-  staleTime: 60 * 60_000,
-  enabled,
-})
-const KEYS = [
-  'kind',
-  'from',
-  'date',
-  'camera',
-  'camera_make',
-  'country',
-  'city',
-  'objects',
-  'min_blur',
-  'max_blur',
-  'order',
-  'north',
-  'south',
-  'east',
-  'west',
-] as const
-/** The map area counts as one filter (four URL params). */
-const BOUNDS = ['north', 'south', 'east', 'west'] as const
-const filterCount = (params: URLSearchParams) =>
-  KEYS.filter((k) => !(BOUNDS as readonly string[]).includes(k) && params.get(k)).length + (BOUNDS.every((k) => params.get(k)) ? 1 : 0)
 /** Blur score presets (higher is sharper; the viewer shows the same score). */
 const SHARPNESS: [string, string, string][] = [
   ['Blurry', '', '50'],
   ['Soft', '50', '150'],
   ['Sharp', '150', ''],
 ]
+const EMPTY = Object.fromEntries(FILTER_KEYS.map((k) => [k, ''])) as Record<FilterKey, string>
 
 export function FiltersButton() {
   const [params] = useSearchParams()
@@ -48,7 +25,12 @@ export function FiltersButton() {
   const n = filterCount(params)
   return (
     <>
-      <button className={'btn sm' + (n ? ' ph-filter-on' : '')} onClick={() => setOpen(true)} title="Filters">
+      <button
+        type="button"
+        className={buttonClass({ size: 'sm', className: n ? 'border-accent! text-accent!' : undefined })}
+        onClick={() => setOpen(true)}
+        title="Filters"
+      >
         <Icon name="filter" size={14} />
         <span>Filters{n ? ` · ${n}` : ''}</span>
       </button>
@@ -57,189 +39,173 @@ export function FiltersButton() {
   )
 }
 
+/** A labelled group of buttons (a <label> would send clicks to its first button). */
+function Group({ label, children }: { label: ReactNode; children: ReactNode }) {
+  return (
+    <div className="grid gap-1.25">
+      <span className="text-xs font-medium text-muted">{label}</span>
+      {children}
+    </div>
+  )
+}
+
+const choice = (on: boolean) => cn(chipClass(on ? 'accent' : 'neutral'), 'cursor-pointer', !on && 'hover:text-fg')
+
 function FiltersDrawer({ onClose }: { onClose: () => void }) {
   const [params] = useSearchParams()
   const navigate = useNavigate()
-  const [f, setF] = useState(() => Object.fromEntries(KEYS.map((k) => [k, params.get(k) ?? ''])) as Record<(typeof KEYS)[number], string>)
-  const cameras = useQuery(browse('cameras', true)).data ?? []
-  const countries = useQuery(browse('countries', true)).data ?? []
-  const cities = useQuery(browse('cities', true)).data ?? []
-  const objects = useQuery(browse('objects', true)).data ?? []
+  const [f, setF] = useState(() => Object.fromEntries(FILTER_KEYS.map((k) => [k, params.get(k) ?? ''])) as Record<FilterKey, string>)
+  const cameras = useQuery(browseQuery('cameras')).data ?? []
+  const countries = useQuery(browseQuery('countries')).data ?? []
+  const cities = useQuery(browseQuery('cities')).data ?? []
+  const objects = useQuery(browseQuery('objects')).data ?? []
   const cityList = useMemo(() => (f.country ? cities.filter((c) => c.country === f.country) : cities), [cities, f.country])
   const picked = f.objects ? f.objects.split(',') : []
-  const set = (k: (typeof KEYS)[number], v: string) => setF((x) => ({ ...x, [k]: v }))
+  const set = (k: FilterKey, v: string) => setF((x) => ({ ...x, [k]: v }))
   const area = BOUNDS.every((k) => f[k])
   const num = (v: string) => v.replace(/[^\d.]/g, '').slice(0, 8)
   const apply = () => {
     const p = new URLSearchParams()
-    for (const k of KEYS) if (f[k]) p.set(k, f[k])
-    navigate('/photos' + (p.toString() ? '?' + p : ''))
+    for (const k of FILTER_KEYS) if (f[k]) p.set(k, f[k])
+    navigate(`/photos${p.toString() ? `?${p}` : ''}`)
     onClose()
   }
   return (
     <Drawer open onClose={onClose} label="Photo filters">
       <DrawerHead>
-        <strong className="grow">Filters</strong>
-        <button className="btn ghost icon sm" onClick={onClose} aria-label="Close">
+        <strong className="flex-1">Filters</strong>
+        <Button variant="ghost" size="sm" icon onClick={onClose} aria-label="Close">
           <Icon name="x" />
-        </button>
+        </Button>
       </DrawerHead>
       <DrawerBody className="gap-4">
         <Switch checked={f.kind === 'videos'} onChange={(v) => set('kind', v ? 'videos' : '')} label="Videos only" />
-        <div className="field-row">
-          <label className="field">
-            <span>Taken on or after</span>
-            <input className="input" type="date" value={f.from} max={f.date || undefined} onChange={(e) => set('from', e.target.value)} />
-          </label>
-          <label className="field">
-            <span>Taken on or before</span>
-            <input className="input" type="date" value={f.date} min={f.from || undefined} onChange={(e) => set('date', e.target.value)} />
-          </label>
-        </div>
+        <FieldRow>
+          <Field label="Taken on or after">
+            <Input type="date" value={f.from} max={f.date || undefined} onChange={(e) => set('from', e.target.value)} />
+          </Field>
+          <Field label="Taken on or before">
+            <Input type="date" value={f.date} min={f.from || undefined} onChange={(e) => set('date', e.target.value)} />
+          </Field>
+        </FieldRow>
         <Switch checked={f.order === 'oldest'} onChange={(v) => set('order', v ? 'oldest' : '')} label="Oldest first" />
-        <div className="field-row">
-          <label className="field">
-            <span>Camera</span>
-            <select className="select" value={f.camera} onChange={(e) => set('camera', e.target.value)}>
+        <FieldRow>
+          <Field label="Camera">
+            <Select value={f.camera} onChange={(e) => set('camera', e.target.value)}>
               <option value="">Any camera</option>
               {cameras.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.display} · {c.count}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>Make contains</span>
-            <input
-              className="input"
-              value={f.camera_make}
-              maxLength={64}
-              placeholder="e.g. Canon"
-              onChange={(e) => set('camera_make', e.target.value)}
-            />
-          </label>
-        </div>
-        <div className="field-row">
-          <label className="field">
-            <span>Country</span>
-            <select className="select" value={f.country} onChange={(e) => setF((x) => ({ ...x, country: e.target.value, city: '' }))}>
+            </Select>
+          </Field>
+          <Field label="Make contains">
+            <Input value={f.camera_make} maxLength={64} placeholder="e.g. Canon" onChange={(e) => set('camera_make', e.target.value)} />
+          </Field>
+        </FieldRow>
+        <FieldRow>
+          <Field label="Country">
+            <Select value={f.country} onChange={(e) => setF((x) => ({ ...x, country: e.target.value, city: '' }))}>
               <option value="">Any country</option>
               {countries.map((c) => (
                 <option key={c.value} value={c.value}>
                   {c.display} · {c.count}
                 </option>
               ))}
-            </select>
-          </label>
-          <label className="field">
-            <span>City</span>
-            <select className="select" value={f.city} onChange={(e) => set('city', e.target.value)}>
+            </Select>
+          </Field>
+          <Field label="City">
+            <Select value={f.city} onChange={(e) => set('city', e.target.value)}>
               <option value="">Any city</option>
               {cityList.map((c) => (
                 <option key={c.value + c.country} value={c.value}>
                   {c.value} · {c.count}
                 </option>
               ))}
-            </select>
-          </label>
-        </div>
-        <div className="field">
-          <span>Objects</span>
+            </Select>
+          </Field>
+        </FieldRow>
+        <Group label="Objects">
           {objects.length === 0 ? (
-            <span className="muted xsmall">No objects detected in your library yet.</span>
+            <span className="text-xs text-muted">No objects detected in your library yet.</span>
           ) : (
-            <div className="ph-obj">
+            <div className="flex flex-wrap gap-1">
               {objects.map((o) => {
                 const on = picked.includes(o.value)
                 return (
                   <button
                     key={o.value}
-                    className={'chip' + (on ? ' accent' : '')}
+                    type="button"
+                    className={choice(on)}
                     aria-pressed={on}
                     onClick={() => set('objects', (on ? picked.filter((x) => x !== o.value) : [...picked, o.value]).join(','))}
                   >
-                    {o.display} <span className="muted">{o.count}</span>
+                    {o.display} <span className="text-muted">{o.count}</span>
                   </button>
                 )
               })}
             </div>
           )}
-        </div>
-        <div className="field">
-          <span>
-            Sharpness <span className="muted">(blur score: higher is sharper; photos only)</span>
-          </span>
-          <div className="ph-obj">
+        </Group>
+        <Group label="Sharpness (blur score: higher is sharper; photos only)">
+          <div className="flex flex-wrap gap-1">
             {SHARPNESS.map(([label, lo, hi]) => {
               const on = f.min_blur === lo && f.max_blur === hi
               return (
                 <button
                   key={label}
-                  className={'chip' + (on ? ' accent' : '')}
+                  type="button"
+                  className={choice(on)}
                   aria-pressed={on}
                   onClick={() => setF((x) => ({ ...x, min_blur: on ? '' : lo, max_blur: on ? '' : hi }))}
                 >
-                  {label} <span className="muted">{lo && hi ? `${lo}–${hi}` : lo ? `over ${lo}` : `under ${hi}`}</span>
+                  {label} <span className="text-muted">{lo && hi ? `${lo}–${hi}` : lo ? `over ${lo}` : `under ${hi}`}</span>
                 </button>
               )
             })}
           </div>
-          <div className="field-row">
-            <label className="field">
-              <span>From</span>
-              <input
-                className="input"
-                inputMode="decimal"
-                value={f.min_blur}
-                placeholder="0"
-                onChange={(e) => set('min_blur', num(e.target.value))}
-              />
-            </label>
-            <label className="field">
-              <span>To</span>
-              <input
-                className="input"
-                inputMode="decimal"
-                value={f.max_blur}
-                placeholder="Any"
-                onChange={(e) => set('max_blur', num(e.target.value))}
-              />
-            </label>
-          </div>
-        </div>
+          <FieldRow>
+            <Field label="From">
+              <Input inputMode="decimal" value={f.min_blur} placeholder="0" onChange={(e) => set('min_blur', num(e.target.value))} />
+            </Field>
+            <Field label="To">
+              <Input inputMode="decimal" value={f.max_blur} placeholder="Any" onChange={(e) => set('max_blur', num(e.target.value))} />
+            </Field>
+          </FieldRow>
+        </Group>
         {area && (
-          <div className="field">
-            <span>Map area</span>
-            <span className="row">
-              <span className="chip accent">
+          <Group label="Map area">
+            <span className="flex items-center gap-2">
+              <span className={chipClass('accent')}>
                 <Icon name="map" size={12} />
                 In the area picked on the map
               </span>
-              <button className="btn sm ghost" onClick={() => setF((x) => ({ ...x, north: '', south: '', east: '', west: '' }))}>
+              <Button size="sm" variant="ghost" onClick={() => setF((x) => ({ ...x, north: '', south: '', east: '', west: '' }))}>
                 Remove
-              </button>
+              </Button>
             </span>
-          </div>
+          </Group>
         )}
-        <p className="help">Free text (places, things, cameras, dates) goes in the search box at the top.</p>
-        <p className="help">Libraries: switch them on or off, or pick "Only", in the sidebar.</p>
+        <p className="text-xs text-muted">Free text (places, things, cameras, dates) goes in the search box at the top.</p>
+        <p className="text-xs text-muted">Libraries: switch them on or off, or pick "Only", in the sidebar.</p>
       </DrawerBody>
       <div className="flex items-center gap-2 border-t border-border px-4 py-3">
-        <button className="btn ghost" onClick={() => setF(Object.fromEntries(KEYS.map((k) => [k, ''])) as typeof f)}>
+        <Button variant="ghost" onClick={() => setF(EMPTY)}>
           Clear all
-        </button>
-        <span className="spacer" />
-        <button className="btn" onClick={onClose}>
-          Cancel
-        </button>
-        <button className="btn primary" onClick={apply}>
+        </Button>
+        <span className="flex-1" />
+        <Button onClick={onClose}>Cancel</Button>
+        <Button variant="primary" onClick={apply}>
           Show photos
-        </button>
+        </Button>
       </div>
     </Drawer>
   )
 }
+
+const scrubItem =
+  'rounded-xs border-0 bg-transparent px-1.5 py-0.5 text-right text-3xs whitespace-nowrap hover:bg-accent-soft hover:text-accent'
 
 /** Right-edge month rail: jump the timeline to any month of the library. */
 export function Scrubber({ first, last }: { first: string | null; last: string | null }) {
@@ -262,17 +228,26 @@ export function Scrubber({ first, last }: { first: string | null; last: string |
     const p = new URLSearchParams(params)
     p.set('date', `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`)
     p.delete('photo')
-    navigate('/photos?' + p)
+    navigate(`/photos?${p}`)
     window.scrollTo({ top: 0 })
   }
   return (
-    <nav className="ph-scrub" aria-label="Jump to month">
+    <nav
+      className={
+        'fixed top-[calc(var(--topbar-h)+4rem)] right-1 bottom-4 z-15 flex flex-col overflow-y-auto rounded-md p-1 [scrollbar-width:none] ' +
+        'bg-[color-mix(in_srgb,var(--app-surface)_80%,transparent)] opacity-35 transition-opacity duration-150 ' +
+        'focus-within:opacity-100 focus-within:shadow-pop hover:opacity-100 hover:shadow-pop max-[1000px]:hidden'
+      }
+      aria-label="Jump to month"
+      data-scrubber
+    >
       <button
-        className={'ph-scrub-item' + (!current ? ' on' : '')}
+        type="button"
+        className={cn(scrubItem, !current ? 'bg-accent-soft text-accent' : 'text-muted')}
         onClick={() => {
           const p = new URLSearchParams(params)
           p.delete('date')
-          navigate('/photos' + (p.toString() ? '?' + p : ''))
+          navigate(`/photos${p.toString() ? `?${p}` : ''}`)
         }}
       >
         Now
@@ -280,10 +255,16 @@ export function Scrubber({ first, last }: { first: string | null; last: string |
       {months.map((d, i) => {
         const yearStart = i === 0 || d.getMonth() === 11
         const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+        const on = !!current?.startsWith(key)
         return (
           <button
             key={key}
-            className={'ph-scrub-item' + (current?.startsWith(key) ? ' on' : '') + (yearStart ? ' year' : '')}
+            type="button"
+            className={cn(
+              scrubItem,
+              yearStart && 'mt-1 font-bold',
+              on ? 'bg-accent-soft text-accent' : yearStart ? 'text-fg' : 'text-muted',
+            )}
             onClick={() => go(d)}
             title={fmtDate(d, { month: 'long', year: 'numeric' })}
           >
