@@ -47,9 +47,10 @@ export function useSelection(): Selection {
       set,
       clear,
       click: (e, id, order) => {
-        if (e.shiftKey) return (range(order, id), true)
-        if (e.ctrlKey || e.metaKey) return (toggle(id), true)
-        return false
+        if (e.shiftKey) range(order, id)
+        else if (e.ctrlKey || e.metaKey) toggle(id)
+        else return false
+        return true
       },
     }),
     [ids, toggle, range, set, clear],

@@ -3,12 +3,17 @@
 import { useState, type DragEvent, type ReactNode } from 'react'
 import { SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Confirm, Menu, MenuItem, MenuSeparator } from '../../components/ui'
-import type { Label, Overview, Project, SavedView } from '../../lib/types'
+import { Button, Confirm, Menu, MenuItem, MenuSeparator } from '../../components/ui'
+import { cn } from '../../lib/cn'
 import type { SmartView } from '../../lib/qs'
-import { LabelMenu } from './Labels'
-import { ProjectMenu } from './ProjectDialog'
+import { usePref } from '../../lib/storage'
+import type { Label, Overview, Project, SavedView } from '../../lib/types'
 import { useDeleteView, useSaveProject, useSaveView } from './api'
+import { allowDrop, beginDrag } from './dnd'
+import { LabelMenu, sideMore } from './Labels'
+import { between } from './order'
+import { ProjectMenu } from './ProjectDialog'
+import { isProjectAdmin } from './task'
 
 export const VIEWS: { id: SmartView; label: string; icon: string; count?: (o: Overview) => number; hint?: string }[] = [
   { id: 'inbox', label: 'Inbox', icon: 'inbox', count: (o) => o.inbox },
@@ -23,13 +28,13 @@ export const VIEWS: { id: SmartView; label: string; icon: string; count?: (o: Ov
 ]
 
 const COLLAPSED_KEY = 'app.tasks.collapsedProjects'
-const readSet = (k: string) => {
-  try {
-    return new Set<string>(JSON.parse(localStorage.getItem(k) || '[]'))
-  } catch {
-    return new Set<string>()
-  }
-}
+/** A sidebar row with a "…" menu, which takes the count's place while hovered (always on touch screens).
+ *  `side-item` and `side-count` are AppShell's SideItem classes. */
+const sideRow = 'group/side relative flex items-center [&_.side-item]:pr-8! hover:[&_.side-count]:invisible touch:[&_.side-count]:invisible'
+const dropZone = 'rounded-sm transition-[background-color,box-shadow] duration-100'
+const dropOver = 'bg-accent-soft shadow-[inset_0_0_0_1px_color-mix(in_srgb,var(--app-accent)_45%,transparent)]'
+const sideEmpty = 'px-2 py-1 text-xs text-muted'
+const twisty = '-mr-1 inline-flex h-6 w-4 flex-none items-center justify-center rounded-[3px] border-0 bg-transparent p-0 text-muted'
 
 /** Children of `parent` in sidebar order: favourites first, then position, then name. */
 export function childrenOf(projects: Project[], parent: string | null, showArchived: boolean): Project[] {
@@ -48,7 +53,7 @@ export function treeDrop(
   where: 'before' | 'after' | 'inside',
   showArchived: boolean,
 ) {
-  for (let n: Project | undefined = target, i = 0; n && i < 50; n = projects.find((p) => p.id === n!.parent_id), i++)
+  for (let n: Project | undefined = target, i = 0; n && i < 50; n = projects.find((p) => p.id === n?.parent_id), i++)
     if (n.id === moving.id) return null
   if (where === 'inside') {
     const sibs = childrenOf(projects, target.id, showArchived).filter((p) => p.id !== moving.id)
@@ -58,8 +63,21 @@ export function treeDrop(
   const sibs = childrenOf(projects, parent, showArchived).filter((p) => p.id !== moving.id)
   const i = sibs.findIndex((p) => p.id === target.id)
   const [a, b] = where === 'before' ? [sibs[i - 1], sibs[i]] : [sibs[i], sibs[i + 1]]
-  const position = a && b ? (a.position + b.position) / 2 : a ? a.position + 1 : b ? b.position - 1 : 1
-  return { parent_id: parent, position }
+  return { parent_id: parent, position: between(a?.position, b?.position) }
+}
+
+type DropHandlers = {
+  onDragOver?: (e: DragEvent<HTMLElement>) => void
+  onDragLeave?: (e: DragEvent<HTMLElement>) => void
+  onDrop?: (e: DragEvent<HTMLElement>) => void
+}
+
+function AddButton({ label, title, onClick }: { label: string; title: string; onClick: () => void }) {
+  return (
+    <Button variant="ghost" size="sm" icon onClick={onClick} aria-label={label} title={title}>
+      <Icon name="plus" size={14} />
+    </Button>
+  )
 }
 
 export function TasksSidebar({
@@ -99,7 +117,7 @@ export function TasksSidebar({
   active: { view: SmartView | null; project: string | null; saved: string | null; inbox: boolean }
   labelFilter: string
   /** Drop handlers for dragged tasks (from the page), keyed by project. */
-  taskDrop: (p: Project | undefined) => Record<string, unknown>
+  taskDrop: (p: Project | undefined) => DropHandlers
   taskOver: string | null
   onView: (v: SmartView) => void
   onProject: (p: Project) => void
@@ -118,48 +136,34 @@ export function TasksSidebar({
   onUpdateView?: (v: SavedView) => void
   onViewDeleted: (v: SavedView) => void
 }) {
-  const [collapsed, setCollapsed] = useState(() => readSet(COLLAPSED_KEY))
+  const [collapsedList, setCollapsed] = usePref<string[]>(COLLAPSED_KEY, [])
+  const collapsed = new Set(collapsedList)
   const [pdrag, setPdrag] = useState<{ id: string; over: string | null; where: 'before' | 'after' | 'inside' } | null>(null)
   const saveProject = useSaveProject()
   const all = projects ?? []
   const inbox = all.find((p) => p.is_inbox)
-  const toggle = (id: string) =>
-    setCollapsed((s) => {
-      const n = new Set(s)
-      if (n.has(id)) n.delete(id)
-      else n.add(id)
-      try {
-        localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...n]))
-      } catch {
-        /* ignore */
-      }
-      return n
-    })
+  const toggle = (id: string) => setCollapsed((list) => (list.includes(id) ? list.filter((x) => x !== id) : [...list, id]))
 
   const projDrag = (p: Project) =>
-    p.role >= 2
+    isProjectAdmin(p)
       ? {
           draggable: true,
-          onDragStart: (e: DragEvent) => {
-            e.dataTransfer.setData('text/x-project', p.id)
-            e.dataTransfer.effectAllowed = 'move'
-            setTimeout(() => setPdrag({ id: p.id, over: null, where: 'inside' }), 0)
-          },
+          onDragStart: (e: DragEvent) => beginDrag(e, 'project', p.id, () => setPdrag({ id: p.id, over: null, where: 'inside' })),
           onDragEnd: () => setPdrag(null),
         }
       : {}
-  const projTarget = (p: Project) => {
+  const projTarget = (p: Project): DropHandlers => {
     if (!pdrag) return taskDrop(p)
     return {
-      onDragOver: (e: DragEvent<HTMLElement>) => {
+      onDragOver: (e) => {
         if (p.id === pdrag.id) return
-        e.preventDefault()
+        allowDrop(e)
         const r = e.currentTarget.getBoundingClientRect()
         const f = (e.clientY - r.top) / r.height
         const where = f < 0.3 ? 'before' : f > 0.7 ? 'after' : 'inside'
         if (pdrag.over !== p.id || pdrag.where !== where) setPdrag({ ...pdrag, over: p.id, where })
       },
-      onDrop: (e: DragEvent) => {
+      onDrop: (e) => {
         e.preventDefault()
         const moving = all.find((x) => x.id === pdrag.id)
         const patch = moving && pdrag.over === p.id ? treeDrop(all, moving, p, pdrag.where, showArchived) : null
@@ -176,17 +180,19 @@ export function TasksSidebar({
     childrenOf(all, parent, showArchived).flatMap((p) => {
       const kids = childrenOf(all, p.id, showArchived)
       const open = !collapsed.has(p.id)
-      const mark = pdrag?.over === p.id ? ' tree-' + pdrag.where : ''
+      const where = pdrag?.over === p.id ? pdrag.where : null
       return [
         <div
           key={p.id}
-          className={
-            'side-proj side-drop' +
-            (p.archived ? ' archived' : '') +
-            (taskOver === 'side:' + p.id ? ' over' : '') +
-            mark +
-            (pdrag?.id === p.id ? ' dragging' : '')
-          }
+          className={cn(
+            sideRow,
+            dropZone,
+            p.archived && '[&_.side-item]:opacity-60',
+            (taskOver === `side:${p.id}` || where === 'inside') && dropOver,
+            where === 'before' && 'shadow-[inset_0_2px_0_var(--app-accent)]',
+            where === 'after' && 'shadow-[inset_0_-2px_0_var(--app-accent)]',
+            pdrag?.id === p.id && 'opacity-50',
+          )}
           style={{ paddingLeft: `${depth * 0.875}rem` }}
           data-pid={p.id}
           {...projDrag(p)}
@@ -194,7 +200,8 @@ export function TasksSidebar({
         >
           {kids.length ? (
             <button
-              className="side-twisty"
+              type="button"
+              className={cn(twisty, 'hover:bg-hover hover:text-fg')}
               onClick={() => toggle(p.id)}
               aria-label={open ? `Collapse ${p.name}` : `Expand ${p.name}`}
               aria-expanded={open}
@@ -202,19 +209,21 @@ export function TasksSidebar({
               <Icon name={open ? 'chevronDown' : 'chevronRight'} size={12} />
             </button>
           ) : (
-            <span className="side-twisty" />
+            <span className={twisty} />
           )}
           <SideItem
             colour={p.colour || 'var(--app-muted)'}
             label={
               <>
                 {p.name}
-                {p.favorite && <Icon name="star" size={11} className="side-fav" title="Favourite" />}
-                {p.shared && <Icon name="users" size={12} className="side-shared" title="Shared" />}
+                {p.favorite && <Icon name="star" size={11} className="ml-1.25 align-[-1px] fill-current text-warning" title="Favourite" />}
+                {p.shared && <Icon name="users" size={12} className="ml-1.25 align-[-1px] text-muted" title="Shared" />}
                 {p.archived && (
                   <>
                     {' '}
-                    <span className="chip">Archived</span>
+                    <span className="ml-1 inline-flex h-4 items-center rounded-full border border-border bg-surface-2 px-1.75 text-3xs font-medium whitespace-nowrap text-muted">
+                      Archived
+                    </span>
                   </>
                 )}
               </>
@@ -249,7 +258,7 @@ export function TasksSidebar({
               count={
                 n ? (
                   v.id === 'overdue' ? (
-                    <span className="danger-count">{n}</span>
+                    <span className="font-semibold text-danger">{n}</span>
                   ) : v.hint ? (
                     <span title={v.hint}>{n}</span>
                   ) : (
@@ -261,7 +270,7 @@ export function TasksSidebar({
             />
           )
           return v.id === 'inbox' ? (
-            <div key={v.id} className={'side-drop' + (taskOver === 'side:' + inbox?.id ? ' over' : '')} {...taskDrop(inbox)}>
+            <div key={v.id} className={cn(dropZone, taskOver === `side:${inbox?.id}` && dropOver)} {...taskDrop(inbox)}>
               {item}
             </div>
           ) : (
@@ -269,31 +278,21 @@ export function TasksSidebar({
           )
         })}
       </SideSection>
-      <SideSection
-        title="Projects"
-        action={
-          <button className="btn ghost icon sm" onClick={onNewProject} aria-label="New project" title="New project">
-            <Icon name="plus" size={14} />
-          </button>
-        }
-      >
-        {all.filter((p) => !p.is_inbox).length === 0 && <div className="side-empty">No projects yet.</div>}
+      <SideSection title="Projects" action={<AddButton label="New project" title="New project" onClick={onNewProject} />}>
+        {all.filter((p) => !p.is_inbox).length === 0 && <div className={sideEmpty}>No projects yet.</div>}
         {tree(null, 0)}
-        <button className="side-more-link" onClick={toggleArchived}>
+        <button
+          type="button"
+          className="border-0 bg-transparent py-1 pr-2 pl-6 text-left text-xs text-muted hover:text-fg"
+          onClick={toggleArchived}
+        >
           {showArchived ? 'Hide archived' : 'Show archived'}
         </button>
       </SideSection>
-      <SideSection
-        title="Labels"
-        action={
-          <button className="btn ghost icon sm" onClick={onNewLabel} aria-label="New label" title="New label">
-            <Icon name="plus" size={14} />
-          </button>
-        }
-      >
-        {!labels?.length && <div className="side-empty">Type *label in quick add.</div>}
+      <SideSection title="Labels" action={<AddButton label="New label" title="New label" onClick={onNewLabel} />}>
+        {!labels?.length && <div className={sideEmpty}>Type *label in quick add.</div>}
         {labels?.map((l) => (
-          <div key={l.id} className="side-proj">
+          <div key={l.id} className={sideRow}>
             <SideItem
               colour={l.colour || 'var(--app-muted)'}
               label={l.name}
@@ -306,20 +305,11 @@ export function TasksSidebar({
       </SideSection>
       <SideSection
         title="Saved views"
-        action={
-          <button
-            className="btn ghost icon sm"
-            onClick={onSaveView}
-            aria-label="Save current view"
-            title="Save the current list and filters as a view"
-          >
-            <Icon name="plus" size={14} />
-          </button>
-        }
+        action={<AddButton label="Save current view" title="Save the current list and filters as a view" onClick={onSaveView} />}
       >
-        {!views?.length && <div className="side-empty">Filter a list, then save it with +.</div>}
+        {!views?.length && <div className={sideEmpty}>Filter a list, then save it with +.</div>}
         {views?.map((v, i) => (
-          <div key={v.id} className="side-proj">
+          <div key={v.id} className={sideRow}>
             <SideItem icon="filter" label={v.name} active={active.saved === v.id} onClick={() => onSaved(v)} />
             <ViewMenu
               view={v}
@@ -363,7 +353,7 @@ export function ViewMenu({
   const save = useSaveView()
   const remove = useDeleteView()
   const [confirm, setConfirm] = useState(false)
-  const mid = (a?: number, b?: number) => (a == null ? (b ?? 0) - 1 : b == null ? a + 1 : (a + b) / 2)
+  const moveTo = (position: number) => save.mutate({ id: view.id, body: { position } })
   return (
     <>
       <Menu
@@ -371,48 +361,48 @@ export function ViewMenu({
         label={`${view.name} options`}
         trigger={(p) =>
           header ? (
-            <button {...p} className="btn ghost icon sm" aria-label="View options" title="View options">
+            <Button {...p} variant="ghost" size="sm" icon aria-label="View options" title="View options">
               <Icon name="more" size={16} />
-            </button>
+            </Button>
           ) : (
-            <button {...p} className="btn ghost icon sm side-more" aria-label={`${view.name} options`}>
+            <Button {...p} variant="ghost" size="sm" icon className={sideMore} aria-label={`${view.name} options`}>
               <Icon name="more" size={14} />
-            </button>
+            </Button>
           )
         }
       >
-        {(close) => (
-          <>
-            <MenuItem icon="edit" onClick={() => (close(), onRename())}>
-              Rename…
-            </MenuItem>
-            {onUpdate && (
-              <MenuItem icon="filter" onClick={() => (close(), onUpdate())}>
-                Save current filters to this view
+        {(close) => {
+          const act = (fn: () => void) => () => {
+            close()
+            fn()
+          }
+          return (
+            <>
+              <MenuItem icon="edit" onClick={act(onRename)}>
+                Rename…
               </MenuItem>
-            )}
-            {prev && (
-              <MenuItem
-                icon="arrowUp"
-                onClick={() => (close(), save.mutate({ id: view.id, body: { position: mid(before?.position, prev.position) } }))}
-              >
-                Move up
+              {onUpdate && (
+                <MenuItem icon="filter" onClick={act(onUpdate)}>
+                  Save current filters to this view
+                </MenuItem>
+              )}
+              {prev && (
+                <MenuItem icon="arrowUp" onClick={act(() => moveTo(between(before?.position, prev.position)))}>
+                  Move up
+                </MenuItem>
+              )}
+              {next && (
+                <MenuItem icon="arrowDown" onClick={act(() => moveTo(between(next.position, after?.position)))}>
+                  Move down
+                </MenuItem>
+              )}
+              <MenuSeparator />
+              <MenuItem icon="trash" danger onClick={act(() => setConfirm(true))}>
+                Delete view
               </MenuItem>
-            )}
-            {next && (
-              <MenuItem
-                icon="arrowDown"
-                onClick={() => (close(), save.mutate({ id: view.id, body: { position: mid(next.position, after?.position) } }))}
-              >
-                Move down
-              </MenuItem>
-            )}
-            <MenuSeparator />
-            <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>
-              Delete view
-            </MenuItem>
-          </>
-        )}
+            </>
+          )
+        }}
       </Menu>
       <Confirm
         open={confirm}

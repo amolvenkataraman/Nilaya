@@ -3,25 +3,34 @@
 // that day, and the selected day's agenda sits under the grid (the only list on phones, where days
 // show priority dots). Tasks load by date range (the list's filters plus due_after/due_before): moving to
 // the next month fetches only the days not loaded yet, never the overlap with what's on screen.
-import { useEffect, useMemo, useState, type CSSProperties, type DragEvent } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties, type KeyboardEvent } from 'react'
 import { useQueries } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { ErrorBox } from '../../components/ui'
 import { hoverText } from '../../components/TaskRow'
 import { toast } from '../../components/toast'
+import { Button, ErrorBox, fieldClass, Input } from '../../components/ui'
 import { get } from '../../lib/api'
+import { cn } from '../../lib/cn'
+import { addDays, dayKey, fmtDate, fmtTime, isEndOfDay, isSameDay, parseDayKey, startOfDay, startOfWeek } from '../../lib/dates'
 import { keys, useCreateTask, useUpdateTask, type TaskQuery } from '../../lib/queries'
-import { addDays, dayKey, fmtDate, fmtTime, isEndOfDay, isSameDay, parseDayKey, startOfDay } from '../../lib/dates'
-import type { Label, Task, TaskPage } from '../../lib/types'
 import { previewQuick } from '../../lib/quick'
-import { calendarRange, isOverdue, rescheduleTo } from './util'
+import type { Label, Task, TaskPage } from '../../lib/types'
+import { allowDrop, beginDrag, draggedId, leftTarget } from './dnd'
+import { prioColour } from './priority'
+import { RangeHeader } from './RangeHeader'
+import { isOverdue, isTempId, rescheduleTo } from './task'
 
-const prio = (p: number) => (p >= 20 ? 'p20' : p >= 15 ? 'p15' : p >= 10 ? 'p10' : 'p5')
 const MAX = 4 // chips in a day cell
 const OPEN_MAX = 60 // chips in an expanded day (the agenda below lists the rest)
 const AGENDA_MAX = 200 // rows in the selected day's agenda before "Show all"
 const PAGE = 500
 const MAX_PAGES = 8 // per range: 4000 tasks
+
+/** The 6-week window shown for `month` (weeks start on Monday, like the rest of the app). */
+export function calendarRange(month: Date): { start: Date; end: Date } {
+  const start = startOfWeek(new Date(month.getFullYear(), month.getMonth(), 1))
+  return { start, end: addDays(start, 42) }
+}
 
 /** A range query for a list: its filters without the date-window views, and done tasks included. */
 export function calendarParams(base: TaskQuery, start: Date, end: Date): TaskQuery {
@@ -59,6 +68,11 @@ const fetchRange = async (p: TaskQuery, signal: AbortSignal): Promise<TaskPage> 
   return { items, total: null, next: cursor }
 }
 
+const chipBase =
+  'flex w-full min-w-0 cursor-pointer items-center gap-1.25 rounded-xs border-0 text-left leading-[1.25] shadow-[inset_2px_0_0_var(--tc)] [--tc:transparent]'
+const chipTint =
+  'bg-[color-mix(in_srgb,var(--app-accent)_8%,var(--app-surface))] hover:bg-[color-mix(in_srgb,var(--app-accent)_16%,var(--app-surface))] dark:bg-[color-mix(in_srgb,var(--app-accent)_16%,var(--app-surface))]'
+
 export function Calendar({
   base,
   labels,
@@ -90,9 +104,10 @@ export function Calendar({
   const [ranges, setRanges] = useState<{ base: string; list: [number, number][] }>({ base: baseKey, list: [] })
   const have = ranges.base === baseKey ? ranges.list : []
   const gaps = rangeGaps(have, start.getTime(), end.getTime())
+  // biome-ignore lint/correctness/useExhaustiveDependencies: runs when the window or filters move and something is missing
   useEffect(() => {
     if (gaps.length) setRanges({ base: baseKey, list: [...have, ...gaps] })
-  }, [baseKey, gaps.length, start.getTime()]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [baseKey, gaps.length, start.getTime()])
   const shown = [...have, ...gaps].filter(([a, b]) => a < end.getTime() && b > start.getTime())
   const rangeParams = shown.map(([a, b]) => calendarParams(base, new Date(a), new Date(b)))
   const results = useQueries({
@@ -105,9 +120,12 @@ export function Calendar({
     isFetching: results.some((r) => r.isFetching),
     error: results.find((r) => r.error)?.error ?? null,
     hasData: results.some((r) => r.data),
-    refetch: () => results.forEach((r) => r.error && r.refetch()),
+    refetch: () => {
+      for (const r of results) if (r.error) r.refetch()
+    },
   }
   const dataStamp = results.map((r) => r.dataUpdatedAt).join()
+  // biome-ignore lint/correctness/useExhaustiveDependencies: `results` is a new array each render; dataStamp changes when any range's data does
   const byDay = useMemo(() => {
     const m = new Map<string, Task[]>()
     const seen = new Set<string>()
@@ -121,9 +139,9 @@ export function Calendar({
         else m.set(k, [t])
       }
     }
-    for (const list of m.values()) list.sort((a, b) => Number(a.done) - Number(b.done) || a.due!.localeCompare(b.due!))
+    for (const list of m.values()) list.sort((a, b) => Number(a.done) - Number(b.done) || (a.due ?? '').localeCompare(b.due ?? ''))
     return m
-  }, [dataStamp, hidden]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dataStamp, hidden])
   /** The cached range holding a day (an add there shows at once). */
   const keyFor = (d: Date) => {
     const i = shown.findIndex(([a, b]) => d.getTime() >= a && d.getTime() < b)
@@ -150,10 +168,14 @@ export function Calendar({
       optimistic: { title: pv.title || t, project_id: projectId, due: pv.when ? null : d.toISOString() },
     })
   }
-  const drop = (e: DragEvent, k: string) => {
-    e.preventDefault()
+  const cancelAdd = (e: KeyboardEvent) => {
+    if (e.key !== 'Escape') return
+    e.stopPropagation()
+    setText('')
+    setAdding(null)
+  }
+  const drop = (id: string, k: string) => {
     setOver(null)
-    const id = e.dataTransfer.getData('text/x-task')
     const t = [...byDay.values()].flat().find((x) => x.id === id)
     if (!t) return
     const body = rescheduleTo(t, parseDayKey(k))
@@ -162,25 +184,31 @@ export function Calendar({
     toast.show(`Rescheduled to ${fmtDate(parseDayKey(k), { weekday: 'short', month: 'short', day: 'numeric' })}`)
   }
 
-  const chip = (t: Task) => {
-    const d = new Date(t.due!)
+  const chip = (t: Task, agenda = false) => {
+    const d = new Date(t.due as string)
     return (
       <button
         key={t.id}
         type="button"
-        draggable={!t.id.startsWith('temp-')}
+        draggable={!isTempId(t.id)}
         data-task={t.id}
-        className={'tcal-chip' + (t.done ? ' done' : '') + (isOverdue(t) ? ' overdue' : '') + (t.id === selected ? ' sel' : '')}
+        className={cn(
+          chipBase,
+          agenda ? 'px-2 py-1.25 text-sm' : 'px-1.25 py-0.5 text-xs',
+          t.done ? 'bg-transparent text-muted line-through' : chipTint,
+          isOverdue(t) ? 'text-danger' : !t.done && 'text-fg',
+          t.id === selected && 'outline-2 -outline-offset-1 outline-accent',
+        )}
         style={t.colour ? ({ '--tc': t.colour } as CSSProperties) : undefined}
         title={hoverText(t, labels?.filter((l) => t.labels.includes(l.id)) ?? [])}
-        onClick={(e) => (e.stopPropagation(), onOpen(t))}
-        onDragStart={(e) => {
-          e.dataTransfer.setData('text/x-task', t.id)
-          e.dataTransfer.effectAllowed = 'move'
+        onClick={(e) => {
+          e.stopPropagation()
+          onOpen(t)
         }}
+        onDragStart={(e) => beginDrag(e, 'task', t.id)}
       >
-        <span className={'tcal-dot ' + prio(t.priority)} />
-        {!isEndOfDay(d) && <span className="tcal-time">{fmtTime(d)}</span>}
+        <span className="size-1.75 flex-none rounded-full" style={{ background: prioColour(t.priority) }} />
+        {!isEndOfDay(d) && <span className="flex-none text-muted tabular-nums">{fmtTime(d)}</span>}
         <span className="truncate">{t.title}</span>
       </button>
     )
@@ -188,70 +216,87 @@ export function Calendar({
 
   if (tasks.error && !tasks.hasData) return <ErrorBox error={tasks.error} retry={() => tasks.refetch()} />
   const selItems = byDay.get(sel) ?? []
+  const monthName = fmtDate(month, { month: 'long', year: 'numeric' })
   return (
-    <div className="tcal">
-      <div className="tl-head">
-        <h2 className="tl-range">{fmtDate(month, { month: 'long', year: 'numeric' })}</h2>
-        {tasks.isFetching && <span className="muted xsmall">Loading…</span>}
-        <span className="spacer" />
-        <div className="tl-nav">
-          <button className="btn sm icon" onClick={() => nav(-1)} aria-label="Previous month" title="Previous month">
-            <Icon name="chevronLeft" size={14} />
-          </button>
-          <button
-            className="btn sm"
-            onClick={() => {
-              setMonth(new Date(today.getFullYear(), today.getMonth(), 1))
-              setSel(dayKey(today))
-              setAgendaAll(false)
-            }}
-          >
-            Today
-          </button>
-          <button className="btn sm icon" onClick={() => nav(1)} aria-label="Next month" title="Next month">
-            <Icon name="chevronRight" size={14} />
-          </button>
-        </div>
-      </div>
-      <div className="tcal-grid" role="grid" aria-label={fmtDate(month, { month: 'long', year: 'numeric' })}>
-        {Array.from({ length: 7 }, (_, i) => (
-          <div key={'w' + i} className="tcal-wd" role="columnheader">
-            {fmtDate(addDays(start, i), { weekday: 'short' })}
-          </div>
-        ))}
+    <div className="grid gap-2">
+      <RangeHeader
+        title={monthName}
+        note={tasks.isFetching && <span className="text-xs text-muted">Loading…</span>}
+        prev="Previous month"
+        next="Next month"
+        onPrev={() => nav(-1)}
+        onNext={() => nav(1)}
+        onToday={() => {
+          setMonth(new Date(today.getFullYear(), today.getMonth(), 1))
+          setSel(dayKey(today))
+          setAgendaAll(false)
+        }}
+      />
+      <div className="grid grid-cols-7 overflow-hidden rounded-md border border-border bg-surface">
+        {Array.from({ length: 7 }, (_, i) => {
+          const wd = fmtDate(addDays(start, i), { weekday: 'short' })
+          return (
+            <div
+              key={wd}
+              className="border-b border-border px-2 py-1.5 text-xs font-semibold text-muted max-md:px-0 max-md:py-1 max-md:text-center"
+            >
+              {wd}
+            </div>
+          )
+        })}
         {Array.from({ length: 42 }, (_, i) => {
           const d = addDays(start, i)
           const k = dayKey(d)
           const items = byDay.get(k) ?? []
           const open = expanded === k
+          const isToday = isSameDay(d, today)
+          const out = d.getMonth() !== month.getMonth()
           return (
+            // biome-ignore lint/a11y/noStaticElementInteractions: the whole cell picks the day for pointers; its date button is the keyboard control
+            // biome-ignore lint/a11y/useKeyWithClickEvents: the whole cell picks the day for pointers; its date button is the keyboard control
             <div
               key={k}
-              role="gridcell"
-              aria-selected={k === sel}
-              className={
-                'tcal-day' +
-                (d.getMonth() !== month.getMonth() ? ' out' : '') +
-                (isSameDay(d, today) ? ' today' : '') +
-                (k === sel ? ' sel' : '') +
-                (over === k ? ' drop' : '') +
-                (open ? ' open' : '')
-              }
+              className={cn(
+                'group/day flex min-h-28 min-w-0 cursor-default flex-col gap-0.5 border-border p-1 max-md:min-h-13 max-md:cursor-pointer max-md:items-center max-md:p-0.5',
+                i % 7 !== 6 && 'border-r',
+                i < 35 && 'border-b',
+                over === k ? 'bg-accent-soft' : out && 'bg-[color-mix(in_srgb,var(--app-surface-2)_60%,var(--app-surface))]',
+                k === sel && 'shadow-[inset_0_0_0_2px_color-mix(in_srgb,var(--app-accent)_55%,transparent)]',
+              )}
               onClick={() => setSel(k)}
               onDragOver={(e) => {
-                e.preventDefault()
-                e.dataTransfer.dropEffect = 'move'
+                allowDrop(e)
                 if (over !== k) setOver(k)
               }}
               onDragLeave={(e) => {
-                if (!e.currentTarget.contains(e.relatedTarget as Node) && over === k) setOver(null)
+                if (leftTarget(e) && over === k) setOver(null)
               }}
-              onDrop={(e) => drop(e, k)}
+              onDrop={(e) => {
+                e.preventDefault()
+                drop(draggedId(e, 'task'), k)
+              }}
             >
-              <div className="tcal-dayhead">
-                <span className="tcal-num">{d.getDate()}</span>
+              <div className="flex h-6 items-center justify-between">
                 <button
-                  className="btn ghost icon sm tcal-add"
+                  type="button"
+                  className={cn(
+                    'inline-flex size-6 items-center justify-center rounded-full border-0 p-0 text-xs font-semibold tabular-nums',
+                    isToday ? 'bg-accent text-white' : ['bg-transparent', out && 'text-muted'],
+                  )}
+                  aria-pressed={k === sel}
+                  aria-label={fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setSel(k)
+                  }}
+                >
+                  {d.getDate()}
+                </button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  icon
+                  className="size-5.5! opacity-0 group-hover/day:opacity-100 focus-visible:opacity-100 max-md:hidden!"
                   aria-label={`Add task on ${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}`}
                   onClick={(e) => {
                     e.stopPropagation()
@@ -261,12 +306,19 @@ export function Calendar({
                   }}
                 >
                   <Icon name="plus" size={12} />
-                </button>
+                </Button>
               </div>
               {adding === k && (
-                <form onSubmit={(e) => (e.preventDefault(), add(k))} onClick={(e) => e.stopPropagation()}>
+                // biome-ignore lint/a11y/useKeyWithClickEvents: keeps clicks in the field from selecting the day
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    add(k)
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <input
-                    className="input tcal-input"
+                    className={cn(fieldClass.input, 'h-6! px-1.25! text-xs!')}
                     autoFocus
                     value={text}
                     onChange={(e) => setText(e.target.value)}
@@ -274,15 +326,16 @@ export function Calendar({
                     maxLength={500}
                     aria-label="New task"
                     onBlur={() => add(k)}
-                    onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), setText(''), setAdding(null))}
+                    onKeyDown={cancelAdd}
                   />
                 </form>
               )}
-              <div className="tcal-items">
-                {(open ? items.slice(0, OPEN_MAX) : items.slice(0, MAX)).map(chip)}
+              <div className={cn('grid min-w-0 gap-0.5', over === k ? 'max-md:grid' : 'max-md:hidden')}>
+                {(open ? items.slice(0, OPEN_MAX) : items.slice(0, MAX)).map((t) => chip(t))}
                 {!open && items.length > MAX && (
                   <button
-                    className="tcal-more"
+                    type="button"
+                    className="border-0 bg-transparent px-1.25 py-px text-left text-2xs text-muted hover:text-fg"
                     onClick={(e) => {
                       e.stopPropagation()
                       setSel(k)
@@ -293,12 +346,18 @@ export function Calendar({
                     {items.length - MAX} more
                   </button>
                 )}
-                {open && items.length > OPEN_MAX && <span className="tcal-more muted">{items.length - OPEN_MAX} more below</span>}
+                {open && items.length > OPEN_MAX && (
+                  <span className="px-1.25 py-px text-2xs text-muted">{items.length - OPEN_MAX} more below</span>
+                )}
               </div>
               {items.length > 0 && (
-                <div className="tcal-dots" aria-hidden="true">
+                <div className="mt-auto hidden justify-center gap-0.75 pb-0.5 max-md:flex" aria-hidden="true">
                   {items.slice(0, 5).map((t) => (
-                    <span key={t.id} className={'tcal-dot ' + prio(t.priority) + (t.done ? ' done' : '')} />
+                    <span
+                      key={t.id}
+                      className={cn('size-1.75 flex-none rounded-full', t.done && 'opacity-35')}
+                      style={{ background: prioColour(t.priority) }}
+                    />
                   ))}
                 </div>
               )}
@@ -306,25 +365,31 @@ export function Calendar({
           )
         })}
       </div>
-      <section className="tcal-agenda" aria-label="Selected day">
-        <h3>
+      <section className="grid gap-1 rounded-md border border-border bg-surface px-3 py-2.5" aria-label="Selected day">
+        <h3 className="flex items-center gap-1.5 text-sm">
           {fmtDate(parseDayKey(sel), { weekday: 'long', month: 'long', day: 'numeric' })}{' '}
-          <span className="muted">{selItems.length || ''}</span>
-          <button
-            className="btn ghost sm"
+          <span className="text-muted">{selItems.length || ''}</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto h-6!"
             onClick={() => {
-              setAdding('a:' + sel)
+              setAdding(`a:${sel}`)
               setText('')
             }}
           >
             <Icon name="plus" size={12} />
             Add
-          </button>
+          </Button>
         </h3>
-        {adding === 'a:' + sel && (
-          <form onSubmit={(e) => (e.preventDefault(), add(sel))}>
-            <input
-              className="input"
+        {adding === `a:${sel}` && (
+          <form
+            onSubmit={(e) => {
+              e.preventDefault()
+              add(sel)
+            }}
+          >
+            <Input
               autoFocus
               value={text}
               onChange={(e) => setText(e.target.value)}
@@ -332,15 +397,19 @@ export function Calendar({
               maxLength={500}
               aria-label="New task"
               onBlur={() => add(sel)}
-              onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), setText(''), setAdding(null))}
+              onKeyDown={cancelAdd}
             />
           </form>
         )}
-        {selItems.length ? (agendaAll ? selItems : selItems.slice(0, AGENDA_MAX)).map(chip) : <p className="muted xsmall">Nothing due.</p>}
+        {selItems.length ? (
+          (agendaAll ? selItems : selItems.slice(0, AGENDA_MAX)).map((t) => chip(t, true))
+        ) : (
+          <p className="text-xs text-muted">Nothing due.</p>
+        )}
         {!agendaAll && selItems.length > AGENDA_MAX && (
-          <button className="btn ghost sm tcal-cap" onClick={() => setAgendaAll(true)}>
+          <Button variant="ghost" size="sm" className="px-0! py-1!" onClick={() => setAgendaAll(true)}>
             Show all {selItems.length}
-          </button>
+          </Button>
         )}
       </section>
     </div>
