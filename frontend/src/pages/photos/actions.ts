@@ -182,8 +182,5 @@ export async function setAlbumCover(qc: QueryClient, album: Album, photoId: stri
 export function copyLinks(urls: (string | null)[]) {
   const links = urls.filter(Boolean).map((u) => new URL(u!, location.origin).href)
   if (!links.length) return
-  navigator.clipboard?.writeText(links.join('\n')).then(
-    () => toast.show(links.length === 1 ? 'Link copied' : `Copied ${links.length} links`),
-    () => toast.error("Couldn't copy the link"),
-  )
+  toast.copy(links.join('\n'), links.length === 1 ? 'Link copied' : `Copied ${links.length} links`)
 }

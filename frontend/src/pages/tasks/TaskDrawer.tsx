@@ -141,7 +141,7 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
                 icon="link"
                 onClick={() => {
                   close()
-                  navigator.clipboard?.writeText(`${location.origin}/tasks?view=all&task=${task.id}`).then(() => toast.show('Link copied'))
+                  toast.copy(`${location.origin}/tasks?view=all&task=${task.id}`, 'Link copied')
                 }}
               >
                 Copy link

@@ -7,7 +7,7 @@ import { Dialog, Menu, MenuItem, MenuLabel, Switch, isTyping } from '../../compo
 import { toast } from '../../components/toast'
 import { api, post, safeHref } from '../../lib/api'
 import type { Album, Photo } from '../../lib/types'
-import { fmtBytes } from './util'
+import { fmtBytes } from '../../lib/format'
 import { fmtStamp, fmtTime } from '../../lib/dates'
 import { copyLinks, removeFromAlbum, setAlbumCover, useAlbumMutations, useAlbums, useHiddenMode } from './actions'
 import { layerOpen } from '../../components/layers'

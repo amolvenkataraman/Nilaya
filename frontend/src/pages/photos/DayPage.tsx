@@ -7,8 +7,8 @@ import { addDays, dayKey, fmtDate, parseDayKey } from '../../lib/dates'
 import type { Photo } from '../../lib/types'
 import { Icon } from '../../components/Icon'
 import { PhotoStream, type Zoom } from './PhotoStream'
-import { PageHead, plural } from './parts'
-import { fmtBytes } from './util'
+import { PageHead } from './parts'
+import { fmtBytes, plural } from '../../lib/format'
 
 type DayInfo = { photos: number; videos: number; size_kb: number }
 

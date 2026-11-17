@@ -17,7 +17,8 @@ import {
   type PersonDetail,
   type PersonFull,
 } from './api'
-import { fmtBirthday, kitLabel, plural } from './util'
+import { fmtBirthday, kitLabel } from './util'
+import { plural } from '../../lib/format'
 
 type Side = 'a' | 'b'
 interface FieldDef {

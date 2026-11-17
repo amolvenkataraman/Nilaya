@@ -6,7 +6,8 @@ import { Icon } from '../../components/Icon'
 import { Confirm, Menu, MenuItem, MenuLabel, MenuSeparator, Popover } from '../../components/ui'
 import { addDays, parseDayKey, startOfDay } from '../../lib/dates'
 import { PRIORITIES, type Label, type Project, type Task } from '../../lib/types'
-import { plural, targetCount, useBulkOps, useDeleteWithUndo, type BulkTarget } from './api'
+import { targetCount, useBulkOps, useDeleteWithUndo, type BulkTarget } from './api'
+import { plural } from '../../lib/format'
 
 const PRIO_CLASS: Record<number, string> = { 0: 'muted', 5: '', 10: 'accent-text', 15: 'warn-text', 20: 'danger-text' }
 
@@ -44,7 +45,7 @@ export function BulkBar({
   const allDone = tasks.every((t) => t.done)
 
   return (
-    <div className="bulk-bar" role="toolbar" aria-label={`${plural(n)} selected`}>
+    <div className="bulk-bar" role="toolbar" aria-label={`${plural(n, 'task')} selected`}>
       <span className="bulk-count">{n.toLocaleString()} selected</span>
       {matchTotal != null && onMatch && (
         <button className="btn ghost sm bulk-match" onClick={onMatch} title="Select every task in this list, loaded or not">
@@ -205,7 +206,7 @@ export function BulkBar({
       </button>
       <Confirm
         open={confirm}
-        title={`Delete ${plural(n)}?`}
+        title={`Delete ${plural(n, 'task')}?`}
         body="Every task matching this list is deleted, with its subtasks. This can't be undone."
         onConfirm={() => {
           ops.remove(target)

@@ -8,6 +8,7 @@ import { cachedTask, listItems, patchTaskLists, settleTaskLists, type TaskList }
 import { dayKey } from '../../lib/dates'
 import { toast } from '../../components/toast'
 import type { Bucket, Comment, Label, Member, Project, Relation, SavedView, Task, TaskDetail, UserBrief } from '../../lib/types'
+import { plural } from '../../lib/format'
 
 const setProjects = (qc: QueryClient, fn: (l: Project[]) => Project[]) => {
   qc.setQueriesData<Project[]>({ queryKey: keys.projects }, (old) => (old ? fn(old) : old))
@@ -317,7 +318,6 @@ export function useBulk() {
 }
 
 const PRIO_LABEL: Record<number, string> = { 0: 'None', 5: 'Low', 10: 'Medium', 15: 'High', 20: 'Urgent' }
-export const plural = (n: number, w = 'task') => `${n.toLocaleString()} ${w}${n === 1 ? '' : 's'}`
 
 /** Ready-made bulk operations (bulk bar, keyboard, drag and drop). Each takes loaded ids or a filter. */
 export function useBulkOps() {
@@ -360,7 +360,7 @@ export function useBulkOps() {
         target,
         body: { action: done ? 'done' : 'reopen' },
         patch: (t) => ({ ...t, done, done_at: done ? new Date().toISOString() : null }),
-        done: done ? (n) => `Completed ${plural(n)}` : undefined,
+        done: done ? (n) => `Completed ${plural(n, 'task')}` : undefined,
         undo: done ? (ids) => ops.setDone(ids, false) : undefined,
       }),
     move: (target: BulkTarget, project: Pick<Project, 'id' | 'name' | 'is_inbox'>) =>
@@ -368,10 +368,10 @@ export function useBulkOps() {
         target,
         body: { action: 'move', project_id: project.id },
         settle: (t) => ({ ...t, project_id: project.id, bucket_id: null }),
-        done: (n) => `Moved ${plural(n)} to ${project.is_inbox ? 'Inbox' : project.name}`,
+        done: (n) => `Moved ${plural(n, 'task')} to ${project.is_inbox ? 'Inbox' : project.name}`,
       }),
     /** Delete right away (no undo window): for "all N matching", after a confirm. */
-    remove: (target: BulkTarget) => bulk.mutate({ target, body: { action: 'delete' }, done: (n) => `Deleted ${plural(n)}` }),
+    remove: (target: BulkTarget) => bulk.mutate({ target, body: { action: 'delete' }, done: (n) => `Deleted ${plural(n, 'task')}` }),
   }
   return ops
 }
@@ -565,7 +565,7 @@ export function useDeleteWithUndo() {
         refreshTaskCounts(qc)
         unhide()
       }, 6000)
-      toast.show(ids.length === 1 ? `Deleted "${tasks[0].title}"` : `Deleted ${plural(ids.length)}`, {
+      toast.show(ids.length === 1 ? `Deleted "${tasks[0].title}"` : `Deleted ${plural(ids.length, 'task')}`, {
         action: {
           label: 'Undo',
           run: () => {

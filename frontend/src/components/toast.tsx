@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react'
+import { copyText } from '../lib/clipboard'
 
 interface ToastItem {
   id: number
@@ -26,6 +27,8 @@ function push(t: Omit<ToastItem, 'id'>, ms: number) {
 export const toast = {
   show: (text: string, opts: { action?: ToastItem['action'] } = {}) => push({ text, action: opts.action }, opts.action ? 6000 : 3500),
   error: (text: string) => push({ text, error: true }, 6000),
+  /** Copy text and say so; where the clipboard is blocked, show the text so it can be copied by hand. */
+  copy: (text: string, done = 'Copied') => copyText(text).then((ok) => (ok ? toast.show(done) : push({ text }, 10_000))),
   /** A caught error as a toast (its message, else `fallback`). Failed mutations don't need this: see main.tsx. */
   fail: (e: unknown, fallback = 'Something went wrong.') => push({ text: (e as Error)?.message || fallback, error: true }, 6000),
 }

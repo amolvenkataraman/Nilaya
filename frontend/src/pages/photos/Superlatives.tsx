@@ -12,8 +12,9 @@ import { usePhotoParam } from './PhotoStream'
 import { Viewer } from './Viewer'
 import { DeleteDialog } from './select'
 import { refreshAll } from './actions'
-import { PageHead, plural } from './parts'
-import { fmtBytes, fmtDuration, fmtHms } from './util'
+import { PageHead } from './parts'
+import { fmtDuration, fmtHms } from './util'
+import { fmtBytes, plural } from '../../lib/format'
 import './superlatives.css'
 
 const HOUR = 60 * 60_000

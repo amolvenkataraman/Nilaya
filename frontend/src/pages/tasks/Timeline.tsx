@@ -7,7 +7,7 @@ import { toast } from '../../components/toast'
 import { useUpdateTask } from '../../lib/queries'
 import { addDays, dayDiff, fmtDate, isEndOfDay, startOfDay, startOfWeek } from '../../lib/dates'
 import type { Task, TaskPatch } from '../../lib/types'
-import { plural } from './api'
+import { plural } from '../../lib/format'
 
 const DAYS = 42
 const STEP = 14

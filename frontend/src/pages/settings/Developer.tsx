@@ -1,5 +1,6 @@
 // API keys (/keys/), private ICS feeds (/feeds/) and the per-app Markdown guides.
 // Secrets (a new key's token, a new feed's URL) live only in component state and are shown once.
+import { copyText } from '../../lib/clipboard'
 import { useRef, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
@@ -40,17 +41,6 @@ const FEED_KINDS = { calendar: 'Calendar events', tasks: 'Tasks with due dates' 
 const useKeyApps = () => useQuery({ queryKey: APPS_KEY, queryFn: () => get<KeyApp[]>('keys/apps'), staleTime: Infinity })
 const day = (iso: string) => fmtDate(new Date(iso), { year: 'numeric', month: 'short', day: 'numeric' })
 
-/** Copy to the clipboard; falls back to selecting the element's text. */
-export async function copyText(text: string, fallback?: HTMLElement | null): Promise<boolean> {
-  try {
-    await navigator.clipboard.writeText(text)
-    return true
-  } catch {
-    if (fallback) window.getSelection()?.selectAllChildren(fallback)
-    return false
-  }
-}
-
 /** A secret shown once, with a Copy button. */
 function SecretBox({ value, label }: { value: string; label: string }) {
   const ref = useRef<HTMLElement>(null)
@@ -64,7 +54,9 @@ function SecretBox({ value, label }: { value: string; label: string }) {
         type="button"
         className="btn sm"
         onClick={async () => {
-          setCopied((await copyText(value, ref.current)) ? 'ok' : 'manual')
+          const ok = await copyText(value)
+          if (!ok && ref.current) window.getSelection()?.selectAllChildren(ref.current) // select it for a manual copy
+          setCopied(ok ? 'ok' : 'manual')
           setTimeout(() => setCopied(''), 2000)
         }}
       >
@@ -492,7 +484,7 @@ export function GuidesSection() {
   const fetchGuide = (app: string) => getText(`${encodeURIComponent(app)}/guide.md`)
   const copy = async (app: string) => {
     try {
-      await navigator.clipboard.writeText(await fetchGuide(app))
+      if (!(await copyText(await fetchGuide(app)))) throw new Error('blocked')
       setCopied(app)
       setTimeout(() => setCopied(''), 2000)
     } catch {
@@ -576,12 +568,7 @@ export function GuidesSection() {
               className="btn ghost icon sm"
               aria-label="Copy example"
               title="Copy example"
-              onClick={() =>
-                navigator.clipboard?.writeText(curl).then(
-                  () => toast.show('Example copied'),
-                  () => toast.error('Copy failed'),
-                )
-              }
+              onClick={() => toast.copy(curl, 'Example copied')}
             >
               <Icon name="copy" size={14} />
             </button>

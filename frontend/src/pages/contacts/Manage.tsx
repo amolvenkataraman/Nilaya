@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon'
 import { Dialog, SkeletonRows, Switch, ErrorBox } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { useContactSettings, useContactTags, useDeleteTag, useRenameTag, useSaveContactSettings, type Tag } from './api'
-import { plural } from './util'
+import { plural } from '../../lib/format'
 
 export function LabelsDialog({
   open,

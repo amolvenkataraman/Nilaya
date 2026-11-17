@@ -105,11 +105,7 @@ export function PlaceDetail({
   const setStatus = (status: PlaceStatus) => status !== (p.status ?? 'saved') && save.mutate({ id: p.id, body: { status } })
   const st = STATUSES.find((s) => s.key === p.status)
   const coords = `${p.latitude.toFixed(6)}, ${p.longitude.toFixed(6)}`
-  const copy = () =>
-    navigator.clipboard?.writeText(coords).then(
-      () => toast.show('Coordinates copied'),
-      () => toast.show(coords),
-    )
+  const copy = () => toast.copy(coords, 'Coordinates copied')
   const dist = pos ? fmtDistance(distanceM(pos, { lat: p.latitude, lon: p.longitude })) : null
   const ll = `${p.latitude.toFixed(6)},${p.longitude.toFixed(6)}`
   const row = (icon: string, children: ReactNode, key = icon) => (
@@ -366,12 +362,7 @@ export function SuggestionDetail({
             <code className="pl-coords">{coords}</code>
             <button
               className="btn ghost icon sm"
-              onClick={() =>
-                navigator.clipboard?.writeText(coords).then(
-                  () => toast.show('Coordinates copied'),
-                  () => toast.show(coords),
-                )
-              }
+              onClick={() => toast.copy(coords, 'Coordinates copied')}
               aria-label="Copy coordinates"
               title="Copy coordinates"
             >

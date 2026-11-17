@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { fmtBytes, fmtHms } from './util'
+import { fmtHms } from './util'
+import { fmtBytes } from '../../lib/format'
 
 describe('storage formats', () => {
   it('shows terabytes and long durations without truncating', () => {

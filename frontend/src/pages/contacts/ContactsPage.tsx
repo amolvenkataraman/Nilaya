@@ -51,9 +51,10 @@ import { PersonForm } from './PersonForm'
 import { ImportDialog } from './ImportDialog'
 import { DuplicatesPane, MergeManyDialog } from './Duplicates'
 import { ContactSettingsDialog, LabelsDialog } from './Manage'
-import { KIT, afterG, cap, fmtBirthday, plural, relLabel } from './util'
+import { KIT, afterG, cap, fmtBirthday, relLabel } from './util'
 import './contacts.css'
 import { layerOpen } from '../../components/layers'
+import { plural } from '../../lib/format'
 
 const FILTERS: { id: Filter; label: string; icon: string; count?: string }[] = [
   { id: '', label: 'All contacts', icon: 'users', count: 'total' },

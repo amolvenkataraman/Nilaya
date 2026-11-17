@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon'
 import { Dialog, ErrorBox, SkeletonRows } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { importPreview, useContactMeta, useImportCommit, type ImportOptions, type ImportPreview, type PreviewRow } from './api'
-import { plural } from './util'
+import { plural } from '../../lib/format'
 
 const STATUS: Record<PreviewRow['status'], [string, string]> = {
   new: ['New', 'success'],

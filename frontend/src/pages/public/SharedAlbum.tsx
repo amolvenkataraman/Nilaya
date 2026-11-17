@@ -10,7 +10,8 @@ import { dateFormatter } from '../../lib/dates'
 import type { Photo, PhotoPage } from '../../lib/types'
 import { Icon } from '../../components/Icon'
 import { ErrorBox, SkeletonRows, useMediaQuery } from '../../components/ui'
-import { fmtBytes, fmtDuration } from '../photos/util'
+import { fmtDuration } from '../photos/util'
+import { fmtBytes, plural } from '../../lib/format'
 import { PublicFrame, PublicNotice, loginHere, usePublicTitle } from './PublicFrame'
 import { useLayer } from '../../components/layers'
 
@@ -34,7 +35,6 @@ const PAGE = 120
 const GAP = 4
 const span = dateFormatter({ month: 'short', day: 'numeric', year: 'numeric' })
 const caption = dateFormatter({ weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
-const plural = (n: number, w: string) => `${n.toLocaleString()} ${w}${n === 1 ? '' : 's'}`
 
 function dateRange(a: string | null, b: string | null): string {
   if (!a || !b) return ''

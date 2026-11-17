@@ -11,7 +11,7 @@ import { toast } from '../../components/toast'
 import { del, get, patch, post } from '../../lib/api'
 import { fmtDate, parseDayKey, shortStamp } from '../../lib/dates'
 import type { Calendar } from '../../lib/types'
-import { CAL_COLOURS, copyText, personName, publicUrl, type Person } from './calendarCommon'
+import { CAL_COLOURS, personName, publicUrl, type Person } from './calendarCommon'
 import { useCalendarIcons } from './api'
 import { RangeSyncDialog, SOURCES, SourceFields, sourceProblem, syncError, useRunSync, type SourceType, type SyncResult } from './SyncSetup'
 
@@ -330,7 +330,7 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
                     </code>
                     <button
                       className="btn ghost icon sm"
-                      onClick={() => copyText(publicUrl(d.id), 'Public link copied')}
+                      onClick={() => toast.copy(publicUrl(d.id), 'Public link copied')}
                       aria-label="Copy public link"
                       title="Copy link"
                     >
@@ -502,11 +502,7 @@ function Invites({ cal }: { cal: Calendar }) {
     onSettled: refresh,
   })
   const remove = useMutation({ mutationFn: (id: number) => del(`calendar/calendars/${cal.id}/invites/${id}`), onSettled: refresh })
-  const copy = (code: string) =>
-    navigator.clipboard?.writeText(code).then(
-      () => toast.show('Invite code copied'),
-      () => toast.show(`Code: ${code}`),
-    )
+  const copy = (code: string) => toast.copy(code, 'Invite code copied')
   return (
     <section className="cal-sec" aria-labelledby="cs-inv">
       <h3 id="cs-inv">Invites</h3>

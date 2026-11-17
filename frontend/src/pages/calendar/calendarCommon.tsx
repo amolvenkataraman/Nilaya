@@ -14,12 +14,6 @@ export const CAL_COLOURS = ['#3b82f6', '#0891b2', '#10b981', '#16a34a', '#f59e0b
 
 /** The public page (read-only month view, anyone with the link, signed in or not). */
 export const publicUrl = (id: number) => `${window.location.origin}/calendar/public/${id}`
-export function copyText(text: string, done = 'Copied') {
-  navigator.clipboard?.writeText(text).then(
-    () => toast.show(done),
-    () => toast.show(text),
-  )
-}
 
 /** "…" menu next to a calendar in the sidebar. */
 export function CalendarMenu({
@@ -97,7 +91,7 @@ export function CalendarMenu({
               </MenuItem>
             )}
             {calendar.public && (
-              <MenuItem icon="link" onClick={() => (close(), copyText(publicUrl(calendar.id), 'Public link copied'))}>
+              <MenuItem icon="link" onClick={() => (close(), toast.copy(publicUrl(calendar.id), 'Public link copied'))}>
                 Copy public link
               </MenuItem>
             )}

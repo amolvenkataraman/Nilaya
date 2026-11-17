@@ -50,7 +50,6 @@ import { ShortcutsDialog, useTaskKeys } from './Shortcuts'
 import { useSelection, type Selection } from './selection'
 import {
   bulkFilter,
-  plural,
   positionsBetween,
   useBulkOps,
   useDeleteWithUndo,
@@ -63,6 +62,7 @@ import { canEditTask as canEditTaskFor, fitsList, nestTasks } from './util'
 import { revealRow, useLoadMore, useWindowed } from './virtual'
 import './tasks.css'
 import { layerOpen } from '../../components/layers'
+import { plural } from '../../lib/format'
 
 // Layouts other than the list load on demand.
 const Board = lazy(() => import('./Board').then((m) => ({ default: m.Board })))
@@ -447,7 +447,7 @@ export default function TasksPage() {
       byDue.set(d.toISOString(), [...(byDue.get(d.toISOString()) ?? []), t.id])
     }
     for (const [due, ids] of byDue) ops.update(ids, { due })
-    toast.show(`Moved ${plural(list.length)} to today`)
+    toast.show(`Moved ${plural(list.length, 'task')} to today`)
   }
   const openTask = (t: Task) => {
     if (t.id.startsWith('temp-')) return
@@ -1412,7 +1412,7 @@ export default function TasksPage() {
       )}
       <Confirm
         open={confirmDelete}
-        title={`Delete ${plural(total)}?`}
+        title={`Delete ${plural(total, 'task')}?`}
         body="Every task matching this list is deleted, with its subtasks. This can't be undone."
         confirmLabel="Delete"
         onConfirm={() => {

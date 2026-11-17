@@ -19,5 +19,3 @@ export function PageHead({ title, sub, children, back }: { title: ReactNode; sub
     </div>
   )
 }
-
-export const plural = (n: number, word: string, many = word + 's') => `${n.toLocaleString()} ${n === 1 ? word : many}`

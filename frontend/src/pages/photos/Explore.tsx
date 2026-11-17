@@ -11,7 +11,8 @@ import { InlineFail } from '../../components/resilience'
 import { ErrorBox, SkeletonRows } from '../../components/ui'
 import { get, safeHref } from '../../lib/api'
 import { fmtDate } from '../../lib/dates'
-import { fmtBytes, fmtHms } from './util'
+import { fmtHms } from './util'
+import { fmtBytes } from '../../lib/format'
 
 const HOUR = 60 * 60_000
 const n = (x: number) => (x ?? 0).toLocaleString()

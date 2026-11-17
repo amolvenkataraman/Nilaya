@@ -28,7 +28,6 @@ export const MONTHS = [
 ]
 export const relLabel = (k: string) => (k[0]?.toUpperCase() ?? '') + k.slice(1).replace(/_/g, ' ')
 export const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s)
-export const plural = (n: number, word: string, many = word + 's') => `${n.toLocaleString()} ${n === 1 ? word : many}`
 
 /** "1990-05-04" or "--05-04" (no year) -> parts; anything else -> null. */
 export function parseBirthday(b: string | null | undefined): { year: string; month: string; day: string } | null {
