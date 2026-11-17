@@ -28,7 +28,7 @@ interface Props {
 type Entry = { key: string; at: number; allDay: boolean; event?: CalEvent; task?: Task; bday?: Birthday }
 
 /** Events and tasks of one day in display order: birthdays, all-day events, all-day tasks, then by time. */
-export function dayEntries(events: CalEvent[], tasks: Task[] = [], bdays: Birthday[] = []): Entry[] {
+function dayEntries(events: CalEvent[], tasks: Task[] = [], bdays: Birthday[] = []): Entry[] {
   const out: Entry[] = [
     ...bdays.map((b) => ({ key: `b${b.id}`, at: -3, allDay: true, bday: b })),
     ...events.map((e) => ({ key: `e${e.id}`, at: e.all_day ? -2 : new Date(e.start).getTime(), allDay: e.all_day, event: e })),

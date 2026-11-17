@@ -16,14 +16,14 @@ import type { InsightsPeriod } from './range'
 import { SEGMENTED_FIX } from './segmentedFix'
 
 /** Signed delta label: "+9.8 h", "−2 h" (dir 0: no change). */
-export function delta(cur: number, prev: number, unit = ''): { text: string; dir: 1 | -1 | 0 } {
+function delta(cur: number, prev: number, unit = ''): { text: string; dir: 1 | -1 | 0 } {
   const d = Math.round((cur - prev) * 10) / 10
   if (d === 0) return { text: 'same as before', dir: 0 }
   return { text: `${d > 0 ? '+' : '−'}${Math.abs(d)}${unit}`, dir: d > 0 ? 1 : -1 }
 }
 
 /** Hours as people say them: "0 h", "45 min", "9.8 h". */
-export function hours(h: number): string {
+function hours(h: number): string {
   if (h === 0) return '0 h'
   if (h < 1) return `${Math.round(h * 60)} min`
   return `${Math.round(h * 10) / 10} h`

@@ -1,6 +1,6 @@
 // Calendar-only shapes the shared lib/types.ts doesn't carry: a calendar's settings detail, its people and
 // invite codes, the PATCH body, birthdays from Contacts, and the overlays every view draws on top of events.
-import type { Calendar, CalEvent, Task } from '../../lib/types'
+import type { Calendar, Task } from '../../lib/types'
 
 export type Person = { id: string; username: string; first_name?: string; last_name?: string; name?: string }
 export const personName = (u: Person) => u.name || [u.first_name, u.last_name].filter(Boolean).join(' ') || u.username
@@ -75,10 +75,4 @@ export interface Layers {
   birthdays: Map<string, Birthday[]>
   photos?: Record<string, number>
   onTask: (t: Task) => void
-}
-
-/** How a view hands an event back: open it (the peek) and its colour on this theme. */
-export interface EventHandlers {
-  colour: (e: CalEvent) => string
-  onEvent: (e: CalEvent) => void
 }
