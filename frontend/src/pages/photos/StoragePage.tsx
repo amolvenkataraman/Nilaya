@@ -100,7 +100,7 @@ function StorageTable({
   const top = cn(cell, head, 'top-0 z-2')
   const sub = cn(cell, head, num, 'top-[2.125rem] z-2')
   return (
-    <div
+    <section
       className={cn(
         'overflow-x-auto overscroll-x-contain focus-visible:-outline-offset-2',
         tall && 'max-h-[min(75vh,52rem)] overflow-y-auto',
@@ -174,7 +174,7 @@ function StorageTable({
           </tfoot>
         )}
       </table>
-    </div>
+    </section>
   )
 }
 
@@ -330,7 +330,7 @@ function StorageBody({ s, failed, retry }: { s: Storage; failed: boolean; retry:
               </button>
             ))}
           </div>
-          <div className="flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-muted" aria-label="Usage breakdown colours">
+          <div className="flex flex-wrap gap-x-3.5 gap-y-1 text-xs text-muted" aria-hidden="true">
             {SERIES.map((x) => (
               <span key={x.key} className="inline-flex items-center gap-1.5 whitespace-nowrap">
                 <Swatch k={x.key} />

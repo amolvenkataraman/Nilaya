@@ -49,6 +49,7 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
     if (current) navigate('/photos')
   }
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a form, for Enter to submit; role=search makes it a landmark
     <form
       className={cn(
         'group items-center gap-2 rounded-full border px-3 text-muted transition-[background,border-color,box-shadow] duration-120',
@@ -92,6 +93,7 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
           <Icon name="x" size={14} />
         </button>
       ) : (
+        // biome-ignore lint/a11y/noAriaHiddenOnFocusable: a visual hint only; the shortcut is announced by the field
         <kbd
           className="inline-grid h-4.5 min-w-4.5 place-items-center rounded-xs border border-border bg-surface px-1 text-2xs leading-none font-medium text-muted group-focus-within:invisible max-md:hidden"
           aria-hidden="true"
@@ -190,6 +192,7 @@ function Interpretation({ q, page }: { q: string; page: SearchPage | null }) {
   return (
     <>
       {terms.length > 0 && (
+        // biome-ignore lint/a11y/useSemanticElements: terms wrap inline with their groups; a list element would break the flow
         <div className={termsClass} role="list" aria-label="How your search was read">
           {order.map((type) => (
             <span
@@ -201,6 +204,7 @@ function Interpretation({ q, page }: { q: string; page: SearchPage | null }) {
                 .map((t, i) => (
                   <span key={t.value + t.span.join()} className="inline-flex max-w-full min-w-0 items-center gap-1.5">
                     {i > 0 && <span className="text-xs text-muted">or</span>}
+                    {/* biome-ignore lint/a11y/useSemanticElements: see the list above */}
                     <span
                       role="listitem"
                       className={cn(termClass, TERM_COLOUR[t.type])}

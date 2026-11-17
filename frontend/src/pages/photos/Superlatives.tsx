@@ -242,6 +242,7 @@ function Items({ data, metric, loading }: { data: Out; metric: Metric; loading: 
   const items = data.items
   const s = data.summary
   // A new ranking starts with nothing picked; leaving the page drops the selection.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the category is the trigger
   useEffect(() => {
     picks.setMode(false)
     return () => picks.setMode(false)
@@ -289,7 +290,7 @@ function Items({ data, metric, loading }: { data: Out; metric: Metric; loading: 
             </Button>
           </>
         )}
-        {loading && <span className="spinner" aria-label="Loading" />}
+        {loading && <span className="spinner" role="status" aria-label="Loading" />}
       </div>
       <ol className={listClass}>
         {items.map((p, i) => (

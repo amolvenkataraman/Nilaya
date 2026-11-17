@@ -119,8 +119,6 @@ export const Thumb = memo(function Thumb({
           )}
         />
       )}
-      {/* biome-ignore lint/a11y/useKeyWithClickEvents: a mouse shortcut; the tile itself is the keyboard control */}
-      {/* biome-ignore lint/a11y/noStaticElementInteractions: same */}
       <span
         className={cn(
           'absolute top-1.5 left-1.5 z-2 grid size-5 place-items-center rounded-full border-2 shadow-[0_1px_3px_rgba(0,0,0,0.35)] transition-opacity duration-120',
@@ -378,7 +376,7 @@ const PATTERN = [1.5, 0.75, 1.33, 1, 1.5, 0.75, 1.33, 1.78, 1, 0.75, 1.5, 1.33]
 function StreamSkeleton({ width, target, gap, rows = 3 }: { width: number; target: number; gap: number; rows?: number }) {
   const r = width ? justify(PATTERN.concat(PATTERN), width, target, gap).slice(0, rows) : []
   return (
-    <div className="mb-5" aria-busy="true" aria-label="Loading photos">
+    <div className="mb-5" role="status" aria-busy="true" aria-label="Loading photos">
       <span className={cn(pulse, 'mt-1 mb-3 h-3.5 w-32 rounded-xs')} />
       <div className="flex flex-col" style={{ gap }}>
         {r.map((row, i) => (
