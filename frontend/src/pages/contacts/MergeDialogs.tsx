@@ -148,7 +148,7 @@ export function MergeManyDialog({
   )
 }
 
-// `sticky` isn't generated (an older stylesheet owns that class name, see tailwind.css), hence [position:sticky].
+// `sticky` isn't generated (an older stylesheet owns that class name, see tailwind.css), hence sticky.
 const mergeRow =
   'grid grid-cols-[8rem_minmax(0,1fr)_minmax(0,1fr)] items-start gap-2 border-b border-border py-1.5 max-md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]'
 const mergeKey = 'pt-1.5 text-xs text-muted max-md:col-span-full max-md:pt-0'
@@ -237,7 +237,7 @@ export function MergeDialog({ pair, onClose }: { pair: DuplicatePair; onClose: (
     >
       {/* One row per choice: the radios of a row share a name, and each describes itself with the row's label. */}
       <div className="grid border-t border-border">
-        <div className={cn(mergeRow, '[position:sticky] -top-2 z-1 items-center bg-surface')}>
+        <div className={cn(mergeRow, 'sticky -top-2 z-1 items-center bg-surface')}>
           <span id="c-merge-k-keep" className={mergeKey}>
             Keep record
           </span>

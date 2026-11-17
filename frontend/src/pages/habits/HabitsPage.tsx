@@ -3,7 +3,7 @@
 // sidebar, the app-wide shortcuts and the dialogs; the views are their own files.
 import { useState } from 'react'
 import { Route, Routes, useLocation, useNavigate, useParams, useSearchParams } from 'react-router'
-import { AppShell, SideItem, SideSection } from '../../components/AppShell'
+import { AppShell, SIDE_EMPTY, SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
 import { layerOpen } from '../../components/layers'
 import { Button, Dialog, SkeletonRows, useHotkey } from '../../components/ui'
@@ -81,7 +81,7 @@ export default function HabitsPage() {
         }
       >
         {habits.isPending && <SkeletonRows rows={3} />}
-        {habits.data?.length === 0 && <div className="side-empty">No habits yet.</div>}
+        {habits.data?.length === 0 && <div className={SIDE_EMPTY}>No habits yet.</div>}
         {habits.data?.map((h) => (
           <SideItem
             key={h.id}

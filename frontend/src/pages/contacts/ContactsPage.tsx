@@ -5,7 +5,7 @@
 import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
-import { AppShell, SideItem, SideSection } from '../../components/AppShell'
+import { AppShell, SIDE_EMPTY, SideItem, SideSection, sideItemClass } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
 import { layerOpen } from '../../components/layers'
 import { toast } from '../../components/toast'
@@ -179,7 +179,7 @@ export default function ContactsPage() {
         </SideSection>
       )}
       <SideSection title="Tags">
-        {!tags?.some((t) => t.kind === 'tag') && <div className="side-empty">No tags yet.</div>}
+        {!tags?.some((t) => t.kind === 'tag') && <div className={SIDE_EMPTY}>No tags yet.</div>}
         {tags
           ?.filter((t) => t.kind === 'tag')
           .map((t) => (
@@ -333,7 +333,7 @@ export default function ContactsPage() {
 /** A sidebar row that downloads every contact in one format (SideItem has no download link). */
 function ExportItem({ format, label }: { format: 'vcf' | 'csv'; label: string }) {
   return (
-    <a className="side-item" href={exportHref(format)} download>
+    <a className={sideItemClass()} href={exportHref(format)} download>
       <Icon name="arrowUp" size={16} />
       <span className="min-w-0 flex-auto">{label}</span>
     </a>

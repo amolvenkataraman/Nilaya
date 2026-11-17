@@ -1,5 +1,6 @@
 // Shared UI primitives: hotkeys, skeletons, avatar, switch, error box; overlays re-exported from ./ui/.
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { cn } from '../lib/cn'
 
 // ---------------------------------------------------------------- hotkeys
 export function isTyping(e: KeyboardEvent): boolean {
@@ -36,6 +37,9 @@ export { QueryView } from './ui/query-view'
 
 // ---------------------------------------------------------------- misc
 
+// `avatar` stays as a hook (the account button rings it on hover).
+const AVATAR = 'avatar flex-none rounded-full object-cover'
+
 export function Avatar({ name, src, size = 1.75 }: { name: string; src?: string | null; size?: number }) {
   const [broken, setBroken] = useState(false)
   const initials =
@@ -50,7 +54,7 @@ export function Avatar({ name, src, size = 1.75 }: { name: string; src?: string 
   const safe = src && /^\/(?![/\\])/.test(src) && !broken ? src : null
   return safe ? (
     <img
-      className="avatar"
+      className={AVATAR}
       src={safe}
       alt=""
       style={style}
@@ -61,7 +65,11 @@ export function Avatar({ name, src, size = 1.75 }: { name: string; src?: string 
       onError={() => setBroken(true)}
     />
   ) : (
-    <span className="avatar" style={style} aria-hidden="true">
+    <span
+      className={cn(AVATAR, 'inline-grid place-items-center bg-accent-soft font-semibold text-accent')}
+      style={style}
+      aria-hidden="true"
+    >
       {initials}
     </span>
   )
@@ -79,9 +87,24 @@ export function Switch({
   disabled?: boolean
 }) {
   return (
-    <label className="switch">
-      <input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
-      <span className="track" />
+    <label className="relative inline-flex cursor-pointer items-center gap-2 text-sm has-disabled:cursor-default has-disabled:opacity-60">
+      <input
+        type="checkbox"
+        role="switch"
+        checked={checked}
+        disabled={disabled}
+        onChange={(e) => onChange(e.target.checked)}
+        className="peer absolute size-px opacity-0"
+      />
+      <span
+        aria-hidden="true"
+        className={cn(
+          'relative h-4.5 w-7.5 flex-none rounded-full bg-[color-mix(in_srgb,var(--app-muted)_40%,var(--app-border))] transition-colors peer-checked:bg-accent',
+          'peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-accent',
+          "after:absolute after:top-0.5 after:left-0.5 after:size-3.5 after:rounded-full after:bg-white after:shadow-[0_1px_2px_rgba(0,0,0,0.25)] after:transition-transform after:duration-150 after:content-['']",
+          'peer-checked:after:translate-x-3',
+        )}
+      />
       {label && <span>{label}</span>}
     </label>
   )

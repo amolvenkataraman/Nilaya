@@ -46,7 +46,7 @@ function WindowRows({ items, render }: { items: VItem[]; render: (it: VItem) => 
   )
 }
 
-const sectionHead = '[position:sticky] top-0 z-1 mb-1 flex gap-1.5 border-b border-border bg-bg px-3 py-1.5 text-sm font-semibold'
+const sectionHead = 'sticky top-0 z-1 mb-1 flex gap-1.5 border-b border-border bg-bg px-3 py-1.5 text-sm font-semibold'
 const headCount = 'text-xs font-normal text-muted'
 
 export function ListView({

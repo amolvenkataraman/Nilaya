@@ -61,7 +61,7 @@ export function dragPatch(t: Pick<Task, 'start' | 'due'>, edge: Edge, delta: num
 }
 
 /** Sticky header cells and the name column sit on the surface, above the bars. */
-const sticky = '[position:sticky] bg-surface'
+const sticky = 'sticky bg-surface'
 const handle =
   'absolute inset-y-0 z-1 w-1.75 cursor-ew-resize touch:hidden after:absolute after:inset-y-1.25 after:left-[0.15rem] after:w-0.5 after:rounded-[1px] after:bg-(--c) after:opacity-0 after:transition-opacity after:duration-100 group-hover/bar:after:opacity-60'
 
@@ -216,7 +216,7 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
                 )}
                 style={{ gridColumn: `${m.from + 2} / span ${m.span}` }}
               >
-                <span className="[position:sticky] left-[calc(var(--tl-name)+0.375rem)] px-1.5">{m.label}</span>
+                <span className="sticky left-[calc(var(--tl-name)+0.375rem)] px-1.5">{m.label}</span>
               </div>
             ))}
             {days.map((d, i) => {
@@ -227,7 +227,7 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
                   key={d.getTime()}
                   ref={i === 0 ? dayCell : undefined}
                   className={cn(
-                    '[position:sticky]',
+                    'sticky',
                     'top-[1.5625rem] z-3 row-2 grid justify-items-center border-b border-border pt-px pb-1 text-2xs leading-[1.25] tabular-nums',
                     we ? 'bg-[color-mix(in_srgb,var(--app-surface-2)_70%,var(--app-surface))]' : 'bg-surface',
                     isToday ? 'font-bold text-accent' : we ? 'text-muted' : 'text-fg',

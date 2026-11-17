@@ -122,7 +122,7 @@ export function SearchBox({
   return (
     <label
       className={cn(
-        'flex h-8 min-w-0 items-center gap-2 rounded-sm border border-border bg-surface px-2.5 text-sm text-muted',
+        'flex h-8 min-w-0 items-center gap-2 rounded-sm border border-border bg-bg px-2.5 text-sm text-muted',
         'focus-within:border-accent focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--app-accent)_18%,transparent)]',
         className,
       )}

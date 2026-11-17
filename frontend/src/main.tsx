@@ -15,8 +15,6 @@ import type { Me } from './lib/types'
 import { NotFound, RouteError } from './pages/NotFound'
 import './styles/tailwind.css'
 import './styles/base.css'
-import './styles/shell.css'
-import './styles/components.css'
 
 initTheme()
 reloadOnStaleChunks()

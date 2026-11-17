@@ -52,7 +52,7 @@ export function Ring({ value, size = 12 }: { value: number; size?: number }) {
   const r = 5
   const c = 2 * Math.PI * r
   return (
-    <svg width={size} height={size} viewBox="0 0 12 12" aria-hidden="true" className="ring flex-none">
+    <svg width={size} height={size} viewBox="0 0 12 12" aria-hidden="true" className="flex-none">
       <circle cx="6" cy="6" r={r} fill="none" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2" />
       <circle
         cx="6"

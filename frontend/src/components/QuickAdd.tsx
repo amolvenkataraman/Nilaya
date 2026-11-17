@@ -1,6 +1,7 @@
 import { useState } from 'react'
+import { cn } from '../lib/cn'
 import { Icon } from './Icon'
-import { Dialog } from './ui'
+import { Button, Chip, Dialog, Field, Kbd, Select } from './ui'
 import { previewQuick } from '../lib/quick'
 import { useCreateTask, useProjects } from '../lib/queries'
 import { toast } from './toast'
@@ -60,17 +61,21 @@ export function QuickAddInput({
     )
   }
   return (
-    <div className={'quick-add' + (compact ? ' compact' : '')}>
+    <div className="grid gap-1.5">
       <form
-        className="quick-add-row"
+        className={cn(
+          'flex items-center gap-2 rounded-sm border pr-1.5 pl-3 transition-[border-color,box-shadow,background-color]',
+          'focus-within:border-accent focus-within:shadow-[0_0_0_3px_color-mix(in_srgb,var(--app-accent)_16%,transparent)]',
+          compact ? 'h-8.5 border-transparent bg-transparent hover:bg-hover focus-within:bg-surface' : 'h-9.5 border-border bg-surface',
+        )}
         onSubmit={(e) => {
           e.preventDefault()
           submit()
         }}
       >
-        <Icon name="plus" className="quick-add-icon" />
+        <Icon name="plus" className="flex-none text-accent" />
         <input
-          className="quick-add-input"
+          className="h-full min-w-0 flex-1 border-0 bg-transparent p-0 text-sm outline-none placeholder:text-[color-mix(in_srgb,var(--app-muted)_85%,transparent)]"
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder={placeholder ?? 'Add a task…  try "Pay rent tomorrow 5pm !3"'}
@@ -80,42 +85,42 @@ export function QuickAddInput({
           enterKeyHint="done"
         />
         {text && (
-          <button className="btn primary sm" type="submit">
+          <Button variant="primary" size="sm" type="submit">
             Add
-          </button>
+          </Button>
         )}
       </form>
       {p && (p.when || p.labels.length || p.project || p.priority || p.repeat) ? (
-        <div className="quick-chips" aria-live="polite">
+        <div className="flex flex-wrap gap-1 px-1" aria-live="polite">
           {p.when && (
-            <span className="chip accent">
+            <Chip tone="accent">
               <Icon name="calendar" size={12} />
               {p.when}
-            </span>
+            </Chip>
           )}
           {p.repeat && (
-            <span className="chip">
+            <Chip>
               <Icon name="repeat" size={12} />
               {p.repeat}
-            </span>
+            </Chip>
           )}
           {p.project && (
-            <span className="chip">
+            <Chip>
               <Icon name="folder" size={12} />
               {p.project}
-            </span>
+            </Chip>
           )}
           {p.labels.map((l) => (
-            <span key={l} className="chip">
+            <Chip key={l}>
               <Icon name="tag" size={12} />
               {l}
-            </span>
+            </Chip>
           ))}
           {p.priority && (
-            <span className="chip warning">
+            <Chip tone="warning">
               <Icon name="flag" size={12} />
               {PRIORITIES.find((x) => x.value === PRIO_FROM_BANG[p.priority! - 1])?.label}
-            </span>
+            </Chip>
           )}
         </div>
       ) : null}
@@ -136,17 +141,8 @@ export function QuickAddDialog({ open, onClose }: { open: boolean; onClose: () =
           onClose()
         }}
       />
-      <div className="row">
-        <label className="label" htmlFor="qa-project">
-          Project
-        </label>
-        <select
-          id="qa-project"
-          className="select"
-          style={{ width: 'auto', minWidth: '10rem' }}
-          value={project}
-          onChange={(e) => setProject(e.target.value)}
-        >
+      <Field label="Project" className="justify-self-start">
+        <Select className="min-w-40" value={project} onChange={(e) => setProject(e.target.value)}>
           <option value="">Inbox</option>
           {projects
             ?.filter((p) => !p.is_inbox)
@@ -155,12 +151,10 @@ export function QuickAddDialog({ open, onClose }: { open: boolean; onClose: () =
                 {p.name}
               </option>
             ))}
-        </select>
-        <span className="spacer" />
-      </div>
-      <p className="help">
-        <span className="kbd">*label</span> <span className="kbd">+Project</span> <span className="kbd">!1–4</span> priority, dates like
-        "tomorrow 5pm", "fri", "every week".
+        </Select>
+      </Field>
+      <p className="text-xs text-muted">
+        <Kbd>*label</Kbd> <Kbd>+Project</Kbd> <Kbd>!1–4</Kbd> priority, dates like "tomorrow 5pm", "fri", "every week".
       </p>
     </Dialog>
   )

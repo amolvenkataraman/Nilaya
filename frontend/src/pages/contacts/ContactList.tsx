@@ -35,7 +35,7 @@ export interface ContactListProps {
   onDeleteLabel: (t: Tag) => void
 }
 
-// `sticky` isn't generated (an older stylesheet owns that class name, see tailwind.css), hence [position:sticky].
+// `sticky` isn't generated (an older stylesheet owns that class name, see tailwind.css), hence sticky.
 export function ContactList(props: ContactListProps) {
   const { items, filter, search, activeId, selected, onSelect } = props
   const list = useRef<HTMLElement>(null)
@@ -77,7 +77,7 @@ export function ContactList(props: ContactListProps) {
           <div key={g.letter}>
             {letters && (
               <div
-                className="[position:sticky] top-0 z-1 border-b border-border bg-surface px-4 py-1 text-xs font-semibold text-muted"
+                className="sticky top-0 z-1 border-b border-border bg-surface px-4 py-1 text-xs font-semibold text-muted"
                 aria-hidden="true"
               >
                 {g.letter}
@@ -169,7 +169,7 @@ function BulkBar({ items, selected, onSelect, onMerge, onDeleteSelected }: Conta
   const link = buttonClass({ variant: 'ghost', size: 'sm', className: 'text-fg! hover:no-underline' })
   return (
     <div
-      className="[position:sticky] top-0 z-2 flex min-h-13 items-center gap-1 border-b border-border bg-surface pt-2.5 pr-3 pb-2 pl-[1.0625rem]"
+      className="sticky top-0 z-2 flex min-h-13 items-center gap-1 border-b border-border bg-surface pt-2.5 pr-3 pb-2 pl-[1.0625rem]"
       role="toolbar"
       aria-label="Selected contacts"
     >

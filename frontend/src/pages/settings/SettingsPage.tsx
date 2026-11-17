@@ -2,7 +2,7 @@
 // links) with a sidebar that follows the scroll, plus the staff Usage page at /settings/usage.
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
-import { AppShell, SideItem, SideSection } from '../../components/AppShell'
+import { AppShell, SideItem, SideSection, sideItemClass } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
 import { ErrorBox, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
@@ -100,7 +100,7 @@ export default function SettingsPage() {
       {staff && (
         <SideSection title="Admin">
           <SideItem icon="chart" label="Usage" active={usage} to="/settings/usage" />
-          <a className="side-item" href="/admin/">
+          <a className={sideItemClass()} href="/admin/">
             <Icon name="wrench" size={16} />
             <span className="min-w-0 flex-1 truncate">Admin site</span>
             <Icon name="external" size={12} />

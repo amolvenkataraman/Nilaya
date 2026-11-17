@@ -18,8 +18,8 @@ const RANGES = [
 
 // Segmented's buttons keep the browser's border and grey fill; the class below clears them until it does.
 
-// `sticky` isn't generated (an older stylesheet owns that class name, see tailwind.css), hence [position:sticky].
-const nameCell = '[position:sticky] left-0 z-1 min-w-44 max-w-64 bg-surface px-3 py-1.5 text-left font-medium'
+// `sticky` isn't generated (an older stylesheet owns that class name, see tailwind.css), hence sticky.
+const nameCell = 'sticky left-0 z-1 min-w-44 max-w-64 bg-surface px-3 py-1.5 text-left font-medium'
 const sumCell = 'px-3 whitespace-nowrap text-muted'
 
 export function GridView({

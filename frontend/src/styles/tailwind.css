@@ -3,16 +3,11 @@
  * follows light/dark automatically. Tailwind's default palette, type scale and shadows are switched off:
  * only the design system's values exist.
  *
- * No preflight: base.css owns the element resets, inside @layer base so utilities win over them.
- * Older per-app stylesheets are unlayered and still beat utilities; each goes away as its app moves over. */
+ * No preflight: base.css owns the element resets, inside @layer base so utilities win over them. Without preflight a
+ * <button> or <input> keeps the browser's border and background: components reset them (border-0, bg-transparent). */
 @layer theme, base, components, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
-
-/* Older stylesheets use these names for their own classes (the task progress `ring`, settings rows `inline`, ...);
- * Tailwind's utilities of the same name would add styles to those elements. Drop each name from this list once
- * the stylesheet that defines it is gone. */
-@source not inline('{ring,blur,container,outline,resize,table,filter,transform,visible,inline,static,sticky}');
 
 @custom-variant dark (&:where([data-bs-theme='dark'], [data-bs-theme='dark'] *));
 /* Touch screens (no hover). `hover:` already applies only where hovering exists. */
@@ -76,4 +71,22 @@
   --breakpoint-lg: 1025px;
   --breakpoint-xl: 1281px;
   --breakpoint-2xl: 1600px;
+}
+
+/* Small pieces used in many places, as utilities (so they sit in the utilities layer like everything else). */
+@utility kbd {
+  display: inline-flex; align-items: center; gap: 2px; height: 1.125rem; padding: 0 0.3125rem; border-radius: 0.25rem;
+  border: 1px solid var(--app-border); background: var(--app-surface-2); color: var(--app-muted);
+  font: 500 0.6875rem/1 var(--app-font); letter-spacing: 0.02em;
+}
+/* Skeleton block: a grey placeholder that breathes while content loads. */
+@utility sk {
+  display: block; border-radius: 0.25rem; background: var(--app-surface-2); animation: sk 1.3s ease-in-out infinite;
+}
+@utility sk-line {
+  height: 0.75rem; margin: 0.5rem 0;
+}
+@utility spinner {
+  width: 0.875rem; height: 0.875rem; border-radius: 50%; flex: none;
+  border: 2px solid var(--app-border); border-top-color: var(--app-accent); animation: spin 0.7s linear infinite;
 }

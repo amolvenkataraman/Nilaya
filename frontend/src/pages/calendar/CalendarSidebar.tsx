@@ -1,7 +1,7 @@
 // The calendar's sidebar: a mini month, my and other calendars (with their "…" menus), shortcuts to the
 // sharing dialogs, a quick task field, what to show, week start and display zone, and the refresh line.
 import { useState, type CSSProperties } from 'react'
-import { SideSection } from '../../components/AppShell'
+import { SideSection, sideItemClass } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
 import { Button, buttonClass, Menu, MenuItem, MenuSeparator, Segmented, Switch } from '../../components/ui'
 import { toast } from '../../components/toast'
@@ -51,9 +51,8 @@ export function CalendarSidebar({ mini, calendars, peek, show, view, open, refre
   const list = (cals: Calendar[]) =>
     cals.map((c) => (
       <div key={c.id} className="group relative flex items-center">
-        {/* side-item is the shell's older unlayered row style, so the overrides here need !important */}
         <label
-          className={cn('side-item min-w-0 flex-1 cursor-pointer pr-8! [&>:not(.flex-auto)]:flex-none', !c.active && 'opacity-55')}
+          className={sideItemClass(false, cn('flex-1 cursor-pointer pr-8 [&>:not(.flex-auto)]:flex-none', !c.active && 'opacity-55'))}
           title={c.synced ? `${c.name} (synced)` : c.name}
         >
           <input
@@ -85,7 +84,7 @@ export function CalendarSidebar({ mini, calendars, peek, show, view, open, refre
       </div>
     ))
   const sideLink = (icon: string, text: string, onClick: () => void, muted = false) => (
-    <button type="button" className={cn('side-item', muted && 'text-muted!')} onClick={onClick}>
+    <button type="button" className={sideItemClass(false, muted ? 'text-muted!' : undefined)} onClick={onClick}>
       <Icon name={icon} size={16} />
       <span className="min-w-0 flex-auto truncate">{text}</span>
     </button>
@@ -174,7 +173,12 @@ export function CalendarSidebar({ mini, calendars, peek, show, view, open, refre
             ]}
           />
         </div>
-        <button type="button" className="side-item" onClick={view.onZone} title="Show the calendar in another time zone (this window only)">
+        <button
+          type="button"
+          className={sideItemClass()}
+          onClick={view.onZone}
+          title="Show the calendar in another time zone (this window only)"
+        >
           <Icon name="globe" size={16} />
           <span className="min-w-0 flex-auto truncate">{view.tz ? zoneCity(view.tz) : `${zoneCity(HOME_ZONE)} (yours)`}</span>
           <span className="flex-none text-xs text-muted tabular-nums">{gmtLabel(view.now.getTime(), view.tz ?? HOME_ZONE)}</span>

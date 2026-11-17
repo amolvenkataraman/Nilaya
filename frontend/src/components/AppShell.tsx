@@ -6,7 +6,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { Icon } from './Icon'
-import { Avatar, Menu, MenuItem, MenuLabel, MenuSeparator, useIsPhone } from './ui'
+import { Avatar, Dot, Menu, MenuItem, MenuLabel, MenuSeparator, useIsPhone } from './ui'
 import { NotificationBell } from './NotificationBell'
 import { APPS, STAFF_APPS, type AppDef } from './nav'
 import { logout, useGlobals, usePageTitle } from './Shell'
@@ -305,6 +305,20 @@ function GlobalItems() {
   )
 }
 
+/** Sidebar row styles, for pages that build their own rows (a link, a calendar toggle). `side-item` and `side-count`
+ *  stay on the elements as hooks: pages target them to make room for a row action or hide the count on hover. */
+export function sideItemClass(active = false, className?: string): string {
+  return cn(
+    'side-item flex h-8 w-full min-w-0 items-center gap-2.5 rounded-sm border-0 px-2 text-left text-sm no-underline hover:no-underline [&>svg]:flex-none',
+    active ? 'bg-accent-soft font-medium text-accent [&>svg]:text-accent' : 'bg-transparent text-fg hover:bg-hover [&>svg]:text-muted',
+    className,
+  )
+}
+// Space only between consecutive sections (not after a mini calendar or a search above the first one).
+export const SIDE_SECTION = 'side-section grid grid-cols-[minmax(0,1fr)] gap-px [.side-section+&]:mt-4'
+export const SIDE_TITLE = 'flex h-7 items-center gap-1 pr-1 pl-2 text-xs font-semibold text-muted'
+export const SIDE_EMPTY = 'px-2 py-1 text-xs text-muted'
+
 /** Standard sidebar nav item (use inside an AppShell sidebar). */
 export function SideItem({
   icon,
@@ -325,19 +339,21 @@ export function SideItem({
 }) {
   const inner = (
     <>
-      {colour ? <span className="dot" style={{ background: colour }} /> : icon ? <Icon name={icon} size={16} /> : null}
-      <span className="grow truncate">{label}</span>
-      {count != null && count !== 0 && <span className="side-count">{count}</span>}
+      {colour ? <Dot colour={colour} /> : icon ? <Icon name={icon} size={16} /> : null}
+      <span className="min-w-0 flex-1 truncate">{label}</span>
+      {count != null && count !== 0 && (
+        <span className={cn('side-count text-xs tabular-nums', active ? 'text-accent' : 'text-muted')}>{count}</span>
+      )}
     </>
   )
   if (to)
     return (
-      <Link to={to} className={'side-item' + (active ? ' active' : '')} aria-current={active ? 'page' : undefined} onClick={onClick}>
+      <Link to={to} className={sideItemClass(active)} aria-current={active ? 'page' : undefined} onClick={onClick}>
         {inner}
       </Link>
     )
   return (
-    <button type="button" className={'side-item' + (active ? ' active' : '')} aria-current={active ? 'page' : undefined} onClick={onClick}>
+    <button type="button" className={sideItemClass(active)} aria-current={active ? 'page' : undefined} onClick={onClick}>
       {inner}
     </button>
   )
@@ -345,10 +361,10 @@ export function SideItem({
 
 export function SideSection({ title, action, children }: { title?: ReactNode; action?: ReactNode; children: ReactNode }) {
   return (
-    <div className="side-section">
+    <div className={SIDE_SECTION}>
       {title && (
-        <div className="side-title">
-          <span className="grow">{title}</span>
+        <div className={SIDE_TITLE}>
+          <span className="min-w-0 flex-1">{title}</span>
           {action}
         </div>
       )}

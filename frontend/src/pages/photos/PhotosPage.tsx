@@ -5,7 +5,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { lazy, Suspense, useEffect, useState } from 'react'
 import { Link, Route, Routes, useLocation, useSearchParams } from 'react-router'
-import { AppShell, SideItem, SideSection } from '../../components/AppShell'
+import { AppShell, SIDE_SECTION, SIDE_TITLE, SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
 import { buttonClass, useHotkey } from '../../components/ui'
 import { safeHref } from '../../lib/api'
@@ -293,9 +293,8 @@ function Tools({ open }: { open: boolean }) {
   const [shown, setShown] = usePref<boolean>('app.photos.tools', false)
   const at = (p: string) => location.pathname === `/photos/${p}`
   return (
-    // side-section: the shared sidebar spacing between sections.
-    <details className="side-section group/tools" open={shown || open} onToggle={(e) => setShown(e.currentTarget.open)}>
-      <summary className="side-title cursor-pointer list-none rounded-sm hover:text-fg! [&::-webkit-details-marker]:hidden">
+    <details className={cn(SIDE_SECTION, 'group/tools')} open={shown || open} onToggle={(e) => setShown(e.currentTarget.open)}>
+      <summary className={cn(SIDE_TITLE, 'cursor-pointer list-none rounded-sm hover:text-fg [&::-webkit-details-marker]:hidden')}>
         <span className="flex-1">Tools</span>
         <Icon name="chevronDown" size={12} className="-rotate-90 transition-transform duration-150 ease-out group-open/tools:rotate-0" />
       </summary>

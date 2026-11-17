@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Icon } from './Icon'
-import { EmptyState, useDebounced } from './ui'
+import { Dot, EmptyState, useDebounced } from './ui'
 import { NAV } from './nav'
 import { get } from '../lib/api'
 import { useCreateTask, useProjects } from '../lib/queries'
@@ -194,7 +194,7 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
                     onMouseMove={() => i !== active && setActive(i)}
                     onClick={() => it.run()}
                   >
-                    {it.colour ? <span className="dot" style={{ background: it.colour }} /> : <Icon name={it.icon} />}
+                    {it.colour ? <Dot colour={it.colour} /> : <Icon name={it.icon} />}
                     <span className="min-w-0 flex-1 truncate">{it.label}</span>
                     {it.hint && <span className="text-xs text-muted tabular-nums">{it.hint}</span>}
                   </div>
