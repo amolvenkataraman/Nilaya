@@ -217,7 +217,7 @@ export function BulkBar({
       <Button
         variant="ghost"
         size="sm"
-        className={cn(act, 'text-danger! [&>svg]:text-danger!')}
+        className={act}
         onClick={() => {
           if (byFilter) return setConfirm(true)
           deleteLater(tasks)

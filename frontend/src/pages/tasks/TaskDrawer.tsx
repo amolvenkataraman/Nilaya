@@ -475,7 +475,7 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
               <Icon name="clock" size={14} />
               Time spent
             </dt>
-            <dd className="gap-1.5!">
+            <dd>
               <TimeSpentField task={task} save={save} />
             </dd>
           </dl>
@@ -605,7 +605,7 @@ function Comments({ taskId, canComment }: { taskId: string; canComment: boolean 
                       <Button variant="ghost" size="sm" className={tool} onClick={() => setEditing({ id: c.id, body: c.body })}>
                         Edit
                       </Button>
-                      <Button variant="ghost" size="sm" className={cn(tool, 'text-danger!')} onClick={() => setDeleting(c.id)}>
+                      <Button variant="ghost" size="sm" className={tool} onClick={() => setDeleting(c.id)}>
                         Delete
                       </Button>
                     </span>

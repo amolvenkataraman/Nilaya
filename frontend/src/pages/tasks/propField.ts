@@ -18,7 +18,7 @@ export const popRow = 'flex items-center gap-1.5'
 export const popInput = cn(fieldClass.input, 'h-7.5! min-w-0 text-xs!')
 export const popSelect = cn(fieldClass.select, 'h-7.5! min-w-0 text-xs!')
 /** A select that looks like text until hovered (a member's role, a task's project or status). */
-export const ghostSelect = cn(fieldClass.select, 'w-auto max-w-full border-transparent! bg-transparent! hover:border-border!')
+export const ghostSelect = cn(fieldClass.select, 'w-auto! max-w-full border-transparent! bg-transparent! hover:border-border!')
 
 /** "Fri, Nov 6, 5:00 PM"; all-day dates (23:59) without the time; the year only when it isn't this one. */
 export function fmtWhen(iso: string): string {

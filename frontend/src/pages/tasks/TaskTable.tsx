@@ -189,7 +189,7 @@ export function TaskTable({
         key={key}
         scope="col"
         aria-sort={dir ? (dir === 1 ? 'ascending' : 'descending') : 'none'}
-        className="sticky top-0 z-1 border-b border-border bg-surface p-0 text-left whitespace-nowrap"
+        className="[position:sticky] top-0 z-1 border-b border-border bg-surface p-0 text-left whitespace-nowrap"
       >
         <button
           type="button"
@@ -211,7 +211,7 @@ export function TaskTable({
       <td colSpan={span} className="border-0 p-0" />
     </tr>
   )
-  const th = 'sticky top-0 z-1 border-b border-border bg-surface text-left whitespace-nowrap'
+  const th = '[position:sticky] top-0 z-1 border-b border-border bg-surface text-left whitespace-nowrap'
   return (
     <div>
       <div className="mb-2 flex items-center gap-2">

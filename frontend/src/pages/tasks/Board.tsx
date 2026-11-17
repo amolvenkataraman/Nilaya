@@ -432,7 +432,7 @@ function Card({
           }}
         >
           {task.title}
-          {task.description && <Icon name="list" size={12} className="ml-1.25 inline align-[-1px] text-muted" title="Has a description" />}
+          {task.description && <Icon name="list" size={12} className="ml-1.25 align-[-1px] text-muted" title="Has a description" />}
         </button>
         {/* Menu items are portaled, but React events still bubble to the card: don't let them open it. */}
         {/* biome-ignore lint/a11y/noStaticElementInteractions: only stops the click reaching the card */}

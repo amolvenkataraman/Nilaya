@@ -216,10 +216,8 @@ export function TasksSidebar({
             label={
               <>
                 {p.name}
-                {p.favorite && (
-                  <Icon name="star" size={11} className="ml-1.25 inline align-[-1px] fill-current text-warning" title="Favourite" />
-                )}
-                {p.shared && <Icon name="users" size={12} className="ml-1.25 inline align-[-1px] text-muted" title="Shared" />}
+                {p.favorite && <Icon name="star" size={11} className="ml-1.25 align-[-1px] fill-current text-warning" title="Favourite" />}
+                {p.shared && <Icon name="users" size={12} className="ml-1.25 align-[-1px] text-muted" title="Shared" />}
                 {p.archived && (
                   <>
                     {' '}

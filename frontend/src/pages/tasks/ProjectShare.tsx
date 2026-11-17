@@ -16,7 +16,7 @@ const ROLES = [
   [2, 'Admin'],
 ] as const
 
-const roleSelect = 'h-7.5! w-auto text-xs!'
+const roleSelect = 'h-7.5! w-auto! text-xs!'
 
 function Person({ user, you, children }: { user: UserBrief; you: boolean; children?: React.ReactNode }) {
   return (
