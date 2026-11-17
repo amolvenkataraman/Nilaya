@@ -1,10 +1,52 @@
+// The agenda: the next two weeks from GET /calendar/agenda (events, deadlines and tasks), grouped by day in the
+// display zone, overdue first. Its row look is shared with the phone month's day list.
+import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { ErrorBox, SkeletonRows } from '../../components/ui'
+import { EmptyState, QueryView, SkeletonRows } from '../../components/ui'
+import { cn } from '../../lib/cn'
 import { dayDiff, dayKey, fmtDate, groupByDay, isEndOfDay, placedStart } from '../../lib/dates'
 import { useAgenda } from '../../lib/queries'
 import type { AgendaItem } from '../../lib/types'
 import { dayStartIn, fmtDateIn, fmtTimeIn, toZoneInput, useCalPrefs, zoneDay, type Zone } from './zone'
+
+const AGENDA_DAYS = 14
+const page = 'mx-auto w-full max-w-208 px-4 pt-3 pb-8'
+const dayHead = 'px-2 py-1.5 text-xs font-semibold tracking-[0.04em] uppercase'
+export const agendaItem = cn(
+  'flex w-full items-start gap-3 rounded-sm border-0 bg-transparent p-2 text-left text-sm text-fg hover:bg-hover hover:no-underline',
+)
+
+/** An agenda row's insides: the colour bar, the time, the title (with an optional glyph) and a muted line. */
+export function AgendaLine({
+  colour,
+  time,
+  icon,
+  title,
+  done,
+  sub,
+}: {
+  colour: string
+  time: string
+  icon?: string
+  title: ReactNode
+  done?: boolean
+  sub?: ReactNode
+}) {
+  return (
+    <>
+      <span className="min-h-8 w-0.75 flex-none self-stretch rounded-[2px]" style={{ background: colour }} />
+      <span className="w-19 flex-none pt-px text-sm text-muted tabular-nums">{time}</span>
+      <span className="min-w-0 flex-auto">
+        <span className={cn('flex items-center gap-1.5 font-medium wrap-anywhere', done && 'text-muted line-through')}>
+          {icon && <Icon name={icon} size={12} className="flex-none text-muted" />}
+          {title}
+        </span>
+        {sub && <span className="mt-px block min-w-0 truncate text-xs text-muted">{sub}</span>}
+      </span>
+    </>
+  )
+}
 
 /** Date-only items (all-day events, tasks due "on a day" at 23:59) stay on their own date in any zone. */
 const dateOnly = (i: AgendaItem) => i.kind === 'all_day' || (i.kind === 'todo' && !!i.start && isEndOfDay(new Date(i.start)))
@@ -18,19 +60,31 @@ function dayHeading(d: Date, now: Date): string {
 }
 
 export function AgendaView({ onOpen }: { onOpen: (item: AgendaItem) => void }) {
-  const q = useAgenda(14, true)
+  const q = useAgenda(AGENDA_DAYS, true)
   const { tz } = useCalPrefs()
-  const now = zoneDay(Date.now(), tz) // today in the display zone
-  if (q.isError && !q.data) return <ErrorBox error={q.error} retry={() => q.refetch()} />
-  if (q.isPending)
-    return (
-      <div className="agenda">
-        <SkeletonRows rows={8} />
-      </div>
-    )
-  const today = now
+  return (
+    <QueryView
+      query={q}
+      skeleton={
+        <div className={page}>
+          <SkeletonRows rows={8} />
+        </div>
+      }
+      isEmpty={(items) => !items.length}
+      empty={
+        <div className={page}>
+          <EmptyState>Nothing in the next two weeks.</EmptyState>
+        </div>
+      }
+    >
+      {(items) => <Agenda items={items} tz={tz} onOpen={onOpen} />}
+    </QueryView>
+  )
+}
+
+function Agenda({ items, tz, onOpen }: { items: AgendaItem[]; tz: Zone; onOpen: (item: AgendaItem) => void }) {
+  const today = zoneDay(Date.now(), tz) // today in the display zone
   const todayStart = dayStartIn(today, tz)
-  const items = q.data
   const overdue = items.filter((i) => i.kind !== 'all_day' && i.start && new Date(i.start).getTime() < todayStart && !i.done)
   // All-day items by their own date (in another zone their instant falls on the neighbouring day);
   // one that began earlier and is still on shows under today.
@@ -47,17 +101,12 @@ export function AgendaView({ onOpen }: { onOpen: (item: AgendaItem) => void }) {
     .sort((a, b) => a.key.localeCompare(b.key) || a.n - b.n)
     .map((x) => x.i)
   const groups = groupByDay(rest, placeOf)
-  if (!items.length)
-    return (
-      <div className="agenda">
-        <p className="empty">Nothing in the next two weeks.</p>
-      </div>
-    )
+  const section = 'border-b border-border py-2 last:border-b-0'
   return (
-    <div className="agenda">
+    <div className={page}>
       {overdue.length > 0 && (
-        <section className="agenda-day">
-          <h2 className="agenda-date overdue">Overdue</h2>
+        <section className={section}>
+          <h2 className={cn(dayHead, 'text-danger')}>Overdue</h2>
           <ul>
             {overdue.map((i) => (
               <Row key={i.kind + i.id} item={i} tz={tz} onOpen={onOpen} showDate />
@@ -66,8 +115,10 @@ export function AgendaView({ onOpen }: { onOpen: (item: AgendaItem) => void }) {
         </section>
       )}
       {groups.map((g) => (
-        <section key={g.key} className={'agenda-day' + (g.date && dayKey(g.date) === dayKey(now) ? ' is-today' : '')}>
-          <h2 className="agenda-date">{g.date ? dayHeading(g.date, now) : 'No date'}</h2>
+        <section key={g.key} className={section}>
+          <h2 className={cn(dayHead, g.date && dayKey(g.date) === dayKey(today) ? 'text-accent' : 'text-muted')}>
+            {g.date ? dayHeading(g.date, today) : 'No date'}
+          </h2>
           <ul>
             {g.items.map((i) => (
               <Row key={i.kind + i.id} item={i} tz={tz} onOpen={onOpen} />
@@ -89,31 +140,29 @@ function Row({ item: i, tz, onOpen, showDate }: { item: AgendaItem; tz: Zone; on
   if (showDate && s)
     time = i.kind === 'all_day' ? fmtDate(s, { month: 'short', day: 'numeric' }) : fmtDateIn(s, { month: 'short', day: 'numeric' }, zone)
   const body = (
-    <>
-      <span className="agenda-bar" style={{ background: i.colour }} />
-      <span className="agenda-time tabular">{time}</span>
-      <span className="grow" style={{ minWidth: 0 }}>
-        <span className={'agenda-title' + (i.done ? ' done' : '')}>
-          {i.kind === 'deadline' && <Icon name="flag" size={12} />}
-          {i.kind === 'todo' && <Icon name="tasks" size={12} />}
-          {i.title}
-        </span>
-        <span className="agenda-sub truncate">
+    <AgendaLine
+      colour={i.colour}
+      time={time}
+      icon={i.kind === 'deadline' ? 'flag' : i.kind === 'todo' ? 'tasks' : undefined}
+      title={i.title}
+      done={i.done}
+      sub={
+        <>
           {i.calendar}
           {i.end && s && i.kind === 'event' ? ` · until ${fmtTimeIn(new Date(i.end), tz)}` : ''}
           {i.location ? ` · ${i.location}` : ''}
-        </span>
-      </span>
-    </>
+        </>
+      }
+    />
   )
   return (
     <li>
       {i.kind === 'todo' ? (
-        <Link className="agenda-item" to={`/tasks?view=all&task=${encodeURIComponent(i.id)}`}>
+        <Link className={agendaItem} to={`/tasks?view=all&task=${encodeURIComponent(i.id)}`}>
           {body}
         </Link>
       ) : (
-        <button type="button" className="agenda-item" onClick={() => onOpen(i)}>
+        <button type="button" className={agendaItem} onClick={() => onOpen(i)}>
           {body}
         </button>
       )}

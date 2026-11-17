@@ -1,11 +1,12 @@
 // Event attendees: search contacts (or type a name/email), RSVP, remove. For a new event they are
 // queued and added once the event exists (attendees have their own endpoint).
 import { useState } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { useDebounced } from '../../components/ui'
-import { del, get, patch, post } from '../../lib/api'
+import { Button, fieldClass, useDebounced } from '../../components/ui'
+import { cn } from '../../lib/cn'
 import type { Attendee } from '../../lib/types'
+import { useAttendeeMutations, useContactSearch } from './api'
+import { pillSm } from './chips'
 
 export type AttendeeDraft = { contact_id?: string; name: string; email: string; rsvp?: Attendee['rsvp'] }
 const RSVP: [Attendee['rsvp'], string][] = [
@@ -15,6 +16,8 @@ const RSVP: [Attendee['rsvp'], string][] = [
   ['declined', 'Not going'],
 ]
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/
+/** The compact select in a row (RSVP, role). */
+export const smallSelect = cn(fieldClass.select, 'h-7! w-auto! text-xs!')
 
 export function Attendees({
   eventId,
@@ -27,52 +30,34 @@ export function Attendees({
   pending: AttendeeDraft[]
   onPending: (a: AttendeeDraft[]) => void
 }) {
-  const qc = useQueryClient()
   const [text, setText] = useState('')
   const q = useDebounced(text.trim(), 250)
-  const people = useQuery({
-    queryKey: ['contacts', 'search', q],
-    queryFn: ({ signal }) =>
-      get<{ items: { id: string; name: string; email: string }[] }>('contacts/', { q, sort: 'name', limit: 8 }, signal),
-    enabled: q.length >= 2,
-    staleTime: 60_000,
-  })
-  const refresh = () => eventId && qc.invalidateQueries({ queryKey: ['calendar', 'event', eventId] })
-  const add = useMutation({
-    mutationFn: (a: AttendeeDraft) => post(`calendar/events/${encodeURIComponent(eventId!)}/attendees`, a),
-    onSuccess: refresh,
-  })
-  const setRsvp = useMutation({
-    mutationFn: ({ id, rsvp }: { id: number; rsvp: string }) =>
-      patch(`calendar/events/${encodeURIComponent(eventId!)}/attendees/${id}`, { rsvp }),
-    onSuccess: refresh,
-  })
-  const remove = useMutation({
-    mutationFn: (id: number) => del(`calendar/events/${encodeURIComponent(eventId!)}/attendees/${id}`),
-    onSuccess: refresh,
-  })
+  const people = useContactSearch(q)
+  const { add, rsvp, remove } = useAttendeeMutations()
   const pick = (a: AttendeeDraft) => {
     setText('')
-    if (eventId) add.mutate(a)
+    if (eventId) add.mutate({ eventId, attendee: a })
     else onPending([...pending, a])
   }
   const typed = text.trim()
+  const row = 'flex min-h-8 items-center gap-1.5 text-sm'
+  const hits = q.length >= 2 ? (people.data?.items ?? []) : []
   return (
-    <div className="field">
-      <span>People</span>
-      <ul className="ev-people">
+    <div className="grid gap-1.25">
+      <span className="text-xs font-medium text-muted">People</span>
+      <ul className="grid gap-px">
         {attendees.map((a) => (
-          <li key={a.id}>
-            <span className="grow truncate">
+          <li key={a.id} className={row}>
+            <span className="min-w-0 flex-auto truncate">
               {a.name || a.email}
-              {a.is_organizer && <span className="chip">Organizer</span>}
-              {a.name && a.email && <span className="muted xsmall"> {a.email}</span>}
+              {a.is_organizer && <span className={cn(pillSm, 'ml-1.5')}>Organizer</span>}
+              {a.name && a.email && <span className="text-xs text-muted"> {a.email}</span>}
             </span>
             <select
-              className="select sm-select"
+              className={smallSelect}
               value={a.rsvp}
               aria-label={`RSVP for ${a.name || a.email}`}
-              onChange={(e) => setRsvp.mutate({ id: a.id, rsvp: e.target.value })}
+              onChange={(e) => eventId && rsvp.mutate({ eventId, id: a.id, rsvp: e.target.value })}
             >
               {RSVP.map(([k, l]) => (
                 <option key={k} value={k}>
@@ -80,36 +65,38 @@ export function Attendees({
                 </option>
               ))}
             </select>
-            <button
-              type="button"
-              className="btn ghost icon sm"
+            <Button
+              variant="ghost"
+              size="sm"
+              icon
               aria-label={`Remove ${a.name || a.email}`}
-              onClick={() => remove.mutate(a.id)}
+              onClick={() => eventId && remove.mutate({ eventId, id: a.id })}
             >
               <Icon name="x" size={12} />
-            </button>
+            </Button>
           </li>
         ))}
-        {pending.map((a, i) => (
-          <li key={'p' + i}>
-            <span className="grow truncate">
+        {pending.map((a) => (
+          <li key={`p${a.contact_id ?? ''}${a.email}${a.name}`} className={row}>
+            <span className="min-w-0 flex-auto truncate">
               {a.name || a.email}
-              <span className="muted xsmall"> · added when saved</span>
+              <span className="text-xs text-muted"> · added when saved</span>
             </span>
-            <button
-              type="button"
-              className="btn ghost icon sm"
+            <Button
+              variant="ghost"
+              size="sm"
+              icon
               aria-label={`Remove ${a.name || a.email}`}
-              onClick={() => onPending(pending.filter((_, j) => j !== i))}
+              onClick={() => onPending(pending.filter((x) => x !== a))}
             >
               <Icon name="x" size={12} />
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
-      <div className="ev-people-add">
+      <div className="relative">
         <input
-          className="input"
+          className={fieldClass.input}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Add people: search contacts or type an email"
@@ -121,23 +108,27 @@ export function Attendees({
             }
           }}
         />
-        {q.length >= 2 && (people.data?.items.length ?? 0) > 0 && (
-          <ul className="ev-people-results" role="listbox">
-            {people.data!.items.map((c) => (
-              <li key={c.id}>
-                <button
-                  type="button"
-                  role="option"
-                  aria-selected="false"
-                  onClick={() => pick({ contact_id: c.id, name: c.name, email: c.email })}
-                >
-                  <Icon name="user" size={13} />
-                  <span className="truncate">{c.name}</span>
-                  {c.email && <span className="muted xsmall truncate">{c.email}</span>}
-                </button>
-              </li>
+        {hits.length > 0 && (
+          <div
+            className="absolute top-[calc(100%+2px)] right-0 left-0 z-5 grid rounded-md bg-surface p-1 shadow-pop"
+            role="listbox"
+            aria-label="Contacts"
+          >
+            {hits.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                role="option"
+                aria-selected="false"
+                className="flex w-full items-center gap-2 rounded-sm border-0 bg-transparent px-2 py-1.5 text-left text-sm text-fg hover:bg-hover"
+                onClick={() => pick({ contact_id: c.id, name: c.name, email: c.email })}
+              >
+                <Icon name="user" size={13} />
+                <span className="min-w-0 truncate">{c.name}</span>
+                {c.email && <span className="min-w-0 truncate text-xs text-muted">{c.email}</span>}
+              </button>
             ))}
-          </ul>
+          </div>
         )}
       </div>
     </div>

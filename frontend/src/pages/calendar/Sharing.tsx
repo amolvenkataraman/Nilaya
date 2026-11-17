@@ -1,97 +1,88 @@
-// Joining other people's calendars: subscribe with an invite code (POST /calendar/subscribe?code=),
-// and pick someone whose availability to open (/calendar/availability/:username).
-import { useEffect, useState } from 'react'
+// Joining other people's calendars: subscribe with an invite code (POST /calendar/subscribe?code=), and pick
+// someone whose availability to open (/calendar/availability/:username). Both dialogs mount only while open,
+// so each opening starts empty.
+import { useState } from 'react'
 import { useNavigate } from 'react-router'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { Dialog } from '../../components/ui'
-import { ApiError, get, post } from '../../lib/api'
+import { Button, Dialog, Field, Input } from '../../components/ui'
+import { ApiError } from '../../lib/api'
+import { cn } from '../../lib/cn'
 import type { Calendar } from '../../lib/types'
-import type { CalendarDetail, Subscriber } from './CalendarSettings'
-import { personName } from './calendarCommon'
+import { ck, userQuery, useSubscribe } from './api'
+import { dot, pill } from './chips'
+import { type CalendarDetail, personName, type Subscriber } from './types'
+
+const INVITE_CODE = /^[A-Za-z0-9_-]{4,8}$/
 
 export function SubscribeDialog({
-  open,
   onClose,
   onSettings,
   onNewCalendar,
 }: {
-  open: boolean
   onClose: () => void
   onSettings: (c: Calendar) => void
   onNewCalendar: () => void
 }) {
-  const qc = useQueryClient()
   const [code, setCode] = useState('')
-  const [done, setDone] = useState<{ cal: Calendar; owner: string } | null>(null)
-  useEffect(() => {
-    if (open) {
-      setCode('')
-      setDone(null)
-    }
-  }, [open])
-  const join = useMutation({
-    mutationFn: async () => {
-      const cal = await post<Calendar>('calendar/subscribe', undefined, { code: code.trim() })
-      let owner = ''
-      try {
-        const d = await get<CalendarDetail>(`calendar/calendars/${cal.id}`)
-        if (d.owner) owner = personName(d.owner)
-      } catch {
-        /* the name is enough */
-      }
-      return { cal, owner }
-    },
-    onSuccess: (r) => {
-      setDone(r)
-      qc.invalidateQueries({ queryKey: ['calendar'] })
-    },
-  })
-  const valid = /^[A-Za-z0-9_-]{4,8}$/.test(code.trim())
+  const join = useSubscribe()
+  const done = join.data
+  const valid = INVITE_CODE.test(code.trim())
+  const submit = () => valid && join.mutate(code.trim())
   return (
     <Dialog
-      open={open}
+      open
       onClose={onClose}
       title={done ? 'Subscribed' : 'Subscribe with a code'}
       width="26rem"
       footer={
         done ? (
           <>
-            <span className="spacer" />
-            <button className="btn" onClick={() => (onClose(), onSettings(done.cal))}>
+            <span className="flex-1" />
+            <Button
+              onClick={() => {
+                onClose()
+                onSettings(done.cal)
+              }}
+            >
               Settings
-            </button>
-            <button className="btn primary" onClick={onClose}>
+            </Button>
+            <Button variant="primary" onClick={onClose}>
               Done
-            </button>
+            </Button>
           </>
         ) : (
           <>
-            <button className="btn ghost sm" onClick={() => (onClose(), onNewCalendar())}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                onClose()
+                onNewCalendar()
+              }}
+            >
               <Icon name="plus" size={14} />
               New calendar
-            </button>
-            <span className="spacer" />
-            <button className="btn" onClick={onClose}>
-              Cancel
-            </button>
-            <button className="btn primary" disabled={!valid || join.isPending} onClick={() => join.mutate()}>
+            </Button>
+            <span className="flex-1" />
+            <Button onClick={onClose}>Cancel</Button>
+            <Button variant="primary" disabled={!valid || join.isPending} onClick={submit}>
               {join.isPending ? 'Subscribing…' : 'Subscribe'}
-            </button>
+            </Button>
           </>
         )
       }
     >
       {done ? (
-        <div className="cal-joined">
-          <span className="cal-joined-icon">
+        <div className="flex items-start gap-3">
+          <span className="grid size-8 flex-none place-items-center rounded-full bg-success-soft text-success">
             <Icon name="check" size={18} />
           </span>
-          <dl className="cal-dl">
+          <dl className="m-0 grid flex-1 gap-1.5 text-sm [&_dd]:m-0 [&_dd]:flex [&_dd]:items-center [&_dd]:gap-1.5 [&_dd]:font-medium [&_dt]:text-muted [&>div]:grid [&>div]:grid-cols-[5.5rem_1fr] [&>div]:gap-2">
             <div>
               <dt>Calendar</dt>
               <dd>
-                <span className="dot" style={{ background: done.cal.colour }} />
+                <span className={dot} style={{ background: done.cal.colour }} />
                 {done.cal.name}
               </dd>
             </div>
@@ -108,23 +99,30 @@ export function SubscribeDialog({
           </dl>
         </div>
       ) : (
-        <form className="stack" style={{ gap: '0.5rem' }} onSubmit={(e) => (e.preventDefault(), valid && join.mutate())}>
-          <label className="field">
-            <span>Invite code</span>
-            <input
-              className="input cal-code-input"
+        <form
+          className="grid gap-2"
+          onSubmit={(e) => {
+            e.preventDefault()
+            submit()
+          }}
+        >
+          <Field label="Invite code" hint="Ask the calendar's owner for a code (Settings and sharing › Invites).">
+            <Input
+              className="font-mono tracking-[0.04em]"
               value={code}
-              onChange={(e) => (setCode(e.target.value), join.reset())}
+              onChange={(e) => {
+                setCode(e.target.value)
+                join.reset()
+              }}
               maxLength={8}
               placeholder="e.g. SCHOOL01"
               autoFocus
               autoComplete="off"
               spellCheck={false}
             />
-          </label>
-          <p className="help">Ask the calendar's owner for a code (Settings and sharing › Invites).</p>
+          </Field>
           {join.error && (
-            <p className="error-text" role="alert">
+            <p className="text-xs text-danger" role="alert">
               {join.error.message}
             </p>
           )}
@@ -134,33 +132,33 @@ export function SubscribeDialog({
   )
 }
 
+/** People already in the cache (subscriber lists and calendar owners you've opened): no extra requests. */
+function useKnownPeople(): Map<string, string> {
+  const qc = useQueryClient()
+  const known = new Map<string, string>()
+  for (const [, subs] of qc.getQueriesData<Subscriber[]>({ queryKey: ck.allSubscribers })) {
+    for (const s of subs ?? []) known.set(s.user.username, personName(s.user))
+  }
+  for (const [, d] of qc.getQueriesData<CalendarDetail>({ queryKey: ck.details })) {
+    if (d?.owner) known.set(d.owner.username, personName(d.owner))
+  }
+  return known
+}
+
 /** "View someone's availability": type a username (people from your calendars are suggested). */
-export function PersonDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function PersonDialog({ onClose }: { onClose: () => void }) {
   const navigate = useNavigate()
   const qc = useQueryClient()
   const [name, setName] = useState('')
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
-  useEffect(() => {
-    if (open) {
-      setName('')
-      setError('')
-    }
-  }, [open])
-  // Only people already in the cache (subscriber lists you opened): no extra requests.
-  const known = new Map<string, string>()
-  for (const [, d] of qc.getQueriesData<{ items: Subscriber[] }>({ queryKey: ['calendar', 'subscribers'] })) {
-    for (const s of d?.items ?? []) known.set(s.user.username, personName(s.user))
-  }
-  for (const [, d] of qc.getQueriesData<CalendarDetail>({ queryKey: ['calendar', 'detail'] })) {
-    if (d?.owner) known.set(d.owner.username, personName(d.owner))
-  }
+  const known = useKnownPeople()
   const go = async (u = name.trim().replace(/^@/, '')) => {
     if (!u) return
     setBusy(true)
     setError('')
     try {
-      await qc.fetchQuery({ queryKey: ['users', u], queryFn: () => get(`users/${encodeURIComponent(u)}`), staleTime: 10 * 60_000 })
+      await qc.fetchQuery(userQuery(u))
       onClose()
       navigate(`/calendar/availability/${encodeURIComponent(u)}`)
     } catch (e) {
@@ -171,29 +169,34 @@ export function PersonDialog({ open, onClose }: { open: boolean; onClose: () => 
   }
   return (
     <Dialog
-      open={open}
+      open
       onClose={onClose}
       title="View someone's availability"
       width="26rem"
       footer={
         <>
-          <span className="spacer" />
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn primary" disabled={!name.trim() || busy} onClick={() => go()}>
+          <span className="flex-1" />
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" disabled={!name.trim() || busy} onClick={() => go()}>
             Show availability
-          </button>
+          </Button>
         </>
       }
     >
-      <form className="stack" style={{ gap: '0.5rem' }} onSubmit={(e) => (e.preventDefault(), go())}>
-        <label className="field">
-          <span>Username</span>
-          <input
-            className="input"
+      <form
+        className="grid gap-2"
+        onSubmit={(e) => {
+          e.preventDefault()
+          go()
+        }}
+      >
+        <Field label="Username" hint="Shows when they're busy (times only), from calendars they share as busy.">
+          <Input
             value={name}
-            onChange={(e) => (setName(e.target.value), setError(''))}
+            onChange={(e) => {
+              setName(e.target.value)
+              setError('')
+            }}
             list="cal-known-people"
             placeholder="e.g. sam"
             autoFocus
@@ -208,12 +211,11 @@ export function PersonDialog({ open, onClose }: { open: boolean; onClose: () => 
               </option>
             ))}
           </datalist>
-        </label>
-        <p className="help">Shows when they're busy (times only), from calendars they share as busy.</p>
+        </Field>
         {known.size > 0 && (
-          <div className="cal-people-chips">
+          <div className="flex flex-wrap gap-1">
             {[...known].slice(0, 8).map(([u, n]) => (
-              <button type="button" key={u} className="chip" onClick={() => go(u)}>
+              <button type="button" key={u} className={cn(pill, 'cursor-pointer hover:text-fg')} onClick={() => go(u)}>
                 <Icon name="user" size={11} />
                 {n}
               </button>
@@ -221,7 +223,7 @@ export function PersonDialog({ open, onClose }: { open: boolean; onClose: () => 
           </div>
         )}
         {error && (
-          <p className="error-text" role="alert">
+          <p className="text-xs text-danger" role="alert">
             {error}
           </p>
         )}

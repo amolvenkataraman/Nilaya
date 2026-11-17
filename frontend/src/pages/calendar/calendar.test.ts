@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest'
-import { atWallMin, eventsByDay, fetchRange, layoutDay, parseCalState, rangeBody, termRange, viewRange } from './util'
+import { atWallMin, layoutDay } from './layout'
+import { eventsByDay, fetchRange, parseCalState, viewRange } from './range'
+import { rangeBody, termRange } from './SyncSetup'
 import { fromZoneInput, toZoneInput, zonedTime } from './zone'
 import type { CalEvent } from '../../lib/types'
 

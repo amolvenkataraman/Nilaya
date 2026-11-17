@@ -1,73 +1,36 @@
-// Calendar settings drawer (from a calendar's "…" menu) and the New calendar dialog; loaded on demand.
-// Contract: GET/PATCH /calendar/calendars/{id}, .../subscribers, .../invites, .../sync,
-// DELETE /calendar/calendars/{id}?confirm=<name>, GET /calendar/icons. While the detail endpoints
-// aren't deployed the drawer falls back to the list item and the fields PATCH already accepts.
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+// Calendar settings drawer (from a calendar's "…" menu), loaded on demand: general settings for owners and
+// admins, personal ones for everyone, then sharing (CalendarPeople.tsx), sync (SyncSection.tsx) and delete/leave.
+// Contract: GET/PATCH /calendar/calendars/{id}, DELETE /calendar/calendars/{id}?confirm=<name>, GET /calendar/icons.
+import { useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { Dialog, Drawer, DrawerBody, DrawerHead, ErrorBox, SkeletonRows, Switch } from '../../components/ui'
+import {
+  Button,
+  buttonClass,
+  Confirm,
+  Drawer,
+  DrawerBody,
+  DrawerHead,
+  Field,
+  FieldRow,
+  Input,
+  QueryView,
+  Select,
+  SkeletonRows,
+  Switch,
+  Textarea,
+} from '../../components/ui'
 import { toast } from '../../components/toast'
-import { del, get, patch, post } from '../../lib/api'
-import { fmtDate, parseDayKey, shortStamp } from '../../lib/dates'
 import type { Calendar } from '../../lib/types'
-import { CAL_COLOURS, personName, publicUrl, type Person } from './calendarCommon'
-import { useCalendarIcons } from './api'
-import { RangeSyncDialog, SOURCES, SourceFields, sourceProblem, syncError, useRunSync, type SourceType, type SyncResult } from './SyncSetup'
-
-export interface CalendarDetail extends Calendar {
-  calendar_colour: string // the calendar's own colour (PATCH calendar_colour)
-  my_colour: string | null // my personal colour for it (PATCH my_colour)
-  icon: string
-  description: string
-  notify: boolean
-  owner?: Person | null
-  subscription?: { colour: string | null; visible: boolean; notify: boolean; display_busy: number } | null
-  subscriber_count?: number
-  sync?: {
-    url: string | null
-    auto_sync: boolean
-    past_months: number
-    future_months: number
-    last_synced_at: string | null
-    last_error: string
-    last_sync_error?: string
-  } | null
-}
-type CalendarPatchBody = Partial<{
-  name: string
-  calendar_colour: string
-  my_colour: string | null
-  icon: string
-  description: string
-  active: boolean
-  public: boolean
-  time_zone: string
-  tags: string[]
-  visible: boolean
-  notify: boolean
-  display_busy: number
-  sync: Partial<{ url: string; auto_sync: boolean; past_months: number; future_months: number }>
-  calendar_type: number
-  calendar_url: string
-  auto_sync: boolean
-}>
-export interface Subscriber {
-  id: number
-  user: Person
-  role: 'owner' | 'admin' | 'subscriber'
-  display_busy: number
-}
-export interface Invite {
-  id: number
-  code: string
-  role: 'admin' | 'subscriber'
-  expires_on: string | null
-  max_uses: number | null
-  uses: number
-  active: boolean
-  usable: boolean
-}
+import { useCalendarDetail, useCalendarIcons, useDeleteCalendar, useLeaveCalendar, useSaveCalendar } from './api'
+import { codeClass, Invites, Subscribers } from './CalendarPeople'
+import { publicUrl } from './CalendarMenu'
+import { ColourChoice } from './ColourChoice'
+import { FALLBACK_COLOUR } from './colours'
+import { IconPicker } from './IconPicker'
+import { SettingRow, SettingsSection, srOnly } from './SettingRow'
+import { SyncSection } from './SyncSection'
+import { type CalendarDetail, type CalendarPatchBody, personName } from './types'
 
 const ZONES: string[] = (() => {
   try {
@@ -77,108 +40,12 @@ const ZONES: string[] = (() => {
   }
 })()
 
-function useCalendarDetail(cal: Calendar) {
-  return useQuery({
-    queryKey: ['calendar', 'detail', cal.id],
-    queryFn: ({ signal }) => get<CalendarDetail>(`calendar/calendars/${cal.id}`, undefined, signal),
-  })
-}
-const useSubList = <T,>(cal: Calendar, what: 'subscribers' | 'invites') =>
-  useQuery({
-    queryKey: ['calendar', what, cal.id],
-    queryFn: ({ signal }) => get<T[]>(`calendar/calendars/${cal.id}/${what}`, undefined, signal),
-  })
-
-function useSaveCalendar(id: number) {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (body: CalendarPatchBody) => patch<CalendarDetail>(`calendar/calendars/${id}`, body),
-    onSuccess: (d) => {
-      qc.setQueryData(['calendar', 'detail', id], d)
-      // Colours, visibility and names show in the list and on events; nothing else needs refetching.
-      qc.invalidateQueries({ queryKey: ['calendar', 'calendars'] })
-      qc.invalidateQueries({ queryKey: ['calendar', 'events'] })
-    },
-  })
-}
-
-/** A colour or icon row of round buttons (same style as Habits). */
-function Picker({
-  label,
-  value,
-  options,
-  render,
-  onPick,
-  custom,
-}: {
-  label: string
-  value: string
-  options: string[]
-  render: (o: string) => ReactNode
-  onPick: (o: string) => void
-  /** Also offer a free #rrggbb colour input. */
-  custom?: boolean
-}) {
-  const isCustom = custom && !!value && !options.includes(value)
-  return (
-    <div className="field">
-      <span>{label}</span>
-      <div className="cal-picker" role="radiogroup" aria-label={label}>
-        {options.map((o) => (
-          <button
-            key={o}
-            type="button"
-            role="radio"
-            aria-checked={o === value}
-            title={o}
-            aria-label={o}
-            className="cal-pick"
-            onClick={() => onPick(o)}
-          >
-            {render(o)}
-          </button>
-        ))}
-        {custom && <CustomColour value={isCustom ? value : ''} onPick={onPick} />}
-      </div>
-    </div>
-  )
-}
-
-/** Native colour input; commits once the user stops dragging (no request per pixel). */
-function CustomColour({ value, onPick }: { value: string; onPick: (c: string) => void }) {
-  const [v, setV] = useState(value || '#888888')
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  useEffect(() => {
-    if (value) setV(value)
-  }, [value])
-  return (
-    <label className={'cal-pick cal-custom' + (value ? ' on' : '')} title="Custom colour" aria-checked={!!value} role="radio">
-      <span
-        className="cal-swatch"
-        style={{ background: value ? v : 'conic-gradient(#ef4444, #f59e0b, #10b981, #3b82f6, #8b5cf6, #ef4444)' }}
-      >
-        {value && <Icon name="check" size={12} />}
-      </span>
-      <input
-        type="color"
-        value={v}
-        aria-label="Custom colour"
-        onChange={(e) => {
-          const c = e.target.value
-          setV(c)
-          if (timer.current) clearTimeout(timer.current)
-          timer.current = setTimeout(() => onPick(c), 400)
-        }}
-      />
-    </label>
-  )
-}
-
+/** A calendar's icon on a soft tile of its colour. */
 export function CalendarIconGlyph({ icon, colour, size = 1 }: { icon?: string; colour: string; size?: number }) {
   return (
     <span
-      className="cal-glyph"
-      style={{ '--c': colour, width: `${size * 1.25}rem`, height: `${size * 1.25}rem` } as React.CSSProperties}
+      className="inline-grid flex-none place-items-center rounded-[30%] bg-[color-mix(in_srgb,var(--c)_16%,var(--app-surface))] text-(--c)"
+      style={{ '--c': colour, width: `${size * 1.25}rem`, height: `${size * 1.25}rem` } as CSSProperties}
       aria-hidden="true"
     >
       <Icon name={icon || 'calendar'} size={size * 12} />
@@ -195,617 +62,141 @@ export function CalendarSettings({ calendar, onClose }: { calendar: Calendar | n
 }
 
 function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) {
-  const detail = useCalendarDetail(cal)
-  const icons = useCalendarIcons().data ?? []
-  const save = useSaveCalendar(cal.id)
+  const detail = useCalendarDetail(cal.id)
   const d = detail.data
-  const [name, setName] = useState(cal.name)
-  const [desc, setDesc] = useState('')
-  useEffect(() => {
-    if (d) {
-      setName(d.name)
-      setDesc(d.description ?? '')
-    }
-  }, [d])
-  const manage = cal.role === 'owner' || cal.role === 'admin'
-  const colour = d?.my_colour || d?.colour || cal.colour || '#64748b'
-
+  const colour = d?.my_colour || d?.colour || cal.colour || FALLBACK_COLOUR
   return (
     <>
       <DrawerHead>
         <CalendarIconGlyph icon={d?.icon} colour={colour} size={1.4} />
-        <strong className="grow truncate">{d?.name ?? cal.name}</strong>
-        <button className="btn ghost icon sm" onClick={onClose} aria-label="Close settings">
+        <strong className="min-w-0 flex-auto truncate">{d?.name ?? cal.name}</strong>
+        <Button variant="ghost" size="sm" icon onClick={onClose} aria-label="Close settings">
           <Icon name="x" />
-        </button>
+        </Button>
       </DrawerHead>
       <DrawerBody className="gap-5">
-        {detail.isPending ? (
-          <SkeletonRows rows={6} />
-        ) : detail.error && !detail.data ? (
-          <ErrorBox error={detail.error} retry={() => detail.refetch()} />
-        ) : d ? (
-          <>
-            {!d.active && (
-              <p className="cal-note warn">
-                <Icon name="alert" size={14} />
-                This calendar is disabled: its events are hidden everywhere.
-              </p>
-            )}
-
-            <section className="cal-sec" aria-labelledby="cs-general">
-              <h3 id="cs-general">General</h3>
-              {manage ? (
-                <>
-                  <label className="field">
-                    <span>Name</span>
-                    <input
-                      className="input"
-                      value={name}
-                      maxLength={100}
-                      onChange={(e) => setName(e.target.value)}
-                      onBlur={() => name.trim() && name !== d.name && save.mutate({ name: name.trim() })}
-                    />
-                  </label>
-                  <label className="field">
-                    <span>Description</span>
-                    <textarea
-                      className="textarea"
-                      rows={2}
-                      value={desc}
-                      maxLength={1000}
-                      onChange={(e) => setDesc(e.target.value)}
-                      onBlur={() => desc !== (d.description ?? '') && save.mutate({ description: desc })}
-                    />
-                  </label>
-                  <Picker
-                    label="Calendar colour"
-                    custom
-                    value={d.calendar_colour ?? d.colour}
-                    options={CAL_COLOURS}
-                    onPick={(c) => save.mutate({ calendar_colour: c })}
-                    render={(c) => (
-                      <span className="cal-swatch" style={{ background: c }}>
-                        {c === (d.calendar_colour ?? d.colour) && <Icon name="check" size={12} />}
-                      </span>
-                    )}
-                  />
-                  <Picker
-                    label="Icon"
-                    value={d.icon ?? ''}
-                    options={icons}
-                    onPick={(i) => save.mutate({ icon: i })}
-                    render={(i) => <Icon name={i} size={15} />}
-                  />
-                  <div className="cal-row">
-                    <div>
-                      <strong>Active</strong>
-                      <span className="help">Disabled calendars and their events are hidden everywhere.</span>
-                    </div>
-                    <Switch
-                      checked={d.active}
-                      onChange={(v) => save.mutate({ active: v })}
-                      label={<span className="sr-only">Active</span>}
-                    />
-                  </div>
-                  <ZoneTags d={d} onSave={(b) => save.mutate(b)} />
-                  <div className="cal-row">
-                    <div>
-                      <strong>Public</strong>
-                      <span className="help">Anyone with the link can view it.</span>
-                    </div>
-                    <Switch
-                      checked={d.public}
-                      onChange={(v) => save.mutate({ public: v })}
-                      label={<span className="sr-only">Public</span>}
-                    />
-                  </div>
-                </>
-              ) : (
-                <p className="small">
-                  {d.name}
-                  {d.owner ? (
-                    <span className="muted">
-                      {' '}
-                      · owned by{' '}
-                      <Link to={`/calendar/availability/${encodeURIComponent(d.owner.username)}`} title="See their availability">
-                        {personName(d.owner)}
-                      </Link>
-                    </span>
-                  ) : null}
-                  {d.description ? (
-                    <>
-                      <br />
-                      <span className="muted">{d.description}</span>
-                    </>
-                  ) : null}
-                </p>
-              )}
-              {d.public && (
-                <div className="cal-public">
-                  <span className="xsmall muted">Public link</span>
-                  <div className="row" style={{ gap: '0.25rem' }}>
-                    <code className="cal-code grow truncate" title={publicUrl(d.id)}>
-                      {publicUrl(d.id)}
-                    </code>
-                    <button
-                      className="btn ghost icon sm"
-                      onClick={() => toast.copy(publicUrl(d.id), 'Public link copied')}
-                      aria-label="Copy public link"
-                      title="Copy link"
-                    >
-                      <Icon name="copy" size={14} />
-                    </button>
-                    <a
-                      className="btn ghost icon sm"
-                      href={`/calendar/public/${d.id}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label="Open public page"
-                      title="Open"
-                    >
-                      <Icon name="external" size={14} />
-                    </a>
-                  </div>
-                </div>
-              )}
-            </section>
-
-            <section className="cal-sec" aria-labelledby="cs-mine">
-              <h3 id="cs-mine">Just for me</h3>
-              <div className="cal-row">
-                <div>
-                  <strong>Show in my calendar</strong>
-                </div>
-                <Switch
-                  checked={d.visible}
-                  onChange={(v) => save.mutate({ visible: v })}
-                  label={<span className="sr-only">Visible</span>}
-                />
-              </div>
-              <div className="cal-row">
-                <div>
-                  <strong>Reminders</strong>
-                  <span className="help">Send event reminders from this calendar.</span>
-                </div>
-                <Switch checked={!!d.notify} onChange={(v) => save.mutate({ notify: v })} label={<span className="sr-only">Notify</span>} />
-              </div>
-              <Picker
-                label="My colour (only you see it)"
-                custom
-                value={d.my_colour ?? ''}
-                options={CAL_COLOURS}
-                onPick={(c) => save.mutate({ my_colour: c })}
-                render={(c) => (
-                  <span className="cal-swatch" style={{ background: c }}>
-                    {c === d.my_colour && <Icon name="check" size={12} />}
-                  </span>
-                )}
-              />
-              {d.subscription && (
-                <label className="field">
-                  <span>Your availability page shows</span>
-                  <select
-                    className="select"
-                    value={d.subscription.display_busy}
-                    onChange={(e) => save.mutate({ display_busy: Number(e.target.value) })}
-                  >
-                    <option value={0}>Nothing from this calendar</option>
-                    <option value={1}>Busy times of meetings, work and study</option>
-                    <option value={2}>Busy times of every event</option>
-                  </select>
-                  <span className="help">What people see at your availability page (times only, never names).</span>
-                </label>
-              )}
-            </section>
-
-            {manage && <Subscribers cal={cal} />}
-            {manage && <Invites cal={cal} />}
-            {(d.synced || d.sync?.url || manage) && <Sync cal={d} canSync={manage} />}
-            <Danger cal={d} onDone={onClose} />
-          </>
-        ) : null}
+        <QueryView query={detail} skeleton={<SkeletonRows rows={6} />}>
+          {(data) => <SettingsSections d={data} cal={cal} onClose={onClose} />}
+        </QueryView>
       </DrawerBody>
     </>
   )
 }
 
-function Subscribers({ cal }: { cal: Calendar }) {
-  const q = useSubList<Subscriber>(cal, 'subscribers')
-  const qc = useQueryClient()
-  const refresh = () => qc.invalidateQueries({ queryKey: ['calendar', 'subscribers', cal.id] })
-  const setRole = useMutation({
-    mutationFn: ({ id, role }: { id: number; role: string }) => patch(`calendar/calendars/${cal.id}/subscribers/${id}`, { role }),
-    onSettled: refresh,
-  })
-  const remove = useMutation({
-    mutationFn: (id: number) => del(`calendar/calendars/${cal.id}/subscribers/${id}`),
-    onSettled: refresh,
-  })
-  return (
-    <section className="cal-sec" aria-labelledby="cs-subs">
-      <h3 id="cs-subs">People {q.data && <span className="muted">{q.data.length}</span>}</h3>
-      {q.isPending ? (
-        <SkeletonRows rows={2} />
-      ) : q.error && !q.data ? (
-        <ErrorBox error={q.error} />
-      ) : !q.data?.length ? (
-        <p className="muted small">Only you. Invite people with a code below.</p>
-      ) : (
-        <ul className="cal-list">
-          {q.data.map((s) => (
-            <li key={s.id}>
-              <span className="grow truncate">
-                {personName(s.user)}
-                <span className="muted xsmall"> @{s.user.username}</span>
-              </span>
-              <Link
-                className="btn ghost icon sm"
-                to={`/calendar/availability/${encodeURIComponent(s.user.username)}`}
-                aria-label={`${personName(s.user)}'s availability`}
-                title="Availability"
-              >
-                <Icon name="clock" size={14} />
-              </Link>
-              {s.role === 'owner' ? (
-                <span className="chip">Owner</span>
-              ) : (
-                <>
-                  <select
-                    className="select sm-select"
-                    value={s.role}
-                    aria-label={`Role for ${s.user.username}`}
-                    onChange={(e) => setRole.mutate({ id: s.id, role: e.target.value })}
-                  >
-                    <option value="subscriber">Can view</option>
-                    <option value="admin">Can edit</option>
-                  </select>
-                  <button
-                    className="btn ghost icon sm"
-                    aria-label={`Remove ${s.user.username}`}
-                    title="Remove"
-                    onClick={() => remove.mutate(s.id)}
-                  >
-                    <Icon name="x" size={14} />
-                  </button>
-                </>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
-}
-
-function Invites({ cal }: { cal: Calendar }) {
-  const q = useSubList<Invite>(cal, 'invites')
-  const qc = useQueryClient()
-  const refresh = () => qc.invalidateQueries({ queryKey: ['calendar', 'invites', cal.id] })
-  const [days, setDays] = useState('7')
-  const [uses, setUses] = useState('')
-  const [role, setRole] = useState('subscriber')
-  const [code, setCode] = useState('')
-  const codeOk = !code || /^[A-Za-z0-9_-]{4,8}$/.test(code)
-  const create = useMutation({
-    mutationFn: () =>
-      post<Invite>(`calendar/calendars/${cal.id}/invites`, {
-        role,
-        code: code || null,
-        expires_in_days: Number(days) ? Math.min(3650, Math.max(1, Number(days))) : null,
-        max_uses: uses ? Number(uses) : null,
-      }),
-    onSuccess: (inv) => (refresh(), setCode(''), copy(inv.code)),
-  })
-  const setActive = useMutation({
-    mutationFn: ({ id, active }: { id: number; active: boolean }) => patch(`calendar/calendars/${cal.id}/invites/${id}`, { active }),
-    onSettled: refresh,
-  })
-  const remove = useMutation({ mutationFn: (id: number) => del(`calendar/calendars/${cal.id}/invites/${id}`), onSettled: refresh })
-  const copy = (code: string) => toast.copy(code, 'Invite code copied')
-  return (
-    <section className="cal-sec" aria-labelledby="cs-inv">
-      <h3 id="cs-inv">Invites</h3>
-      <form className="cal-invite-form" onSubmit={(e) => (e.preventDefault(), codeOk && create.mutate())}>
-        <label className="field">
-          <span>Code</span>
-          <input
-            className="input"
-            value={code}
-            maxLength={8}
-            placeholder="Random"
-            onChange={(e) => setCode(e.target.value.trim())}
-            aria-invalid={!codeOk}
-            title="4–8 letters, digits, _ or -"
-          />
-        </label>
-        <label className="field">
-          <span>Expires in days</span>
-          <input
-            className="input"
-            type="number"
-            min={1}
-            max={3650}
-            value={days}
-            placeholder="Never"
-            onChange={(e) => setDays(e.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span>Max uses</span>
-          <input
-            className="input"
-            type="number"
-            min={1}
-            max={1000}
-            value={uses}
-            placeholder="No limit"
-            onChange={(e) => setUses(e.target.value)}
-          />
-        </label>
-        <label className="field">
-          <span>Role</span>
-          <select className="select" value={role} onChange={(e) => setRole(e.target.value)}>
-            <option value="subscriber">Can view</option>
-            <option value="admin">Can edit</option>
-          </select>
-        </label>
-        <button className="btn primary sm" disabled={create.isPending || !codeOk}>
-          <Icon name="plus" size={14} />
-          Create
-        </button>
-      </form>
-      {!codeOk && <p className="error-text">Codes are 4–8 letters, digits, _ or -.</p>}
-      {q.data && q.data.length > 0 && (
-        <ul className="cal-list">
-          {q.data.map((i) => (
-            <li key={i.id} className={i.usable ? '' : 'inactive'}>
-              <code className="cal-code">{i.code}</code>
-              <span className="muted xsmall grow">
-                {i.role === 'admin' ? 'Can edit' : 'Can view'} · {i.uses}
-                {i.max_uses ? `/${i.max_uses}` : ''} used
-                {i.expires_on ? ` · expires ${fmtDate(parseDayKey(i.expires_on.slice(0, 10)))}` : ''}
-                {!i.active ? ' · deactivated' : !i.usable ? ' · expired or used up' : ''}
-              </span>
-              {i.active && (
-                <button className="btn ghost icon sm" aria-label="Copy code" title="Copy code" onClick={() => copy(i.code)}>
-                  <Icon name="copy" size={14} />
-                </button>
-              )}
-              <button className="btn ghost sm" onClick={() => setActive.mutate({ id: i.id, active: !i.active })}>
-                {i.active ? 'Deactivate' : 'Activate'}
-              </button>
-              <button
-                className="btn ghost icon sm"
-                aria-label={`Delete invite ${i.code}`}
-                title="Delete invite"
-                onClick={() => remove.mutate(i.id)}
-              >
-                <Icon name="trash" size={14} />
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
-}
-
-function Sync({ cal, canSync }: { cal: CalendarDetail; canSync: boolean }) {
+function SettingsSections({ d, cal, onClose }: { d: CalendarDetail; cal: Calendar; onClose: () => void }) {
   const save = useSaveCalendar(cal.id)
-  const run = useRunSync(cal.id, cal.name)
-  const [ranging, setRanging] = useState(false)
-  const [disconnecting, setDisconnecting] = useState(false)
-  const s = cal.sync
-  const err = s?.last_sync_error || s?.last_error
-  const type = (cal.calendar_type === 2 || cal.calendar_type === 50 ? cal.calendar_type : 1) as SourceType
-  if (!cal.synced && canSync) return <SetupSync cal={cal} />
+  const manage = cal.role === 'owner' || cal.role === 'admin'
   return (
-    <section className="cal-sec" aria-labelledby="cs-sync">
-      <h3 id="cs-sync">Sync</h3>
-      {canSync && (
-        <div className="field">
-          <span>Source</span>
-          <div className="seg cal-src-seg" role="group" aria-label="Source type">
-            {SOURCES.map((x) => (
-              <button
-                key={x.type}
-                type="button"
-                aria-pressed={type === x.type}
-                disabled={save.isPending}
-                onClick={() => x.type !== type && save.mutate({ calendar_type: x.type, ...(s?.url ? { calendar_url: s.url } : {}) })}
-              >
-                {x.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-      {canSync ? (
-        <SyncUrl url={s?.url ?? ''} type={type} onSave={(url) => save.mutate({ sync: { url } })} />
-      ) : (
-        s?.url && (
-          <p className="small truncate muted" title={s.url}>
-            {s.url}
-          </p>
-        )
-      )}
-      <p className="small">{s?.last_synced_at ? <>Last synced {shortStamp(s.last_synced_at)}</> : 'Not synced yet'}</p>
-      {err && <p className="error-text">{err}</p>}
-      {canSync && s && (
-        <>
-          <div className="cal-row">
-            <div>
-              <strong>Sync automatically</strong>
-            </div>
-            <Switch
-              checked={s.auto_sync}
-              onChange={(v) => save.mutate({ sync: { auto_sync: v } })}
-              label={<span className="sr-only">Auto sync</span>}
-            />
-          </div>
-          {/* key: the fields restart from the saved values after each save */}
-          <div className="field-row" key={`${s.past_months}-${s.future_months}`}>
-            <label className="field">
-              <span>Months back</span>
-              <input
-                className="input"
-                type="number"
-                min={0}
-                max={120}
-                defaultValue={s.past_months}
-                onBlur={(e) => {
-                  const v = Math.max(0, Math.min(120, Number(e.target.value) || 0))
-                  if (v !== s.past_months) save.mutate({ sync: { past_months: v } })
-                }}
-              />
-            </label>
-            <label className="field">
-              <span>Months ahead</span>
-              <input
-                className="input"
-                type="number"
-                min={0}
-                max={120}
-                defaultValue={s.future_months}
-                onBlur={(e) => {
-                  const v = Math.max(0, Math.min(120, Number(e.target.value) || 0))
-                  if (v !== s.future_months) save.mutate({ sync: { future_months: v } })
-                }}
-              />
-            </label>
-          </div>
-        </>
-      )}
-      {canSync && (
-        <div className="row" style={{ gap: '0.375rem', flexWrap: 'wrap' }}>
-          <button className="btn sm" onClick={() => run.mutate(undefined)} disabled={run.isPending}>
-            <Icon name="refresh" size={14} />
-            {run.isPending ? 'Syncing…' : 'Sync now'}
-          </button>
-          <button className="btn sm" onClick={() => setRanging(true)}>
-            <Icon name="calendar" size={14} />
-            Sync a range…
-          </button>
-          <span className="spacer" />
-          <button className="btn ghost sm" onClick={() => setDisconnecting(true)}>
-            Disconnect
-          </button>
-        </div>
-      )}
-      {ranging && <RangeSyncDialog id={cal.id} name={cal.name} google={type === 2} open onClose={() => setRanging(false)} />}
-      <Dialog
-        open={disconnecting}
-        onClose={() => setDisconnecting(false)}
-        title={`Disconnect "${cal.name}"?`}
-        width="26rem"
-        footer={
-          <>
-            <span className="spacer" />
-            <button className="btn" onClick={() => setDisconnecting(false)}>
-              Cancel
-            </button>
-            <button
-              className="btn primary"
-              onClick={() =>
-                save.mutate(
-                  { calendar_type: 0 },
-                  { onSuccess: () => (setDisconnecting(false), toast.show(`"${cal.name}" is a local calendar now`)) },
-                )
-              }
-              disabled={save.isPending}
-            >
-              Disconnect
-            </button>
-          </>
-        }
-      >
-        <p className="small">
-          It becomes a local calendar: the events already synced stay, and automatic syncing stops. You can connect it again later.
+    <>
+      {!d.active && (
+        <p className="flex items-start gap-2 rounded-sm bg-warning-soft px-2.5 py-2 text-xs text-warning">
+          <Icon name="alert" size={14} />
+          This calendar is disabled: its events are hidden everywhere.
         </p>
-      </Dialog>
-    </section>
-  )
-}
-
-/** A local calendar (owners/admins): connect it to a source. */
-function SetupSync({ cal }: { cal: CalendarDetail }) {
-  const save = useSaveCalendar(cal.id)
-  const run = useRunSync(cal.id, cal.name)
-  const [open, setOpen] = useState(false)
-  const [type, setType] = useState<SourceType>(1)
-  const [url, setUrl] = useState('')
-  const [auto, setAuto] = useState(true)
-  const connect = () =>
-    save.mutate({ calendar_type: type, calendar_url: url.trim(), auto_sync: auto }, { onSuccess: () => run.mutate(undefined) })
-  return (
-    <section className="cal-sec" aria-labelledby="cs-sync">
-      <h3 id="cs-sync">Sync</h3>
-      {!open ? (
-        <div className="cal-row">
-          <div>
-            <strong>Local calendar</strong>
-            <p className="muted xsmall">Fill it from an iCalendar link, a public Google calendar or UWaterloo WCMS.</p>
-          </div>
-          <button className="btn sm" onClick={() => setOpen(true)}>
-            <Icon name="refresh" size={14} />
-            Set up sync
-          </button>
-        </div>
-      ) : (
-        <div className="stack" style={{ gap: '0.75rem' }}>
-          <SourceFields type={type} url={url} onType={setType} onUrl={setUrl} autoFocus />
-          <div className="cal-row">
-            <div>
-              <strong>Sync automatically</strong>
-            </div>
-            <Switch checked={auto} onChange={setAuto} label={<span className="sr-only">Sync automatically</span>} />
-          </div>
-          <div className="row" style={{ gap: '0.375rem' }}>
-            <span className="spacer" />
-            <button className="btn sm" onClick={() => setOpen(false)}>
-              Cancel
-            </button>
-            <button className="btn primary sm" onClick={connect} disabled={!!sourceProblem(type, url) || save.isPending || run.isPending}>
-              {save.isPending || run.isPending ? 'Connecting…' : 'Connect'}
-            </button>
-          </div>
-        </div>
       )}
-    </section>
+
+      <SettingsSection id="cs-general" title="General">
+        {manage ? (
+          <General d={d} onSave={(b) => save.mutate(b)} />
+        ) : (
+          <p className="text-sm">
+            {d.name}
+            {d.owner ? (
+              <span className="text-muted">
+                {' '}
+                · owned by{' '}
+                <Link to={`/calendar/availability/${encodeURIComponent(d.owner.username)}`} title="See their availability">
+                  {personName(d.owner)}
+                </Link>
+              </span>
+            ) : null}
+            {d.description ? (
+              <>
+                <br />
+                <span className="text-muted">{d.description}</span>
+              </>
+            ) : null}
+          </p>
+        )}
+        {d.public && (
+          <div className="grid gap-1">
+            <span className="text-xs text-muted">Public link</span>
+            <div className="flex items-center gap-1">
+              <code className={`${codeClass} min-w-0 flex-auto truncate px-2! py-1!`} title={publicUrl(d.id)}>
+                {publicUrl(d.id)}
+              </code>
+              <Button
+                variant="ghost"
+                size="sm"
+                icon
+                onClick={() => toast.copy(publicUrl(d.id), 'Public link copied')}
+                aria-label="Copy public link"
+                title="Copy link"
+              >
+                <Icon name="copy" size={14} />
+              </Button>
+              <a
+                className={buttonClass({ variant: 'ghost', size: 'sm', icon: true })}
+                href={`/calendar/public/${d.id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Open public page"
+                title="Open"
+              >
+                <Icon name="external" size={14} />
+              </a>
+            </div>
+          </div>
+        )}
+      </SettingsSection>
+
+      <SettingsSection id="cs-mine" title="Just for me">
+        <SettingRow label="Show in my calendar">
+          <Switch checked={d.visible} onChange={(v) => save.mutate({ visible: v })} label={srOnly('Visible')} />
+        </SettingRow>
+        <SettingRow label="Reminders" help="Send event reminders from this calendar.">
+          <Switch checked={!!d.notify} onChange={(v) => save.mutate({ notify: v })} label={srOnly('Notify')} />
+        </SettingRow>
+        <div className="grid gap-1.25">
+          <span className="text-xs font-medium text-muted">My colour (only you see it)</span>
+          <ColourChoice value={d.my_colour ?? ''} onChange={(c) => save.mutate({ my_colour: c })} label="My colour" delay={400} />
+        </div>
+        {d.subscription && (
+          <Field label="Your availability page shows" hint="What people see at your availability page (times only, never names).">
+            <Select value={d.subscription.display_busy} onChange={(e) => save.mutate({ display_busy: Number(e.target.value) })}>
+              <option value={0}>Nothing from this calendar</option>
+              <option value={1}>Busy times of meetings, work and study</option>
+              <option value={2}>Busy times of every event</option>
+            </Select>
+          </Field>
+        )}
+      </SettingsSection>
+
+      {manage && <Subscribers cal={cal} />}
+      {manage && <Invites cal={cal} />}
+      {(d.synced || d.sync?.url || manage) && <SyncSection cal={d} canSync={manage} />}
+      <Danger cal={d} onDone={onClose} />
+    </>
   )
 }
 
-function SyncUrl({ url, type, onSave }: { url: string; type: SourceType; onSave: (u: string) => void }) {
-  const [v, setV] = useState(url)
-  useEffect(() => setV(url), [url])
-  const problem = sourceProblem(type, v)
-  const src = SOURCES.find((x) => x.type === type)!
-  return (
-    <label className="field">
-      <span>{src.field}</span>
-      <input
-        className="input"
-        value={v}
-        maxLength={256}
-        placeholder={src.placeholder}
-        aria-invalid={!!problem}
-        spellCheck={false}
-        onChange={(e) => setV(e.target.value)}
-        onBlur={() => !problem && v.trim() !== url && onSave(v.trim())}
-      />
-      {problem && <span className="error-text">{problem}</span>}
-    </label>
-  )
-}
-
-function ZoneTags({ d, onSave }: { d: CalendarDetail; onSave: (b: CalendarPatchBody) => void }) {
+/** Name, description, colour, icon, active, zone, tags and public, for owners and admins. Text saves on blur. */
+function General({ d, onSave }: { d: CalendarDetail; onSave: (b: CalendarPatchBody) => void }) {
+  const icons = useCalendarIcons().data ?? []
+  const [name, setName] = useState(d.name)
+  const [desc, setDesc] = useState(d.description ?? '')
   const [tz, setTz] = useState(d.time_zone ?? '')
   const [tags, setTags] = useState((d.tags ?? []).join(', '))
-  useEffect(() => {
+  // A newer detail from the server (after any save) resets the text fields, during render rather than in an
+  // effect; remounting instead would drop focus from the field being tabbed into.
+  const [seen, setSeen] = useState(d)
+  if (seen !== d) {
+    setSeen(d)
+    setName(d.name)
+    setDesc(d.description ?? '')
     setTz(d.time_zone ?? '')
     setTags((d.tags ?? []).join(', '))
-  }, [d.time_zone, d.tags])
+  }
   const tagList = (t: string) =>
     t
       .split(',')
@@ -813,249 +204,119 @@ function ZoneTags({ d, onSave }: { d: CalendarDetail; onSave: (b: CalendarPatchB
       .filter(Boolean)
       .slice(0, 20)
   return (
-    <div className="field-row">
-      <label className="field">
-        <span>Time zone</span>
-        <input
-          className="input"
-          value={tz}
-          list="cal-zones"
-          maxLength={64}
-          placeholder="Server time zone"
-          onChange={(e) => setTz(e.target.value)}
-          onBlur={() => tz.trim() !== (d.time_zone ?? '') && onSave({ time_zone: tz.trim() })}
+    <>
+      <Field label="Name">
+        <Input
+          value={name}
+          maxLength={100}
+          onChange={(e) => setName(e.target.value)}
+          onBlur={() => name.trim() && name !== d.name && onSave({ name: name.trim() })}
         />
-        <datalist id="cal-zones">
-          {ZONES.map((z) => (
-            <option key={z} value={z} />
-          ))}
-        </datalist>
-      </label>
-      <label className="field">
-        <span>Tags</span>
-        <input
-          className="input"
-          value={tags}
-          maxLength={300}
-          placeholder="school, family"
-          onChange={(e) => setTags(e.target.value)}
-          onBlur={() => tagList(tags).join(',') !== (d.tags ?? []).join(',') && onSave({ tags: tagList(tags) })}
+      </Field>
+      <Field label="Description">
+        <Textarea
+          rows={2}
+          value={desc}
+          maxLength={1000}
+          onChange={(e) => setDesc(e.target.value)}
+          onBlur={() => desc !== (d.description ?? '') && onSave({ description: desc })}
         />
-      </label>
-    </div>
+      </Field>
+      <div className="grid gap-1.25">
+        <span className="text-xs font-medium text-muted">Calendar colour</span>
+        <ColourChoice
+          value={d.calendar_colour ?? d.colour}
+          onChange={(c) => c && onSave({ calendar_colour: c })}
+          label="Calendar colour"
+          delay={400}
+        />
+      </div>
+      <div className="grid gap-1.25">
+        <span className="text-xs font-medium text-muted">Icon</span>
+        <IconPicker value={d.icon ?? ''} onChange={(i) => onSave({ icon: i })} icons={icons} />
+      </div>
+      <SettingRow label="Active" help="Disabled calendars and their events are hidden everywhere.">
+        <Switch checked={d.active} onChange={(v) => onSave({ active: v })} label={srOnly('Active')} />
+      </SettingRow>
+      <FieldRow>
+        <Field label="Time zone">
+          <Input
+            value={tz}
+            list="cal-zones"
+            maxLength={64}
+            placeholder="Server time zone"
+            onChange={(e) => setTz(e.target.value)}
+            onBlur={() => tz.trim() !== (d.time_zone ?? '') && onSave({ time_zone: tz.trim() })}
+          />
+          <datalist id="cal-zones">
+            {ZONES.map((z) => (
+              <option key={z} value={z} />
+            ))}
+          </datalist>
+        </Field>
+        <Field label="Tags">
+          <Input
+            value={tags}
+            maxLength={300}
+            placeholder="school, family"
+            onChange={(e) => setTags(e.target.value)}
+            onBlur={() => tagList(tags).join(',') !== (d.tags ?? []).join(',') && onSave({ tags: tagList(tags) })}
+          />
+        </Field>
+      </FieldRow>
+      <SettingRow label="Public" help="Anyone with the link can view it.">
+        <Switch checked={d.public} onChange={(v) => onSave({ public: v })} label={srOnly('Public')} />
+      </SettingRow>
+    </>
   )
 }
 
 function Danger({ cal, onDone }: { cal: CalendarDetail; onDone: () => void }) {
-  const qc = useQueryClient()
   const [open, setOpen] = useState(false)
   const [typed, setTyped] = useState('')
   const owner = cal.role === 'owner'
-  const remove = useMutation({
-    mutationFn: () =>
-      owner ? del(`calendar/calendars/${cal.id}?confirm=${encodeURIComponent(typed)}`) : del(`calendar/calendars/${cal.id}/subscription`),
-    onSuccess: () => (
-      qc.invalidateQueries({ queryKey: ['calendar'] }),
-      toast.show(owner ? `Deleted "${cal.name}"` : `Left "${cal.name}"`),
-      setOpen(false),
-      onDone()
-    ),
-  })
+  const remove = useDeleteCalendar()
+  const leave = useLeaveCalendar()
   return (
-    <section className="cal-sec danger" aria-labelledby="cs-danger">
-      <h3 id="cs-danger">{owner ? 'Delete calendar' : 'Leave calendar'}</h3>
-      <p className="help">
+    <SettingsSection id="cs-danger" title={owner ? 'Delete calendar' : 'Leave calendar'} danger>
+      <p className="text-xs text-muted">
         {owner
           ? 'Deletes the calendar and all of its events for everyone.'
           : 'Stop seeing this calendar. You can rejoin with an invite code.'}
       </p>
-      <button className="btn danger sm" onClick={() => (setTyped(''), setOpen(true))}>
+      <Button
+        variant="danger"
+        size="sm"
+        className="justify-self-start"
+        onClick={() => {
+          setTyped('')
+          setOpen(true)
+        }}
+      >
         <Icon name={owner ? 'trash' : 'logout'} size={14} />
         {owner ? 'Delete…' : 'Leave'}
-      </button>
-      <Dialog
+      </Button>
+      <Confirm
         open={open}
         onClose={() => setOpen(false)}
         title={owner ? `Delete "${cal.name}"?` : `Leave "${cal.name}"?`}
-        width="26rem"
-        footer={
-          <>
-            <span className="spacer" />
-            <button className="btn" onClick={() => setOpen(false)}>
-              Cancel
-            </button>
-            <button
-              className="btn primary"
-              style={{ background: 'var(--app-danger)', borderColor: 'var(--app-danger)', color: '#fff' }}
-              disabled={(owner && typed !== cal.name) || remove.isPending}
-              onClick={() => remove.mutate()}
-            >
-              {owner ? 'Delete calendar' : 'Leave'}
-            </button>
-          </>
-        }
+        body={owner ? undefined : 'Its events disappear from your calendar.'}
+        confirmLabel={owner ? 'Delete calendar' : 'Leave'}
+        disabled={(owner && typed !== cal.name) || remove.isPending || leave.isPending}
+        onConfirm={() => (owner ? remove.mutate({ cal, typed }, { onSuccess: onDone }) : leave.mutate(cal, { onSuccess: onDone }))}
       >
-        {owner ? (
-          <label className="field">
-            <span>
-              Type <strong>{cal.name}</strong> to confirm
-            </span>
-            <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus />
-          </label>
-        ) : (
-          <p className="muted small">Its events disappear from your calendar.</p>
+        {owner && (
+          <Field
+            label={
+              <>
+                Type <strong>{cal.name}</strong> to confirm
+              </>
+            }
+          >
+            <Input value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus />
+          </Field>
         )}
-      </Dialog>
-    </section>
-  )
-}
-
-export function NewCalendarDialog({ open, onClose, onCreated }: { open: boolean; onClose: () => void; onCreated: (c: Calendar) => void }) {
-  const qc = useQueryClient()
-  const icons = useCalendarIcons().data ?? []
-  const [mode, setMode] = useState<'blank' | 'sync'>('blank')
-  const [name, setName] = useState('')
-  const [colour, setColour] = useState(CAL_COLOURS[0])
-  const [icon, setIcon] = useState('calendar')
-  const [type, setType] = useState<SourceType>(1)
-  const [url, setUrl] = useState('')
-  const [auto, setAuto] = useState(true)
-  const [back, setBack] = useState(1)
-  const [ahead, setAhead] = useState(6)
-  useEffect(() => {
-    if (open) {
-      setMode('blank')
-      setName('')
-      setColour(CAL_COLOURS[0])
-      setIcon('calendar')
-      setType(1)
-      setUrl('')
-      setAuto(true)
-      setBack(1)
-      setAhead(6)
-    }
-  }, [open])
-  const syncing = mode === 'sync'
-  const create = useMutation({
-    mutationFn: () =>
-      post<Calendar>('calendar/calendars', {
-        name: name.trim(),
-        colour,
-        icon,
-        ...(syncing
-          ? { calendar_type: type, calendar_url: url.trim(), auto_sync: auto, sync_past_months: back, sync_future_months: ahead }
-          : {}),
-      }),
-    onSuccess: async (c) => {
-      qc.invalidateQueries({ queryKey: ['calendar'] })
-      onClose()
-      onCreated(c)
-      if (!syncing) return void toast.show(`Created "${c.name}"`)
-      // First sync right away: its result is the toast.
-      try {
-        const r = await post<SyncResult>(`calendar/calendars/${c.id}/sync`)
-        if (r.ok) toast.show(`Created and synced "${c.name}"`)
-        else toast.error(`Created "${c.name}", but the first sync failed: ${r.last_sync_error || 'unknown error'}`)
-      } catch (e) {
-        toast.error(`Created "${c.name}", but it didn't sync: ${syncError(e)}`)
-      } finally {
-        qc.invalidateQueries({ queryKey: ['calendar'] })
-      }
-    },
-  })
-  const ok = !!name.trim() && (!syncing || !sourceProblem(type, url))
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="New calendar"
-      width="32rem"
-      footer={
-        <>
-          <span className="spacer" />
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn primary" disabled={!ok || create.isPending} onClick={() => create.mutate()}>
-            {syncing ? 'Create and sync' : 'Create calendar'}
-          </button>
-        </>
-      }
-    >
-      <form className="stack" style={{ gap: '0.75rem' }} onSubmit={(e) => (e.preventDefault(), ok && create.mutate())}>
-        <div className="seg cal-mode-seg" role="group" aria-label="Kind of calendar">
-          <button type="button" aria-pressed={!syncing} onClick={() => setMode('blank')}>
-            <Icon name="calendar" size={14} />
-            Blank calendar
-          </button>
-          <button type="button" aria-pressed={syncing} onClick={() => setMode('sync')}>
-            <Icon name="refresh" size={14} />
-            Sync from a link
-          </button>
-        </div>
-        {syncing && (
-          <SourceFields
-            type={type}
-            url={url}
-            onType={setType}
-            onUrl={setUrl}
-            onName={(n) => setName((cur) => (cur.trim() ? cur : n.slice(0, 64)))}
-            autoFocus
-          />
-        )}
-        <label className="field">
-          <span>Name</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={64} autoFocus={!syncing} />
-        </label>
-        {syncing && (
-          <>
-            <div className="cal-row">
-              <div>
-                <strong>Sync automatically</strong>
-                <p className="muted xsmall">Keeps it up to date in the background.</p>
-              </div>
-              <Switch checked={auto} onChange={setAuto} label={<span className="sr-only">Sync automatically</span>} />
-            </div>
-            <div className="field-row">
-              <label className="field">
-                <span>Months back</span>
-                <input
-                  className="input"
-                  type="number"
-                  min={0}
-                  max={120}
-                  value={back}
-                  onChange={(e) => setBack(Math.max(0, Math.min(120, Number(e.target.value) || 0)))}
-                />
-              </label>
-              <label className="field">
-                <span>Months ahead</span>
-                <input
-                  className="input"
-                  type="number"
-                  min={0}
-                  max={120}
-                  value={ahead}
-                  onChange={(e) => setAhead(Math.max(0, Math.min(120, Number(e.target.value) || 0)))}
-                />
-              </label>
-            </div>
-          </>
-        )}
-        <Picker
-          label="Colour"
-          custom
-          value={colour}
-          options={CAL_COLOURS}
-          onPick={setColour}
-          render={(c) => (
-            <span className="cal-swatch" style={{ background: c }}>
-              {c === colour && <Icon name="check" size={12} />}
-            </span>
-          )}
-        />
-        <Picker label="Icon" value={icon} options={icons} onPick={setIcon} render={(i) => <Icon name={i} size={15} />} />
-      </form>
-    </Dialog>
+      </Confirm>
+    </SettingsSection>
   )
 }

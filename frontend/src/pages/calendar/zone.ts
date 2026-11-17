@@ -5,9 +5,10 @@
 // display zone here, and wall-clock parts in that zone become instants here; nothing else in the
 // calendar converts between the two. `tz` undefined means the browser's own zone (the default, and
 // the fast path through Date's local methods).
-import { createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useContext, useMemo, useState } from 'react'
 import { dateFormatter } from '../../lib/dates'
 import { userKey } from '../../lib/owner'
+import { readPref, writePref } from '../../lib/storage'
 
 export type Zone = string | undefined
 export type WeekStart = 0 | 1
@@ -170,7 +171,7 @@ export function fromZoneInput(value: string, tz: Zone): string | null {
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(value)
   if (!m) return null
   const t = zonedTime(+m[1], +m[2] - 1, +m[3], +m[4] * 60 + +m[5], tz)
-  return isNaN(t) ? null : new Date(t).toISOString()
+  return Number.isNaN(t) ? null : new Date(t).toISOString()
 }
 
 // ---------------------------------------------------------------- zone list
@@ -290,25 +291,16 @@ export function useDisplayZone(): [Zone, (tz: Zone) => void] {
   return [tz, set]
 }
 
-/** First day of the week for this user (Monday unless they chose Sunday), saved in localStorage. */
+/** First day of the week for this user (Monday unless they chose Sunday), saved on this device. */
 export function useWeekStart(userId: string | undefined): [WeekStart, (v: WeekStart) => void] {
   const key = useMemo(() => userKey(WEEK_KEY, userId), [userId])
-  const read = (): WeekStart => {
-    try {
-      return key && localStorage.getItem(key) === '0' ? 0 : 1
-    } catch {
-      return 1
-    }
-  }
-  const [v, setV] = useState<WeekStart>(read)
-  useEffect(() => setV(read()), [key]) // eslint-disable-line react-hooks/exhaustive-deps
+  const read = (k: string | null): WeekStart => (k && readPref<string>(k, '1') === '0' ? 0 : 1)
+  const [state, setState] = useState(() => ({ key, v: read(key) }))
+  // Another user (or the first /me) means another saved choice: re-read during render, not in an effect.
+  if (state.key !== key) setState({ key, v: read(key) })
   const set = (next: WeekStart) => {
-    setV(next)
-    try {
-      if (key) localStorage.setItem(key, String(next))
-    } catch {
-      /* this page only */
-    }
+    setState({ key, v: next })
+    if (key) writePref(key, String(next))
   }
-  return [v, set]
+  return [state.key === key ? state.v : read(key), set]
 }
