@@ -1,11 +1,11 @@
 // Edit one habit's day: amount (or done), "skip this day" and a note. Opened from the grid
 // (right-click / long-press a cell, or click a measurable one), a Today row's menu and the
 // detail page's notes. Saves through PUT /habits/entries/{id}/{day}.
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
-import { Dialog } from '../../components/ui'
-import { fmtDate } from '../../lib/dates'
+import { useEffect, useId, useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
+import { Button, Dialog, Field, Input, Textarea } from '../../components/ui'
+import { fmtDate, parseDayKey } from '../../lib/dates'
 import { useSetEntry, type Habit } from './api'
-import { fmtNum, parseDay } from './util'
+import { fmtNum } from './habitRules'
 
 export interface DayTarget {
   habit: Habit
@@ -17,19 +17,43 @@ export interface DayTarget {
 }
 
 export function DayDialog({ target, onClose }: { target: DayTarget | null; onClose: () => void }) {
+  const setEntry = useSetEntry()
+  const formId = useId()
+  const clear = () => {
+    if (target) setEntry.mutate({ habit: target.habit, day: target.day, value: 0, skipped: false, note: '' })
+    onClose()
+  }
   return (
     <Dialog
       open={!!target}
       onClose={onClose}
-      title={target ? `${target.habit.name} · ${fmtDate(parseDay(target.day), { weekday: 'short', month: 'short', day: 'numeric' })}` : ''}
+      title={
+        target ? `${target.habit.name} · ${fmtDate(parseDayKey(target.day), { weekday: 'short', month: 'short', day: 'numeric' })}` : ''
+      }
       width="24rem"
+      footer={
+        <>
+          {target && (target.value > 0 || target.skipped || target.note) && (
+            <Button variant="ghost" onClick={clear}>
+              Clear day
+            </Button>
+          )}
+          <span className="flex-1" />
+          <Button onClick={onClose}>Cancel</Button>
+          <Button type="submit" variant="primary" form={formId}>
+            Save
+          </Button>
+        </>
+      }
     >
-      {target && <DayForm key={target.habit.id + target.day} t={target} onDone={onClose} />}
+      {target && <DayForm key={target.habit.id + target.day} id={formId} t={target} onDone={onClose} />}
     </Dialog>
   )
 }
 
-function DayForm({ t, onDone }: { t: DayTarget; onDone: () => void }) {
+const checkRow = 'flex items-center gap-2 text-sm [&_input]:size-4'
+
+function DayForm({ id, t, onDone }: { id: string; t: DayTarget; onDone: () => void }) {
   const setEntry = useSetEntry()
   const h = t.habit
   const measurable = h.kind === 'measurable'
@@ -38,22 +62,25 @@ function DayForm({ t, onDone }: { t: DayTarget; onDone: () => void }) {
   const [skipped, setSkipped] = useState(t.skipped)
   const [note, setNote] = useState(t.note)
   const [error, setError] = useState('')
-  const save = (value: number, skip: boolean, text: string) => {
-    setEntry.mutate({ habit: h, day: t.day, value: skip ? 0 : value, skipped: skip, note: text.trim() })
-    onDone()
-  }
   const submit = () => {
     const n = amount.trim() === '' ? 0 : Number(amount)
     if (measurable && !(n >= 0)) return setError('Enter an amount of 0 or more.')
-    save(measurable ? n : done ? 1 : 0, skipped, note)
+    const value = measurable ? n : done ? 1 : 0
+    setEntry.mutate({ habit: h, day: t.day, value: skipped ? 0 : value, skipped, note: note.trim() })
+    onDone()
   }
   return (
-    <form className="h-form" onSubmit={(e) => (e.preventDefault(), submit())}>
+    <form
+      id={id}
+      className="grid gap-3.5"
+      onSubmit={(e) => {
+        e.preventDefault()
+        submit()
+      }}
+    >
       {measurable ? (
-        <label className="field">
-          <span>Amount{h.unit ? ` (${h.unit})` : ''}</span>
-          <input
-            className="input"
+        <Field label={`Amount${h.unit ? ` (${h.unit})` : ''}`}>
+          <Input
             type="number"
             inputMode="decimal"
             min={0}
@@ -63,9 +90,9 @@ function DayForm({ t, onDone }: { t: DayTarget; onDone: () => void }) {
             onChange={(e) => setAmount(e.target.value)}
             autoFocus={t.focus !== 'note'}
           />
-        </label>
+        </Field>
       ) : (
-        <label className="h-check-row">
+        <label className={checkRow}>
           <input
             type="checkbox"
             checked={done}
@@ -76,14 +103,12 @@ function DayForm({ t, onDone }: { t: DayTarget; onDone: () => void }) {
           Done
         </label>
       )}
-      <label className="h-check-row">
+      <label className={checkRow}>
         <input type="checkbox" checked={skipped} onChange={(e) => setSkipped(e.target.checked)} />
         Skip this day (keeps the streak)
       </label>
-      <label className="field">
-        <span>Note</span>
-        <textarea
-          className="textarea"
+      <Field label="Note" error={error || undefined}>
+        <Textarea
           rows={3}
           maxLength={500}
           value={note}
@@ -91,26 +116,7 @@ function DayForm({ t, onDone }: { t: DayTarget; onDone: () => void }) {
           placeholder="How did it go?"
           autoFocus={t.focus === 'note'}
         />
-      </label>
-      {error && (
-        <span className="error-text" role="alert">
-          {error}
-        </span>
-      )}
-      <div className="row" style={{ gap: '0.5rem' }}>
-        {(t.value > 0 || t.skipped || t.note) && (
-          <button type="button" className="btn ghost" onClick={() => save(0, false, '')}>
-            Clear day
-          </button>
-        )}
-        <span className="spacer" />
-        <button type="button" className="btn" onClick={onDone}>
-          Cancel
-        </button>
-        <button type="submit" className="btn primary">
-          Save
-        </button>
-      </div>
+      </Field>
     </form>
   )
 }
@@ -139,7 +145,10 @@ export function useLongPress(open: () => void, ms = 500) {
         if (e.pointerType !== 'touch') return
         start.current = [e.clientX, e.clientY]
         cancel()
-        timer.current = window.setTimeout(() => ((fired.current = true), open()), ms)
+        timer.current = window.setTimeout(() => {
+          fired.current = true
+          open()
+        }, ms)
       },
       onPointerMove: (e: ReactPointerEvent) => {
         if (Math.abs(e.clientX - start.current[0]) + Math.abs(e.clientY - start.current[1]) > 10) cancel()

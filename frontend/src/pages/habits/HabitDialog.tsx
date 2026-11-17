@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react'
+// New / edit habit: templates to start from, name, yes/no or measurable (goal, unit, target per period),
+// schedule, icon, colour, reminder, dates and notes; Archive and Delete when editing.
+// Each opening remounts the form, so it starts from the habit as it is now (or blank).
+import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
-import { Icon } from '../../components/Icon'
-import { Confirm, Dialog, Switch } from '../../components/ui'
+import { Button, ColourPicker, Confirm, Dialog, Field, FieldRow, Input, Segmented, Select, Switch, Textarea } from '../../components/ui'
+import { cn } from '../../lib/cn'
 import { dayKey } from '../../lib/dates'
 import {
   useArchiveHabit,
   useDeleteHabit,
-  useHabitSettings,
   useSaveHabit,
-  useSaveHabitSettings,
   type Goal,
   type Habit,
   type HabitInput,
@@ -16,7 +17,8 @@ import {
   type Period,
   type Schedule,
 } from './api'
-import { HABIT_COLOURS, HABIT_ICONS, HIcon, WEEKDAY_LETTERS, WEEKDAY_NAMES } from './util'
+import { HABIT_COLOURS, HABIT_ICONS, HabitIcon } from './HabitBadge'
+import { WEEKDAY_LETTERS, WEEKDAY_NAMES } from './habitRules'
 
 interface Form {
   name: string
@@ -70,6 +72,22 @@ const TEMPLATES: (Partial<Omit<Form, 'target'>> & { name: string; target?: numbe
   { name: 'Sleep by 11', kind: 'yesno', icon: 'moon', colour: '#e87ba4' },
 ]
 
+const KINDS = [
+  { value: 'yesno', label: 'Yes / no' },
+  { value: 'measurable', label: 'Measurable' },
+] as const
+const SCHEDULES = [
+  { value: 'daily', label: 'Every day' },
+  { value: 'weekdays', label: 'Some days' },
+  { value: 'interval', label: 'Every N days' },
+] as const
+/** The palette's default ('') is the accent, which the picker shows as a swatch of its own. */
+const ACCENT = 'var(--app-accent)'
+const SWATCHES = HABIT_COLOURS.map(([hex]) => hex || ACCENT)
+
+// Segmented's buttons keep the browser's border and grey fill; the class below clears them until it does.
+const segmentedFix = '[&>button]:border-0 [&>button[aria-pressed=false]]:bg-transparent'
+
 const fromHabit = (h: Habit): Form => ({
   name: h.name,
   description: h.description,
@@ -90,16 +108,30 @@ const fromHabit = (h: Habit): Form => ({
   reminder_days: h.reminder_days,
 })
 
+/** A label over controls that aren't one input (a switch group, pickers): not a <label>. */
+function Group({ label, children, hint }: { label: string; children: ReactNode; hint?: ReactNode }) {
+  return (
+    <div className="grid gap-1.25">
+      <span className="text-xs font-medium text-muted">{label}</span>
+      {children}
+      {hint && <span className="text-xs text-muted">{hint}</span>}
+    </div>
+  )
+}
+
 function DayPicker({ value, onChange, label }: { value: number; onChange: (v: number) => void; label: string }) {
   return (
-    <div className="h-days" role="group" aria-label={label}>
+    <fieldset className="m-0 flex min-w-0 gap-1 border-0 p-0" aria-label={label}>
       {WEEKDAY_LETTERS.map((l, i) => {
         const on = !!((value >> i) & 1)
         return (
           <button
-            key={i}
+            key={WEEKDAY_NAMES[i]}
             type="button"
-            className={'h-day' + (on ? ' on' : '')}
+            className={cn(
+              'size-8 rounded-full border text-xs font-semibold',
+              on ? 'border-accent bg-accent text-accent-fg' : 'border-border bg-surface text-muted',
+            )}
             aria-pressed={on}
             aria-label={WEEKDAY_NAMES[i]}
             title={WEEKDAY_NAMES[i]}
@@ -109,34 +141,32 @@ function DayPicker({ value, onChange, label }: { value: number; onChange: (v: nu
           </button>
         )
       })}
-    </div>
+    </fieldset>
   )
 }
 
-export function HabitDialog({
-  open,
-  habit,
-  onClose,
-  onSaved,
-}: {
+interface Props {
   open: boolean
   habit: Habit | null
   onClose: () => void
   onSaved?: (h: Habit) => void
-}) {
+}
+
+export function HabitDialog(props: Props) {
+  // Count openings (adjusting state while rendering) and remount the form on each one.
+  const [opens, setOpens] = useState({ open: props.open, n: 0 })
+  if (opens.open !== props.open) setOpens({ open: props.open, n: opens.n + (props.open ? 1 : 0) })
+  return <HabitForm key={opens.n} {...props} />
+}
+
+function HabitForm({ open, habit, onClose, onSaved }: Props) {
   const save = useSaveHabit()
   const archive = useArchiveHabit()
   const remove = useDeleteHabit()
   const navigate = useNavigate()
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [f, setF] = useState<Form>(blank)
+  const [f, setF] = useState<Form>(() => (habit ? fromHabit(habit) : blank()))
   const [error, setError] = useState('')
-  useEffect(() => {
-    if (open) {
-      setF(habit ? fromHabit(habit) : blank())
-      setError('')
-    }
-  }, [open, habit])
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((x) => ({ ...x, [k]: v }))
 
   const submit = () => {
@@ -162,8 +192,25 @@ export function HabitDialog({
       reminder_time: f.reminder ? f.reminder_time + ':00' : null,
       reminder_days: f.reminder_days,
     }
-    save.mutate({ id: habit?.id, body }, { onSuccess: (h) => (onSaved?.(h), onClose()), onError: (e) => setError((e as Error).message) })
+    save.mutate(
+      { id: habit?.id, body },
+      {
+        onSuccess: (h) => {
+          onSaved?.(h)
+          onClose()
+        },
+        onError: (e) => setError((e as Error).message),
+      },
+    )
   }
+  // Yes/no: "1 time a week" is rarely meant; start a week at 3 like the classic editor, and keep within the period.
+  const setPeriod = (period: Period) =>
+    setF((x) => {
+      if (x.kind !== 'yesno') return { ...x, period }
+      const n = Number(x.target) || 1
+      const target = period === 'day' ? 1 : period === 'week' && n <= 1 ? 3 : Math.min(period === 'week' ? 7 : 31, Math.max(1, n))
+      return { ...x, period, target: String(target) }
+    })
 
   const showTarget = f.kind === 'measurable' || f.period !== 'day'
   return (
@@ -176,106 +223,103 @@ export function HabitDialog({
         <>
           {habit && (
             <>
-              <button className="btn ghost" onClick={() => (archive.mutate({ id: habit.id, archived: !habit.archived }), onClose())}>
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  archive.mutate({ id: habit.id, archived: !habit.archived })
+                  onClose()
+                }}
+              >
                 {habit.archived ? 'Unarchive' : 'Archive'}
-              </button>
-              <button className="btn ghost danger" onClick={() => setConfirmDelete(true)}>
+              </Button>
+              <Button variant="ghost" onClick={() => setConfirmDelete(true)}>
                 Delete
-              </button>
+              </Button>
             </>
           )}
           {error && (
-            <span className="error-text grow" role="alert">
+            <span className="min-w-0 flex-auto text-xs text-danger" role="alert">
               {error}
             </span>
           )}
-          <span className="spacer" />
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn primary" onClick={submit} disabled={save.isPending}>
+          <span className="flex-1" />
+          <Button onClick={onClose}>Cancel</Button>
+          <Button variant="primary" onClick={submit} disabled={save.isPending}>
             {habit ? 'Save' : 'Create habit'}
-          </button>
+          </Button>
         </>
       }
     >
-      <form className="h-form" onSubmit={(e) => (e.preventDefault(), submit())}>
+      <form
+        className="grid gap-3.5"
+        onSubmit={(e) => {
+          e.preventDefault()
+          submit()
+        }}
+      >
         {!habit && (
-          <div className="field">
-            <span>Start from</span>
-            <div className="h-templates">
-              {TEMPLATES.map(({ target, ...t }) => (
-                <button
-                  key={t.name}
-                  type="button"
-                  className="h-template"
-                  style={{ ['--hc' as string]: t.colour }}
-                  aria-pressed={f.name === t.name}
-                  onClick={() => (setF((x) => ({ ...blank(), start_date: x.start_date, ...t, target: String(target ?? 1) })), setError(''))}
-                >
-                  <HIcon name={t.icon!} size={0.875} />
-                  {t.name}
-                </button>
-              ))}
+          <Group label="Start from">
+            <div className="flex flex-wrap gap-1.5">
+              {TEMPLATES.map(({ target, ...t }) => {
+                const on = f.name === t.name
+                return (
+                  <button
+                    key={t.name}
+                    type="button"
+                    className={cn(
+                      'inline-flex h-7.5 items-center gap-1.5 rounded-full border px-3 py-0 text-xs font-medium text-fg',
+                      '[&_svg]:text-(--hc) dark:[&_svg]:text-[color-mix(in_srgb,var(--hc)_70%,white)]',
+                      on
+                        ? 'border-(--hc) bg-[color-mix(in_srgb,var(--hc)_14%,var(--app-surface))]'
+                        : 'border-border bg-surface hover:border-[color-mix(in_srgb,var(--hc)_50%,var(--app-border))] hover:bg-[color-mix(in_srgb,var(--hc)_8%,var(--app-surface))]',
+                    )}
+                    style={{ ['--hc' as string]: t.colour }}
+                    aria-pressed={on}
+                    onClick={() => {
+                      setF((x) => ({ ...blank(), start_date: x.start_date, ...t, target: String(target ?? 1) }))
+                      setError('')
+                    }}
+                  >
+                    <HabitIcon name={t.icon ?? ''} size={0.875} />
+                    {t.name}
+                  </button>
+                )
+              })}
             </div>
-          </div>
+          </Group>
         )}
-        <label className="field">
-          <span>Name</span>
-          <input
-            className="input"
-            value={f.name}
-            onChange={(e) => set('name', e.target.value)}
-            maxLength={80}
-            placeholder="e.g. Read 20 minutes"
-            autoFocus
-          />
-        </label>
+        <Field label="Name">
+          <Input value={f.name} onChange={(e) => set('name', e.target.value)} maxLength={80} placeholder="e.g. Read 20 minutes" autoFocus />
+        </Field>
 
-        <div className="field">
-          <span>Type</span>
-          <div className="seg" role="group" aria-label="Type">
-            <button
-              type="button"
-              aria-pressed={f.kind === 'yesno'}
-              onClick={() => setF((x) => ({ ...x, kind: 'yesno', goal: 'at_least' }))}
-            >
-              Yes / no
-            </button>
-            <button type="button" aria-pressed={f.kind === 'measurable'} onClick={() => set('kind', 'measurable')}>
-              Measurable
-            </button>
-          </div>
-        </div>
+        <Group label="Type">
+          <Segmented
+            className={segmentedFix}
+            label="Type"
+            value={f.kind}
+            options={KINDS}
+            onChange={(kind) => setF((x) => (kind === 'yesno' ? { ...x, kind, goal: 'at_least' } : { ...x, kind }))}
+          />
+        </Group>
 
         {f.kind === 'measurable' && (
-          <div className="field-row">
-            <label className="field">
-              <span>Goal</span>
-              <select className="select" value={f.goal} onChange={(e) => set('goal', e.target.value as Goal)}>
+          <FieldRow>
+            <Field label="Goal">
+              <Select value={f.goal} onChange={(e) => set('goal', e.target.value as Goal)}>
                 <option value="at_least">At least</option>
                 <option value="at_most">At most (a limit)</option>
-              </select>
-            </label>
-            <label className="field">
-              <span>Unit</span>
-              <input
-                className="input"
-                value={f.unit}
-                onChange={(e) => set('unit', e.target.value)}
-                maxLength={24}
-                placeholder="glasses, minutes, km"
-              />
-            </label>
-          </div>
+              </Select>
+            </Field>
+            <Field label="Unit">
+              <Input value={f.unit} onChange={(e) => set('unit', e.target.value)} maxLength={24} placeholder="glasses, minutes, km" />
+            </Field>
+          </FieldRow>
         )}
 
-        <div className="field-row">
+        <FieldRow>
           {showTarget && (
-            <label className="field">
-              <span>{f.kind === 'yesno' ? 'Times' : 'Target'}</span>
-              <input
-                className="input"
+            <Field label={f.kind === 'yesno' ? 'Times' : 'Target'}>
+              <Input
                 type="number"
                 inputMode="decimal"
                 min={0}
@@ -284,58 +328,39 @@ export function HabitDialog({
                 value={f.target}
                 onChange={(e) => set('target', e.target.value)}
               />
-            </label>
+            </Field>
           )}
-          <label className="field">
-            <span>Per</span>
-            <select
-              className="select"
-              value={f.period}
-              onChange={(e) => {
-                const period = e.target.value as Period
-                // Yes/no: "1 time a week" is rarely meant; start a week at 3 like the classic editor, and keep within the period.
-                setF((x) => {
-                  if (x.kind !== 'yesno') return { ...x, period }
-                  const n = Number(x.target) || 1
-                  const target =
-                    period === 'day' ? 1 : period === 'week' && n <= 1 ? 3 : Math.min(period === 'week' ? 7 : 31, Math.max(1, n))
-                  return { ...x, period, target: String(target) }
-                })
-              }}
-            >
+          <Field label="Per">
+            <Select value={f.period} onChange={(e) => setPeriod(e.target.value as Period)}>
               <option value="day">Day</option>
               <option value="week">Week</option>
               <option value="month">Month</option>
-            </select>
-          </label>
-        </div>
+            </Select>
+          </Field>
+        </FieldRow>
         {f.kind === 'measurable' && f.goal === 'at_most' && (
-          <span className="help" style={{ marginTop: '-0.5rem' }}>
-            A limit: days are kept unless you log going over.
-          </span>
+          <span className="-mt-2 text-xs text-muted">A limit: days are kept unless you log going over.</span>
         )}
 
-        <div className="field">
-          <span>Schedule</span>
-          <div className="row" style={{ flexWrap: 'wrap' }}>
-            <div className="seg" role="group" aria-label="Schedule">
-              <button type="button" aria-pressed={f.schedule === 'daily'} onClick={() => set('schedule', 'daily')}>
-                Every day
-              </button>
-              <button type="button" aria-pressed={f.schedule === 'weekdays'} onClick={() => set('schedule', 'weekdays')}>
-                Some days
-              </button>
-              <button type="button" aria-pressed={f.schedule === 'interval'} onClick={() => set('schedule', 'interval')}>
-                Every N days
-              </button>
-            </div>
+        <Group
+          label="Schedule"
+          hint={f.period !== 'day' ? 'Shows on these days until the goal is met.' : 'Days off the schedule never break a streak.'}
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <Segmented
+              className={segmentedFix}
+              label="Schedule"
+              value={f.schedule}
+              options={SCHEDULES}
+              onChange={(v) => set('schedule', v)}
+            />
             {f.schedule === 'weekdays' && <DayPicker value={f.weekdays} onChange={(v) => set('weekdays', v)} label="Scheduled days" />}
             {f.schedule === 'interval' && (
-              <label className="row small">
+              <label className="flex items-center gap-2 text-sm" htmlFor="h-interval">
                 Every{' '}
-                <input
-                  className="input"
-                  style={{ width: '4.5rem' }}
+                <Input
+                  id="h-interval"
+                  className="w-18!"
                   type="number"
                   min={1}
                   max={365}
@@ -347,65 +372,33 @@ export function HabitDialog({
               </label>
             )}
           </div>
-          <span className="help">
-            {f.period !== 'day' ? 'Shows on these days until the goal is met.' : 'Days off the schedule never break a streak.'}
-          </span>
-        </div>
+        </Group>
 
-        <div className="field">
-          <span>Icon</span>
-          <div className="h-icons" role="radiogroup" aria-label="Icon">
-            <button type="button" role="radio" aria-checked={!f.icon} className="h-icon-opt" onClick={() => set('icon', '')} title="Letter">
-              <span style={{ fontWeight: 600, fontSize: 'var(--fs-xs)' }}>{(f.name.trim()[0] ?? 'A').toUpperCase()}</span>
-            </button>
+        <Group label="Icon">
+          <div className="flex flex-wrap gap-1" role="radiogroup" aria-label="Icon">
+            <IconOption on={!f.icon} label="Letter" onPick={() => set('icon', '')}>
+              <span className="font-semibold">{(f.name.trim()[0] ?? 'A').toUpperCase()}</span>
+            </IconOption>
             {HABIT_ICONS.map((i) => (
-              <button
-                key={i}
-                type="button"
-                role="radio"
-                aria-checked={f.icon === i}
-                aria-label={i}
-                title={i}
-                className="h-icon-opt"
-                onClick={() => set('icon', i)}
-              >
-                <HIcon name={i} />
-              </button>
+              <IconOption key={i} on={f.icon === i} label={i} onPick={() => set('icon', i)}>
+                <HabitIcon name={i} />
+              </IconOption>
             ))}
           </div>
-        </div>
+        </Group>
 
-        <div className="field">
-          <span>Colour</span>
-          <div className="swatches" role="radiogroup" aria-label="Colour">
-            {HABIT_COLOURS.map(([hex, label]) => (
-              <button
-                key={label}
-                type="button"
-                role="radio"
-                aria-checked={f.colour === hex}
-                aria-label={label}
-                title={label}
-                className="swatch"
-                style={{ background: hex || 'var(--app-accent)' }}
-                onClick={() => set('colour', hex)}
-              >
-                {f.colour === hex && <Icon name="check" size={12} />}
-              </button>
-            ))}
-          </div>
-        </div>
+        <Group label="Colour">
+          <ColourPicker value={f.colour || ACCENT} colours={SWATCHES} onChange={(c) => set('colour', !c || c === ACCENT ? '' : c)} />
+        </Group>
 
-        <div className="field">
-          <span>Reminder</span>
-          <div className="row" style={{ flexWrap: 'wrap' }}>
+        <Group label="Reminder" hint={f.reminder ? "Sent through your notification channels if the habit isn't done yet." : undefined}>
+          <div className="flex flex-wrap items-center gap-2">
             <Switch checked={f.reminder} onChange={(v) => set('reminder', v)} label={f.reminder ? '' : 'Off'} />
             {f.reminder && (
               <>
-                <input
-                  className="input"
+                <Input
+                  className="w-28!"
                   type="time"
-                  style={{ width: '7rem' }}
                   value={f.reminder_time}
                   onChange={(e) => set('reminder_time', e.target.value)}
                   aria-label="Reminder time"
@@ -414,38 +407,36 @@ export function HabitDialog({
               </>
             )}
           </div>
-          {f.reminder && <span className="help">Sent through your notification channels if the habit isn't done yet.</span>}
-        </div>
+        </Group>
 
-        <div className="field-row">
-          <label className="field">
-            <span>Start</span>
-            <input className="input" type="date" value={f.start_date} onChange={(e) => set('start_date', e.target.value)} />
-          </label>
-          <label className="field">
-            <span>End (optional)</span>
-            <input className="input" type="date" value={f.end_date} onChange={(e) => set('end_date', e.target.value)} />
-          </label>
-        </div>
+        <FieldRow>
+          <Field label="Start">
+            <Input type="date" value={f.start_date} onChange={(e) => set('start_date', e.target.value)} />
+          </Field>
+          <Field label="End (optional)">
+            <Input type="date" value={f.end_date} onChange={(e) => set('end_date', e.target.value)} />
+          </Field>
+        </FieldRow>
 
-        <label className="field">
-          <span>Notes</span>
-          <textarea
-            className="textarea"
+        <Field label="Notes">
+          <Textarea
             rows={2}
             value={f.description}
             onChange={(e) => set('description', e.target.value)}
             maxLength={2000}
             placeholder="Why this habit matters (optional)"
           />
-        </label>
+        </Field>
       </form>
       {habit && (
         <Confirm
           open={confirmDelete}
           title={`Delete "${habit.name}"?`}
           body="All of its history is deleted too. Archive it instead to keep the stats."
-          onConfirm={() => (remove.mutate(habit.id, { onSuccess: () => navigate('/habits') }), onClose())}
+          onConfirm={() => {
+            remove.mutate(habit.id, { onSuccess: () => navigate('/habits') })
+            onClose()
+          }}
           onClose={() => setConfirmDelete(false)}
         />
       )}
@@ -453,52 +444,22 @@ export function HabitDialog({
   )
 }
 
-export function HabitSettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const settings = useHabitSettings()
-  const save = useSaveHabitSettings()
-  const s = settings.data
+function IconOption({ on, label, onPick, children }: { on: boolean; label: string; onPick: () => void; children: ReactNode }) {
   return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      title="Habit settings"
-      width="28rem"
-      footer={
-        <>
-          <span className="spacer" />
-          <button className="btn" onClick={onClose}>
-            Done
-          </button>
-        </>
-      }
-    >
-      {!s ? (
-        <span className="sk sk-line" />
-      ) : (
-        <div className="stack" style={{ gap: '0.75rem' }}>
-          <div className="row">
-            <div className="grow">
-              <div className="small" style={{ fontWeight: 500 }}>
-                Evening nudge
-              </div>
-              <div className="help">A notification like "2 habits left today" if you haven't finished.</div>
-            </div>
-            <Switch checked={s.evening_nudge} onChange={(v) => save.mutate({ evening_nudge: v })} />
-          </div>
-          {s.evening_nudge && (
-            <label className="row small">
-              <span className="grow">Send at</span>
-              <input
-                className="input"
-                type="time"
-                style={{ width: '7rem' }}
-                defaultValue={s.nudge_time.slice(0, 5)}
-                onBlur={(e) => e.target.value && save.mutate({ nudge_time: e.target.value + ':00' })}
-              />
-            </label>
-          )}
-        </div>
+    // biome-ignore lint/a11y/useSemanticElements: a swatch-style picker, like the shared ColourPicker
+    <button
+      type="button"
+      role="radio"
+      aria-checked={on}
+      aria-label={label === 'Letter' ? undefined : label}
+      title={label}
+      className={cn(
+        'grid size-8 place-items-center rounded-sm border text-xs font-bold',
+        on ? 'border-accent bg-accent-soft text-accent' : 'border-border bg-surface text-muted',
       )}
-    </Dialog>
+      onClick={onPick}
+    >
+      {children}
+    </button>
   )
 }

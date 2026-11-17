@@ -1,13 +1,27 @@
 // Progress grid: habits x days for a week or a month. Click a cell to log or clear that day
 // (backfill; measurable habits open the day editor); right-click or long-press for amount, skip and note.
-import { useState } from 'react'
+import { useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { ErrorBox, SkeletonRows } from '../../components/ui'
-import { addDays, dayKey, fmtDate, isSameDay } from '../../lib/dates'
+import { Button, ErrorBox, Segmented, SkeletonRows } from '../../components/ui'
+import { cn } from '../../lib/cn'
+import { addDays, dayKey, fmtDate, isSameDay, parseDayKey } from '../../lib/dates'
 import { useCheck, useEntries, useHabits, type Entry, type Habit } from './api'
 import { DayDialog, useLongPress, type DayTarget } from './DayEditor'
-import { HabitBadge, dayMet, fmtNum, hc, isScheduled, parseDay } from './util'
+import { HabitBadge, hc } from './HabitBadge'
+import { dayMet, fmtNum, isScheduled } from './habitRules'
+
+const RANGES = [
+  { value: 'week', label: 'Week' },
+  { value: 'month', label: '30 days' },
+] as const
+
+// Segmented's buttons keep the browser's border and grey fill; the class below clears them until it does.
+const segmentedFix = '[&>button]:border-0 [&>button[aria-pressed=false]]:bg-transparent'
+
+// `sticky` isn't generated (an older stylesheet owns that class name, see tailwind.css), hence [position:sticky].
+const nameCell = '[position:sticky] left-0 z-1 min-w-44 max-w-64 bg-surface px-3 py-1.5 text-left font-medium'
+const sumCell = 'px-3 whitespace-nowrap text-muted'
 
 export function GridView({
   range,
@@ -22,7 +36,7 @@ export function GridView({
 }) {
   const todayKey = dayKey(new Date())
   const span = range === 'week' ? 7 : 30
-  const endDate = parseDay(end > todayKey ? todayKey : end)
+  const endDate = parseDayKey(end > todayKey ? todayKey : end)
   const days = Array.from({ length: span }, (_, i) => addDays(endDate, i - span + 1))
   const start = dayKey(days[0])
   const habits = useHabits()
@@ -32,30 +46,23 @@ export function GridView({
   const [editing, setEditing] = useState<DayTarget | null>(null)
 
   return (
-    <div className="h-grid-wrap">
-      <div className="h-toolbar">
-        <div className="seg" role="group" aria-label="Range">
-          <button aria-pressed={range === 'week'} onClick={() => onRange('week')}>
-            Week
-          </button>
-          <button aria-pressed={range === 'month'} onClick={() => onRange('month')}>
-            30 days
-          </button>
-        </div>
-        <div className="row" style={{ gap: '0.25rem' }}>
-          <button className="btn icon sm" aria-label="Earlier" onClick={() => onEnd(dayKey(addDays(endDate, -span)))}>
+    <div className="grid gap-3">
+      <div className="flex flex-wrap items-center gap-3">
+        <Segmented className={segmentedFix} label="Range" value={range} options={RANGES} onChange={onRange} />
+        <div className="flex items-center gap-1">
+          <Button size="sm" icon aria-label="Earlier" onClick={() => onEnd(dayKey(addDays(endDate, -span)))}>
             <Icon name="chevronLeft" size={14} />
-          </button>
-          <button className="btn icon sm" aria-label="Later" disabled={atToday} onClick={() => onEnd(dayKey(addDays(endDate, span)))}>
+          </Button>
+          <Button size="sm" icon aria-label="Later" disabled={atToday} onClick={() => onEnd(dayKey(addDays(endDate, span)))}>
             <Icon name="chevronRight" size={14} />
-          </button>
+          </Button>
           {!atToday && (
-            <button className="btn sm" onClick={() => onEnd(todayKey)}>
+            <Button size="sm" onClick={() => onEnd(todayKey)}>
               Today
-            </button>
+            </Button>
           )}
         </div>
-        <span className="muted small tabular">
+        <span className="text-sm text-muted tabular-nums">
           {fmtDate(days[0])} – {fmtDate(endDate, { month: 'short', day: 'numeric', year: 'numeric' })}
         </span>
       </div>
@@ -65,22 +72,29 @@ export function GridView({
       ) : (habits.error && !habits.data) || (entries.error && !entries.data) ? (
         <ErrorBox error={habits.error ?? entries.error} />
       ) : !habits.data?.length ? (
-        <div className="empty">No habits yet.</div>
+        <div className="p-4 text-center text-sm text-muted">No habits yet.</div>
       ) : (
-        <div className="h-grid-scroll">
-          <table className={'h-grid ' + range}>
+        <div className="overflow-x-auto rounded-md border border-border bg-surface">
+          <table className="w-full border-separate border-spacing-0 text-xs [&_td]:border-b [&_td]:border-border [&_th]:border-b [&_th]:border-border [&_tbody_tr:last-child>*]:border-b-0">
             <thead>
               <tr>
-                <th scope="col" className="h-grid-name">
+                <th scope="col" className={cn(nameCell, 'text-xs text-muted')}>
                   Habit
                 </th>
-                {days.map((d) => (
-                  <th key={dayKey(d)} scope="col" className={'h-grid-day' + (isSameDay(d, new Date()) ? ' today' : '')}>
-                    <span className="wd">{fmtDate(d, { weekday: 'narrow' })}</span>
-                    <span className="dn tabular">{d.getDate()}</span>
-                  </th>
-                ))}
-                <th scope="col" className="h-grid-sum">
+                {days.map((d) => {
+                  const today = isSameDay(d, new Date())
+                  return (
+                    <th
+                      key={dayKey(d)}
+                      scope="col"
+                      className={cn('min-w-9 py-1.5 text-center font-medium leading-[1.3]', today ? 'text-accent' : 'text-muted')}
+                    >
+                      <span className="block">{fmtDate(d, { weekday: 'narrow' })}</span>
+                      <span className={cn('block tabular-nums', today && 'font-bold')}>{d.getDate()}</span>
+                    </th>
+                  )
+                })}
+                <th scope="col" className={cn(sumCell, 'text-center')}>
                   Done
                 </th>
               </tr>
@@ -106,20 +120,21 @@ export function GridView({
                       scheduled={sched}
                       future={k > todayKey}
                       today={k === todayKey}
+                      month={range === 'month'}
                       onEdit={setEditing}
                     />
                   )
                 })
                 return (
                   <tr key={h.id} style={hc(h)}>
-                    <th scope="row" className="h-grid-name">
-                      <Link to={`/habits/${h.id}`} className="row">
+                    <th scope="row" className={nameCell}>
+                      <Link to={`/habits/${h.id}`} className="flex min-w-0 items-center gap-2 text-sm text-fg">
                         <HabitBadge habit={h} size={1.5} />
                         <span className="truncate">{h.name}</span>
                       </Link>
                     </th>
                     {cells}
-                    <td className="h-grid-sum tabular">{judged ? `${met}/${judged}` : '–'}</td>
+                    <td className={cn(sumCell, 'text-center tabular-nums')}>{judged ? `${met}/${judged}` : '–'}</td>
                   </tr>
                 )
               })}
@@ -127,32 +142,52 @@ export function GridView({
           </table>
         </div>
       )}
-      <p className="help h-legend">
+      <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-muted [&>span]:inline-flex [&>span]:items-center [&>span]:gap-1.5">
         <span>
-          <i className="lg met" /> done
+          <i className={cn(swatch, 'bg-accent')} /> done
         </span>
         <span>
-          <i className="lg part" /> partly
+          <i className={cn(swatch, 'bg-[linear-gradient(to_top,var(--app-accent)_50%,var(--app-accent-soft)_0)]')} /> partly
         </span>
         {habits.data?.some((h) => h.goal === 'at_most') && (
           <span>
-            <i className="lg kept" /> limit kept
+            <i className={cn(swatch, 'bg-[color-mix(in_srgb,var(--app-accent)_28%,var(--app-surface-2))]')} /> limit kept
           </span>
         )}
         <span>
-          <i className="lg skip" /> skipped
+          <i className={cn(swatch, 'bg-[repeating-linear-gradient(135deg,var(--app-surface-2)_0_2px,var(--app-muted)_2px_3px)]')} /> skipped
         </span>
         <span>
-          <i className="lg off" /> not scheduled
+          <i className={cn(swatch, 'shadow-[inset_0_0_0_1px_var(--app-border)]')} /> not scheduled
         </span>
         <span>
-          <i className="lg note" /> note
+          <i
+            className={cn(
+              swatch,
+              'relative bg-surface-2 after:absolute after:top-px after:right-px after:size-1 after:rounded-full after:bg-fg',
+            )}
+          />{' '}
+          note
         </span>
-        <span className="muted">Click a day to log it; right-click or long-press to skip or add a note.</span>
+        <span className="text-muted">Click a day to log it; right-click or long-press to skip or add a note.</span>
       </p>
       <DayDialog target={editing} onClose={() => setEditing(null)} />
     </div>
   )
+}
+
+const swatch = 'inline-block size-3 rounded-[3px]'
+
+const cellBase =
+  'relative mx-auto grid place-items-center overflow-hidden border-0 p-0 text-white select-none [-webkit-touch-callout:none] [&_svg]:size-3.25'
+const cellState: Record<string, string> = {
+  met: 'bg-(--hc)',
+  part: 'bg-[linear-gradient(to_top,var(--hc)_calc(var(--frac,0.5)*100%),color-mix(in_srgb,var(--hc)_18%,var(--app-surface-2))_0)]',
+  over: 'bg-danger',
+  skip: 'bg-[repeating-linear-gradient(135deg,var(--app-surface-2)_0_3px,color-mix(in_srgb,var(--app-muted)_35%,transparent)_3px_4.5px)]',
+  off: 'bg-transparent shadow-[inset_0_0_0_1px_var(--app-border)]',
+  empty: 'bg-surface-2',
+  kept: 'bg-[color-mix(in_srgb,var(--hc)_28%,var(--app-surface-2))]',
 }
 
 function Cell({
@@ -162,6 +197,7 @@ function Cell({
   scheduled,
   future,
   today,
+  month,
   onEdit,
 }: {
   habit: Habit
@@ -170,6 +206,7 @@ function Cell({
   scheduled: boolean
   future: boolean
   today: boolean
+  month: boolean
   onEdit: (t: DayTarget) => void
 }) {
   const check = useCheck()
@@ -184,7 +221,7 @@ function Cell({
   // A limit with nothing logged is kept (the classic grid's "kept" cell); the Done column counts it as met too.
   const kept = !met && !over && !entry?.skipped && scheduled && h.goal === 'at_most'
   const state = entry?.skipped ? 'skip' : over ? 'over' : met ? 'met' : part ? 'part' : kept ? 'kept' : scheduled ? 'empty' : 'off'
-  const label = `${h.name}, ${fmtDate(parseDay(day), { weekday: 'long', month: 'short', day: 'numeric' })}: ${
+  const label = `${h.name}, ${fmtDate(parseDayKey(day), { weekday: 'long', month: 'short', day: 'numeric' })}: ${
     entry?.skipped
       ? 'skipped'
       : value
@@ -195,23 +232,27 @@ function Cell({
             ? 'not done'
             : 'not scheduled'
   }${entry?.note ? ' · ' + entry.note : ''}`
+  const size = month ? 'size-5.5 rounded-[5px]' : 'size-7 rounded-[6px]'
   if (future || before)
     return (
-      <td className="h-cell-td">
-        <span className="h-cell disabled" aria-hidden="true" />
+      <td className="px-0.5 py-1">
+        <span className={cn(cellBase, size, 'bg-transparent')} aria-hidden="true" />
       </td>
     )
 
   const yesno = h.kind === 'yesno'
+  // Numbers: white on a full cell; on a partly filled (or empty) one, the text colour with a halo of the
+  // surface, so they read over both the coloured and the pale part in light and dark themes.
+  const light = state === 'met' || state === 'over' || (part && frac >= 0.55)
   return (
-    <td className={'h-cell-td' + (today ? ' today' : '')}>
+    <td className={cn('px-0.5 py-1', today && 'bg-[color-mix(in_srgb,var(--app-accent-soft)_45%,transparent)]')}>
       <button
         type="button"
-        className={'h-cell ' + state + (part && frac >= 0.55 ? ' hi' : '')}
+        className={cn(cellBase, size, cellState[state], 'hover:shadow-[0_0_0_2px_color-mix(in_srgb,var(--hc)_45%,transparent)]')}
         aria-pressed={yesno ? met : undefined}
         aria-label={label}
         title={label}
-        style={part ? ({ ['--frac' as string]: frac } as React.CSSProperties) : undefined}
+        style={part ? ({ ['--frac' as string]: frac } as CSSProperties) : undefined}
         {...press.handlers}
         onClick={() => {
           if (press.wasLong()) return
@@ -234,9 +275,28 @@ function Cell({
               </svg>
             )
           : value > 0 && (
-              <span className="h-cell-num">{value >= 1000 ? Math.round(value / 100) / 10 + 'k' : fmtNum(Math.round(value * 10) / 10)}</span>
+              <span
+                className={cn(
+                  'relative text-3xs leading-none font-bold',
+                  light
+                    ? 'text-white [text-shadow:0_0_2px_color-mix(in_srgb,#000_35%,transparent)]'
+                    : 'text-fg [text-shadow:0_0_2px_var(--app-surface),0_0_2px_var(--app-surface),0_0_1px_var(--app-surface)]',
+                )}
+              >
+                {value >= 1000 ? Math.round(value / 100) / 10 + 'k' : fmtNum(Math.round(value * 10) / 10)}
+              </span>
             )}
-        {entry?.note && <span className="h-cell-note" aria-hidden="true" />}
+        {entry?.note && (
+          <span
+            className={cn(
+              'absolute top-0.5 right-0.5 size-1.25 rounded-full',
+              state === 'met' || state === 'over'
+                ? 'bg-white shadow-[0_0_0_1px_color-mix(in_srgb,#000_25%,transparent)]'
+                : 'bg-fg shadow-[0_0_0_1px_var(--app-surface)]',
+            )}
+            aria-hidden="true"
+          />
+        )}
       </button>
     </td>
   )

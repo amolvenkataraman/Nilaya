@@ -1,5 +1,5 @@
-// /api/v2/habits/ types and hooks (query keys under ['habits']).
-import { useMutation, useQuery, useQueryClient, keepPreviousData, type QueryClient } from '@tanstack/react-query'
+// /api/v2/habits/ types, queries and mutations (query keys under ['habits'], from `hk`).
+import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { del, get, patch, post, api } from '../../lib/api'
 import { toast } from '../../components/toast'
 
@@ -115,19 +115,33 @@ export const hk = {
   settings: ['settings', 'habits/settings'] as const,
 }
 
-export const useToday = () => useQuery({ queryKey: hk.today, queryFn: () => get<Today>('habits/today') })
-export const useHabitsOverview = () => useQuery({ queryKey: hk.overview, queryFn: () => get<Overview>('habits/overview') })
-export const useHabits = (archived = false) =>
-  useQuery({ queryKey: hk.list(archived), queryFn: () => get<Habit[]>('habits/', { include_archived: archived || undefined }) })
+export const todayQuery = queryOptions({ queryKey: hk.today, queryFn: ({ signal }) => get<Today>('habits/today', undefined, signal) })
+export const habitsQuery = (archived = false) =>
+  queryOptions({
+    queryKey: hk.list(archived),
+    queryFn: ({ signal }) => get<Habit[]>('habits/', { include_archived: archived || undefined }, signal),
+  })
+export const statsQuery = (id: string) =>
+  queryOptions({ queryKey: hk.stats(id), queryFn: ({ signal }) => get<Stats>(`habits/${id}/stats`, undefined, signal) })
+
+export const useToday = () => useQuery(todayQuery)
+export const useHabitsOverview = () =>
+  useQuery({ queryKey: hk.overview, queryFn: ({ signal }) => get<Overview>('habits/overview', undefined, signal) })
+export const useHabits = (archived = false) => useQuery(habitsQuery(archived))
 export const useEntries = (start: string, end: string) =>
   useQuery({
     queryKey: hk.entries(start, end),
-    queryFn: () => get<Entry[]>('habits/entries', { start, end }),
+    queryFn: ({ signal }) => get<Entry[]>('habits/entries', { start, end }, signal),
     placeholderData: keepPreviousData,
   })
-export const useStats = (id: string | undefined) =>
-  useQuery({ queryKey: hk.stats(id ?? ''), queryFn: () => get<Stats>(`habits/${id}/stats`), enabled: !!id })
-export const useHabitSettings = () => useQuery({ queryKey: hk.settings, queryFn: () => get<HabitSettings>('habits/settings') })
+export const useStats = (id: string | undefined) => useQuery({ ...statsQuery(id ?? ''), enabled: !!id })
+export const useHabitSettings = () =>
+  useQuery({ queryKey: hk.settings, queryFn: ({ signal }) => get<HabitSettings>('habits/settings', undefined, signal) })
+
+/** Put back the cache entries saved before an optimistic update. */
+function restore(qc: QueryClient, snaps: [readonly unknown[], unknown][]) {
+  for (const [k, d] of snaps) qc.setQueryData(k, d)
+}
 
 /** Refresh everything derived from entries, except the query we just patched. */
 function refreshDerived(qc: QueryClient) {
@@ -185,12 +199,12 @@ export function useCheck() {
         const next = v.habit.kind === 'yesno' ? ((v.done ?? cur < 1) ? 1 : 0) : Math.max(0, cur + (v.amount ?? 1))
         patchCaches(qc, v.habit, day, next || null)
       }
-      return { rollback: () => snaps.forEach(([k, d]) => qc.setQueryData(k, d)) }
+      return { rollback: () => restore(qc, snaps) }
     },
     onError: (_e, _v, ctx) => ctx?.rollback(),
     onSuccess: (row) => {
       qc.setQueryData<Today>(hk.today, (old) =>
-        old && old.date ? { ...old, habits: old.habits.map((r) => (r.habit.id === row.habit.id ? row : r)) } : old,
+        old?.date ? { ...old, habits: old.habits.map((r) => (r.habit.id === row.habit.id ? row : r)) } : old,
       )
     },
     onSettled: () => refreshDerived(qc),
@@ -222,7 +236,7 @@ export function useSetEntry() {
       await qc.cancelQueries({ queryKey: hk.all })
       const snaps = qc.getQueriesData({ queryKey: hk.all })
       patchCaches(qc, habit, day, value, !!skipped, note)
-      return { rollback: () => snaps.forEach(([k, d]) => qc.setQueryData(k, d)) }
+      return { rollback: () => restore(qc, snaps) }
     },
     onError: (_e, _v, ctx) => ctx?.rollback(),
     onSuccess: ({ today: row }) => {
@@ -246,10 +260,10 @@ export function useArchiveHabit() {
   const qc = useQueryClient()
   // Undo runs outside the hook: the row that archived may be gone by then.
   const undo = (h: Habit) =>
-    post<Habit>(`habits/${h.id}/archive`, { archived: false }).then(
-      () => (refreshDerived(qc), toast.show(`Restored "${h.name}"`)),
-      toast.fail,
-    )
+    post<Habit>(`habits/${h.id}/archive`, { archived: false }).then(() => {
+      refreshDerived(qc)
+      toast.show(`Restored "${h.name}"`)
+    }, toast.fail)
   return useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) => post<Habit>(`habits/${id}/archive`, { archived }),
     onSuccess: (h) => {
@@ -264,10 +278,10 @@ export function usePauseHabit() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, paused }: { id: string; paused: boolean }) => patch<Habit>(`habits/${id}`, { paused }),
-    onSuccess: (h) => (
-      refreshDerived(qc),
+    onSuccess: (h) => {
+      refreshDerived(qc)
       toast.show(h.paused ? `${h.name} paused. No reminders until you resume.` : `${h.name} resumed. Paused days count as skipped.`)
-    ),
+    },
   })
 }
 
