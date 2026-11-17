@@ -8,8 +8,8 @@ import { Icon } from '../Icon'
 import { useLayer } from '../layers'
 import { Button } from './button'
 
-const backdrop =
-  'fixed inset-0 z-70 bg-scrim transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0 in-[body:has(.viewer)]:z-86'
+// No z-index here: cn() doesn't merge, so each user sets its own (dialogs 70, the drawer 64, under its panel at 65).
+const backdrop = 'fixed inset-0 bg-scrim transition-opacity duration-150 data-ending-style:opacity-0 data-starting-style:opacity-0'
 
 /** Focus what a child already took (React autoFocus), else the first field in the body, else its first button. */
 function firstFocus(popup: HTMLElement | null): HTMLElement | boolean {
@@ -41,7 +41,7 @@ export function Dialog({ open, onClose, title, children, footer, width, classNam
   return (
     <Base.Root open={open} onOpenChange={(next) => !next && onClose()}>
       <Base.Portal>
-        <Base.Backdrop className={backdrop} />
+        <Base.Backdrop className={cn(backdrop, 'z-70 in-[body:has(.viewer)]:z-86')} />
         <Base.Popup
           ref={popup}
           initialFocus={() => firstFocus(popup.current)}

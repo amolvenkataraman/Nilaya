@@ -12,11 +12,17 @@ const tones: Record<ChipTone, string> = {
   success: 'border-transparent bg-success-soft text-success',
 }
 
-export function Chip({ tone = 'neutral', className, ...p }: ComponentPropsWithRef<'span'> & { tone?: ChipTone }) {
+export function Chip({
+  tone = 'neutral',
+  size = 'md',
+  className,
+  ...p
+}: ComponentPropsWithRef<'span'> & { tone?: ChipTone; size?: 'sm' | 'md' }) {
   return (
     <span
       className={cn(
-        'inline-flex h-5 items-center gap-1 rounded-full border px-1.75 text-xs font-medium whitespace-nowrap',
+        'inline-flex items-center gap-1 rounded-full border font-medium whitespace-nowrap',
+        size === 'sm' ? 'h-4 px-1.5 text-3xs' : 'h-5 px-1.75 text-xs',
         tones[tone],
         className,
       )}
