@@ -1,13 +1,14 @@
 """Per-app API keys: the key works only for its apps and access level, and can't manage keys."""
 
 import datetime
+import uuid
 
 from django.test import TestCase
 from django.utils import timezone
 
 from users.models import ComptechUser
 
-from .models import ApiKey
+from .models import ApiKey, Device
 
 
 class ApiKeyTests(TestCase):
@@ -126,3 +127,18 @@ class DeviceTests(TestCase):
         self.client.logout()
         self.assertEqual(self.client.get("/api/v2/photos/summary", **photos).status_code, 401)
         self.assertEqual(self.post("/api/v2/devices/app-key", device_token=device_token, app="photos").status_code, 401)
+
+    def test_phone_photos_keys_are_read_only_and_signing_out_revokes_them(self):
+        ComptechUser.objects.create_user("kim", password="pw")
+        signed = self.post("/api/v2/devices/sign-in", username="kim", password="pw", device_name="Pixel 8", app="photos").json()
+        photos = {"HTTP_AUTHORIZATION": f"Bearer {signed['token']}"}
+        have = self.client.post("/api/v2/photos/have", {"md5": ["a" * 32]}, content_type="application/json", **photos)
+        self.assertEqual(have.status_code, 200)  # a lookup, though sent as POST
+        hide = self.client.post("/api/v2/photos/hide", {"ids": [str(uuid.uuid4())], "hidden": True},
+                                content_type="application/json", **photos)
+        self.assertEqual(hide.status_code, 403)
+
+        for _ in range(2):  # signing out again (e.g. a retry) also answers 204
+            self.assertEqual(self.post("/api/v2/devices/sign-out", device_token=signed["device_token"]).status_code, 204)
+        self.assertEqual(self.client.get("/api/v2/photos/summary", **photos).status_code, 401)
+        self.assertFalse(Device.objects.exists())

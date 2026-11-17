@@ -4,8 +4,9 @@ A phone signs in once with a username and password and gets two things back: a d
 API key for the app that asked. The phone never stores the password. Every other app on that phone
 trades the device token for its own key (/app-key), limited to that app's data.
 
-The two phone endpoints take no cookie and no API key (auth=None): the password or the device token
-in the body is the credential, so there is nothing for CSRF to protect. Listing and revoking devices
+The phone endpoints take no cookie and no API key (auth=None): the password or the device token in
+the body is the credential, so there is nothing for CSRF to protect. Signing out from the phone
+(/sign-out) removes the device and every key on it. Listing and revoking devices
 is for a signed-in browser only, like API keys.
 """
 
@@ -51,6 +52,10 @@ class AppKeyIn(Schema):
     app: str
 
 
+class SignOutIn(Schema):
+    device_token: str = Field(..., max_length=256)
+
+
 class AppKeyOut(Schema):
     app: str
     token: str  # shown once
@@ -90,6 +95,16 @@ def app_key(request, payload: AppKeyIn):
         raise HttpError(401, "This device is signed out. Sign in again.")
     _, token = device.app_key(payload.app)
     return 201, {"app": payload.app, "token": token}
+
+
+@router.post("/sign-out", auth=None, response={204: None},
+             summary="Phone: sign this device out with its device token: revokes it and every app key on it "
+                     "(also 204 when it was already signed out)")
+def sign_out(request, payload: SignOutIn):
+    device = Device.from_token(payload.device_token)
+    if device is not None:
+        device.delete()
+    return 204, None
 
 
 @router.get("/", auth=django_auth, response=list[DeviceOut], summary="Your signed-in devices and the apps on each")

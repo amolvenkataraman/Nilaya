@@ -122,6 +122,9 @@ class Photo(models.Model):
     height = models.IntegerField(null=True, blank=True)
     thumbnail_width = models.IntegerField(null=True, blank=True)
     thumbnail_height = models.IntegerField(null=True, blank=True)
+    # Bumped each time an existing thumbnail is made again (e.g. fix_orientation), so its URL changes and the
+    # thumbnail can be cached forever (photos/signed.py adds it as ?v=). 0: made once.
+    thumb_version = models.PositiveIntegerField(default=0)
     main_color = models.CharField(null=True, blank=True, max_length=7)
 
     latitude = models.FloatField(null=True, blank=True)
@@ -523,6 +526,8 @@ class Photo(models.Model):
 
         try:
             if not only_get_dims:
+                if os.path.exists(settings.THUMBNAIL_DIR + str(self.id) + '.webp'):
+                    self.thumb_version = (self.thumb_version or 0) + 1  # a new URL for the new thumbnail
                 if self.video == False:
                     u = self.album.location + self.filepath
                     img = Image.open(u)               
