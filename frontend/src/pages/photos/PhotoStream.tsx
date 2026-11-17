@@ -340,7 +340,7 @@ export function PhotoStream({
       ) : q.isError && !q.data ? (
         <ErrorBox error={q.error} retry={() => q.refetch()} />
       ) : !items.length ? (
-        <div className="p-4 text-sm text-muted">{empty}</div>
+        <div className="p-4 text-sm text-muted has-[>[data-empty-card]]:p-0">{empty}</div>
       ) : (
         width > 0 && (
           <JustifiedDays

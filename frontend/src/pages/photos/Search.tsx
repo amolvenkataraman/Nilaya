@@ -95,7 +95,7 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
       ) : (
         // biome-ignore lint/a11y/noAriaHiddenOnFocusable: a visual hint only; the shortcut is announced by the field
         <kbd
-          className="inline-grid h-4.5 min-w-4.5 place-items-center rounded-xs border border-border bg-surface px-1 text-2xs leading-none font-medium text-muted group-focus-within:invisible max-md:hidden"
+          className="inline-grid h-4.5 min-w-4.5 place-items-center rounded-xs border border-border bg-surface px-1 font-sans text-2xs leading-none font-medium text-muted group-focus-within:invisible max-md:hidden"
           aria-hidden="true"
         >
           /
@@ -151,7 +151,7 @@ export function SearchResults({ zoom }: { zoom: Zoom }) {
       'Nothing understood'
     )
   ) : (
-    <span className="sk inline-block h-3 w-36" />
+    <span className="inline-block h-3 w-36 animate-[sk_1.3s_ease-in-out_infinite] rounded-xs bg-surface-2" />
   )
   return (
     <div className={pageClass(true)}>
@@ -181,7 +181,7 @@ function Interpretation({ q, page }: { q: string; page: SearchPage | null }) {
   if (!page)
     return (
       <div className={termsClass} aria-hidden="true">
-        <span className="sk h-6 w-56 rounded-full" />
+        <span className="block h-6 w-56 animate-[sk_1.3s_ease-in-out_infinite] rounded-full bg-surface-2" />
       </div>
     )
   const terms = page.interpreted
