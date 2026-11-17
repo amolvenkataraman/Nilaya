@@ -6,7 +6,7 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { Icon } from './Icon'
-import { Avatar, Menu, MenuItem, useMediaQuery } from './ui'
+import { Avatar, Menu, MenuItem, MenuSeparator, useMediaQuery, MenuLabel } from './ui'
 import { NotificationBell } from './NotificationBell'
 import { APPS, STAFF_APPS, type AppDef } from './nav'
 import { logout, useGlobals, usePageTitle } from './Shell'
@@ -14,6 +14,7 @@ import { useMe } from '../lib/queries'
 import { Boundary, NetworkBanner } from './resilience'
 import { cycleTheme, useTheme } from '../lib/theme'
 import { useAppFavicon } from '../lib/favicon'
+import { useLayer } from './layers'
 
 export interface AppShellProps {
   /** App id from components/nav.ts: picks the logo, title and the remembered sidebar state. */
@@ -61,6 +62,7 @@ export function AppShell({ app: appId, title, pageTitle, topbar, sidebar, sideba
   const phone = useMediaQuery(PHONE)
   const [open, setOpen] = useState(() => readOpen(appId))
   const [drawer, setDrawer] = useState(false)
+  useLayer('drawer', drawer)
   const location = useLocation()
 
   useEffect(() => setDrawer(false), [location.pathname, location.search])
@@ -218,11 +220,11 @@ function GlobalItems() {
       >
         {(close) => (
           <>
-            <div className="menu-label" style={{ paddingBottom: '0.5rem' }}>
-              <div style={{ color: 'var(--app-fg)', fontWeight: 600, fontSize: 'var(--fs-sm)' }}>{name}</div>
+            <MenuLabel className="pb-2">
+              <div className="text-sm font-semibold text-fg">{name}</div>
               <div className="truncate">{me?.email || me?.username}</div>
-            </div>
-            <div className="menu-sep" />
+            </MenuLabel>
+            <MenuSeparator />
             {me && (
               <MenuItem icon="user" onClick={() => (close(), navigate(`/users/${encodeURIComponent(me.username)}`))}>
                 Your profile
@@ -247,7 +249,7 @@ function GlobalItems() {
             <MenuItem icon={themeIcon} onClick={cycleTheme}>
               {themeLabel}
             </MenuItem>
-            <div className="menu-sep" />
+            <MenuSeparator />
             <MenuItem icon="logout" onClick={logout}>
               Log out
             </MenuItem>

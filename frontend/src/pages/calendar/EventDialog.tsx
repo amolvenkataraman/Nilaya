@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { Confirm, Dialog } from '../../components/ui'
+import { useMemo, useState } from 'react'
+import { Confirm, Dialog, Menu, MenuItem, MenuLabel, MenuSeparator } from '../../components/ui'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { addDays, dayKey, parseDayKey } from '../../lib/dates'
@@ -734,56 +734,36 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
   )
 }
 
-/** Duplicate / make-a-task actions. An in-dialog popover (not a portaled Menu) so it stacks above the dialog. */
+/** Duplicate / make-a-task actions. */
 function MoreActions({ onDuplicate, onTask }: { onDuplicate: (days: number) => void; onTask: () => void }) {
-  const [open, setOpen] = useState(false)
-  const box = useRef<HTMLSpanElement>(null)
-  useEffect(() => {
-    if (!open) return
-    box.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus()
-    const onDown = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false)
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        e.stopPropagation()
-        setOpen(false)
-      }
-    }
-    document.addEventListener('pointerdown', onDown, true)
-    document.addEventListener('keydown', onKey, true)
-    return () => {
-      document.removeEventListener('pointerdown', onDown, true)
-      document.removeEventListener('keydown', onKey, true)
-    }
-  }, [open])
-  const item = (label: string, icon: string, run: () => void) => (
-    <button type="button" role="menuitem" className="menu-item" onClick={() => (setOpen(false), run())}>
-      <Icon name={icon} />
-      <span className="truncate">{label}</span>
-    </button>
-  )
   return (
-    <span className="ev-more" ref={box}>
-      <button
-        type="button"
-        className="btn icon"
-        aria-label="More actions"
-        title="More"
-        aria-haspopup="menu"
-        aria-expanded={open}
-        onClick={() => setOpen((o) => !o)}
-      >
-        <Icon name="more" />
-      </button>
-      {open && (
-        <div className="ev-more-pop" role="menu" aria-label="More actions">
-          <div className="menu-label">Duplicate</div>
-          {item('Same time', 'copy', () => onDuplicate(0))}
-          {item('Next day', 'copy', () => onDuplicate(1))}
-          {item('Next week', 'copy', () => onDuplicate(7))}
-          <div className="menu-sep" />
-          {item('Make a task', 'tasks', onTask)}
-        </div>
+    <Menu
+      side="top"
+      label="More actions"
+      trigger={(p) => (
+        <button {...p} type="button" className="btn icon" aria-label="More actions" title="More">
+          <Icon name="more" />
+        </button>
       )}
-    </span>
+    >
+      {() => (
+        <>
+          <MenuLabel>Duplicate</MenuLabel>
+          <MenuItem icon="copy" onClick={() => onDuplicate(0)}>
+            Same time
+          </MenuItem>
+          <MenuItem icon="copy" onClick={() => onDuplicate(1)}>
+            Next day
+          </MenuItem>
+          <MenuItem icon="copy" onClick={() => onDuplicate(7)}>
+            Next week
+          </MenuItem>
+          <MenuSeparator />
+          <MenuItem icon="tasks" onClick={onTask}>
+            Make a task
+          </MenuItem>
+        </>
+      )}
+    </Menu>
   )
 }

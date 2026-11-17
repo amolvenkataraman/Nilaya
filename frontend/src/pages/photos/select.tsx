@@ -3,13 +3,14 @@
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { Dialog, Menu, MenuItem, Switch, isTyping } from '../../components/ui'
+import { Dialog, Menu, MenuItem, MenuLabel, Switch, isTyping } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { api, post, safeHref } from '../../lib/api'
 import type { Album, Photo } from '../../lib/types'
 import { fmtBytes } from './util'
 import { fmtStamp, fmtTime } from '../../lib/dates'
 import { copyLinks, removeFromAlbum, setAlbumCover, useAlbumMutations, useAlbums, useHiddenMode } from './actions'
+import { layerOpen } from '../../components/layers'
 
 // ---------------------------------------------------------------- tiny external stores
 function store<T>(initial: T) {
@@ -150,7 +151,7 @@ export function SelectionBar() {
   useEffect(() => {
     if (!s.mode || !n) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key !== 'Delete' || isTyping(e) || document.querySelector('.dialog,.viewer,.menu')) return
+      if (e.key !== 'Delete' || isTyping(e) || layerOpen(['dialog', 'viewer', 'menu'])) return
       e.preventDefault()
       setConfirmDelete(true)
     }
@@ -449,7 +450,7 @@ export function LabelMenu() {
     >
       {(close) => (
         <>
-          <div className="menu-label">Label on thumbnails</div>
+          <MenuLabel>Label on thumbnails</MenuLabel>
           {TILE_LABELS.map(([k, name]) => (
             <MenuItem key={k} active={l === k} end={l === k ? '✓' : undefined} onClick={() => (close(), setTileLabel(k))}>
               {name}

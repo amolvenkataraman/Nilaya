@@ -18,11 +18,12 @@ import { get, post, safeHref } from '../../lib/api'
 import { fmtDate, fmtTime } from '../../lib/dates'
 import type { Photo } from '../../lib/types'
 import { Icon } from '../../components/Icon'
-import { Confirm, Menu, MenuItem, isTyping } from '../../components/ui'
+import { Confirm, Menu, MenuItem, MenuSeparator, isTyping } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { fmtBytes, fmtDuration } from './util'
 import { albumContext, DeleteDialog } from './select'
 import { copyLinks, deleteOriginal, setAlbumCover, useHiddenMode, useLibraries } from './actions'
+import { useLayer } from '../../components/layers'
 
 const INFO_KEY = 'app.photos.info'
 
@@ -39,6 +40,7 @@ export function Viewer({
   onClose: () => void
   onNeedMore?: () => void
 }) {
+  const isTop = useLayer('viewer', true)
   const index = items.findIndex((p) => p.id === id)
   // Deep link to a photo that isn't in the loaded pages: fetch it on its own.
   const single = useQuery({ queryKey: ['photos', 'photo', id], queryFn: () => get<Photo>(`photos/${id}`), enabled: index < 0 })
@@ -90,7 +92,7 @@ export function Viewer({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return
-      if (isTyping(e) || document.querySelector('.dialog, .menu')) return // a dialog or menu on top of the viewer owns the keys
+      if (isTyping(e) || !isTop()) return // a dialog or menu on top of the viewer owns the keys
       if ((e.target as HTMLElement)?.tagName === 'VIDEO' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) return
       const z = zoom.get()
       if (e.key === 'Escape' && z.s > 1) e.preventDefault(), e.stopPropagation(), zoom.reset()
@@ -345,7 +347,7 @@ function ViewerActions({ photo, onLeave }: { photo: Photo; onLeave: () => void }
             )}
             {canEdit && (
               <>
-                <div className="menu-sep" />
+                <MenuSeparator />
                 <MenuItem icon="trash" danger onClick={() => (close(), setDel(true))}>
                   Delete…
                 </MenuItem>

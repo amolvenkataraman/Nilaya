@@ -14,6 +14,7 @@ import { HabitDialog, HabitSettingsDialog } from './HabitDialog'
 import { HabitRow, stepOf, useSkipToday } from './HabitsToday'
 import { HabitBadge, HIcon, goalText, streakText } from './util'
 import './habits.css'
+import { layerOpen } from '../../components/layers'
 
 export default function HabitsPage() {
   const [search, setSearch] = useSearchParams()
@@ -36,8 +37,7 @@ export default function HabitsPage() {
     next.set('new', '1')
     setSearch(next)
   }
-  const free = (e: KeyboardEvent) =>
-    !e.metaKey && !e.ctrlKey && !e.altKey && !afterG(e) && !document.querySelector('.dialog,.palette,.menu')
+  const free = (e: KeyboardEvent) => !e.metaKey && !e.ctrlKey && !e.altKey && !afterG(e) && !layerOpen(['dialog', 'palette', 'menu'])
   useHotkey(
     (e) => (e.key === 'n' || e.key === 'N') && free(e),
     (e) => (e.preventDefault(), openNew()),
@@ -170,7 +170,7 @@ function DetailRoute({ onEdit }: { onEdit: (h: Habit) => void }) {
   const { id = '' } = useParams()
   const navigate = useNavigate()
   useHotkey(
-    (e) => e.key === 'Escape' && !document.querySelector('.dialog,.palette,.menu'),
+    (e) => e.key === 'Escape' && !layerOpen(['dialog', 'palette', 'menu']),
     () => navigate('/habits'),
   )
   return <HabitDetail key={id} id={id} onEdit={onEdit} />
@@ -195,7 +195,7 @@ function ProgressView() {
   )
 }
 
-const noKeys = (e: KeyboardEvent) => !e.metaKey && !e.ctrlKey && !document.querySelector('.dialog,.palette,.menu')
+const noKeys = (e: KeyboardEvent) => !e.metaKey && !e.ctrlKey && !layerOpen(['dialog', 'palette', 'menu'])
 const focusedRowId = () => (document.activeElement as HTMLElement | null)?.closest<HTMLElement>('[data-hid]')?.dataset.hid
 
 function TodayView({ onNew, onEdit }: { onNew: () => void; onEdit: (h: Habit) => void }) {

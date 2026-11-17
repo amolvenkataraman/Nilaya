@@ -8,6 +8,7 @@ import { addDays, startOfDay } from '../../lib/dates'
 import type { CalEvent, Calendar } from '../../lib/types'
 import { eventDays } from './util'
 import { fmtDateIn, fmtTimeIn, useCalPrefs } from './zone'
+import { layerOpen } from '../../components/layers'
 
 export function EventSearch({ calendars, onPick }: { calendars?: Calendar[]; onPick: (e: CalEvent) => void }) {
   const [open, setOpen] = useState(false)
@@ -31,7 +32,7 @@ export function EventSearch({ calendars, onPick }: { calendars?: Calendar[]; onP
     .slice(0, 12)
   useEffect(() => setActive(0), [q])
   useHotkey(
-    (e) => e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !document.querySelector('.dialog,.palette'),
+    (e) => e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !layerOpen(['dialog', 'palette']),
     (e) => (e.preventDefault(), setOpen(true)),
   )
   useEffect(() => {

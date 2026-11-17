@@ -202,49 +202,14 @@ button.chip:hover { color: var(--app-fg); }
 .check.p10 { --c: var(--app-accent); }
 .check svg { width: 0.625rem; height: 0.625rem; }
 
-/* ---------- Popover menus
-   A menu is transient and always opened from the topmost surface (sidebar drawer, drawer, dialog,
-   event popover, photo viewer), so it sits above all of them; only toasts (90) are higher. */
-.menu {
-  position: fixed; z-index: 89; min-width: 12rem; max-width: min(22rem, calc(100vw - 16px));
-  background: var(--app-surface); border-radius: var(--r); box-shadow: var(--pop-shadow);
-  padding: 0.25rem; font-size: var(--fs-sm); animation: pop-in 0.12s var(--ease);
-}
-@keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } }
-.menu-item {
-  display: flex; align-items: center; gap: 0.5rem; width: 100%; min-height: 2rem; padding: 0.3125rem 0.5rem;
-  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--app-fg); text-align: left; font-size: var(--fs-sm);
-}
-a.menu-item { color: var(--app-fg); }
-a.menu-item:hover { text-decoration: none; }
-.menu-item:hover, .menu-item.active { background: var(--hover); }
-.menu-item.danger { color: var(--app-danger); }
-.menu-item svg { color: var(--app-muted); flex: none; }
-.menu-item .end { margin-left: auto; color: var(--app-muted); font-size: var(--fs-xs); }
-.menu-sep { height: 1px; background: var(--app-border); margin: 0.25rem -0.25rem; }
-.menu-label { padding: 0.375rem 0.5rem 0.25rem; font-size: var(--fs-xs); color: var(--app-muted); font-weight: 500; }
-
-/* ---------- Dialogs and drawers */
+/* ---------- Scrims (custom overlays: the event peek on phones, the phone sidebar) */
 .scrim { position: fixed; inset: 0; background: var(--scrim); z-index: 70; animation: fade-in 0.15s ease; }
 @keyframes fade-in { from { opacity: 0; } }
-.dialog {
-  position: fixed; z-index: 71; left: 50%; top: 12vh; transform: translateX(-50%);
-  width: min(32rem, calc(100vw - 2rem)); max-height: 80vh; display: flex; flex-direction: column;
-  background: var(--app-surface); border-radius: calc(var(--r) + 2px); box-shadow: var(--pop-shadow);
-  animation: dialog-in 0.16s var(--ease);
-}
+/* Still used by custom overlays (command palette, event peek, viewer info panel) until they move to Base UI. */
+@keyframes pop-in { from { opacity: 0; transform: translateY(-4px) scale(0.98); } }
 @keyframes dialog-in { from { opacity: 0; transform: translate(-50%, 6px) scale(0.985); } }
-.dialog-head { display: flex; align-items: center; gap: var(--sp-2); padding: 0.875rem 1rem 0.5rem; }
-.dialog-head h2 { font-size: var(--fs-md); font-weight: 600; }
-.dialog-body { padding: 0.5rem 1rem 1rem; overflow: auto; display: grid; gap: var(--sp-3); }
-.dialog-foot { display: flex; align-items: center; gap: var(--sp-2); padding: 0.75rem 1rem; border-top: var(--hairline); }
-
-.drawer {
-  position: fixed; z-index: 65; top: 0; right: 0; bottom: 0; width: min(30rem, 100vw);
-  background: var(--app-surface); border-left: var(--hairline); box-shadow: -12px 0 32px rgba(16,24,40,.08);
-  display: flex; flex-direction: column; animation: drawer-in 0.2s var(--ease);
-}
 @keyframes drawer-in { from { transform: translateX(24px); opacity: 0; } }
+@keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } }
 
 /* ---------- Toasts */
 .toasts { position: fixed; z-index: 90; left: 50%; bottom: 1.25rem; transform: translateX(-50%); display: grid; gap: 0.5rem; justify-items: center; pointer-events: none; }
@@ -274,14 +239,8 @@ a.menu-item:hover { text-decoration: none; }
 @media (max-width: 760px) {
   .page { padding: 0.875rem 1rem 1.5rem; }
   .field-row { grid-template-columns: 1fr; }
-  .dialog { top: auto; bottom: 0; left: 0; right: 0; transform: none; width: 100% !important; max-height: 92vh; border-radius: 12px 12px 0 0; animation: sheet-in 0.2s var(--ease); padding-bottom: env(safe-area-inset-bottom, 0); }
-  @keyframes sheet-in { from { transform: translateY(24px); opacity: 0; } }
 }
-.drawer-scrim { z-index: 64; }
 
-/* Drawer content (tasks, calendar settings) */
-.drawer-head { display: flex; align-items: center; gap: 0.5rem; height: 3rem; padding: 0 0.5rem 0 1rem; border-bottom: var(--hairline); flex: none; }
-.drawer-body { flex: 1; overflow-y: auto; padding: 0.75rem 1rem 2rem; display: grid; gap: 0.75rem; align-content: start; }
 
 /* Leaflet gives its panes and controls z-index 400–1000, which would paint over dialogs (70), drawers,
    menus and the photo viewer (85). Each map gets its own stacking context so its layers stay inside it. */

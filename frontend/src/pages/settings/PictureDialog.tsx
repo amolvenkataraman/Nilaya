@@ -175,7 +175,6 @@ export function PictureDialog({ open, onClose }: { open: boolean; onClose: () =>
       onClose={onClose}
       title="Change your profile picture"
       width="26rem"
-      labelledBy="pic-title"
       footer={
         <>
           {error ? (

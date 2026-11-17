@@ -2,7 +2,7 @@
 // and the saved-view dialog (save the current filters as a view, or rename one).
 import { useEffect, useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { Confirm, Dialog, Menu, MenuItem } from '../../components/ui'
+import { Confirm, Dialog, Menu, MenuItem, MenuLabel, MenuSeparator } from '../../components/ui'
 import { toast } from '../../components/toast'
 import type { TaskQuery } from '../../lib/queries'
 import type { Project, SavedView } from '../../lib/types'
@@ -244,13 +244,13 @@ export function ProjectMenu({
             )}
             {admin && !project.is_inbox && (
               <>
-                <div className="menu-sep" />
+                <MenuSeparator />
                 <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>
                   Delete project…
                 </MenuItem>
               </>
             )}
-            {!admin && (!onShare || project.is_inbox) && <div className="menu-label">Only admins can change this project.</div>}
+            {!admin && (!onShare || project.is_inbox) && <MenuLabel>Only admins can change this project.</MenuLabel>}
           </>
         )}
       </Menu>

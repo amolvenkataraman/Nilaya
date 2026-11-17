@@ -11,6 +11,7 @@ import type { Photo, PhotoPage } from '../../lib/types'
 import { Icon } from '../../components/Icon'
 import { ErrorBox, useMediaQuery } from '../../components/ui'
 import { Viewer } from './Viewer'
+import { layerOpen } from '../../components/layers'
 
 const PAGE = 120
 
@@ -333,7 +334,7 @@ export function PhotoStream({
   const dayMap = useMemo(() => Object.assign({}, ...dayQs.map((d) => d.data ?? {})) as Record<string, DayInfo>, [dayQs])
   useEffect(() => {
     const onKey = (e: KeyboardEvent) =>
-      e.key === 'Escape' && selection.get().mode && !document.querySelector('.dialog,.viewer') && select.setMode(false)
+      e.key === 'Escape' && selection.get().mode && !layerOpen(['dialog', 'viewer']) && select.setMode(false)
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [])

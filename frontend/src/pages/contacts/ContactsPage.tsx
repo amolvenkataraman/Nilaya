@@ -6,7 +6,18 @@ import { useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { AppShell, SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Avatar, Confirm, ErrorBox, Menu, MenuItem, SkeletonRows, isTyping, useDebounced, useMediaQuery } from '../../components/ui'
+import {
+  Avatar,
+  Confirm,
+  ErrorBox,
+  Menu,
+  MenuItem,
+  MenuSeparator,
+  SkeletonRows,
+  isTyping,
+  useDebounced,
+  useMediaQuery,
+} from '../../components/ui'
 import { toast } from '../../components/toast'
 import { safeHref } from '../../lib/api'
 import { dayKey, fmtDate, parseDayKey, shortStamp } from '../../lib/dates'
@@ -42,6 +53,7 @@ import { DuplicatesPane, MergeManyDialog } from './Duplicates'
 import { ContactSettingsDialog, LabelsDialog } from './Manage'
 import { KIT, afterG, cap, fmtBirthday, plural, relLabel } from './util'
 import './contacts.css'
+import { layerOpen } from '../../components/layers'
 
 const FILTERS: { id: Filter; label: string; icon: string; count?: string }[] = [
   { id: '', label: 'All contacts', icon: 'users', count: 'total' },
@@ -149,7 +161,7 @@ export default function ContactsPage() {
   // Keyboard (as in the classic page): / search, N new, J/K or arrows move, E edit, Esc clears search / closes on phones.
   const keys = useRef<(e: KeyboardEvent) => void>(() => {})
   keys.current = (e: KeyboardEvent) => {
-    if (e.metaKey || e.ctrlKey || e.altKey || afterG(e) || document.querySelector('.dialog,.menu,.palette')) return
+    if (e.metaKey || e.ctrlKey || e.altKey || afterG(e) || layerOpen(['dialog', 'menu', 'palette'])) return
     if (e.key === 'Escape' && e.target === searchRef.current) return (setQ(''), searchRef.current?.blur())
     if (isTyping(e)) return
     if (e.key === '/') {
@@ -342,7 +354,7 @@ export default function ContactsPage() {
                         <MenuItem icon="edit" onClick={() => (close(), setLabels({ edit: currentTag.id }))}>
                           Rename {currentTag.kind}…
                         </MenuItem>
-                        <div className="menu-sep" />
+                        <MenuSeparator />
                         <MenuItem icon="trash" danger onClick={() => (close(), setConfirmTag(currentTag))}>
                           Delete {currentTag.kind}…
                         </MenuItem>
@@ -581,7 +593,7 @@ function PersonPane({
               <MenuItem icon="arrowUp" href={exportHref('vcf', [p.id])} onClick={close}>
                 Download vCard
               </MenuItem>
-              <div className="menu-sep" />
+              <MenuSeparator />
               <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>
                 Delete contact
               </MenuItem>

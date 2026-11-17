@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Link } from 'react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { Dialog, Drawer, ErrorBox, SkeletonRows, Switch } from '../../components/ui'
+import { Dialog, Drawer, DrawerBody, DrawerHead, ErrorBox, SkeletonRows, Switch } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { ApiError, del, get, patch, post } from '../../lib/api'
 import { fmtDate, parseDayKey, shortStamp } from '../../lib/dates'
@@ -258,14 +258,14 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
 
   return (
     <>
-      <div className="drawer-head">
+      <DrawerHead>
         <CalendarIconGlyph icon={d?.icon} colour={colour} size={1.4} />
         <strong className="grow truncate">{d?.name ?? cal.name}</strong>
         <button className="btn ghost icon sm" onClick={onClose} aria-label="Close settings">
           <Icon name="x" />
         </button>
-      </div>
-      <div className="drawer-body cal-settings">
+      </DrawerHead>
+      <DrawerBody className="gap-5">
         {detail.isPending ? (
           <SkeletonRows rows={6} />
         ) : detail.error && !detail.data ? (
@@ -471,7 +471,7 @@ function SettingsBody({ cal, onClose }: { cal: Calendar; onClose: () => void }) 
             <Danger cal={d} onDone={onClose} />
           </>
         ) : null}
-      </div>
+      </DrawerBody>
     </>
   )
 }

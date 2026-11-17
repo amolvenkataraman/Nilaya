@@ -16,6 +16,7 @@ import { toast } from '../../components/toast'
 import { useDebounced, useHotkey } from '../../components/ui'
 import { HeatLayer, realPoints, type HeatPoint } from './heat'
 import { closeness, distanceM, fmtDistance, score } from './game'
+import { layerOpen } from '../../components/layers'
 
 type LatLng = { lat: number; lng: number }
 const START: [number, number] = [43.57, -79.98] // starting view (southern Ontario)
@@ -54,7 +55,7 @@ const pinStyle = (colour: string): L.CircleMarkerOptions => ({ radius: 8, color:
 const when = (p: Photo) => (p.date_taken ? new Date(p.date_taken) : null)
 const coords = (p: LatLng) => `${p.lat.toFixed(5)}, ${p.lng.toFixed(5)}`
 const skipKey = (e: KeyboardEvent) =>
-  e.ctrlKey || e.metaKey || e.altKey || !!(e.target as HTMLElement)?.closest?.('button, a, select, .dialog, .menu')
+  e.ctrlKey || e.metaKey || e.altKey || layerOpen(['dialog', 'menu']) || !!(e.target as HTMLElement)?.closest?.('button, a, select')
 
 /** The photo, filling its panel; the thumbnail shows until the original has decoded. */
 function Shot({ photo }: { photo: Photo }) {

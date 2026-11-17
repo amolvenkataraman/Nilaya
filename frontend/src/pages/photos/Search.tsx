@@ -11,6 +11,7 @@ import { PhotoStream, type Zoom } from './PhotoStream'
 import { PageHead } from './parts'
 import { countLabel, dropSpan, type SearchPage, type SearchTerm } from './search'
 import './search.css'
+import { layerOpen } from '../../components/layers'
 
 const MAX = 200
 const href = (q: string) => (q ? `/photos?q=${encodeURIComponent(q)}` : '/photos')
@@ -29,7 +30,7 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
     const h = (e: KeyboardEvent) => {
       const el = input.current
       if (e.key !== '/' || e.ctrlKey || e.metaKey || e.altKey || isTyping(e) || !el || el.offsetParent === null) return
-      if (document.querySelector('.dialog,.viewer,.drawer,.palette')) return
+      if (layerOpen(['dialog', 'viewer', 'drawer', 'palette'])) return
       e.preventDefault()
       e.stopImmediatePropagation()
       el.focus()

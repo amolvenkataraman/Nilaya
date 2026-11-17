@@ -1,7 +1,7 @@
 // Label management from the sidebar: create, rename, recolour, delete.
 import { useEffect, useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { Confirm, Dialog, Menu, MenuItem } from '../../components/ui'
+import { Confirm, Dialog, Menu, MenuItem, MenuSeparator } from '../../components/ui'
 import type { Label } from '../../lib/types'
 import { useDeleteLabel, useSaveLabel } from './api'
 import { PROJECT_COLOURS } from './ProjectDialog'
@@ -105,7 +105,7 @@ export function LabelMenu({ label, onEdit, onDeleted }: { label: Label; onEdit: 
             <MenuItem icon="edit" onClick={() => (close(), onEdit())}>
               Edit label
             </MenuItem>
-            <div className="menu-sep" />
+            <MenuSeparator />
             <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>
               Delete label
             </MenuItem>

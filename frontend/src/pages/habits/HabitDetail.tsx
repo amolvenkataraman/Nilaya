@@ -2,13 +2,14 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { Confirm, ErrorBox, Menu, MenuItem, SkeletonRows, useHotkey } from '../../components/ui'
+import { Confirm, ErrorBox, Menu, MenuItem, MenuSeparator, SkeletonRows, useHotkey } from '../../components/ui'
 import { Columns } from '../../components/charts'
 import { addDays, fmtDate, fmtTime } from '../../lib/dates'
 import { useArchiveHabit, useDeleteHabit, useHabits, usePauseHabit, useStats, useToday, type Habit, type Stats } from './api'
 import { DayDialog, type DayTarget } from './DayEditor'
 import { HabitCheck, progressText } from './HabitsToday'
 import { HabitBadge, HIcon, WEEKDAY_LETTERS, fmtNum, goalText, hc, parseDay, scheduleText, streakText } from './util'
+import { layerOpen } from '../../components/layers'
 
 /** "20:00:00" -> the app's time format. */
 const clock = (t: string) => {
@@ -30,7 +31,7 @@ export function HabitDetail({ id, onEdit }: { id: string; onEdit: (h: Habit) => 
   const [confirm, setConfirm] = useState(false)
   const [day, setDay] = useState<DayTarget | null>(null)
   useHotkey(
-    (e) => e.key === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey && !!habit && !document.querySelector('.dialog,.palette,.menu'),
+    (e) => e.key === 'e' && !e.metaKey && !e.ctrlKey && !e.altKey && !!habit && !layerOpen(['dialog', 'palette', 'menu']),
     (e) => (e.preventDefault(), habit && onEdit(habit)),
   )
 
@@ -100,7 +101,7 @@ export function HabitDetail({ id, onEdit }: { id: string; onEdit: (h: Habit) => 
               <MenuItem icon="album" onClick={() => (close(), archive.mutate({ id: habit.id, archived: !habit.archived }))}>
                 {habit.archived ? 'Restore from archive' : 'Archive'}
               </MenuItem>
-              <div className="menu-sep" />
+              <MenuSeparator />
               <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>
                 Delete habit
               </MenuItem>

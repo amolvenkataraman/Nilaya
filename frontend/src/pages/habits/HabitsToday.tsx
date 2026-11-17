@@ -3,7 +3,7 @@
 import { useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { ErrorBox, Menu, MenuItem, SkeletonRows } from '../../components/ui'
+import { ErrorBox, Menu, MenuItem, MenuSeparator, SkeletonRows } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { useArchiveHabit, useCheck, usePauseHabit, useSetEntry, useToday, type Habit, type TodayRow } from './api'
 import { DayDialog, type DayTarget } from './DayEditor'
@@ -206,7 +206,7 @@ export function HabitRow({
               )}
               {onMove && (
                 <>
-                  <div className="menu-sep" />
+                  <MenuSeparator />
                   <MenuItem icon="arrowUp" onClick={() => (close(), onMove(-1))}>
                     Move up
                   </MenuItem>
@@ -215,7 +215,7 @@ export function HabitRow({
                   </MenuItem>
                 </>
               )}
-              <div className="menu-sep" />
+              <MenuSeparator />
               <MenuItem icon={h.paused ? 'play' : 'clock'} onClick={() => (close(), pause.mutate({ id: h.id, paused: !h.paused }))}>
                 {h.paused ? 'Resume' : 'Pause'}
               </MenuItem>

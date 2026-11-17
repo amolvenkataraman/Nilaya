@@ -295,8 +295,6 @@
 }
 
 /* Dialogs opened from the viewer sit above it (menus are above everything already) */
-body:has(.viewer) .scrim { z-index: 86; }
-body:has(.viewer) .dialog { z-index: 87; }
 @media (max-width: 760px) { .viewer-btn.hide-phone { display: none; } }
 
 /* Day headers link to the day page */

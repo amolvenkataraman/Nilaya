@@ -12,6 +12,7 @@ import { Icon } from '../../components/Icon'
 import { ErrorBox, SkeletonRows, useMediaQuery } from '../../components/ui'
 import { fmtBytes, fmtDuration } from '../photos/util'
 import { PublicFrame, PublicNotice, loginHere, usePublicTitle } from './PublicFrame'
+import { useLayer } from '../../components/layers'
 
 interface PublicAlbum {
   id: string
@@ -232,6 +233,7 @@ function Grid({
 }
 
 function Lightbox({ items, index, onGo, onClose }: { items: Photo[]; index: number; onGo: (i: number) => void; onClose: () => void }) {
+  useLayer('viewer', true)
   const p = items[index]
   const prev = index > 0 ? index - 1 : null
   const next = index < items.length - 1 ? index + 1 : null

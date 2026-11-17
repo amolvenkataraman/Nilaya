@@ -11,6 +11,7 @@ import { toast } from './toast'
 import { cycleTheme } from '../lib/theme'
 import { dueLabel } from '../lib/dates'
 import type { TaskPage } from '../lib/types'
+import { useLayer } from './layers'
 
 interface Item {
   id: string
@@ -32,6 +33,7 @@ function score(label: string, q: string): number {
 }
 
 export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; onClose: () => void; onQuickAdd: () => void }) {
+  useLayer('palette', open)
   const [q, setQ] = useState('')
   const [active, setActive] = useState(0)
   const navigate = useNavigate()

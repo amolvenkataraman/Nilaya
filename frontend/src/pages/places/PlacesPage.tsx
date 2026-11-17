@@ -2,7 +2,18 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router'
 import { AppShell, SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Confirm, Dialog, ErrorBox, Menu, MenuItem, SkeletonRows, Switch, useDebounced, useHotkey } from '../../components/ui'
+import {
+  Confirm,
+  Dialog,
+  ErrorBox,
+  Menu,
+  MenuItem,
+  MenuSeparator,
+  SkeletonRows,
+  Switch,
+  useDebounced,
+  useHotkey,
+} from '../../components/ui'
 import type { PlaceCategory, PlaceGroup } from '../../lib/types'
 import {
   STATUSES,
@@ -44,6 +55,7 @@ import { realPoints, type HeatPoint } from '../photos/heat'
 import { toast } from '../../components/toast'
 import { PlaceMap, type MapFocus } from './PlaceMap'
 import './places.css'
+import { layerOpen } from '../../components/layers'
 
 type Draft = Partial<PlaceInput> & { id?: string }
 
@@ -186,7 +198,7 @@ export default function PlacesPage() {
   const saveSuggestion = (x: Suggestion) =>
     newPlace(x.latitude, x.longitude, { name: x.name, address: x.address, status: 'visited', visited_on: x.last_day })
   useHotkey(
-    (e) => e.key === 'Escape' && addMode && !document.querySelector('.dialog'),
+    (e) => e.key === 'Escape' && addMode && !layerOpen(['dialog']),
     () => setAddMode(false),
     true,
   )
@@ -750,7 +762,7 @@ function GroupMenu({
           )}
           {g.mine && (
             <>
-              <div className="menu-sep" />
+              <MenuSeparator />
               <MenuItem icon="trash" danger onClick={() => (close(), onDelete())}>
                 Delete group…
               </MenuItem>

@@ -6,7 +6,7 @@ import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { useMediaQuery } from '../../components/ui'
+import { MenuSeparator, Popover, useMediaQuery } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { get, post, safeHref } from '../../lib/api'
 import { fmtDate, isSameDay, relTime } from '../../lib/dates'
@@ -15,6 +15,7 @@ import { Menu, MenuItem } from '../../components/ui'
 import { eventDayKey, eventDays } from './util'
 import { HOME_ZONE, fmtDateIn, fmtTimeIn, gmtLabel, useCalPrefs, zoneCity, zoneDayKey, type Zone } from './zone'
 import { useDeleteEvent, useDuplicateEvent, useTaskFromEvent, useUpdateEvent, type Scope } from './api'
+import { useLayer } from '../../components/layers'
 
 const MEETING_RE = /https:\/\/[^\s<>"]*(meet\.google\.com|zoom\.us|teams\.microsoft\.com|whereby\.com|jit\.si)[^\s<>"]*/i
 
@@ -64,6 +65,7 @@ export function EventPeek({
   onClose: () => void
   onEdit: (e: CalEvent) => void
 }) {
+  const isTop = useLayer('popover', true)
   const phone = useMediaQuery('(max-width: 760px)')
   const { tz } = useCalPrefs()
   const ref = useRef<HTMLDivElement>(null)
@@ -106,7 +108,7 @@ export function EventPeek({
     ref.current?.focus()
     const back = anchor
     const onKey = (ev: KeyboardEvent) => {
-      if (document.querySelector('.dialog')) return
+      if (!isTop()) return
       const typing = ['INPUT', 'TEXTAREA', 'SELECT'].includes((ev.target as HTMLElement)?.tagName)
       if (ev.key === 'Escape') ev.preventDefault(), onClose()
       else if (!typing && canEdit && (ev.key === 'e' || (ev.key === 'Enter' && ev.target === ref.current)))
@@ -239,7 +241,7 @@ export function EventPeek({
             </Menu>
           )}
           {canEdit && (
-            <Menu
+            <Popover
               label="Duplicate"
               width="15rem"
               trigger={(p) => (
@@ -278,7 +280,7 @@ export function EventPeek({
                     <MenuItem icon="copy" onClick={() => dup(7)}>
                       Next week
                     </MenuItem>
-                    <div className="menu-sep" />
+                    <MenuSeparator />
                     <form className="peek-dup" onSubmit={(ev) => (ev.preventDefault(), ok && dup(n))}>
                       <input
                         className="input"
@@ -298,7 +300,7 @@ export function EventPeek({
                   </>
                 )
               }}
-            </Menu>
+            </Popover>
           )}
           {e.task_id && (
             <button

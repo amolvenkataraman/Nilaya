@@ -3,7 +3,7 @@
 import { useState, type DragEvent, type ReactNode } from 'react'
 import { SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Confirm, Menu, MenuItem } from '../../components/ui'
+import { Confirm, Menu, MenuItem, MenuSeparator } from '../../components/ui'
 import type { Label, Overview, Project, SavedView } from '../../lib/types'
 import type { SmartView } from '../../lib/qs'
 import { LabelMenu } from './Labels'
@@ -407,7 +407,7 @@ export function ViewMenu({
                 Move down
               </MenuItem>
             )}
-            <div className="menu-sep" />
+            <MenuSeparator />
             <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>
               Delete view
             </MenuItem>

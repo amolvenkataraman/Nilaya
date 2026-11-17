@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent } from 'react'
 import { keepPreviousData, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { Avatar, Confirm, Dialog, ErrorBox, Menu, MenuItem } from '../../components/ui'
+import { Avatar, Confirm, Dialog, ErrorBox, Menu, MenuItem, MenuLabel, MenuSeparator } from '../../components/ui'
 import { Ring, TaskCheck, dueTone, fmtMinutes, hoverText } from '../../components/TaskRow'
 import { toast } from '../../components/toast'
 import { get } from '../../lib/api'
@@ -452,7 +452,7 @@ function Card({
                 aria-label={`Actions for "${task.title}"`}
                 onClick={(e) => {
                   e.stopPropagation()
-                  p.onClick()
+                  p.onClick?.(e)
                 }}
               >
                 <Icon name="more" size={14} />
@@ -461,7 +461,7 @@ function Card({
           >
             {(close) => (
               <>
-                <div className="menu-label">Move to</div>
+                <MenuLabel>Move to</MenuLabel>
                 {buckets.map((b) => (
                   <MenuItem
                     key={b.id}
@@ -643,7 +643,7 @@ function ColumnHead({
                   Use as "done" column
                 </MenuItem>
               )}
-              <div className="menu-sep" />
+              <MenuSeparator />
               {i > 0 && (
                 <MenuItem
                   icon="chevronLeft"
@@ -666,7 +666,7 @@ function ColumnHead({
               )}
               {cols.length > 1 && (
                 <>
-                  <div className="menu-sep" />
+                  <MenuSeparator />
                   <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>
                     Delete column…
                   </MenuItem>

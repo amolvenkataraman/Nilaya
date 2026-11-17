@@ -3,7 +3,7 @@
 // (an optimistic PATCH) or the move mutation; nothing here fetches unless its menu is opened.
 import { useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { Avatar, Menu, MenuItem } from '../../components/ui'
+import { Avatar, Menu, MenuItem, MenuLabel, MenuSeparator, Popover } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { useBuckets, useMe, useMoveTask, useProjects } from '../../lib/queries'
 import { fmtStamp, addDays, dayKey, fmtDate, fmtTime, isEndOfDay, shortStamp, startOfDay } from '../../lib/dates'
@@ -72,17 +72,17 @@ export function DateField({ task, field, save }: { task: TaskDetail; field: 'due
   ]
   const overdue = field === 'due' && isOverdue(task)
   return (
-    <Menu
+    <Popover
       label={field === 'due' ? 'Due date' : 'Start date'}
       width="17rem"
       trigger={(p) => (
         <button
           {...p}
           className={'prop-btn' + (cur ? '' : ' empty') + (overdue ? ' danger-text' : '')}
-          onClick={() => {
+          onClick={(e) => {
             setDay(cur ? dayKey(cur) : '')
             setTime(cur && !isEndOfDay(cur) ? `${pad(cur.getHours())}:${pad(cur.getMinutes())}` : '')
-            p.onClick()
+            p.onClick?.(e)
           }}
         >
           {cur ? fmtWhen(task[field]!) : field === 'due' ? 'No due date' : 'No start date'}
@@ -106,7 +106,7 @@ export function DateField({ task, field, save }: { task: TaskDetail; field: 'due
               {field === 'due' ? 'No due date' : 'No start date'}
             </MenuItem>
           )}
-          <div className="menu-sep" />
+          <MenuSeparator />
           <form
             className="date-pop"
             onSubmit={(e) => {
@@ -135,7 +135,7 @@ export function DateField({ task, field, save }: { task: TaskDetail; field: 'due
           </form>
         </>
       )}
-    </Menu>
+    </Popover>
   )
 }
 
@@ -221,7 +221,7 @@ function AssigneeList({ task: raw, save }: { task: TaskDetail; save: Save }) {
   const names = task.assignees.map((a) => a.username)
   return (
     <>
-      <div className="menu-label">Assign to</div>
+      <MenuLabel>Assign to</MenuLabel>
       {[...people.values()].map((u) => {
         const on = names.includes(u.username)
         return (
@@ -239,8 +239,8 @@ function AssigneeList({ task: raw, save }: { task: TaskDetail; save: Save }) {
           </MenuItem>
         )
       })}
-      {members.isFetching && <div className="menu-label">Loading people…</div>}
-      {people.size < 2 && !members.isFetching && <div className="menu-label">Share the project to assign others.</div>}
+      {members.isFetching && <MenuLabel>Loading people…</MenuLabel>}
+      {people.size < 2 && !members.isFetching && <MenuLabel>Share the project to assign others.</MenuLabel>}
     </>
   )
 }
@@ -312,19 +312,19 @@ export function RepeatField({ task, save }: { task: TaskDetail; save: Save }) {
     save({ repeat_mode: mode, repeat_every: every })
   }
   return (
-    <Menu
+    <Popover
       label="Repeat"
       width="17rem"
       trigger={(p) => (
         <button
           {...p}
           className={'prop-btn' + (task.repeat_mode ? '' : ' empty')}
-          onClick={() => {
+          onClick={(e) => {
             const [c, u] = repeatParts(task.repeat_every)
             setN(c)
             setUnit(u)
             setAfter(task.repeat_mode === 3)
-            p.onClick()
+            p.onClick?.(e)
           }}
         >
           {task.repeat_mode ? (
@@ -354,7 +354,7 @@ export function RepeatField({ task, save }: { task: TaskDetail; save: Save }) {
               </MenuItem>
             )
           })}
-          <div className="menu-sep" />
+          <MenuSeparator />
           <form
             className="date-pop"
             onSubmit={(e) => {
@@ -363,9 +363,7 @@ export function RepeatField({ task, save }: { task: TaskDetail; save: Save }) {
               set(after ? 3 : 1, Math.max(1, n || 1) * unit)
             }}
           >
-            <div className="menu-label" style={{ padding: 0 }}>
-              Custom
-            </div>
+            <MenuLabel className="p-0">Custom</MenuLabel>
             <div className="row">
               <span className="small">Every</span>
               <input
@@ -397,7 +395,7 @@ export function RepeatField({ task, save }: { task: TaskDetail; save: Save }) {
           </form>
         </>
       )}
-    </Menu>
+    </Popover>
   )
 }
 
@@ -447,17 +445,17 @@ export function RemindersField({ task, save }: { task: TaskDetail; save: Save })
           </button>
         </span>
       ))}
-      <Menu
+      <Popover
         label="Add reminder"
         width="18rem"
         trigger={(p) => (
           <button
             {...p}
             className="chip"
-            onClick={() => {
+            onClick={(e) => {
               setAt('')
               setRel(task.due ? 'due' : 'start')
-              p.onClick()
+              p.onClick?.(e)
             }}
           >
             <Icon name="plus" size={11} />
@@ -467,7 +465,7 @@ export function RemindersField({ task, save }: { task: TaskDetail; save: Save })
       >
         {(close) => (
           <>
-            <div className="menu-label">{task.due ? 'Relative to the due date' : 'Set a due date for relative reminders'}</div>
+            <MenuLabel>{task.due ? 'Relative to the due date' : 'Set a due date for relative reminders'}</MenuLabel>
             {task.due &&
               REL_PRESETS.map(([off, l]) => (
                 <MenuItem key={off} icon="bell" onClick={() => (close(), put([...keep, { at: null, relative_to: 'due', offset: off }]))}>
@@ -526,7 +524,7 @@ export function RemindersField({ task, save }: { task: TaskDetail; save: Save })
                 <span className="muted xsmall">{n ? `${durText(n * unit)} ${dir < 0 ? 'before' : 'after'} ${rel}` : `At ${rel} time`}</span>
               </form>
             )}
-            <div className="menu-sep" />
+            <MenuSeparator />
             <form
               className="date-pop"
               onSubmit={(e) => {
@@ -537,9 +535,7 @@ export function RemindersField({ task, save }: { task: TaskDetail; save: Save })
                 put([...keep, { at: d.toISOString(), relative_to: '', offset: 0 }])
               }}
             >
-              <div className="menu-label" style={{ padding: 0 }}>
-                At a date and time
-              </div>
+              <MenuLabel className="p-0">At a date and time</MenuLabel>
               <div className="row">
                 <input
                   type="datetime-local"
@@ -555,7 +551,7 @@ export function RemindersField({ task, save }: { task: TaskDetail; save: Save })
             </form>
           </>
         )}
-      </Menu>
+      </Popover>
     </div>
   )
 }

@@ -3,7 +3,7 @@ import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { Drawer, Switch } from '../../components/ui'
+import { Drawer, DrawerBody, DrawerHead, Switch } from '../../components/ui'
 import { get } from '../../lib/api'
 import { fmtDate } from '../../lib/dates'
 
@@ -78,13 +78,13 @@ function FiltersDrawer({ onClose }: { onClose: () => void }) {
   }
   return (
     <Drawer open onClose={onClose} label="Photo filters">
-      <div className="drawer-head">
+      <DrawerHead>
         <strong className="grow">Filters</strong>
         <button className="btn ghost icon sm" onClick={onClose} aria-label="Close">
           <Icon name="x" />
         </button>
-      </div>
-      <div className="drawer-body ph-filters">
+      </DrawerHead>
+      <DrawerBody className="gap-4">
         <Switch checked={f.kind === 'videos'} onChange={(v) => set('kind', v ? 'videos' : '')} label="Videos only" />
         <div className="field-row">
           <label className="field">
@@ -224,8 +224,8 @@ function FiltersDrawer({ onClose }: { onClose: () => void }) {
         )}
         <p className="help">Free text (places, things, cameras, dates) goes in the search box at the top.</p>
         <p className="help">Libraries: switch them on or off, or pick "Only", in the sidebar.</p>
-      </div>
-      <div className="dialog-foot">
+      </DrawerBody>
+      <div className="flex items-center gap-2 border-t border-border px-4 py-3">
         <button className="btn ghost" onClick={() => setF(Object.fromEntries(KEYS.map((k) => [k, ''])) as typeof f)}>
           Clear all
         </button>

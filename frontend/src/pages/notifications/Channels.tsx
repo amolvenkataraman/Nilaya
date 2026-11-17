@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { Confirm, Dialog, ErrorBox, Menu, MenuItem, SkeletonRows, Switch } from '../../components/ui'
+import { Confirm, Dialog, ErrorBox, Menu, MenuItem, MenuSeparator, SkeletonRows, Switch } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { del, get, patch, post } from '../../lib/api'
 import { shortStamp } from '../../lib/dates'
@@ -177,7 +177,7 @@ function ChannelRow({ c, kindLabel, onEdit }: { c: Channel; kindLabel: string; o
               <MenuItem icon="send" onClick={() => (close(), test.mutate())}>
                 Send test
               </MenuItem>
-              <div className="menu-sep" />
+              <MenuSeparator />
               <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>
                 Delete
               </MenuItem>

@@ -9,6 +9,11 @@
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities);
 
+/* Older stylesheets use these names for their own classes (the task progress `ring`, settings rows `inline`, ...);
+ * Tailwind's utilities of the same name would add styles to those elements. Drop each name from this list once
+ * the stylesheet that defines it is gone. */
+@source not inline('{ring,blur,container,outline,resize,table,filter,transform,visible,inline,static,sticky}');
+
 @custom-variant dark (&:where([data-bs-theme='dark'], [data-bs-theme='dark'] *));
 /* Touch screens (no hover). `hover:` already applies only where hovering exists. */
 @custom-variant touch (@media (hover: none));

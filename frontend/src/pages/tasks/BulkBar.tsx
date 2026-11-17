@@ -3,7 +3,7 @@
 // loaded row is picked and the list has more, it offers "Select all N": then actions go by the list's filter.
 import { useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { Confirm, Menu, MenuItem } from '../../components/ui'
+import { Confirm, Menu, MenuItem, MenuLabel, MenuSeparator, Popover } from '../../components/ui'
 import { addDays, parseDayKey, startOfDay } from '../../lib/dates'
 import { PRIORITIES, type Label, type Project, type Task } from '../../lib/types'
 import { plural, targetCount, useBulkOps, useDeleteWithUndo, type BulkTarget } from './api'
@@ -65,7 +65,7 @@ export function BulkBar({
         <Icon name="check" size={14} />
         <span className="bulk-label">{allDone ? 'Reopen' : 'Complete'}</span>
       </button>
-      <Menu
+      <Popover
         label="Set due date"
         trigger={(p) => (
           <button {...p} className="btn ghost sm" title="Due date">
@@ -100,13 +100,13 @@ export function BulkBar({
             <MenuItem icon="calendar" onClick={() => (close(), due(addDays(today, 7)))}>
               Next week
             </MenuItem>
-            <div className="menu-sep" />
+            <MenuSeparator />
             <MenuItem icon="x" onClick={() => (close(), due(null))}>
               Clear due date
             </MenuItem>
           </>
         )}
-      </Menu>
+      </Popover>
       <Menu
         label="Set priority"
         trigger={(p) => (
@@ -155,7 +155,7 @@ export function BulkBar({
               )
             })
           ) : (
-            <div className="menu-label">No labels yet. Add one from the sidebar.</div>
+            <MenuLabel>No labels yet. Add one from the sidebar.</MenuLabel>
           )
         }
       </Menu>
@@ -171,7 +171,7 @@ export function BulkBar({
       >
         {(close) => (
           <>
-            <div className="menu-label">Move to</div>
+            <MenuLabel>Move to</MenuLabel>
             {targets.map((p) => (
               <MenuItem
                 key={p.id}

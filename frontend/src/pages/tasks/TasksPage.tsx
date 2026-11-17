@@ -19,7 +19,7 @@ import { useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { AppShell } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Confirm, ErrorBox, Menu, MenuItem, SkeletonRows, useMediaQuery } from '../../components/ui'
+import { Confirm, ErrorBox, Menu, MenuItem, MenuLabel, MenuSeparator, SkeletonRows, useMediaQuery } from '../../components/ui'
 import { Ring, TaskRow } from '../../components/TaskRow'
 import { QuickAddInput } from '../../components/QuickAdd'
 import {
@@ -62,6 +62,7 @@ import {
 import { canEditTask as canEditTaskFor, fitsList, nestTasks } from './util'
 import { revealRow, useLoadMore, useWindowed } from './virtual'
 import './tasks.css'
+import { layerOpen } from '../../components/layers'
 
 // Layouts other than the list load on demand.
 const Board = lazy(() => import('./Board').then((m) => ({ default: m.Board })))
@@ -731,7 +732,7 @@ export default function TasksPage() {
         document.querySelector<HTMLButtonElement>('.topbar [aria-controls="app-sidebar"]')?.click()
         return true
       case 'Escape':
-        if (state.task || document.querySelector('.dialog,.menu,.drawer')) return false
+        if (state.task || layerOpen(['dialog', 'menu', 'drawer'])) return false
         if (sel.ids.size) {
           sel.clear()
           return true
@@ -1483,7 +1484,7 @@ function FilterMenu({
   const [who, setWho] = useState(assignee && assignee !== me ? assignee : '')
   return (
     <>
-      <div className="menu-label">Priority</div>
+      <MenuLabel>Priority</MenuLabel>
       {PRIO_FILTERS.map(([v, l]) => (
         <MenuItem
           key={v}
@@ -1494,7 +1495,7 @@ function FilterMenu({
           {l}
         </MenuItem>
       ))}
-      {labels && labels.length > 0 && <div className="menu-label">Labels (all of)</div>}
+      {labels && labels.length > 0 && <MenuLabel>Labels (all of)</MenuLabel>}
       {labels?.map((l) => {
         const on = labelFilter.split(',').includes(String(l.id))
         return (
@@ -1514,7 +1515,7 @@ function FilterMenu({
           </MenuItem>
         )
       })}
-      <div className="menu-label">Assignee</div>
+      <MenuLabel>Assignee</MenuLabel>
       <MenuItem active={!assignee} end={!assignee ? '✓' : undefined} onClick={() => (close(), set('assignee', null))}>
         Anyone
       </MenuItem>
@@ -1543,7 +1544,7 @@ function FilterMenu({
       </form>
       {labelFilter || prioMin || assignee ? (
         <>
-          <div className="menu-sep" />
+          <MenuSeparator />
           <MenuItem icon="x" onClick={clear}>
             Clear all filters
           </MenuItem>

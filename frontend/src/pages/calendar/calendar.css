@@ -223,11 +223,6 @@ a.agenda-item:hover { text-decoration: none; }
 .ev-cal { display: flex; align-items: center; gap: 0.5rem; }
 .ev-cal .dot { width: 0.625rem; height: 0.625rem; }
 .ev-fieldset:disabled .input, .ev-fieldset:disabled .select, .ev-fieldset:disabled .textarea { background: var(--app-bg); color: var(--app-fg); opacity: 1; }
-.ev-more { position: relative; display: inline-flex; }
-.ev-more-pop {
-  position: absolute; bottom: calc(100% + 4px); left: 0; z-index: 2; min-width: 11rem; padding: 0.25rem;
-  background: var(--app-surface); border-radius: var(--r); box-shadow: var(--pop-shadow); animation: pop-in 0.12s var(--ease);
-}
 
 /* ---------- Photo counts + tasks on the calendar */
 .month-cell-head { display: flex; align-items: center; gap: 0.25rem; min-width: 0; }

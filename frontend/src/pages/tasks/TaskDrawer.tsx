@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { Avatar, Confirm, Drawer, ErrorBox, Menu, MenuItem, SkeletonRows } from '../../components/ui'
+import { Avatar, Confirm, Drawer, DrawerBody, DrawerHead, ErrorBox, Menu, MenuItem, MenuSeparator, SkeletonRows } from '../../components/ui'
 import { TaskCheck, TaskRow } from '../../components/TaskRow'
 import { QuickAddInput } from '../../components/QuickAdd'
 import { toast } from '../../components/toast'
@@ -41,12 +41,12 @@ export function TaskDrawer({ id, onClose, onOpen }: { id: string | null; onClose
           <SkeletonRows rows={6} />
         </div>
       ) : task.error && !task.data ? (
-        <div className="drawer-body">
+        <DrawerBody>
           <button className="btn ghost icon sm" onClick={onClose} aria-label="Close">
             <Icon name="x" />
           </button>
           <ErrorBox error={task.error} />
-        </div>
+        </DrawerBody>
       ) : task.data ? (
         <Detail key={task.data.id} task={task.data} onClose={onClose} onOpen={onOpen} />
       ) : null}
@@ -93,7 +93,7 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
 
   return (
     <>
-      <div className="drawer-head">
+      <DrawerHead>
         <TaskCheck task={task} size="lg" onToggle={() => setDone.mutate({ task, done: !task.done })} />
         <nav className="drawer-crumb truncate" aria-label="Breadcrumb">
           {path.length
@@ -161,7 +161,7 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
               )}
               {canEdit && (
                 <>
-                  <div className="menu-sep" />
+                  <MenuSeparator />
                   <MenuItem icon="trash" danger end="Del" onClick={() => (close(), remove())}>
                     Delete task
                   </MenuItem>
@@ -173,9 +173,9 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
         <button className="btn ghost icon sm" onClick={onClose} aria-label="Close details" title="Close (Esc)">
           <Icon name="x" />
         </button>
-      </div>
+      </DrawerHead>
 
-      <div className="drawer-body">
+      <DrawerBody>
         <textarea
           ref={titleRef}
           className={'detail-title' + (task.done ? ' done' : '')}
@@ -433,7 +433,7 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
         <p className="detail-foot muted xsmall">
           Created {shortStamp(task.created_on)} by {task.owner.name || task.owner.username} · updated {shortStamp(task.updated_on)}
         </p>
-      </div>
+      </DrawerBody>
     </>
   )
 }

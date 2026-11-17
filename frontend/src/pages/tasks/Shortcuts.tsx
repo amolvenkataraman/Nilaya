@@ -4,6 +4,7 @@
 // unless the letter is one of the Tasks "go to" keys below).
 import { useEffect, useRef } from 'react'
 import { Dialog, isTyping } from '../../components/ui'
+import { layerOpen } from '../../components/layers'
 
 export const HELP: [string, [string, string][]][] = [
   [
@@ -104,7 +105,7 @@ export function useTaskKeys(handle: KeyHandler) {
     const onKey = (e: KeyboardEvent) => {
       if (e.defaultPrevented || e.altKey || isTyping(e)) return
       if ((e.target as HTMLElement | null)?.closest?.('.dialog,.menu')) return
-      if (document.querySelector('.dialog,.menu') && e.key !== 'Escape') return
+      if (layerOpen(['dialog', 'menu']) && e.key !== 'Escape') return
       if (e.ctrlKey || e.metaKey) {
         if (e.key.toLowerCase() === 'a' && ref.current('ctrl+a', e)) e.preventDefault()
         return

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
+import { layerOpen } from '../../components/layers'
 import { Confirm, ErrorBox, SkeletonRows, useDebounced, useHotkey } from '../../components/ui'
 import { NotificationRow, useOpenNotification } from '../../components/NotificationBell'
 import { toast } from '../../components/toast'
@@ -109,19 +110,19 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
     document.querySelector(`[data-notif="${next.id}"]`)?.scrollIntoView({ block: 'nearest' })
   }
   useHotkey(
-    (e) => (e.key === 'j' || e.key === 'k') && !e.metaKey && !e.ctrlKey,
+    (e) => (e.key === 'j' || e.key === 'k') && !e.metaKey && !e.ctrlKey && !layerOpen(),
     (e) => (e.preventDefault(), move(e.key === 'j' ? 1 : -1)),
   )
   useHotkey(
-    (e) => e.key === 'Enter' && !!selected,
+    (e) => e.key === 'Enter' && !!selected && !layerOpen(),
     () => selected && open(selected),
   )
   useHotkey(
-    (e) => e.key === 'e' && !!selected,
+    (e) => e.key === 'e' && !!selected && !layerOpen(),
     () => selected && mark.mutate({ id: selected.id, read: !selected.read }),
   )
   useHotkey(
-    (e) => e.key === '#' && !!selected,
+    (e) => e.key === '#' && !!selected && !layerOpen(),
     () => {
       if (!selected) return
       const i = items.indexOf(selected)

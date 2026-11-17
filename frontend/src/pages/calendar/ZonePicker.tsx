@@ -1,7 +1,7 @@
 // Pick a time zone to show the calendar in (Google Calendar's "display secondary/another time zone").
 // The choice lasts for this window only (zone.ts keeps it in sessionStorage). Loaded on demand.
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { Dialog } from '../../components/ui'
+import { Dialog, MenuLabel } from '../../components/ui'
 import { Icon } from '../../components/Icon'
 import { HOME_ZONE, allZones, gmtText, offsetMs, validZone, zoneCity, type Zone } from './zone'
 
@@ -138,9 +138,9 @@ export default function ZonePicker({
           />
         </div>
         <div className="tz-list" id="tz-list" role="listbox" aria-label="Time zones" ref={list}>
-          {!query && suggested.length > 0 && <div className="menu-label">Suggested</div>}
+          {!query && suggested.length > 0 && <MenuLabel>Suggested</MenuLabel>}
           {!query && suggested.map((m, i) => row(m, i))}
-          {!query && <div className="menu-label">All time zones</div>}
+          {!query && <MenuLabel>All time zones</MenuLabel>}
           {rows.slice(query ? 0 : suggested.length).map((m, i) => row(m, i + (query ? 0 : suggested.length)))}
           {query && !matches.length && <p className="muted small tz-empty">No time zone matches "{q.trim()}".</p>}
         </div>

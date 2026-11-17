@@ -69,7 +69,7 @@ export function CalendarMenu({
             onClick={(e) => {
               e.preventDefault()
               e.stopPropagation()
-              p.onClick()
+              p.onClick?.(e)
             }}
           >
             <Icon name="more" size={14} />

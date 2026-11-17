@@ -2,7 +2,7 @@ import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } fro
 import { Route, Routes, useSearchParams } from 'react-router'
 import { AppShell, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
-import { Drawer, Menu, MenuItem, useHotkey, useMediaQuery, useNow } from '../../components/ui'
+import { Drawer, Menu, MenuItem, MenuSeparator, useHotkey, useMediaQuery, useNow } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { get } from '../../lib/api'
 import { addMonths, dayKey, fmtDate, isSameDay, monthGrid, parseDayKey } from '../../lib/dates'
@@ -41,6 +41,7 @@ import {
   type Zone,
 } from './zone'
 import './calendar.css'
+import { layerOpen } from '../../components/layers'
 
 const FALLBACK = '#64748b'
 // The Tasks app's drawer, loaded only when a task chip is opened.
@@ -320,7 +321,7 @@ function CalendarMain() {
     setDraft({ start: s, end: new Date(s.getTime() + 3600_000) })
   }
   useHotkey(
-    (e) => !e.metaKey && !e.ctrlKey && !e.altKey && !draft && !document.querySelector('.dialog,.palette,.menu'),
+    (e) => !e.metaKey && !e.ctrlKey && !e.altKey && !draft && !layerOpen(['dialog', 'palette', 'menu']),
     (e) => {
       const k = e.key
       if (k === 't') today()
@@ -341,12 +342,7 @@ function CalendarMain() {
   )
   // Ctrl+←/→ previous/next, Ctrl+Shift+←/→ a year back/forward (as in the classic calendar).
   useHotkey(
-    (e) =>
-      (e.ctrlKey || e.metaKey) &&
-      !e.altKey &&
-      (e.key === 'ArrowLeft' || e.key === 'ArrowRight') &&
-      !draft &&
-      !document.querySelector('.dialog'),
+    (e) => (e.ctrlKey || e.metaKey) && !e.altKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight') && !draft && !layerOpen(['dialog']),
     (e) => {
       e.preventDefault()
       const dir = e.key === 'ArrowRight' ? 1 : -1
@@ -777,7 +773,7 @@ function Sidebar({
                 <MenuItem icon="link" onClick={() => (close(), onDialog('subscribe'))} end={<span className="kbd">S</span>}>
                   Subscribe with code
                 </MenuItem>
-                <div className="menu-sep" />
+                <MenuSeparator />
                 <MenuItem icon="tag" onClick={() => (close(), onDialog('categories'))}>
                   Event categories
                 </MenuItem>

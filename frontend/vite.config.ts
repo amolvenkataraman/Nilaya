@@ -48,6 +48,19 @@ export default defineConfig({
     assetsDir: 'assets',
     sourcemap: false,
     chunkSizeWarningLimit: 600,
+    rollupOptions: {
+      output: {
+        // Libraries in their own chunks: they change far less often than the app, so a deploy doesn't make
+        // browsers download them again (hashed names, cached for a year).
+        manualChunks(id) {
+          if (!id.includes('/node_modules/')) return
+          if (/\/node_modules\/(react|react-dom|scheduler)\//.test(id)) return 'vendor-react'
+          if (id.includes('/node_modules/react-router/')) return 'vendor-router'
+          if (id.includes('/node_modules/@tanstack/')) return 'vendor-query'
+          if (id.includes('/node_modules/@base-ui/')) return 'vendor-ui'
+        },
+      },
+    },
   },
   server: {
     port: PORT,
