@@ -98,7 +98,7 @@ export function NotificationRow({
           >
             {n.title}
             {n.priority >= 15 && (
-              <Chip tone={n.priority >= 20 ? 'danger' : 'warning'} size="sm" className="ml-1.5 align-[1px]">
+              <Chip tone={n.priority >= 20 ? 'danger' : 'warning'} size="xs" className="ml-1.5 align-[1px]">
                 {n.priority >= 20 ? 'Urgent' : 'High'}
               </Chip>
             )}

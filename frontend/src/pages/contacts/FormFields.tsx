@@ -3,8 +3,7 @@
 // contact form; other forms (places, events) can use them once they move to components/ui.
 import { useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
-import { Button, Field, Input } from '../../components/ui'
-import { chipClass } from './Chip'
+import { Button, chipClass, Field, Input } from '../../components/ui'
 import { LinkButton } from './LinkButton'
 import { newRowKey, type Row } from './personFormState'
 
@@ -174,7 +173,7 @@ export function TokenInput({
       onClick={() => input.current?.focus()}
     >
       {value.map((v) => (
-        <span key={v} className={chipClass('neutral', true)}>
+        <span key={v} className={chipClass({ tone: 'content', removable: true })}>
           {v}
           <button
             type="button"

@@ -3,7 +3,20 @@
 import { useRef, useState, type ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
-import { Avatar, Button, buttonClass, Confirm, Menu, MenuItem, MenuSeparator, QueryView, Select, SkeletonRows } from '../../components/ui'
+import {
+  Avatar,
+  Button,
+  buttonClass,
+  Chip,
+  chipClass,
+  Confirm,
+  Menu,
+  MenuItem,
+  MenuSeparator,
+  QueryView,
+  Select,
+  SkeletonRows,
+} from '../../components/ui'
 import { safeHref } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { fmtDate, parseDayKey, shortStamp } from '../../lib/dates'
@@ -18,7 +31,6 @@ import {
   useSavePerson,
   type PersonDetail,
 } from './api'
-import { Chip, chipClass } from './Chip'
 import { detailPane } from './detailPane'
 import { Interactions } from './Interactions'
 import { fmtBirthday, KIT, kitStatus } from './personFields'
@@ -295,7 +307,7 @@ function Person({
               l.href ? (
                 <a
                   key={l.network + l.handle}
-                  className={chipClass('neutral', false, 'hover:border-accent hover:no-underline')}
+                  className={chipClass({ tone: 'content', interactive: true })}
                   href={l.href}
                   target="_blank"
                   rel="noopener noreferrer"

@@ -4,11 +4,10 @@ import type { UseQueryResult } from '@tanstack/react-query'
 import { SideItem, SideSection } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
-import { Button, buttonClass, ErrorBox, Menu, MenuItem, MenuSeparator, SkeletonRows, Switch } from '../../components/ui'
+import { Button, buttonClass, chipClass, ErrorBox, Menu, MenuItem, MenuSeparator, SkeletonRows, Switch } from '../../components/ui'
 import { apiUrl } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import type { PlaceCategory } from '../../lib/types'
-import { chipClass } from '../photos/chip'
 import { categoryIcon, type Group, STATUSES, useSaveGroup, useShowOnlyGroup } from './api'
 import type { Counts } from './usePlaceFilters'
 
@@ -255,7 +254,7 @@ export function PlacesSidebar({
               key={r}
               type="button"
               className={cn(
-                chipClass(minRating === r ? 'accent' : 'neutral'),
+                chipClass({ tone: minRating === r ? 'accent' : 'neutral' }),
                 'h-6! cursor-pointer gap-1.5',
                 minRating !== r && 'hover:text-fg',
               )}

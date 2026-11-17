@@ -2,9 +2,9 @@
 import { Fragment } from 'react'
 import { cn } from '../../lib/cn'
 import { cardClass } from './Card'
-import { Kbd } from './Chip'
 import { SettingsSection } from './SettingsSection'
 import { SHORTCUTS } from './shortcutList'
+import { Kbd } from '../../components/ui'
 
 const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 

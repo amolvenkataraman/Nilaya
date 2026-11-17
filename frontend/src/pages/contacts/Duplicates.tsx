@@ -3,11 +3,10 @@
 import { useMemo, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
-import { Avatar, Button, QueryView, SkeletonRows } from '../../components/ui'
+import { Avatar, Button, Chip, QueryView, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { plural } from '../../lib/format'
 import { avatarSrc, useDismissDuplicate, useDuplicates, type DuplicatePair, type PersonFull } from './api'
-import { Chip } from './Chip'
 import { detailPane } from './detailPane'
 import { MergeDialog, MergeManyDialog } from './MergeDialogs'
 

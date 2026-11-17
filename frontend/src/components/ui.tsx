@@ -28,7 +28,7 @@ export function useHotkey(match: (e: KeyboardEvent) => boolean, fn: (e: Keyboard
 // Overlays live in ./ui/ on Base UI; re-exported here so pages keep one import.
 export { Button, buttonClass } from './ui/button'
 export { Confirm, Dialog, Drawer, DrawerBody, DrawerHead } from './ui/dialog'
-export { Chip, type ChipTone, Dot, Kbd } from './ui/chip'
+export { Chip, type ChipSize, type ChipTone, chipClass, Dot, Kbd } from './ui/chip'
 export { ColourPicker, SearchBox, Segmented, type SegmentOption } from './ui/controls'
 export { EmptyState, ErrorBox, SkeletonRows } from './ui/feedback'
 export { Field, FieldRow, fieldClass, Input, Select, Textarea } from './ui/form'

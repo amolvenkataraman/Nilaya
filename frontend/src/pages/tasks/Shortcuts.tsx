@@ -5,9 +5,8 @@
 // unless the letter is one of the Tasks "go to" keys below).
 import { useEffect, useRef } from 'react'
 import { layerOpen } from '../../components/layers'
-import { Dialog, isTyping } from '../../components/ui'
+import { Dialog, isTyping, Kbd } from '../../components/ui'
 import type { SmartView } from '../../lib/qs'
-import { Kbd } from './chip'
 import type { LayoutName } from './useTasksUrl'
 
 type Group = 'General' | 'Tasks' | 'Go to' | 'Layout'

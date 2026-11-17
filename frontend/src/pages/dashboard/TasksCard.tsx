@@ -3,12 +3,11 @@ import { useMemo } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { QuickAddInput } from '../../components/QuickAdd'
 import { TaskRow } from '../../components/TaskRow'
-import { EmptyState, QueryView, SkeletonRows } from '../../components/ui'
+import { Chip, EmptyState, QueryView, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { groupByDue } from '../../lib/dates'
 import { DASH_TODAY_PARAMS, keys, useOverview, useProjects, useSetDone, useTasks } from '../../lib/queries'
 import { CardLink } from '../settings/Card'
-import { Chip } from '../settings/Chip'
 import { DashCard } from './DashCard'
 
 export function TasksCard() {

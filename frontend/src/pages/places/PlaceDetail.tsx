@@ -5,12 +5,11 @@ import { type ReactNode, useState } from 'react'
 import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
-import { Button, buttonClass, Confirm, ErrorBox, SkeletonRows } from '../../components/ui'
+import { Button, buttonClass, chipClass, Confirm, ErrorBox, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { shortStamp } from '../../lib/dates'
 import { directionsUrl, distanceM, fmtCoords, fmtDistance, osmUrl } from '../../lib/map/geo'
 import { safeHref } from '../../lib/api'
-import { chipClass } from '../photos/chip'
 import {
   type Group,
   type Place,
@@ -183,7 +182,7 @@ export function PlaceDetail({
       <div className="flex flex-wrap gap-1">
         <span className={chipClass()}>{catLabel(p.category)}</span>
         {st && !canEdit && (
-          <span className={chipClass(st.key === 'visited' ? 'success' : st.key === 'want_to_go' ? 'warning' : 'neutral')}>
+          <span className={chipClass({ tone: st.key === 'visited' ? 'success' : st.key === 'want_to_go' ? 'warning' : 'neutral' })}>
             <Icon name={st.icon} size={11} />
             {st.label}
           </span>

@@ -2,11 +2,10 @@
 // Completed, Save / Update view, and the active filters as removable chips below it.
 import { useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { Button, fieldClass, Menu, MenuItem, MenuLabel, MenuSeparator, Segmented, type SegmentOption } from '../../components/ui'
+import { Button, Chip, Dot, fieldClass, Menu, MenuItem, MenuLabel, MenuSeparator, Segmented, type SegmentOption } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import type { Sort } from '../../lib/qs'
 import { PRIORITIES, type Label } from '../../lib/types'
-import { Chip, Dot } from './chip'
 import type { Grouping, LayoutName, TasksUrl } from './useTasksUrl'
 
 const SORT_LABELS: Record<Sort, string> = {

@@ -4,10 +4,9 @@ import { useQuery } from '@tanstack/react-query'
 import { type ReactNode, useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { Button, buttonClass, Drawer, DrawerBody, DrawerHead, Field, FieldRow, Input, Select, Switch } from '../../components/ui'
+import { Button, buttonClass, chipClass, Drawer, DrawerBody, DrawerHead, Field, FieldRow, Input, Select, Switch } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { fmtDate } from '../../lib/dates'
-import { chipClass } from './chip'
 import { browseQuery } from './queries'
 import { BOUNDS, FILTER_KEYS, type FilterKey, filterCount } from './timelineState'
 
@@ -49,7 +48,7 @@ function Group({ label, children }: { label: ReactNode; children: ReactNode }) {
   )
 }
 
-const choice = (on: boolean) => cn(chipClass(on ? 'accent' : 'neutral'), 'cursor-pointer', !on && 'hover:text-fg')
+const choice = (on: boolean) => cn(chipClass({ tone: on ? 'accent' : 'neutral' }), 'cursor-pointer', !on && 'hover:text-fg')
 
 function FiltersDrawer({ onClose }: { onClose: () => void }) {
   const [params] = useSearchParams()
@@ -177,7 +176,7 @@ function FiltersDrawer({ onClose }: { onClose: () => void }) {
         {area && (
           <Group label="Map area">
             <span className="flex items-center gap-2">
-              <span className={chipClass('accent')}>
+              <span className={chipClass({ tone: 'accent' })}>
                 <Icon name="map" size={12} />
                 In the area picked on the map
               </span>

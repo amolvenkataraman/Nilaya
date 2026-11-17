@@ -2,12 +2,10 @@
 // popover to add one relative to the due or start date, or at a date and time.
 import { useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { Button, MenuItem, MenuLabel, MenuSeparator, Popover } from '../../components/ui'
+import { Button, Chip, chipClass, MenuItem, MenuLabel, MenuSeparator, Popover } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { fmtStamp, shortStamp } from '../../lib/dates'
 import type { TaskDetail } from '../../lib/types'
-import { Chip } from './chip'
-import { chipButton } from './chipButton'
 import { fmtWhen, popForm, popInput, popRow, popSelect, type Save } from './propField'
 import { durText, type ReminderIn, reminderIn, reminderText } from './recurrence'
 
@@ -68,7 +66,7 @@ export function RemindersField({ task, save }: { task: TaskDetail; save: Save })
           <button
             {...p}
             type="button"
-            className={chipButton}
+            className={chipClass({ interactive: true })}
             onClick={(e) => {
               setAt('')
               setRel(task.due ? 'due' : 'start')

@@ -2,12 +2,11 @@
 import type { CSSProperties } from 'react'
 import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { ErrorBox, SkeletonRows } from '../../components/ui'
+import { Chip, ErrorBox, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { addDays, fmtDate, fmtTime, isSameDay, placedStart, relTime } from '../../lib/dates'
 import type { AgendaItem } from '../../lib/types'
 import { CardLink } from '../settings/Card'
-import { Chip } from '../settings/Chip'
 import { DashCard } from './DashCard'
 
 const LATER_SHOWN = 8

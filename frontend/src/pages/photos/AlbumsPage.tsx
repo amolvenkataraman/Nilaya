@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { Button, ErrorBox, fieldClass, Segmented } from '../../components/ui'
+import { Button, chipClass, ErrorBox, fieldClass, Segmented } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { plural } from '../../lib/format'
 import { usePref } from '../../lib/storage'
@@ -12,7 +12,6 @@ import { useAlbums } from './actions'
 import { AlbumCover } from './AlbumCover'
 import { AlbumDialog } from './AlbumDialog'
 import { albumMeta, albumSpan } from './albumText'
-import { chipClass } from './chip'
 import { PageHead, pageClass } from './PageHead'
 import { pulse } from './skeleton'
 
@@ -52,7 +51,7 @@ const cover = 'mb-1.5 aspect-square rounded-md border border-border'
 function Badges({ a }: { a: Album }) {
   return (
     <>
-      {a.public && <span className={chipClass('accent')}>Public</span>}
+      {a.public && <span className={chipClass({ tone: 'accent' })}>Public</span>}
       {!a.mine && <span className={chipClass()}>Shared with you</span>}
     </>
   )

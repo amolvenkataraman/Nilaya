@@ -4,10 +4,9 @@
 import type { ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
 import { Ring } from '../../components/TaskRow'
-import { Button } from '../../components/ui'
+import { Button, chipClass } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import type { Project } from '../../lib/types'
-import { chipButton } from './chipButton'
 import { BtnLabel, toggledOn } from './TasksToolbar'
 
 export function TasksHeader({
@@ -49,7 +48,12 @@ export function TasksHeader({
           <span className="truncate">{title}</span>
           {count != null && <span className="text-sm font-normal text-muted tabular-nums">{count.toLocaleString()}</span>}
           {real && project.shared && (
-            <button type="button" className={cn(chipButton, 'gap-1 font-normal')} onClick={onShare} title="People with access">
+            <button
+              type="button"
+              className={cn(chipClass({ interactive: true }), 'gap-1 font-normal')}
+              onClick={onShare}
+              title="People with access"
+            >
               <Icon name="users" size={11} />
               Shared
             </button>

@@ -6,7 +6,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
-import { Button, buttonClass, Confirm, Menu, MenuItem } from '../../components/ui'
+import { Button, buttonClass, chipClass, Confirm, Menu, MenuItem } from '../../components/ui'
 import { get } from '../../lib/api'
 import { plural } from '../../lib/format'
 import { useMe } from '../../lib/queries'
@@ -14,7 +14,6 @@ import { copyLinks, deleteAlbum, useAlbums } from './actions'
 import { AlbumCover } from './AlbumCover'
 import { AlbumDialog } from './AlbumDialog'
 import { albumMeta, albumSpan, publicAlbumUrl } from './albumText'
-import { chipClass } from './chip'
 import { PageHead, pageClass } from './PageHead'
 import { PhotoStream, type Zoom } from './PhotoStream'
 import { albumContext } from './selection'
@@ -76,7 +75,7 @@ export function AlbumPage({ zoom }: { zoom: Zoom }) {
               <h1 className="m-0 min-w-0 overflow-hidden text-ellipsis whitespace-nowrap max-md:basis-full max-md:whitespace-normal max-md:[overflow-wrap:anywhere]">
                 {album.name}
               </h1>
-              <span className={chipClass(album.public ? 'accent' : 'neutral')}>{album.public ? 'Public' : 'Private'}</span>
+              <span className={chipClass({ tone: album.public ? 'accent' : 'neutral' })}>{album.public ? 'Public' : 'Private'}</span>
               <span className={chipClass()}>{album.mine ? 'Owner' : 'Shared with you'}</span>
             </div>
             {album.description && <p className="m-0 line-clamp-2 text-sm text-fg [overflow-wrap:anywhere]">{album.description}</p>}

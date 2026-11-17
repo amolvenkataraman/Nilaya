@@ -1,13 +1,25 @@
 // Settings › API keys: each key reaches only the apps chosen for it, read or read & write. A new key's token is
 // shown once, in the dialog that made it, and dropped when the dialog closes.
 import { useState } from 'react'
-import { Button, Confirm, Dialog, EmptyState, Field, Input, Menu, MenuItem, QueryView, Select, SkeletonRows } from '../../components/ui'
+import {
+  Button,
+  Chip,
+  Confirm,
+  Dialog,
+  EmptyState,
+  Field,
+  Input,
+  Menu,
+  MenuItem,
+  QueryView,
+  Select,
+  SkeletonRows,
+} from '../../components/ui'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { fmtDate, shortStamp } from '../../lib/dates'
 import { type ApiKey, type KeyApp, useApiKeys, useKeyApps, useRevokeKey, useSaveKey } from './api'
 import { cardClass } from './Card'
-import { Chip } from './Chip'
 import { ItemRow } from './ItemRow'
 import { SecretBox } from './SecretBox'
 import { SettingsSection } from './SettingsSection'
@@ -120,7 +132,7 @@ function KeyRow({ k, label, onEdit }: { k: ApiKey; label: (app: string) => strin
         {k.scopes.map((s) => {
           const [app, level] = s.split(':')
           return (
-            <Chip key={s} tone={level === 'write' ? 'accent' : 'default'}>
+            <Chip key={s} tone={level === 'write' ? 'accent' : 'neutral'}>
               {label(app)}: {level === 'write' ? 'read & write' : 'read'}
             </Chip>
           )

@@ -6,8 +6,7 @@ import { addDays, dayKey, fmtDate, parseDayKey } from '../../lib/dates'
 import type { Photo } from '../../lib/types'
 import { Icon } from '../../components/Icon'
 import { PhotoStream, type Zoom } from './PhotoStream'
-import { buttonClass } from '../../components/ui'
-import { chipClass } from './chip'
+import { buttonClass, chipClass } from '../../components/ui'
 import { PageHead, pageClass } from './PageHead'
 import { dayInfoQuery } from './queries'
 import { fmtBytes, plural } from '../../lib/format'
@@ -72,7 +71,7 @@ export function DayPage({ zoom }: { zoom: Zoom }) {
           {places.slice(0, 12).map((p) => (
             <Link
               key={`${p.city}|${p.country}`}
-              className={chipClass('neutral', true)}
+              className={chipClass({ interactive: true })}
               to={p.city ? `/photos?city=${encodeURIComponent(p.city)}` : `/photos?country=${encodeURIComponent(p.country!)}`}
               title={`${[p.city, p.country].filter(Boolean).join(', ')}: ${plural(p.n, 'item')}`}
             >

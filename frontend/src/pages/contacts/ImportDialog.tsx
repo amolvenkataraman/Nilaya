@@ -4,18 +4,17 @@
 import { useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
-import { Button, Dialog, ErrorBox, Segmented, Select, SkeletonRows } from '../../components/ui'
+import { Button, Chip, type ChipTone, Dialog, ErrorBox, Segmented, Select, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { plural } from '../../lib/format'
 import { importPreview, useContactMeta, useImportCommit, type ImportOptions, type ImportPreview, type PreviewRow } from './api'
-import { Chip, type ChipTone } from './Chip'
 import { FileDrop } from './FileDrop'
 import { useOpenCount } from './useOpenCount'
 
 const STATUS: Record<PreviewRow['status'], [string, ChipTone]> = {
   new: ['New', 'success'],
   update: ['Update', 'accent'],
-  duplicate: ['Duplicate', 'default'],
+  duplicate: ['Duplicate', 'neutral'],
 }
 const ACCEPT = '.vcf,.vcard,.csv,.txt,text/vcard,text/x-vcard,text/csv'
 const fmtSize = (b: number) =>

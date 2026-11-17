@@ -4,14 +4,13 @@ import { Link } from 'react-router'
 import { AppShell } from '../../components/AppShell'
 import { Icon } from '../../components/Icon'
 import { useGlobals } from '../../components/Shell'
-import { Button, buttonClass, SearchBox, useNow } from '../../components/ui'
+import { Button, buttonClass, Kbd, SearchBox, useNow } from '../../components/ui'
 import { dayKey, fmtLongDate, fmtTime, greeting, relTime } from '../../lib/dates'
 import { plural } from '../../lib/format'
 import { useMe, useOverview } from '../../lib/queries'
 // Imported statically: a lazy card under Suspense made React 19 hold the fallback ~300 ms. Its data
 // is still fetched only when the card is near the viewport (DashSlot lazy).
 import { HabitsTodayCard } from '../habits/HabitsToday'
-import { Kbd } from '../settings/Chip'
 
 import { AgendaCard } from './AgendaCard'
 import { DashSlot, dashGrid } from './DashCard'

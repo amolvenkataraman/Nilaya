@@ -3,11 +3,10 @@
 // too, once something is selected).
 import { useEffect, useMemo, useRef, type ReactNode } from 'react'
 import { Icon } from '../../components/Icon'
-import { Avatar, Button, buttonClass, ErrorBox, Menu, MenuItem, MenuSeparator, SkeletonRows } from '../../components/ui'
+import { Avatar, Button, buttonClass, Chip, ErrorBox, Menu, MenuItem, MenuSeparator, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { fmtDate, parseDayKey } from '../../lib/dates'
 import { avatarSrc, exportHref, type Filter, type PersonBrief, type Tag } from './api'
-import { Chip } from './Chip'
 import { letterGroups } from './contactGroups'
 import { fmtBirthday } from './personFields'
 

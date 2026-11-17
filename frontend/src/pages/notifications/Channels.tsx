@@ -3,12 +3,23 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
-import { Button, Confirm, EmptyState, Menu, MenuItem, MenuSeparator, QueryView, Select, SkeletonRows, Switch } from '../../components/ui'
+import {
+  Button,
+  Chip,
+  Confirm,
+  EmptyState,
+  Menu,
+  MenuItem,
+  MenuSeparator,
+  QueryView,
+  Select,
+  SkeletonRows,
+  Switch,
+} from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { shortStamp } from '../../lib/dates'
 import type { Channel, ChannelType } from '../../lib/types'
 import { cardClass } from '../settings/Card'
-import { Chip } from '../settings/Chip'
 import { ItemRow } from '../settings/ItemRow'
 import { SettingsSection } from '../settings/SettingsSection'
 import { channelsQuery, channelTypesQuery, MIN_PRIORITY, useChannelPatch, useDeleteChannel, useTestChannel } from './api'
@@ -105,7 +116,7 @@ function ChannelRow({ c, types, kindLabel, onEdit }: { c: Channel; types?: Chann
       }
       meta={
         <>
-          <Chip small>{priorityLabel(c.min_priority)}</Chip>
+          <Chip size="sm">{priorityLabel(c.min_priority)}</Chip>
           <span className="max-md:whitespace-nowrap">{c.last_sent_at ? `Last sent ${shortStamp(c.last_sent_at)}` : 'Never sent'}</span>
           {result && status(result.ok, result.text, true)}
           {c.last_error && !result && status(false, c.last_error, false)}

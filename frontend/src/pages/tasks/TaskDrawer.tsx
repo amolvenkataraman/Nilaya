@@ -9,6 +9,7 @@ import { TaskCheck } from '../../components/TaskRow'
 import { toast } from '../../components/toast'
 import {
   Button,
+  Dot,
   Drawer,
   DrawerBody,
   DrawerHead,
@@ -25,7 +26,6 @@ import { useLabels, useMe, useMoveTask, useProjects, useSetDone, useTask, useUpd
 import { cachedTask } from '../../lib/taskLists'
 import type { Project, TaskDetail } from '../../lib/types'
 import { useDuplicateTask, useUnassignMe } from './api'
-import { Dot } from './chip'
 import { DateField } from './DateField'
 import { Comments, Subtasks } from './DrawerSections'
 import { useDeleteWithUndo } from './deleteUndo'

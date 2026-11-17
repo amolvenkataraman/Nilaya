@@ -5,7 +5,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
-import { Avatar, Button, Dialog } from '../../components/ui'
+import { Avatar, Button, Chip, Dialog } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { plural } from '../../lib/format'
 import {
@@ -19,7 +19,6 @@ import {
   type PersonDetail,
   type PersonFull,
 } from './api'
-import { Chip } from './Chip'
 import { fmtBirthday, kitLabel } from './personFields'
 import { SectionLabel } from './SectionLabel'
 

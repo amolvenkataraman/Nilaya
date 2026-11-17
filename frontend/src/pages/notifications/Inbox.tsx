@@ -10,6 +10,7 @@ import {
   Button,
   Confirm,
   EmptyState,
+  Kbd,
   QueryView,
   SearchBox,
   Segmented,
@@ -21,7 +22,6 @@ import {
 import { cn } from '../../lib/cn'
 import { dayDiff, fmtDate, groupByDay } from '../../lib/dates'
 import { cardClass } from '../settings/Card'
-import { Kbd } from '../settings/Chip'
 import { SettingsSection } from '../settings/SettingsSection'
 import { inboxPagesQuery, sourcesQuery, useClearRead, useDeleteNotification, useInboxReads } from './api'
 

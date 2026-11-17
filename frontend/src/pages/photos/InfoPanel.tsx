@@ -4,12 +4,11 @@ import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { Button } from '../../components/ui'
+import { Button, chipClass } from '../../components/ui'
 import { fmtDate, fmtTime } from '../../lib/dates'
 import { fmtBytes } from '../../lib/format'
 import { osmUrl } from '../../lib/map/geo'
 import type { Photo } from '../../lib/types'
-import { chipClass } from './chip'
 import { type PhotoDetails, photoDetailsQuery } from './queries'
 import { fmtDuration } from './util'
 
@@ -125,8 +124,8 @@ export function InfoPanel({ photo, onClose }: { photo: Photo; onClose: () => voi
             <div className={badges}>
               {d.library && <span className={chipClass()}>{d.library}</span>}
               {d.mimetype && <span className={chipClass()}>{d.mimetype.replace(/^\w+\//, '').toUpperCase()}</span>}
-              {d.has_raw && <span className={chipClass('accent')}>RAW</span>}
-              {d.has_orig && <span className={chipClass('accent')}>Original</span>}
+              {d.has_raw && <span className={chipClass({ tone: 'accent' })}>RAW</span>}
+              {d.has_orig && <span className={chipClass({ tone: 'accent' })}>Original</span>}
             </div>
           </>,
           'file',
@@ -187,7 +186,7 @@ export function InfoPanel({ photo, onClose }: { photo: Photo; onClose: () => voi
             </Link>,
             'addloc',
           )}
-        {d.hidden && row('ban', <span className={chipClass('warning')}>Hidden: only you can see it</span>, 'hid')}
+        {d.hidden && row('ban', <span className={chipClass({ tone: 'warning' })}>Hidden: only you can see it</span>, 'hid')}
         {d.blur !== null &&
           d.blur !== undefined &&
           row('sparkle', <span className="text-muted">Sharpness score {Math.round(d.blur)}</span>, 'blur')}
@@ -201,7 +200,7 @@ export function InfoPanel({ photo, onClose }: { photo: Photo; onClose: () => voi
                 return (
                   <Link
                     key={name}
-                    className={chipClass('neutral', true)}
+                    className={chipClass({ interactive: true })}
                     to={`/photos?objects=${encodeURIComponent(name)}`}
                     onClick={onClose}
                   >

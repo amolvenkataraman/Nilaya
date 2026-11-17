@@ -5,13 +5,11 @@ import { useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { fmtMinutes } from '../../components/TaskRow'
 import { toast } from '../../components/toast'
-import { Avatar, Input, Menu, MenuItem, MenuLabel } from '../../components/ui'
+import { Avatar, Chip, chipClass, Dot, Input, Menu, MenuItem, MenuLabel } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { useBuckets, useMe, useMoveTask, useProjects } from '../../lib/queries'
 import type { Label, TaskDetail, UserBrief } from '../../lib/types'
 import { type ProjectWithOwner, useMembers, useSaveLabel } from './api'
-import { Chip, Dot } from './chip'
-import { chipButton } from './chipButton'
 import { labelStyle } from './Labels'
 import { ghostSelect, propBtn, type Save } from './propField'
 import { assigneesOf, canEditIn, parseMinutes } from './task'
@@ -141,7 +139,7 @@ export function LabelsField({ task, labels, save }: { task: TaskDetail; labels?:
             key={l.id}
             type="button"
             className={cn(
-              chipButton,
+              chipClass({ interactive: true }),
               on &&
                 'border-transparent! bg-[color-mix(in_srgb,var(--lc,var(--app-accent))_14%,transparent)]! text-[color-mix(in_srgb,var(--lc,var(--app-accent))_82%,var(--app-fg))]!',
             )}
@@ -179,7 +177,7 @@ export function LabelsField({ task, labels, save }: { task: TaskDetail; labels?:
           />
         </form>
       ) : (
-        <button type="button" className={chipButton} onClick={() => setAdding(true)}>
+        <button type="button" className={chipClass({ interactive: true })} onClick={() => setAdding(true)}>
           <Icon name="plus" size={11} />
           New label
         </button>
@@ -225,7 +223,12 @@ export function TimeSpentField({ task, save }: { task: TaskDetail; save: Save })
         }}
       />
       {[15, 30, 60].map((m) => (
-        <button key={m} type="button" className={chipButton} onClick={() => save({ time_spent: task.time_spent + m })}>
+        <button
+          key={m}
+          type="button"
+          className={chipClass({ interactive: true })}
+          onClick={() => save({ time_spent: task.time_spent + m })}
+        >
           +{m < 60 ? `${m}m` : '1h'}
         </button>
       ))}
