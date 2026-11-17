@@ -84,9 +84,9 @@ const SCHEDULES = [
 /** The palette's default ('') is the accent, which the picker shows as a swatch of its own. */
 const ACCENT = 'var(--app-accent)'
 const SWATCHES = HABIT_COLOURS.map(([hex]) => hex || ACCENT)
+const SWATCH_NAMES = Object.fromEntries(HABIT_COLOURS.map(([hex, name]) => [hex || ACCENT, name]))
 
 // Segmented's buttons keep the browser's border and grey fill; the class below clears them until it does.
-const segmentedFix = '[&>button]:border-0 [&>button[aria-pressed=false]]:bg-transparent'
 
 const fromHabit = (h: Habit): Form => ({
   name: h.name,
@@ -294,7 +294,6 @@ function HabitForm({ open, habit, onClose, onSaved }: Props) {
 
         <Group label="Type">
           <Segmented
-            className={segmentedFix}
             label="Type"
             value={f.kind}
             options={KINDS}
@@ -347,13 +346,7 @@ function HabitForm({ open, habit, onClose, onSaved }: Props) {
           hint={f.period !== 'day' ? 'Shows on these days until the goal is met.' : 'Days off the schedule never break a streak.'}
         >
           <div className="flex flex-wrap items-center gap-2">
-            <Segmented
-              className={segmentedFix}
-              label="Schedule"
-              value={f.schedule}
-              options={SCHEDULES}
-              onChange={(v) => set('schedule', v)}
-            />
+            <Segmented label="Schedule" value={f.schedule} options={SCHEDULES} onChange={(v) => set('schedule', v)} />
             {f.schedule === 'weekdays' && <DayPicker value={f.weekdays} onChange={(v) => set('weekdays', v)} label="Scheduled days" />}
             {f.schedule === 'interval' && (
               <label className="flex items-center gap-2 text-sm" htmlFor="h-interval">
@@ -388,7 +381,12 @@ function HabitForm({ open, habit, onClose, onSaved }: Props) {
         </Group>
 
         <Group label="Colour">
-          <ColourPicker value={f.colour || ACCENT} colours={SWATCHES} onChange={(c) => set('colour', !c || c === ACCENT ? '' : c)} />
+          <ColourPicker
+            value={f.colour || ACCENT}
+            colours={SWATCHES}
+            names={SWATCH_NAMES}
+            onChange={(c) => set('colour', !c || c === ACCENT ? '' : c)}
+          />
         </Group>
 
         <Group label="Reminder" hint={f.reminder ? "Sent through your notification channels if the habit isn't done yet." : undefined}>

@@ -63,6 +63,7 @@ export function ColourPicker({
   colours,
   none,
   label = 'Colour',
+  names,
 }: {
   value: string | null
   onChange: (colour: string | null) => void
@@ -70,6 +71,8 @@ export function ColourPicker({
   /** Label of the "no colour" choice; leave out to not offer one. */
   none?: string
   label?: string
+  /** Names for the swatches ("Blue"), for tooltips and screen readers; the colour value otherwise. */
+  names?: Readonly<Record<string, string>>
 }) {
   const swatch = 'grid size-6 place-items-center rounded-full'
   const chosen = 'shadow-[0_0_0_2px_var(--app-surface),0_0_0_4px_var(--app-fg)]'
@@ -94,8 +97,8 @@ export function ColourPicker({
           type="button"
           role="radio"
           aria-checked={value === c}
-          aria-label={c}
-          title={c}
+          aria-label={names?.[c] ?? c}
+          title={names?.[c] ?? c}
           onClick={() => onChange(c)}
           className={cn(swatch, 'border-0 text-white', value === c && chosen)}
           style={{ background: c }}

@@ -17,7 +17,6 @@ const RANGES = [
 ] as const
 
 // Segmented's buttons keep the browser's border and grey fill; the class below clears them until it does.
-const segmentedFix = '[&>button]:border-0 [&>button[aria-pressed=false]]:bg-transparent'
 
 // `sticky` isn't generated (an older stylesheet owns that class name, see tailwind.css), hence [position:sticky].
 const nameCell = '[position:sticky] left-0 z-1 min-w-44 max-w-64 bg-surface px-3 py-1.5 text-left font-medium'
@@ -48,7 +47,7 @@ export function GridView({
   return (
     <div className="grid gap-3">
       <div className="flex flex-wrap items-center gap-3">
-        <Segmented className={segmentedFix} label="Range" value={range} options={RANGES} onChange={onRange} />
+        <Segmented label="Range" value={range} options={RANGES} onChange={onRange} />
         <div className="flex items-center gap-1">
           <Button size="sm" icon aria-label="Earlier" onClick={() => onEnd(dayKey(addDays(endDate, -span)))}>
             <Icon name="chevronLeft" size={14} />
