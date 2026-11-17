@@ -18,7 +18,7 @@ import { DayPage } from './DayPage'
 import { SearchBox, SearchResults } from './Search'
 import { SuperlativesPage } from './Superlatives'
 import { startIngest, useAlbums, useHiddenMode, useLibraries, useLibraryVisibility, useToggleHidden } from './actions'
-import { PageHead } from './parts'
+import { PageHead } from './PageHead'
 import './photos.css'
 
 // Rarely opened screens load on demand, so the timeline doesn't pull in Leaflet (map, games) or Explore.

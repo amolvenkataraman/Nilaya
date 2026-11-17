@@ -11,7 +11,7 @@ import { toast } from '../../components/toast'
 import { PhotoStream, type Zoom } from './PhotoStream'
 import { albumContext } from './select'
 import { copyLinks, deleteAlbum, useAlbumMutations, useAlbums, type AlbumMember } from './actions'
-import { PageHead } from './parts'
+import { PageHead } from './PageHead'
 import { fmtBytes, plural } from '../../lib/format'
 import { fmtDate } from '../../lib/dates'
 
