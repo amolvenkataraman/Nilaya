@@ -20,7 +20,9 @@ export const sourceLabel = (t: number) => SOURCES.find((s) => s.type === t)?.lab
 
 /** Readable text for a failed preview or sync (503 = offline mode). */
 export const syncError = (e: unknown) =>
-  e instanceof ApiError && e.status === 503 ? 'Syncing is off on this server (offline mode).' : (e as Error).message || 'Something went wrong.'
+  e instanceof ApiError && e.status === 503
+    ? 'Syncing is off on this server (offline mode).'
+    : (e as Error).message || 'Something went wrong.'
 
 /** Why this source can't be used yet (null when it looks fine). The server checks again. */
 export function sourceProblem(type: SourceType, url: string): string | null {
@@ -31,13 +33,25 @@ export function sourceProblem(type: SourceType, url: string): string | null {
 }
 
 export interface Preview {
-  name: string | null; events: number | null; series: number | null
+  name: string | null
+  events: number | null
+  series: number | null
   upcoming: { name: string; start: string; all_day: boolean; repeats: boolean }[]
 }
 
 /** Type picker, link field, and (for iCal and Google) a Preview of what the source holds. */
-export function SourceFields({ type, url, onType, onUrl, onName, autoFocus }: {
-  type: SourceType; url: string; onType: (t: SourceType) => void; onUrl: (u: string) => void
+export function SourceFields({
+  type,
+  url,
+  onType,
+  onUrl,
+  onName,
+  autoFocus,
+}: {
+  type: SourceType
+  url: string
+  onType: (t: SourceType) => void
+  onUrl: (u: string) => void
   /** The feed's own name, when a preview finds one. */
   onName?: (name: string) => void
   autoFocus?: boolean
@@ -52,35 +66,73 @@ export function SourceFields({ type, url, onType, onUrl, onName, autoFocus }: {
   const problem = url.trim() ? sourceProblem(type, url) : null
   return (
     <div className="stack" style={{ gap: '0.625rem' }}>
-      <div className="field"><span>Source</span>
+      <div className="field">
+        <span>Source</span>
         <div className="seg cal-src-seg" role="group" aria-label="Source type">
-          {SOURCES.map((s) => <button key={s.type} type="button" aria-pressed={type === s.type} onClick={() => onType(s.type)}>{s.label}</button>)}
+          {SOURCES.map((s) => (
+            <button key={s.type} type="button" aria-pressed={type === s.type} onClick={() => onType(s.type)}>
+              {s.label}
+            </button>
+          ))}
         </div>
       </div>
-      <label className="field"><span>{src.field}</span>
+      <label className="field">
+        <span>{src.field}</span>
         <div className="row" style={{ gap: '0.375rem' }}>
-          <input className="input grow" value={url} onChange={(e) => onUrl(e.target.value)} placeholder={src.placeholder} maxLength={256} aria-invalid={!!problem}
-            autoFocus={autoFocus} spellCheck={false} autoCapitalize="off" autoCorrect="off" />
+          <input
+            className="input grow"
+            value={url}
+            onChange={(e) => onUrl(e.target.value)}
+            placeholder={src.placeholder}
+            maxLength={256}
+            aria-invalid={!!problem}
+            autoFocus={autoFocus}
+            spellCheck={false}
+            autoCapitalize="off"
+            autoCorrect="off"
+          />
           {type !== 50 && (
-            <button type="button" className="btn" onClick={() => preview.mutate()} disabled={!!sourceProblem(type, url) || preview.isPending}>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => preview.mutate()}
+              disabled={!!sourceProblem(type, url) || preview.isPending}
+            >
               {preview.isPending ? 'Reading…' : 'Preview'}
             </button>
           )}
         </div>
-        {problem ? <span className="error-text">{problem}</span>
-          : type === 1 ? <span className="help">For a private Google or Outlook calendar, use its <strong>secret address in iCal format</strong>.</span>
-          : type === 2 ? <span className="help">Public Google calendars only. For a private one, use its secret address in iCal format with "iCalendar link".</span>
-          : <span className="help">WCMS events can't be previewed: create the calendar and it syncs right away.</span>}
+        {problem ? (
+          <span className="error-text">{problem}</span>
+        ) : type === 1 ? (
+          <span className="help">
+            For a private Google or Outlook calendar, use its <strong>secret address in iCal format</strong>.
+          </span>
+        ) : type === 2 ? (
+          <span className="help">
+            Public Google calendars only. For a private one, use its secret address in iCal format with "iCalendar link".
+          </span>
+        ) : (
+          <span className="help">WCMS events can't be previewed: create the calendar and it syncs right away.</span>
+        )}
       </label>
-      {preview.isError && <p className="error-text" role="alert">{syncError(preview.error)}</p>}
+      {preview.isError && (
+        <p className="error-text" role="alert">
+          {syncError(preview.error)}
+        </p>
+      )}
       {preview.data && <PreviewBox p={preview.data} />}
     </div>
   )
 }
 
 function PreviewBox({ p }: { p: Preview }) {
-  const counts = [p.events != null ? `${p.events.toLocaleString()} ${p.events === 1 ? 'event' : 'events'}` : '',
-    p.series ? `${p.series.toLocaleString()} repeating` : ''].filter(Boolean).join(' · ')
+  const counts = [
+    p.events != null ? `${p.events.toLocaleString()} ${p.events === 1 ? 'event' : 'events'}` : '',
+    p.series ? `${p.series.toLocaleString()} repeating` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
   return (
     <div className="cal-preview" role="status">
       <div className="row" style={{ gap: '0.5rem' }}>
@@ -94,14 +146,19 @@ function PreviewBox({ p }: { p: Preview }) {
             const d = new Date(e.start)
             return (
               <li key={i}>
-                <span className="muted tabular">{fmtDate(d, { weekday: 'short', month: 'short', day: 'numeric' })}{e.all_day ? '' : ` · ${fmtTime(d)}`}</span>
+                <span className="muted tabular">
+                  {fmtDate(d, { weekday: 'short', month: 'short', day: 'numeric' })}
+                  {e.all_day ? '' : ` · ${fmtTime(d)}`}
+                </span>
                 <span className="grow truncate">{e.name}</span>
                 {e.repeats && <Icon name="repeat" size={12} className="muted" title="Repeats" />}
               </li>
             )
           })}
         </ul>
-      ) : <p className="muted xsmall">No upcoming events.</p>}
+      ) : (
+        <p className="muted xsmall">No upcoming events.</p>
+      )}
     </div>
   )
 }
@@ -113,7 +170,10 @@ export function useRunSync(id: number, name?: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body?: { start: string; end: string; token?: string }) => post<SyncResult>(`calendar/calendars/${id}/sync`, body),
-    onSuccess: (r) => (r.ok ? toast.show(r.not_modified ? `${name ? `"${name}" is` : 'Already'} up to date` : `Synced${name ? ` "${name}"` : ''}`) : toast.error(r.last_sync_error || 'Sync failed')),
+    onSuccess: (r) =>
+      r.ok
+        ? toast.show(r.not_modified ? `${name ? `"${name}" is` : 'Already'} up to date` : `Synced${name ? ` "${name}"` : ''}`)
+        : toast.error(r.last_sync_error || 'Sync failed'),
     onError: (e) => toast.error(syncError(e)),
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['calendar', 'detail', id] })
@@ -126,49 +186,126 @@ export function useRunSync(id: number, name?: string) {
 const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
 
 /** V1's "Sync events": a month range (end exclusive), term presets, and a token for private Google calendars. */
-export function RangeSyncDialog({ id, name, google, open, onClose }: { id: number; name: string; google: boolean; open: boolean; onClose: () => void }) {
+export function RangeSyncDialog({
+  id,
+  name,
+  google,
+  open,
+  onClose,
+}: {
+  id: number
+  name: string
+  google: boolean
+  open: boolean
+  onClose: () => void
+}) {
   const now = new Date()
   // V1's defaults: this month to next month.
-  const initial = (): MonthRange => ({ sm: now.getMonth(), sy: now.getFullYear(), em: (now.getMonth() + 1) % 12, ey: now.getFullYear() + (now.getMonth() === 11 ? 1 : 0) })
+  const initial = (): MonthRange => ({
+    sm: now.getMonth(),
+    sy: now.getFullYear(),
+    em: (now.getMonth() + 1) % 12,
+    ey: now.getFullYear() + (now.getMonth() === 11 ? 1 : 0),
+  })
   const [r, setR] = useState<MonthRange>(initial)
   const [token, setToken] = useState('')
-  useEffect(() => { if (open) { setR(initial()); setToken('') } }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (open) {
+      setR(initial())
+      setToken('')
+    }
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
   const run = useRunSync(id, name)
   const years = Array.from({ length: 11 }, (_, i) => now.getFullYear() - 5 + i)
   const body = rangeBody(r)
-  const bad = body.end <= body.start ? 'The end month must be after the start month.'
-    : (r.ey - r.sy) * 12 + (r.em - r.sm) > 36 ? 'Sync up to three years at a time.' : null
+  const bad =
+    body.end <= body.start
+      ? 'The end month must be after the start month.'
+      : (r.ey - r.sy) * 12 + (r.em - r.sm) > 36
+        ? 'Sync up to three years at a time.'
+        : null
   const monthYear = (label: string, m: number, y: number, set: (m: number, y: number) => void) => (
-    <div className="field"><span>{label}</span>
+    <div className="field">
+      <span>{label}</span>
       <div className="row" style={{ gap: '0.375rem' }}>
         <select className="select grow" value={m} onChange={(e) => set(Number(e.target.value), y)} aria-label={`${label} month`}>
-          {MONTHS.map((mm, i) => <option key={mm} value={i}>{mm}</option>)}
+          {MONTHS.map((mm, i) => (
+            <option key={mm} value={i}>
+              {mm}
+            </option>
+          ))}
         </select>
         <select className="select" value={y} onChange={(e) => set(m, Number(e.target.value))} aria-label={`${label} year`}>
-          {years.map((yy) => <option key={yy} value={yy}>{yy}</option>)}
+          {years.map((yy) => (
+            <option key={yy} value={yy}>
+              {yy}
+            </option>
+          ))}
         </select>
       </div>
     </div>
   )
-  const submit = () => !bad && run.mutate({ ...body, ...(google && token.trim() ? { token: token.trim() } : {}) }, { onSuccess: (res) => res.ok && onClose() })
+  const submit = () =>
+    !bad && run.mutate({ ...body, ...(google && token.trim() ? { token: token.trim() } : {}) }, { onSuccess: (res) => res.ok && onClose() })
   return (
-    <Dialog open={open} onClose={onClose} title={`Sync a range: ${name}`} width="28rem"
-      footer={<><span className="spacer" /><button className="btn" onClick={onClose}>Cancel</button>
-        <button className="btn primary" onClick={submit} disabled={!!bad || run.isPending}>{run.isPending ? 'Syncing…' : 'Sync'}</button></>}>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      title={`Sync a range: ${name}`}
+      width="28rem"
+      footer={
+        <>
+          <span className="spacer" />
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn primary" onClick={submit} disabled={!!bad || run.isPending}>
+            {run.isPending ? 'Syncing…' : 'Sync'}
+          </button>
+        </>
+      }
+    >
       <form className="stack" style={{ gap: '0.75rem' }} onSubmit={(e) => (e.preventDefault(), submit())}>
         <div className="row" style={{ gap: '0.375rem', flexWrap: 'wrap' }}>
           <span className="muted small">Presets</span>
-          <button type="button" className="btn sm" onClick={() => setR(termRange(new Date(), false))} title="From this month to the end of the term">This term</button>
-          <button type="button" className="btn sm" onClick={() => setR(termRange(new Date(), true))} title="The whole term: Sep–Dec, Jan–Apr or May–Sep">Full term</button>
+          <button
+            type="button"
+            className="btn sm"
+            onClick={() => setR(termRange(new Date(), false))}
+            title="From this month to the end of the term"
+          >
+            This term
+          </button>
+          <button
+            type="button"
+            className="btn sm"
+            onClick={() => setR(termRange(new Date(), true))}
+            title="The whole term: Sep–Dec, Jan–Apr or May–Sep"
+          >
+            Full term
+          </button>
         </div>
         {monthYear('From', r.sm, r.sy, (sm, sy) => setR({ ...r, sm, sy }))}
         {monthYear('Until (not included)', r.em, r.ey, (em, ey) => setR({ ...r, em, ey }))}
-        <p className="help">Syncs {fmtDate(new Date(r.sy, r.sm, 1), { month: 'long', year: 'numeric' })} up to the start of {fmtDate(new Date(r.ey, r.em, 1), { month: 'long', year: 'numeric' })}.</p>
+        <p className="help">
+          Syncs {fmtDate(new Date(r.sy, r.sm, 1), { month: 'long', year: 'numeric' })} up to the start of{' '}
+          {fmtDate(new Date(r.ey, r.em, 1), { month: 'long', year: 'numeric' })}.
+        </p>
         {bad && <p className="error-text">{bad}</p>}
         {google && (
-          <label className="field"><span>Access token (optional)</span>
-            <input className="input" type="password" value={token} onChange={(e) => setToken(e.target.value)} autoComplete="off" maxLength={4096} />
-            <span className="help">Only for private Google calendars: an OAuth access token with calendar read access. Sent once, not stored.</span>
+          <label className="field">
+            <span>Access token (optional)</span>
+            <input
+              className="input"
+              type="password"
+              value={token}
+              onChange={(e) => setToken(e.target.value)}
+              autoComplete="off"
+              maxLength={4096}
+            />
+            <span className="help">
+              Only for private Google calendars: an OAuth access token with calendar read access. Sent once, not stored.
+            </span>
           </label>
         )}
       </form>

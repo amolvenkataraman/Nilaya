@@ -2,8 +2,28 @@
 import { keepPreviousData, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { del, get, patch, post } from './api'
 import type {
-  AgendaItem, Calendar, CalEvent, Category, Comment, Count, DoneOut, Inbox, Insights, Label, Me, MePatch, Overview,
-  Project, SavedView, Task, TaskDetail, TaskIn, TaskPage, TaskPatch, Bucket, Notification,
+  AgendaItem,
+  Calendar,
+  CalEvent,
+  Category,
+  Comment,
+  Count,
+  DoneOut,
+  Inbox,
+  Insights,
+  Label,
+  Me,
+  MePatch,
+  Overview,
+  Project,
+  SavedView,
+  Task,
+  TaskDetail,
+  TaskIn,
+  TaskPage,
+  TaskPatch,
+  Bucket,
+  Notification,
 } from './types'
 import { toast } from '../components/toast'
 import { isPages, patchTaskLists, settleTaskLists, type TaskList } from './taskLists'
@@ -47,15 +67,25 @@ export function useUpdateMe() {
 
 export const useUnreadCount = () =>
   // The only poll in the app: 60 s, paused while the tab is hidden (refetchIntervalInBackground: false).
-  useQuery({ queryKey: keys.notifCount, queryFn: () => get<Count>('notifications/unread-count'), staleTime: 30_000, refetchInterval: 60_000, refetchIntervalInBackground: false })
+  useQuery({
+    queryKey: keys.notifCount,
+    queryFn: () => get<Count>('notifications/unread-count'),
+    staleTime: 30_000,
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
+  })
 
 export const useInbox = (unreadOnly = false, limit = 30) =>
-  useQuery({ queryKey: [...keys.inbox(unreadOnly), limit], queryFn: () => get<Inbox>('notifications/', { unread_only: unreadOnly || undefined, limit }) })
+  useQuery({
+    queryKey: [...keys.inbox(unreadOnly), limit],
+    queryFn: () => get<Inbox>('notifications/', { unread_only: unreadOnly || undefined, limit }),
+  })
 
 export function useMarkRead() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, read = true }: { id: string; read?: boolean }) => post<Notification>(`notifications/${id}/read`, undefined, { read }),
+    mutationFn: ({ id, read = true }: { id: string; read?: boolean }) =>
+      post<Notification>(`notifications/${id}/read`, undefined, { read }),
     onMutate: async ({ id, read = true }) => {
       await qc.cancelQueries({ queryKey: ['notifications'] })
       qc.setQueriesData<Inbox>({ queryKey: ['notifications', 'inbox'] }, (old) => {
@@ -96,8 +126,10 @@ export async function fetchOverview(qc: QueryClient): Promise<OverviewFull> {
   if (o.views) qc.setQueryData(keys.views, o.views)
   return o
 }
-const viaOverview = <T,>(qc: QueryClient, pick: (o: OverviewFull) => T) => () =>
-  qc.fetchQuery({ queryKey: keys.overview, queryFn: () => fetchOverview(qc), staleTime: 5_000 }).then(pick)
+const viaOverview =
+  <T>(qc: QueryClient, pick: (o: OverviewFull) => T) =>
+  () =>
+    qc.fetchQuery({ queryKey: keys.overview, queryFn: () => fetchOverview(qc), staleTime: 5_000 }).then(pick)
 
 export const useOverview = () => {
   const qc = useQueryClient()
@@ -122,7 +154,11 @@ export const useSavedViews = () => {
   return useQuery({ queryKey: keys.views, queryFn: viaOverview(qc, (o) => o.views), staleTime: 5 * 60_000 })
 }
 export const useBuckets = (projectId: string | null) =>
-  useQuery({ queryKey: keys.buckets(projectId ?? ''), queryFn: () => get<Bucket[]>(`tasks/projects/${projectId}/buckets`), enabled: !!projectId })
+  useQuery({
+    queryKey: keys.buckets(projectId ?? ''),
+    queryFn: () => get<Bucket[]>(`tasks/projects/${projectId}/buckets`),
+    enabled: !!projectId,
+  })
 
 export type TaskQuery = Record<string, string | number | boolean | undefined>
 export const useTasks = (params: TaskQuery, enabled = true) =>
@@ -136,7 +172,8 @@ export const useTasks = (params: TaskQuery, enabled = true) =>
 export const useTaskPages = (params: TaskQuery, enabled = true) =>
   useInfiniteQuery({
     queryKey: keys.taskPages(params),
-    queryFn: ({ signal, pageParam }) => get<TaskPage>('tasks/', pageParam ? { ...params, cursor: pageParam, count: false } : params, signal),
+    queryFn: ({ signal, pageParam }) =>
+      get<TaskPage>('tasks/', pageParam ? { ...params, cursor: pageParam, count: false } : params, signal),
     initialPageParam: null as string | null,
     getNextPageParam: (last) => last.next ?? undefined,
     enabled,
@@ -154,13 +191,22 @@ export const patchTaskCaches = (qc: QueryClient, id: string, fn: (t: Task) => Ta
  *  place (lib/taskLists.ts), so loaded pages aren't refetched. */
 export const refreshTaskCounts = (qc: QueryClient) => {
   // Overview refetches projects too (seeded into their cache), so projects needn't be invalidated separately.
-  for (const k of [['tasks', 'overview'], ['tasks', 'board'], ['calendar', 'agenda']]) qc.invalidateQueries({ queryKey: k })
+  for (const k of [
+    ['tasks', 'overview'],
+    ['tasks', 'board'],
+    ['calendar', 'agenda'],
+  ])
+    qc.invalidateQueries({ queryKey: k })
 }
 
 /** A subtask changed: its parent's "2/5" in every cached list. */
 export function bumpParent(qc: QueryClient, parentId: string | null | undefined, d: { subtasks?: number; done?: number }) {
   if (!parentId) return
-  patchTaskLists(qc, [parentId], (t) => ({ ...t, subtasks: Math.max(0, (t.subtasks ?? 0) + (d.subtasks ?? 0)), subtasks_done: Math.max(0, (t.subtasks_done ?? 0) + (d.done ?? 0)) }))
+  patchTaskLists(qc, [parentId], (t) => ({
+    ...t,
+    subtasks: Math.max(0, (t.subtasks ?? 0) + (d.subtasks ?? 0)),
+    subtasks_done: Math.max(0, (t.subtasks_done ?? 0) + (d.done ?? 0)),
+  }))
 }
 
 export function useSetDone() {
@@ -201,12 +247,21 @@ export function useUpdateTask() {
       ctx?.rollback()
       toast.error((e as Error).message)
     },
-    onSuccess: (task) => { settleTaskLists(qc, { tasks: [task] }) },
+    onSuccess: (task) => {
+      settleTaskLists(qc, { tasks: [task] })
+    },
     onSettled: () => refreshTaskCounts(qc),
   })
 }
 
-export type MoveVars = { id: string; project_id?: string | null; bucket_id?: number | null; position?: number | null; after?: string; before?: string }
+export type MoveVars = {
+  id: string
+  project_id?: string | null
+  bucket_id?: number | null
+  position?: number | null
+  after?: string
+  before?: string
+}
 export function useMoveTask() {
   const qc = useQueryClient()
   return useMutation({
@@ -226,7 +281,9 @@ export function useMoveTask() {
       ctx?.rollback()
       toast.error((e as Error).message)
     },
-    onSuccess: (task, v) => { settleTaskLists(qc, { tasks: [task], keep: v.optimistic ? [task.id] : [] }) },
+    onSuccess: (task, v) => {
+      settleTaskLists(qc, { tasks: [task], keep: v.optimistic ? [task.id] : [] })
+    },
     onSettled: () => refreshTaskCounts(qc),
   })
 }
@@ -238,17 +295,45 @@ export function useCreateTask() {
   return useMutation({
     mutationFn: (v: { quick?: string; body?: TaskIn; optimistic?: Partial<Task>; listKey?: readonly unknown[] }) =>
       v.quick !== undefined
-        ? post<Task>('tasks/quick', { text: v.quick, project_id: v.body?.project_id ?? null, parent_id: v.body?.parent_id ?? null, bucket_id: v.body?.bucket_id ?? null })
+        ? post<Task>('tasks/quick', {
+            text: v.quick,
+            project_id: v.body?.project_id ?? null,
+            parent_id: v.body?.parent_id ?? null,
+            bucket_id: v.body?.bucket_id ?? null,
+          })
         : post<Task>('tasks/', v.body),
     onMutate: async (v) => {
       if (!v.listKey || !v.optimistic) return {}
       await qc.cancelQueries({ queryKey: v.listKey })
       const now = new Date().toISOString()
       const temp = {
-        id: `temp-${++tempId}`, title: '', description: '', done: false, done_at: null, due: null, start: null, priority: 10,
-        priority_label: 'Medium', project_id: null, bucket_id: null, position: 1e9, parent_id: null, labels: [], assignees: [],
-        percent: 0, time_spent: 0, repeat_mode: 0, repeat_every: null, favorite: false, colour: '', reminders: [], event_id: null,
-        owner: { id: '', username: '', name: '' }, created_on: now, updated_on: now, ...v.optimistic,
+        id: `temp-${++tempId}`,
+        title: '',
+        description: '',
+        done: false,
+        done_at: null,
+        due: null,
+        start: null,
+        priority: 10,
+        priority_label: 'Medium',
+        project_id: null,
+        bucket_id: null,
+        position: 1e9,
+        parent_id: null,
+        labels: [],
+        assignees: [],
+        percent: 0,
+        time_spent: 0,
+        repeat_mode: 0,
+        repeat_every: null,
+        favorite: false,
+        colour: '',
+        reminders: [],
+        event_id: null,
+        owner: { id: '', username: '', name: '' },
+        created_on: now,
+        updated_on: now,
+        ...v.optimistic,
       } as Task
       const prev = qc.getQueryData<TaskList>(v.listKey)
       if (prev) qc.setQueryData<TaskList>(v.listKey, appendTask(prev, temp))
@@ -261,7 +346,13 @@ export function useCreateTask() {
     onSuccess: (task, _v, ctx) => {
       if (ctx?.listKey && ctx.temp) {
         const swap = (items: Task[]) => items.map((t) => (t.id === ctx.temp!.id ? task : t))
-        qc.setQueryData<TaskList>(ctx.listKey, (old) => (!old ? old : isPages(old) ? { ...old, pages: old.pages.map((p) => ({ ...p, items: swap(p.items) })) } : { ...old, items: swap(old.items) }))
+        qc.setQueryData<TaskList>(ctx.listKey, (old) =>
+          !old
+            ? old
+            : isPages(old)
+              ? { ...old, pages: old.pages.map((p) => ({ ...p, items: swap(p.items) })) }
+              : { ...old, items: swap(old.items) },
+        )
       }
       settleTaskLists(qc, { tasks: [task] })
       bumpParent(qc, task.parent_id, { subtasks: 1 })

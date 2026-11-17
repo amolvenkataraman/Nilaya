@@ -61,7 +61,12 @@ export function RemindersTab() {
         </div>
         <span className={'set-status' + (status === 'saved' ? ' ok' : status === 'error' ? ' err' : '')} role="status" aria-live="polite">
           {status === 'saving' && 'Saving…'}
-          {status === 'saved' && (<><Icon name="check" size={12} />Saved</>)}
+          {status === 'saved' && (
+            <>
+              <Icon name="check" size={12} />
+              Saved
+            </>
+          )}
           {status === 'error' && (save.error as Error)?.message}
         </span>
       </div>
@@ -72,11 +77,34 @@ export function RemindersTab() {
           q.isError && <ErrorBox error={q.error} retry={() => q.refetch()} />
         ) : (
           <>
-            <MinutesRow id="rm-event" label="Events" hint="Before a timed event starts" value={s.event_minutes} presets={EVENT} onChange={(v) => set({ event_minutes: v })} />
-            <MinutesRow id="rm-deadline" label="Deadlines" hint="Before a calendar deadline" value={s.deadline_minutes} presets={DEADLINE} onChange={(v) => set({ deadline_minutes: v })} />
-            <MinutesRow id="rm-todo" label="Tasks" hint="Before a task is due" value={s.todo_minutes} presets={TODO} onChange={(v) => set({ todo_minutes: v })} />
+            <MinutesRow
+              id="rm-event"
+              label="Events"
+              hint="Before a timed event starts"
+              value={s.event_minutes}
+              presets={EVENT}
+              onChange={(v) => set({ event_minutes: v })}
+            />
+            <MinutesRow
+              id="rm-deadline"
+              label="Deadlines"
+              hint="Before a calendar deadline"
+              value={s.deadline_minutes}
+              presets={DEADLINE}
+              onChange={(v) => set({ deadline_minutes: v })}
+            />
+            <MinutesRow
+              id="rm-todo"
+              label="Tasks"
+              hint="Before a task is due"
+              value={s.todo_minutes}
+              presets={TODO}
+              onChange={(v) => set({ todo_minutes: v })}
+            />
             <div className="set-row">
-              <span className="set-label">Morning agenda<small>A summary of the day's events and tasks</small></span>
+              <span className="set-label">
+                Morning agenda<small>A summary of the day's events and tasks</small>
+              </span>
               <div className="set-control">
                 <input
                   type="time"
@@ -86,13 +114,23 @@ export function RemindersTab() {
                   disabled={!s.daily_agenda}
                   onChange={(e) => e.target.value && set({ agenda_time: e.target.value + ':00' })}
                 />
-                <Switch checked={s.daily_agenda} onChange={(v) => set({ daily_agenda: v })} label={<span className="sr-only">Send a morning agenda</span>} />
+                <Switch
+                  checked={s.daily_agenda}
+                  onChange={(v) => set({ daily_agenda: v })}
+                  label={<span className="sr-only">Send a morning agenda</span>}
+                />
               </div>
             </div>
             <div className="set-row inline">
-              <span className="set-label">Deadlines become tasks<small>Each new calendar deadline also gets a task in your Inbox</small></span>
+              <span className="set-label">
+                Deadlines become tasks<small>Each new calendar deadline also gets a task in your Inbox</small>
+              </span>
               <div className="set-control">
-                <Switch checked={s.deadlines_to_todos} onChange={(v) => set({ deadlines_to_todos: v })} label={<span className="sr-only">Turn deadlines into tasks</span>} />
+                <Switch
+                  checked={s.deadlines_to_todos}
+                  onChange={(v) => set({ deadlines_to_todos: v })}
+                  label={<span className="sr-only">Turn deadlines into tasks</span>}
+                />
               </div>
             </div>
           </>
@@ -123,61 +161,123 @@ function useAppSettings<T extends object>(path: string) {
 
 export function AppReminders() {
   const habits = useAppSettings<{ evening_nudge: boolean; nudge_time: string }>('habits/settings')
-  const contacts = useAppSettings<{ birthday_reminders: 'off' | 'day_before' | 'on_day'; keep_in_touch_reminders: boolean }>('contacts/settings')
+  const contacts = useAppSettings<{ birthday_reminders: 'off' | 'day_before' | 'on_day'; keep_in_touch_reminders: boolean }>(
+    'contacts/settings',
+  )
   if (habits.q.isError && contacts.q.isError) return null
   const status = habits.saved || contacts.saved
   return (
     <div className="set-section">
       <div className="set-section-head">
-        <div className="grow"><h1>Habits and contacts</h1><p>Nudges from the Habits and Contacts apps.</p></div>
-        <span className={'set-status' + (status ? ' ok' : '')} role="status" aria-live="polite">{status && (<><Icon name="check" size={12} />Saved</>)}</span>
+        <div className="grow">
+          <h1>Habits and contacts</h1>
+          <p>Nudges from the Habits and Contacts apps.</p>
+        </div>
+        <span className={'set-status' + (status ? ' ok' : '')} role="status" aria-live="polite">
+          {status && (
+            <>
+              <Icon name="check" size={12} />
+              Saved
+            </>
+          )}
+        </span>
       </div>
       <div className="set-card">
         {habits.q.data && (
           <div className="set-row">
-            <span className="set-label">Habits evening nudge<small>A reminder about habits not done yet today</small></span>
+            <span className="set-label">
+              Habits evening nudge<small>A reminder about habits not done yet today</small>
+            </span>
             <div className="set-control">
-              <input type="time" className="input" aria-label="Nudge time" value={habits.q.data.nudge_time.slice(0, 5)} disabled={!habits.q.data.evening_nudge}
-                onChange={(e) => e.target.value && habits.save({ nudge_time: e.target.value + ':00' })} />
-              <Switch checked={habits.q.data.evening_nudge} onChange={(v) => habits.save({ evening_nudge: v })} label={<span className="sr-only">Evening nudge</span>} />
+              <input
+                type="time"
+                className="input"
+                aria-label="Nudge time"
+                value={habits.q.data.nudge_time.slice(0, 5)}
+                disabled={!habits.q.data.evening_nudge}
+                onChange={(e) => e.target.value && habits.save({ nudge_time: e.target.value + ':00' })}
+              />
+              <Switch
+                checked={habits.q.data.evening_nudge}
+                onChange={(v) => habits.save({ evening_nudge: v })}
+                label={<span className="sr-only">Evening nudge</span>}
+              />
             </div>
           </div>
         )}
         {contacts.q.data && (
           <>
             <div className="set-row">
-              <label className="set-label" htmlFor="rm-bday">Birthdays<small>Reminders for your contacts' birthdays</small></label>
+              <label className="set-label" htmlFor="rm-bday">
+                Birthdays<small>Reminders for your contacts' birthdays</small>
+              </label>
               <div className="set-control">
-                <select id="rm-bday" className="select" value={contacts.q.data.birthday_reminders} onChange={(e) => contacts.save({ birthday_reminders: e.target.value as 'off' })}>
-                  <option value="off">Off</option><option value="day_before">The day before</option><option value="on_day">On the day</option>
+                <select
+                  id="rm-bday"
+                  className="select"
+                  value={contacts.q.data.birthday_reminders}
+                  onChange={(e) => contacts.save({ birthday_reminders: e.target.value as 'off' })}
+                >
+                  <option value="off">Off</option>
+                  <option value="day_before">The day before</option>
+                  <option value="on_day">On the day</option>
                 </select>
               </div>
             </div>
             <div className="set-row inline">
-              <span className="set-label">Keep in touch<small>When it's time to reach out to someone</small></span>
+              <span className="set-label">
+                Keep in touch<small>When it's time to reach out to someone</small>
+              </span>
               <div className="set-control">
-                <Switch checked={contacts.q.data.keep_in_touch_reminders} onChange={(v) => contacts.save({ keep_in_touch_reminders: v })} label={<span className="sr-only">Keep in touch reminders</span>} />
+                <Switch
+                  checked={contacts.q.data.keep_in_touch_reminders}
+                  onChange={(v) => contacts.save({ keep_in_touch_reminders: v })}
+                  label={<span className="sr-only">Keep in touch reminders</span>}
+                />
               </div>
             </div>
           </>
         )}
         {(habits.q.isPending || contacts.q.isPending) && <SkeletonRows rows={2} />}
-        {(habits.error || contacts.error) && <p className="error-text" style={{ padding: '0.5rem 1rem' }}>{(habits.error ?? contacts.error)!.message}</p>}
+        {(habits.error || contacts.error) && (
+          <p className="error-text" style={{ padding: '0.5rem 1rem' }}>
+            {(habits.error ?? contacts.error)!.message}
+          </p>
+        )}
       </div>
     </div>
   )
 }
 
-function MinutesRow({ id, label, hint, value, presets, onChange }: {
-  id: string; label: string; hint: string; value: number; presets: number[]; onChange: (v: number) => void
+function MinutesRow({
+  id,
+  label,
+  hint,
+  value,
+  presets,
+  onChange,
+}: {
+  id: string
+  label: string
+  hint: string
+  value: number
+  presets: number[]
+  onChange: (v: number) => void
 }) {
   const options = presets.includes(value) ? presets : [...presets, value].sort((a, b) => a - b)
   return (
     <div className="set-row">
-      <label className="set-label" htmlFor={id}>{label}<small>{hint}</small></label>
+      <label className="set-label" htmlFor={id}>
+        {label}
+        <small>{hint}</small>
+      </label>
       <div className="set-control">
         <select id={id} className="select" value={value} onChange={(e) => onChange(Number(e.target.value))}>
-          {options.map((m) => <option key={m} value={m}>{minutesLabel(m)}</option>)}
+          {options.map((m) => (
+            <option key={m} value={m}>
+              {minutesLabel(m)}
+            </option>
+          ))}
         </select>
       </div>
     </div>

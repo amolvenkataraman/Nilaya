@@ -23,14 +23,18 @@ function csrfFingerprint(): string {
 function save() {
   try {
     localStorage.setItem(OWNER, JSON.stringify(owner))
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Remove every persisted copy of server data (this tab's query cache and the localStorage caches). */
 export function wipePersisted() {
   try {
     sessionStorage.removeItem(SESSION_CACHE)
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   try {
     const drop: string[] = [...LEGACY]
     for (let i = 0; i < localStorage.length; i++) {
@@ -38,7 +42,9 @@ export function wipePersisted() {
       if (k?.startsWith(CACHE_PREFIX)) drop.push(k)
     }
     drop.forEach((k) => localStorage.removeItem(k))
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 /** At boot, before the saved cache is restored: data saved under another login is wiped. */
@@ -74,7 +80,9 @@ export function signedOut() {
   owner = {}
   try {
     localStorage.removeItem(OWNER)
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 /** The user the persisted data belongs to, once known. */
@@ -91,6 +99,8 @@ export function userKey(base: string, userId: string | undefined): string | null
       if (localStorage.getItem(key) === null) localStorage.setItem(key, legacy)
       localStorage.removeItem(base)
     }
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return key
 }

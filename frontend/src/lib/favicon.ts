@@ -10,14 +10,19 @@ const attr = (k: string) => k.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase())
 
 /** Static markup of the icon set's plain SVG elements (path, rect, circle; fragments flattened). */
 function markup(node: ReactNode): string {
-  return Children.toArray(node).map((n) => {
-    if (!isValidElement(n)) return ''
-    const { children, ...props } = (n as ReactElement<Record<string, unknown>>).props
-    if (n.type === Fragment) return markup(children as ReactNode)
-    if (typeof n.type !== 'string') return ''
-    const attrs = Object.entries(props).filter(([, v]) => v != null && v !== false).map(([k, v]) => ` ${attr(k)}="${esc(v)}"`).join('')
-    return `<${n.type}${attrs}>${markup(children as ReactNode)}</${n.type}>`
-  }).join('')
+  return Children.toArray(node)
+    .map((n) => {
+      if (!isValidElement(n)) return ''
+      const { children, ...props } = (n as ReactElement<Record<string, unknown>>).props
+      if (n.type === Fragment) return markup(children as ReactNode)
+      if (typeof n.type !== 'string') return ''
+      const attrs = Object.entries(props)
+        .filter(([, v]) => v != null && v !== false)
+        .map(([k, v]) => ` ${attr(k)}="${esc(v)}"`)
+        .join('')
+      return `<${n.type}${attrs}>${markup(children as ReactNode)}</${n.type}>`
+    })
+    .join('')
 }
 
 /** An icon's inner SVG markup (constant path data only), e.g. for Leaflet divIcon pins. */
@@ -26,11 +31,13 @@ export const iconMarkup = (name: string): string => markup(iconShapes(name))
 /** 32-unit tile, ~28% corner radius like .app-logo; the 24-unit glyph scaled to 22 with a heavier stroke so
  *  it stays legible at 16 px. currentColor (the "apps" dots) resolves to white through `color`. */
 export function faviconSvg(icon: string, hue: string): string {
-  return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">'
-    + `<rect width="32" height="32" rx="8.5" fill="${esc(hue)}"/>`
-    + '<g transform="translate(5 5) scale(.9167)" color="#fff" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">'
-    + markup(iconShapes(icon))
-    + '</g></svg>'
+  return (
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">' +
+    `<rect width="32" height="32" rx="8.5" fill="${esc(hue)}"/>` +
+    '<g transform="translate(5 5) scale(.9167)" color="#fff" fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round">' +
+    markup(iconShapes(icon)) +
+    '</g></svg>'
+  )
 }
 
 const cache = new Map<string, string>()
@@ -65,6 +72,9 @@ export function useAppFavicon(app: { icon: string; hue: string }) {
   useEffect(() => {
     const mine = ++generation
     setFavicon({ icon, hue })
-    return () => queueMicrotask(() => { if (generation === mine) setFavicon(null) })
+    return () =>
+      queueMicrotask(() => {
+        if (generation === mine) setFavicon(null)
+      })
   }, [icon, hue])
 }

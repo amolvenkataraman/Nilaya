@@ -4,55 +4,186 @@ import { api, ApiError, apiUrl, del, errorMessage, get, loginUrl, patch, post, r
 import { toast } from '../../components/toast'
 import { queryGroup } from '../../lib/batch'
 
-export interface LabeledValue { label: string; value: string }
-export interface Address { label: string; street: string; city: string; region: string; postcode: string; country: string }
-export interface ProfileLink { network: string; label: string; handle: string; url: string | null }
-export interface Link { label: string; url: string }
-export interface CustomField { key: string; value: string }
-export interface PersonBrief {
-  id: string; name: string; first_name: string; last_name: string; company: string; title: string; favorite: boolean
-  email: string; phone: string; has_avatar: boolean; profile_links: ProfileLink[]; tags: string[]; groups: string[]
-  birthday: string; last_contacted: string | null; keep_in_touch_days: number | null; next_due: string | null
-  overdue: boolean; created_on: string
+export interface LabeledValue {
+  label: string
+  value: string
 }
-export interface Interaction { id: string; person_id: string; kind: string; date: string; summary: string; notes: string; created_on: string }
-export interface Relationship { id: number; kind: string; other_id: string; other_name: string }
+export interface Address {
+  label: string
+  street: string
+  city: string
+  region: string
+  postcode: string
+  country: string
+}
+export interface ProfileLink {
+  network: string
+  label: string
+  handle: string
+  url: string | null
+}
+export interface Link {
+  label: string
+  url: string
+}
+export interface CustomField {
+  key: string
+  value: string
+}
+export interface PersonBrief {
+  id: string
+  name: string
+  first_name: string
+  last_name: string
+  company: string
+  title: string
+  favorite: boolean
+  email: string
+  phone: string
+  has_avatar: boolean
+  profile_links: ProfileLink[]
+  tags: string[]
+  groups: string[]
+  birthday: string
+  last_contacted: string | null
+  keep_in_touch_days: number | null
+  next_due: string | null
+  overdue: boolean
+  created_on: string
+}
+export interface Interaction {
+  id: string
+  person_id: string
+  kind: string
+  date: string
+  summary: string
+  notes: string
+  created_on: string
+}
+export interface Relationship {
+  id: number
+  kind: string
+  other_id: string
+  other_name: string
+}
 /** PersonOut: the full record without history (also what GET duplicates returns per side). */
 export interface PersonFull extends PersonBrief {
-  prefix: string; middle_name: string; suffix: string; nickname: string; display_name: string; department: string
-  emails: LabeledValue[]; phones: LabeledValue[]; addresses: Address[]; profiles: Record<string, string>; links: Link[]
-  custom_fields: CustomField[]; anniversary: string | null; how_met: string; notes: string
-  sources: string[]; linked_user: { username: string; name: string } | null; updated_on: string
+  prefix: string
+  middle_name: string
+  suffix: string
+  nickname: string
+  display_name: string
+  department: string
+  emails: LabeledValue[]
+  phones: LabeledValue[]
+  addresses: Address[]
+  profiles: Record<string, string>
+  links: Link[]
+  custom_fields: CustomField[]
+  anniversary: string | null
+  how_met: string
+  notes: string
+  sources: string[]
+  linked_user: { username: string; name: string } | null
+  updated_on: string
 }
-export interface PersonDetail extends PersonFull { interactions: Interaction[]; relationships: Relationship[] }
+export interface PersonDetail extends PersonFull {
+  interactions: Interaction[]
+  relationships: Relationship[]
+}
 export interface PersonIn {
-  prefix?: string; first_name?: string; middle_name?: string; last_name?: string; suffix?: string; nickname?: string
-  display_name?: string; company?: string; title?: string; department?: string
-  emails?: LabeledValue[]; phones?: LabeledValue[]; addresses?: Address[]; profiles?: Record<string, string>
-  links?: Link[]; custom_fields?: CustomField[]; birthday?: string; anniversary?: string | null
-  how_met?: string; notes?: string; tags?: string[]; groups?: string[]; favorite?: boolean
-  keep_in_touch_days?: number | null; username?: string
+  prefix?: string
+  first_name?: string
+  middle_name?: string
+  last_name?: string
+  suffix?: string
+  nickname?: string
+  display_name?: string
+  company?: string
+  title?: string
+  department?: string
+  emails?: LabeledValue[]
+  phones?: LabeledValue[]
+  addresses?: Address[]
+  profiles?: Record<string, string>
+  links?: Link[]
+  custom_fields?: CustomField[]
+  birthday?: string
+  anniversary?: string | null
+  how_met?: string
+  notes?: string
+  tags?: string[]
+  groups?: string[]
+  favorite?: boolean
+  keep_in_touch_days?: number | null
+  username?: string
 }
-export interface Tag { id: number; kind: 'tag' | 'group' | string; name: string; count?: number }
+export interface Tag {
+  id: number
+  kind: 'tag' | 'group' | string
+  name: string
+  count?: number
+}
 export interface ContactStats {
-  total: number; favorites: number; overdue: number; keep_in_touch: number; recent: number; birthdays_this_month: number
+  total: number
+  favorites: number
+  overdue: number
+  keep_in_touch: number
+  recent: number
+  birthdays_this_month: number
   upcoming_birthdays?: { id: string; name: string; date: string; days: number; age: number | null }[]
   overdue_people?: { id: string; name: string; next_due: string; days_overdue: number }[]
   sources?: Record<string, number>
 }
-export interface Network { key: string; label: string; group: string; kind: 'url' | 'handle' | string }
+export interface Network {
+  key: string
+  label: string
+  group: string
+  kind: 'url' | 'handle' | string
+}
 export interface ContactMeta {
-  networks: Network[]; relationship_kinds: string[]; interaction_kinds: string[]
-  import_formats: Record<string, string>; import_fields: Record<string, string>; max_upload_bytes: number
+  networks: Network[]
+  relationship_kinds: string[]
+  interaction_kinds: string[]
+  import_formats: Record<string, string>
+  import_fields: Record<string, string>
+  max_upload_bytes: number
 }
-export interface ImportOptions { format: string; mapping: Record<string, string> | null; mode: 'merge' | 'skip' }
-export interface PreviewRow { name: string; detail: string; status: 'new' | 'update' | 'duplicate'; match: string }
+export interface ImportOptions {
+  format: string
+  mapping: Record<string, string> | null
+  mode: 'merge' | 'skip'
+}
+export interface PreviewRow {
+  name: string
+  detail: string
+  status: 'new' | 'update' | 'duplicate'
+  match: string
+}
 export interface ImportPreview {
-  format: string; format_label: string; total: number; new: number; updated: number; duplicates: number
-  columns: string[]; mapping: Record<string, string>; fields: Record<string, string>; sample: PreviewRow[]
+  format: string
+  format_label: string
+  total: number
+  new: number
+  updated: number
+  duplicates: number
+  columns: string[]
+  mapping: Record<string, string>
+  fields: Record<string, string>
+  sample: PreviewRow[]
 }
-export interface ImportResult { format: string; total: number; created: number; updated: number; duplicates: number }
-export interface DuplicatePair { a: PersonFull; b: PersonFull; reasons: string[] }
+export interface ImportResult {
+  format: string
+  total: number
+  created: number
+  updated: number
+  duplicates: number
+}
+export interface DuplicatePair {
+  a: PersonFull
+  b: PersonFull
+  reasons: string[]
+}
 export type Filter = '' | 'favorites' | 'overdue' | 'kit' | 'recent' | 'birthdays'
 
 export const AVATAR_MAX = 2_000_000
@@ -70,7 +201,12 @@ function refresh(qc: QueryClient, keepPerson?: string) {
 async function upload<T>(path: string, fd: FormData): Promise<T> {
   let res: Response
   try {
-    res = await fetch(apiUrl(path), { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-CSRFToken': readCookie('csrftoken'), Accept: 'application/json' } })
+    res = await fetch(apiUrl(path), {
+      method: 'POST',
+      body: fd,
+      credentials: 'same-origin',
+      headers: { 'X-CSRFToken': readCookie('csrftoken'), Accept: 'application/json' },
+    })
   } catch {
     throw new ApiError(0, "Couldn't reach the server. Check your connection.")
   }
@@ -109,15 +245,18 @@ export const usePerson = (id: string | null) =>
   useQuery({ queryKey: ['contacts', 'person', id], queryFn: () => get<PersonDetail>(`contacts/${id}`), enabled: !!id })
 // Meta, tags and stats: fetched together (first load, or invalidating ['contacts']) they cost one
 // GET /contacts/overview; refetched alone, each uses its own endpoint.
-const side = queryGroup('contacts/overview', {
-  meta: { key: ['contacts', 'meta'], path: 'contacts/meta' },
-  tags: { key: ['contacts', 'tags'], path: 'contacts/tags' },
-  stats: { key: ['contacts', 'stats'], path: 'contacts/stats' },
-}, (all, k) => all[k])
+const side = queryGroup(
+  'contacts/overview',
+  {
+    meta: { key: ['contacts', 'meta'], path: 'contacts/meta' },
+    tags: { key: ['contacts', 'tags'], path: 'contacts/tags' },
+    stats: { key: ['contacts', 'stats'], path: 'contacts/stats' },
+  },
+  (all, k) => all[k],
+)
 export const useContactStats = () => useQuery({ queryKey: ['contacts', 'stats'], queryFn: side<ContactStats>('stats') })
 export const useContactTags = () => useQuery({ queryKey: ['contacts', 'tags'], queryFn: side<Tag[]>('tags') })
-export const useContactMeta = () =>
-  useQuery({ queryKey: ['contacts', 'meta'], queryFn: side<ContactMeta>('meta'), staleTime: Infinity })
+export const useContactMeta = () => useQuery({ queryKey: ['contacts', 'meta'], queryFn: side<ContactMeta>('meta'), staleTime: Infinity })
 export const useDuplicates = () =>
   useQuery({ queryKey: ['contacts', 'duplicates'], queryFn: () => get<DuplicatePair[]>('contacts/duplicates') })
 
@@ -125,7 +264,8 @@ export const useDuplicates = () =>
 export function useSavePerson(toastErrors = true) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, body }: { id?: string; body: PersonIn }) => (id ? patch<PersonDetail>(`contacts/${id}`, body) : post<PersonDetail>('contacts/', body)),
+    mutationFn: ({ id, body }: { id?: string; body: PersonIn }) =>
+      id ? patch<PersonDetail>(`contacts/${id}`, body) : post<PersonDetail>('contacts/', body),
     onSuccess: (p) => {
       qc.setQueryData(['contacts', 'person', p.id], p)
       refresh(qc, p.id)
@@ -174,14 +314,19 @@ export function useAvatar(personId: string) {
     onSuccess: done,
     onError,
   })
-  const remove = useMutation({ mutationFn: () => api<PersonDetail>(`contacts/${personId}/avatar`, { method: 'DELETE' }), onSuccess: done, onError })
+  const remove = useMutation({
+    mutationFn: () => api<PersonDetail>(`contacts/${personId}/avatar`, { method: 'DELETE' }),
+    onSuccess: done,
+    onError,
+  })
   return { set, remove }
 }
 
 export function useLogInteraction(personId: string) {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { kind: string; summary: string; date?: string | null; notes?: string }) => post<Interaction>(`contacts/${personId}/interactions`, body),
+    mutationFn: (body: { kind: string; summary: string; date?: string | null; notes?: string }) =>
+      post<Interaction>(`contacts/${personId}/interactions`, body),
     onSuccess: () => refresh(qc),
     onError,
   })
@@ -190,7 +335,8 @@ export function useLogInteraction(personId: string) {
 export function useUpdateInteraction() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, body }: { id: string; body: { kind?: string; summary?: string; date?: string; notes?: string } }) => patch<Interaction>(`contacts/interactions/${id}`, body),
+    mutationFn: ({ id, body }: { id: string; body: { kind?: string; summary?: string; date?: string; notes?: string } }) =>
+      patch<Interaction>(`contacts/interactions/${id}`, body),
     onSuccess: () => refresh(qc),
     onError,
   })
@@ -225,7 +371,8 @@ export const importPreview = (file: File, o: ImportOptions) => upload<ImportPrev
 export function useImportCommit() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ file, opts }: { file: File; opts: ImportOptions }) => upload<ImportResult>('contacts/import/commit', importForm(file, opts)),
+    mutationFn: ({ file, opts }: { file: File; opts: ImportOptions }) =>
+      upload<ImportResult>('contacts/import/commit', importForm(file, opts)),
     onSuccess: () => refresh(qc),
     onError,
   })
@@ -234,7 +381,8 @@ export function useImportCommit() {
 export function useMerge() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { keep_id: string; other_id: string; fields: Record<string, 'keep' | 'other'> }) => post<PersonDetail>('contacts/merge', body),
+    mutationFn: (body: { keep_id: string; other_id: string; fields: Record<string, 'keep' | 'other'> }) =>
+      post<PersonDetail>('contacts/merge', body),
     onSuccess: (p, v) => {
       qc.removeQueries({ queryKey: ['contacts', 'person', v.other_id] })
       qc.setQueryData(['contacts', 'person', p.id], p)
@@ -248,8 +396,10 @@ export function useDismissDuplicate() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (body: { a_id: string; b_id: string }) => post<void>('contacts/duplicates/dismiss', body),
-    onSuccess: (_r, v) => qc.setQueryData<DuplicatePair[]>(['contacts', 'duplicates'], (old) =>
-      old?.filter((d) => !((d.a.id === v.a_id && d.b.id === v.b_id) || (d.a.id === v.b_id && d.b.id === v.a_id)))),
+    onSuccess: (_r, v) =>
+      qc.setQueryData<DuplicatePair[]>(['contacts', 'duplicates'], (old) =>
+        old?.filter((d) => !((d.a.id === v.a_id && d.b.id === v.b_id) || (d.a.id === v.b_id && d.b.id === v.a_id))),
+      ),
     onError,
   })
 }
@@ -289,7 +439,10 @@ export function useMergeMany() {
 }
 
 // ---------------------------------------------------------------- reminder settings
-export interface ContactSettings { birthday_reminders: 'off' | 'day_before' | 'on_day'; keep_in_touch_reminders: boolean }
+export interface ContactSettings {
+  birthday_reminders: 'off' | 'day_before' | 'on_day'
+  keep_in_touch_reminders: boolean
+}
 // Same key as Notifications › Reminders, so both screens share one cached copy.
 const SETTINGS_KEY = ['settings', 'contacts/settings']
 export const useContactSettings = (enabled = true) =>

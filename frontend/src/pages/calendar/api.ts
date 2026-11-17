@@ -51,7 +51,11 @@ export function useDeleteEvent() {
       await qc.cancelQueries({ queryKey: ['calendar', 'events'] })
       // Whole series: drop every occurrence of it; otherwise just this one.
       const series = id.split(':')[0]
-      return { rollback: patchEventCaches(qc, (l) => l.filter((e) => (scope === 'all' ? (e.series_id ?? e.id.split(':')[0]) !== series : e.id !== id))) }
+      return {
+        rollback: patchEventCaches(qc, (l) =>
+          l.filter((e) => (scope === 'all' ? (e.series_id ?? e.id.split(':')[0]) !== series : e.id !== id)),
+        ),
+      }
     },
     onError: onErr,
     onSettled: () => refresh(qc),
@@ -61,7 +65,8 @@ export function useDeleteEvent() {
 export function useDuplicateEvent() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, days }: { id: string; days: number }) => post<CalEvent>(`calendar/events/${encodeURIComponent(id)}/duplicate`, undefined, { days }),
+    mutationFn: ({ id, days }: { id: string; days: number }) =>
+      post<CalEvent>(`calendar/events/${encodeURIComponent(id)}/duplicate`, undefined, { days }),
     onError: onErr,
     onSettled: () => refresh(qc),
   })

@@ -4,9 +4,11 @@ import { dayDiff, fmtDate } from '../../lib/dates'
 export function fmtDuration(sec: number | null): string {
   if (!sec || sec < 0) return ''
   const t = Math.round(sec)
-  const h = Math.floor(t / 3600), m = Math.floor((t % 3600) / 60), s = t % 60
+  const h = Math.floor(t / 3600),
+    m = Math.floor((t % 3600) / 60),
+    s = t % 60
   const pad = (x: number) => String(x).padStart(2, '0')
-  return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`  // 12:04:29, not 724:29
+  return h ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}` // 12:04:29, not 724:29
 }
 
 /** Day header: "Today", "Yesterday", "Fri, Jul 31" (year added when not this year). */
@@ -14,9 +16,12 @@ export function dayLabel(d: Date, now = new Date()): string {
   const diff = dayDiff(d, now)
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Yesterday'
-  return fmtDate(d, d.getFullYear() === now.getFullYear()
-    ? { weekday: 'short', month: 'short', day: 'numeric' }
-    : { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
+  return fmtDate(
+    d,
+    d.getFullYear() === now.getFullYear()
+      ? { weekday: 'short', month: 'short', day: 'numeric' }
+      : { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' },
+  )
 }
 
 /** Total duration in seconds -> always h:mm:ss ("0:04:05", "123:04:05"), like the classic Storage page. */

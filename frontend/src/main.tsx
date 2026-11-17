@@ -29,7 +29,8 @@ const queryClient = new QueryClient({
       refetchOnReconnect: true,
       // Network and 5xx errors retry with exponential backoff (1 s, 2 s, 4 s); data on screen is kept meanwhile.
       // Don't retry what won't change (auth, permission, not found, validation).
-      retry: (count, err) => !(err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 408 && err.status !== 429) && count < 3,
+      retry: (count, err) =>
+        !(err instanceof ApiError && err.status >= 400 && err.status < 500 && err.status !== 408 && err.status !== 429) && count < 3,
       retryDelay: (n) => Math.min(1000 * 2 ** n, 15_000),
     },
   },

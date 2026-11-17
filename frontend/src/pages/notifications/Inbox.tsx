@@ -21,7 +21,12 @@ function dayLabel(d: Date | null, now = new Date()): string {
   if (diff === 0) return 'Today'
   if (diff === 1) return 'Yesterday'
   if (diff < 7) return fmtDate(d, { weekday: 'long' })
-  return fmtDate(d, d.getFullYear() === now.getFullYear() ? { weekday: 'short', month: 'long', day: 'numeric' } : { month: 'long', day: 'numeric', year: 'numeric' })
+  return fmtDate(
+    d,
+    d.getFullYear() === now.getFullYear()
+      ? { weekday: 'short', month: 'long', day: 'numeric' }
+      : { month: 'long', day: 'numeric', year: 'numeric' },
+  )
 }
 
 function patchPages(qc: ReturnType<typeof useQueryClient>, fn: (d: Pages) => Pages) {
@@ -36,11 +41,19 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
   const [source, setSource] = useState('')
   const [search, setSearch] = useState('')
   const needle = useDebounced(search.trim(), 250)
-  const sourcesQ = useQuery({ queryKey: ['notifications', 'sources'], queryFn: () => get<string[]>('notifications/sources'), staleTime: 60_000 })
+  const sourcesQ = useQuery({
+    queryKey: ['notifications', 'sources'],
+    queryFn: () => get<string[]>('notifications/sources'),
+    staleTime: 60_000,
+  })
   const q = useInfiniteQuery({
     queryKey: pageKey(unreadOnly, needle, source),
     queryFn: ({ pageParam, signal }) =>
-      get<Inbox>('notifications/', { unread_only: unreadOnly || undefined, q: needle || undefined, source: source || undefined, limit: PAGE, before: pageParam }, signal),
+      get<Inbox>(
+        'notifications/',
+        { unread_only: unreadOnly || undefined, q: needle || undefined, source: source || undefined, limit: PAGE, before: pageParam },
+        signal,
+      ),
     placeholderData: (prev) => prev,
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (last) => (last.items.length < PAGE ? undefined : last.items[last.items.length - 1].created_on),
@@ -54,7 +67,10 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
         const v = ev.mutation.state.variables as { id?: unknown; read?: unknown } | undefined
         if (!v || typeof v.id !== 'string' || Object.keys(v).some((k) => k !== 'id' && k !== 'read')) return
         const read = v.read === undefined ? true : !!v.read
-        patchPages(qc, (d) => ({ ...d, pages: d.pages.map((p) => ({ ...p, items: p.items.map((n) => (n.id === v.id ? { ...n, read } : n)) })) }))
+        patchPages(qc, (d) => ({
+          ...d,
+          pages: d.pages.map((p) => ({ ...p, items: p.items.map((n) => (n.id === v.id ? { ...n, read } : n)) })),
+        }))
       }),
     [qc],
   )
@@ -92,22 +108,36 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
     setSel(next.id)
     document.querySelector(`[data-notif="${next.id}"]`)?.scrollIntoView({ block: 'nearest' })
   }
-  useHotkey((e) => (e.key === 'j' || e.key === 'k') && !e.metaKey && !e.ctrlKey, (e) => (e.preventDefault(), move(e.key === 'j' ? 1 : -1)))
-  useHotkey((e) => e.key === 'Enter' && !!selected, () => selected && open(selected))
-  useHotkey((e) => e.key === 'e' && !!selected, () => selected && mark.mutate({ id: selected.id, read: !selected.read }))
-  useHotkey((e) => e.key === '#' && !!selected, () => {
-    if (!selected) return
-    const i = items.indexOf(selected)
-    setSel(items[i + 1]?.id ?? items[i - 1]?.id ?? null)
-    remove.mutate(selected.id)
-  })
+  useHotkey(
+    (e) => (e.key === 'j' || e.key === 'k') && !e.metaKey && !e.ctrlKey,
+    (e) => (e.preventDefault(), move(e.key === 'j' ? 1 : -1)),
+  )
+  useHotkey(
+    (e) => e.key === 'Enter' && !!selected,
+    () => selected && open(selected),
+  )
+  useHotkey(
+    (e) => e.key === 'e' && !!selected,
+    () => selected && mark.mutate({ id: selected.id, read: !selected.read }),
+  )
+  useHotkey(
+    (e) => e.key === '#' && !!selected,
+    () => {
+      if (!selected) return
+      const i = items.indexOf(selected)
+      setSel(items[i + 1]?.id ?? items[i - 1]?.id ?? null)
+      remove.mutate(selected.id)
+    },
+  )
 
   // Infinite scroll, with the button as a fallback.
   const sentinel = useRef<HTMLDivElement>(null)
   useEffect(() => {
     const el = sentinel.current
     if (!el || !q.hasNextPage) return
-    const io = new IntersectionObserver((es) => es.some((x) => x.isIntersecting) && !q.isFetchingNextPage && q.fetchNextPage(), { rootMargin: '600px 0px' })
+    const io = new IntersectionObserver((es) => es.some((x) => x.isIntersecting) && !q.isFetchingNextPage && q.fetchNextPage(), {
+      rootMargin: '600px 0px',
+    })
     io.observe(el)
     return () => io.disconnect()
   }, [q.hasNextPage, q.isFetchingNextPage, q])
@@ -130,7 +160,10 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
           <h1>Inbox</h1>
           <p>{unread ? `${unread} unread` : 'Everything is read'}</p>
         </div>
-        <button className="btn sm" disabled={!all.length && !needle && !source} onClick={() => setConfirmClear(true)}><Icon name="trash" size={14} />Clear read</button>
+        <button className="btn sm" disabled={!all.length && !needle && !source} onClick={() => setConfirmClear(true)}>
+          <Icon name="trash" size={14} />
+          Clear read
+        </button>
         <button
           className="btn sm"
           disabled={!unread || readAll.isPending}
@@ -146,16 +179,29 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
 
       <div className="inbox-tools">
         <div className="seg" role="group" aria-label="Show">
-          <button aria-pressed={!unreadOnly} onClick={() => setParams({})}>All</button>
-          <button aria-pressed={unreadOnly} onClick={() => setParams({ unread: '1' })}>Unread{unread ? ` ${unread}` : ''}</button>
+          <button aria-pressed={!unreadOnly} onClick={() => setParams({})}>
+            All
+          </button>
+          <button aria-pressed={unreadOnly} onClick={() => setParams({ unread: '1' })}>
+            Unread{unread ? ` ${unread}` : ''}
+          </button>
         </div>
         <select className="select inbox-source" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Source">
           <option value="">All sources</option>
-          {sources.map((s) => <option key={s} value={s}>{s}</option>)}
+          {sources.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))}
         </select>
         <label className="inbox-search">
           <Icon name="search" size={14} />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search notifications" aria-label="Search notifications" />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search notifications"
+            aria-label="Search notifications"
+          />
         </label>
       </div>
 
@@ -165,7 +211,9 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
         ) : q.isError && !q.data ? (
           <ErrorBox error={q.error} retry={() => q.refetch()} />
         ) : !items.length ? (
-          <div className="empty inbox-empty">{needle || source ? 'No notifications match.' : unreadOnly ? "You're all caught up." : 'No notifications yet.'}</div>
+          <div className="empty inbox-empty">
+            {needle || source ? 'No notifications match.' : unreadOnly ? "You're all caught up." : 'No notifications yet.'}
+          </div>
         ) : (
           groups.map((g) => (
             <div key={g.key} className="inbox-group">
@@ -187,8 +235,18 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
           </div>
         )}
       </div>
-      <p className="help inbox-keys"><span className="kbd">J</span>/<span className="kbd">K</span> move · <span className="kbd">Enter</span> open · <span className="kbd">E</span> read/unread · <span className="kbd">#</span> delete</p>
-      <Confirm open={confirmClear} title="Clear read notifications?" body="Deletes every read notification in your inbox, not just the ones shown."  confirmLabel="Clear" onConfirm={clearRead} onClose={() => setConfirmClear(false)} />
+      <p className="help inbox-keys">
+        <span className="kbd">J</span>/<span className="kbd">K</span> move · <span className="kbd">Enter</span> open ·{' '}
+        <span className="kbd">E</span> read/unread · <span className="kbd">#</span> delete
+      </p>
+      <Confirm
+        open={confirmClear}
+        title="Clear read notifications?"
+        body="Deletes every read notification in your inbox, not just the ones shown."
+        confirmLabel="Clear"
+        onConfirm={clearRead}
+        onClose={() => setConfirmClear(false)}
+      />
     </div>
   )
 }

@@ -26,26 +26,32 @@ export function useSelection(): Selection {
       return n
     })
   }, [])
-  const range = useCallback((order: string[], id: string) => {
-    const a = order.indexOf(anchor.current ?? id)
-    const b = order.indexOf(id)
-    if (a < 0 || b < 0) return toggle(id)
-    setIds((s) => new Set([...s, ...order.slice(Math.min(a, b), Math.max(a, b) + 1)]))
-    window.getSelection()?.removeAllRanges()
-  }, [toggle])
+  const range = useCallback(
+    (order: string[], id: string) => {
+      const a = order.indexOf(anchor.current ?? id)
+      const b = order.indexOf(id)
+      if (a < 0 || b < 0) return toggle(id)
+      setIds((s) => new Set([...s, ...order.slice(Math.min(a, b), Math.max(a, b) + 1)]))
+      window.getSelection()?.removeAllRanges()
+    },
+    [toggle],
+  )
   const clear = useCallback(() => setIds((s) => (s.size ? new Set() : s)), [])
   const set = useCallback((list: string[]) => setIds(new Set(list)), [])
-  return useMemo(() => ({
-    ids,
-    has: (id: string) => ids.has(id),
-    toggle,
-    range,
-    set,
-    clear,
-    click: (e, id, order) => {
-      if (e.shiftKey) return range(order, id), true
-      if (e.ctrlKey || e.metaKey) return toggle(id), true
-      return false
-    },
-  }), [ids, toggle, range, set, clear])
+  return useMemo(
+    () => ({
+      ids,
+      has: (id: string) => ids.has(id),
+      toggle,
+      range,
+      set,
+      clear,
+      click: (e, id, order) => {
+        if (e.shiftKey) return (range(order, id), true)
+        if (e.ctrlKey || e.metaKey) return (toggle(id), true)
+        return false
+      },
+    }),
+    [ids, toggle, range, set, clear],
+  )
 }

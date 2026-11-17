@@ -21,7 +21,9 @@ export class Boundary extends Component<{ children: ReactNode; label?: string; c
       <div className={'inline-fail ' + (this.props.className ?? '')} role="alert">
         <Icon name="alert" size={14} />
         <span>Couldn't load{this.props.label ? ` ${this.props.label}` : ''}</span>
-        <button className="btn ghost sm" onClick={() => this.setState({ error: null })}>Retry</button>
+        <button className="btn ghost sm" onClick={() => this.setState({ error: null })}>
+          Retry
+        </button>
       </div>
     )
   }
@@ -33,7 +35,11 @@ export function InlineFail({ what, retry }: { what: string; retry?: () => void }
     <div className="inline-fail" role="status">
       <Icon name="alert" size={14} />
       <span>Couldn't load {what}</span>
-      {retry && <button className="btn ghost sm" onClick={retry}>Retry</button>}
+      {retry && (
+        <button className="btn ghost sm" onClick={retry}>
+          Retry
+        </button>
+      )}
     </div>
   )
 }
@@ -76,7 +82,9 @@ export function NetworkBanner() {
         {offline ? "You're offline." : "Can't reach the server, retrying…"}
         {saved ? ' Showing a saved copy.' : ''}
       </span>
-      <button className="btn ghost sm" onClick={() => qc.refetchQueries({ type: 'active' })}>Retry now</button>
+      <button className="btn ghost sm" onClick={() => qc.refetchQueries({ type: 'active' })}>
+        Retry now
+      </button>
     </div>
   )
 }
@@ -91,7 +99,9 @@ let restoredAt = 0
 function clearSavedCache() {
   try {
     sessionStorage.removeItem(STORE)
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
 }
 
 /** Paint the last data immediately after a reload; it is stale, so it refetches as usual. */
@@ -139,7 +149,9 @@ export function persistCache(qc: QueryClient) {
     last = body
     try {
       sessionStorage.setItem(STORE, `{"at":${Date.now()},"u":${JSON.stringify(u)},"q":[${body}]}`)
-    } catch { /* quota or blocked: just don't persist */ }
+    } catch {
+      /* quota or blocked: just don't persist */
+    }
   }
   qc.getQueryCache().subscribe((e) => {
     if (e.type === 'updated' && e.action.type === 'success' && !timer) timer = setTimeout(save, 2000)

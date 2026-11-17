@@ -14,8 +14,18 @@ import { fmtBytes, fmtDuration } from '../photos/util'
 import { PublicFrame, PublicNotice, loginHere, usePublicTitle } from './PublicFrame'
 
 interface PublicAlbum {
-  id: string; name: string; description: string; owner: string; public: boolean; photos: number; videos: number
-  size_kb: number; first: string | null; last: string | null; cover_url: string | null; member: boolean
+  id: string
+  name: string
+  description: string
+  owner: string
+  public: boolean
+  photos: number
+  videos: number
+  size_kb: number
+  first: string | null
+  last: string | null
+  cover_url: string | null
+  member: boolean
 }
 type Cursor = { before?: string; before_id?: string }
 
@@ -45,10 +55,15 @@ export default function SharedAlbum() {
   })
   const photos = useInfiniteQuery({
     queryKey: ['public', 'album', id, 'photos'],
-    queryFn: ({ pageParam, signal }) => get<PhotoPage>(`photos/public/albums/${id}/photos`,
-      { limit: PAGE, before: pageParam.before, before_id: pageParam.before_id }, signal),
+    queryFn: ({ pageParam, signal }) =>
+      get<PhotoPage>(
+        `photos/public/albums/${id}/photos`,
+        { limit: PAGE, before: pageParam.before, before_id: pageParam.before_id },
+        signal,
+      ),
     initialPageParam: {} as Cursor,
-    getNextPageParam: (last): Cursor | undefined => (last.next_before ? { before: last.next_before, before_id: last.next_before_id ?? undefined } : undefined),
+    getNextPageParam: (last): Cursor | undefined =>
+      last.next_before ? { before: last.next_before, before_id: last.next_before_id ?? undefined } : undefined,
     enabled: album.isSuccess,
     staleTime: 5 * 60_000,
   })
@@ -61,13 +76,29 @@ export default function SharedAlbum() {
       <PublicFrame>
         <PublicNotice icon="album" title="This album isn't shared publicly">
           <p className="muted small">It doesn't exist, or its owner shares it only with people they added.</p>
-          <Link className="btn primary" to={loginHere(loc)}>Sign in</Link>
+          <Link className="btn primary" to={loginHere(loc)}>
+            Sign in
+          </Link>
         </PublicNotice>
       </PublicFrame>
     )
   }
-  if (album.isPending) return <PublicFrame wide><div className="card"><SkeletonRows rows={5} /></div></PublicFrame>
-  if (!album.data) return <PublicFrame wide><div className="card"><ErrorBox error={album.error} retry={() => album.refetch()} /></div></PublicFrame>
+  if (album.isPending)
+    return (
+      <PublicFrame wide>
+        <div className="card">
+          <SkeletonRows rows={5} />
+        </div>
+      </PublicFrame>
+    )
+  if (!album.data)
+    return (
+      <PublicFrame wide>
+        <div className="card">
+          <ErrorBox error={album.error} retry={() => album.refetch()} />
+        </div>
+      </PublicFrame>
+    )
   const a = album.data
   const cover = safeHref(a.cover_url)
   const range = dateRange(a.first, a.last)
@@ -81,27 +112,63 @@ export default function SharedAlbum() {
           <p className="muted small">{[`by ${a.owner}`, a.public ? 'Public album' : 'Shared album'].join(' · ')}</p>
           {a.description && <p className="sa-desc small">{a.description}</p>}
           <p className="sa-meta xsmall muted tabular">
-            {[plural(a.photos, 'photo'), a.videos ? plural(a.videos, 'video') : '', a.size_kb ? fmtBytes(a.size_kb) : '', range].filter(Boolean).join(' · ')}
+            {[plural(a.photos, 'photo'), a.videos ? plural(a.videos, 'video') : '', a.size_kb ? fmtBytes(a.size_kb) : '', range]
+              .filter(Boolean)
+              .join(' · ')}
           </p>
         </div>
-        {a.member && <a className="btn sa-open" href={`/photos/albums/${a.id}`}><Icon name="photo" size={14} />Open in Photos</a>}
+        {a.member && (
+          <a className="btn sa-open" href={`/photos/albums/${a.id}`}>
+            <Icon name="photo" size={14} />
+            Open in Photos
+          </a>
+        )}
       </header>
-      {photos.isError && !items.length ? <div className="card"><ErrorBox error={photos.error} retry={() => photos.refetch()} /></div>
-        : photos.isPending ? <div className="card"><SkeletonRows rows={6} /></div>
-        : items.length === 0 ? <p className="empty">This album is empty.</p>
-        : <Grid items={items} onOpen={setOpen} more={photos.hasNextPage ? () => !photos.isFetchingNextPage && photos.fetchNextPage() : null} loading={photos.isFetchingNextPage} />}
+      {photos.isError && !items.length ? (
+        <div className="card">
+          <ErrorBox error={photos.error} retry={() => photos.refetch()} />
+        </div>
+      ) : photos.isPending ? (
+        <div className="card">
+          <SkeletonRows rows={6} />
+        </div>
+      ) : items.length === 0 ? (
+        <p className="empty">This album is empty.</p>
+      ) : (
+        <Grid
+          items={items}
+          onOpen={setOpen}
+          more={photos.hasNextPage ? () => !photos.isFetchingNextPage && photos.fetchNextPage() : null}
+          loading={photos.isFetchingNextPage}
+        />
+      )}
       {photos.isError && items.length > 0 && <ErrorBox error={photos.error} retry={() => photos.fetchNextPage()} />}
       {open !== null && items[open] && (
-        <Lightbox items={items} index={open} onGo={(i) => {
-          setOpen(i)
-          if (i >= items.length - 3 && photos.hasNextPage && !photos.isFetchingNextPage) photos.fetchNextPage()
-        }} onClose={() => setOpen(null)} />
+        <Lightbox
+          items={items}
+          index={open}
+          onGo={(i) => {
+            setOpen(i)
+            if (i >= items.length - 3 && photos.hasNextPage && !photos.isFetchingNextPage) photos.fetchNextPage()
+          }}
+          onClose={() => setOpen(null)}
+        />
       )}
     </PublicFrame>
   )
 }
 
-function Grid({ items, onOpen, more, loading }: { items: Photo[]; onOpen: (i: number) => void; more: (() => unknown) | null; loading: boolean }) {
+function Grid({
+  items,
+  onOpen,
+  more,
+  loading,
+}: {
+  items: Photo[]
+  onOpen: (i: number) => void
+  more: (() => unknown) | null
+  loading: boolean
+}) {
   const box = useRef<HTMLDivElement>(null)
   const sentinel = useRef<HTMLDivElement>(null)
   const [width, setWidth] = useState(0)
@@ -113,7 +180,16 @@ function Grid({ items, onOpen, more, loading }: { items: Photo[]; onOpen: (i: nu
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
-  const rows = useMemo(() => justify(items.map((p) => p.aspect), width, phone ? 120 : 200, GAP), [items, width, phone])
+  const rows = useMemo(
+    () =>
+      justify(
+        items.map((p) => p.aspect),
+        width,
+        phone ? 120 : 200,
+        GAP,
+      ),
+    [items, width, phone],
+  )
   useEffect(() => {
     const el = sentinel.current
     if (!el || !more) return
@@ -129,16 +205,28 @@ function Grid({ items, onOpen, more, loading }: { items: Photo[]; onOpen: (i: nu
             const p = items[b.index]
             const src = safeHref(p.thumb_url)
             return (
-              <button key={p.id} className="sa-tile" style={{ width: b.width, height: b.height }} onClick={() => onOpen(b.index)}
-                aria-label={(p.video ? 'Video' : 'Photo') + (p.date_taken ? ', ' + caption.format(new Date(p.date_taken)) : '')}>
+              <button
+                key={p.id}
+                className="sa-tile"
+                style={{ width: b.width, height: b.height }}
+                onClick={() => onOpen(b.index)}
+                aria-label={(p.video ? 'Video' : 'Photo') + (p.date_taken ? ', ' + caption.format(new Date(p.date_taken)) : '')}
+              >
                 {src && <img src={src} alt="" loading="lazy" decoding="async" />}
-                {p.video && <span className="sa-vid"><Icon name="play" size={10} />{p.length ? fmtDuration(p.length) : ''}</span>}
+                {p.video && (
+                  <span className="sa-vid">
+                    <Icon name="play" size={10} />
+                    {p.length ? fmtDuration(p.length) : ''}
+                  </span>
+                )}
               </button>
             )
           })}
         </div>
       ))}
-      <div ref={sentinel} className="sa-sentinel">{loading && <span className="spinner" aria-label="Loading more" />}</div>
+      <div ref={sentinel} className="sa-sentinel">
+        {loading && <span className="spinner" aria-label="Loading more" />}
+      </div>
     </div>
   )
 }
@@ -163,36 +251,68 @@ function Lightbox({ items, index, onGo, onClose }: { items: Photo[]; index: numb
     ref.current?.focus()
     const overflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    return () => { document.body.style.overflow = overflow }
+    return () => {
+      document.body.style.overflow = overflow
+    }
   }, [])
   const full = safeHref(p.url)
   const thumb = safeHref(p.thumb_url)
   const place = [p.city, p.country].filter(Boolean).join(', ')
   return (
-    <div ref={ref} className="sa-lb" role="dialog" aria-modal="true" aria-label="Photo viewer" tabIndex={-1}
+    <div
+      ref={ref}
+      className="sa-lb"
+      role="dialog"
+      aria-modal="true"
+      aria-label="Photo viewer"
+      tabIndex={-1}
       onTouchStart={(e) => (touch.current = e.touches[0].clientX)}
       onTouchEnd={(e) => {
         if (touch.current === null) return
         const dx = e.changedTouches[0].clientX - touch.current
         touch.current = null
         if (Math.abs(dx) > 50) go(dx > 0 ? prev : next)
-      }}>
+      }}
+    >
       <div className="sa-lb-bar">
         <span className="sa-lb-cap">
           <span>{p.date_taken ? caption.format(new Date(p.date_taken)) : 'Undated'}</span>
-          {place && <span className="sa-lb-place"><Icon name="location" size={12} />{place}</span>}
+          {place && (
+            <span className="sa-lb-place">
+              <Icon name="location" size={12} />
+              {place}
+            </span>
+          )}
         </span>
-        <span className="tabular sa-lb-count">{index + 1} / {items.length}</span>
-        {full && <a className="btn ghost icon" href={full} target="_blank" rel="noopener" aria-label="Open original" title="Open original"><Icon name="external" /></a>}
-        <button className="btn ghost icon" onClick={onClose} aria-label="Close" title="Close (Esc)"><Icon name="x" /></button>
+        <span className="tabular sa-lb-count">
+          {index + 1} / {items.length}
+        </span>
+        {full && (
+          <a className="btn ghost icon" href={full} target="_blank" rel="noopener" aria-label="Open original" title="Open original">
+            <Icon name="external" />
+          </a>
+        )}
+        <button className="btn ghost icon" onClick={onClose} aria-label="Close" title="Close (Esc)">
+          <Icon name="x" />
+        </button>
       </div>
       <div className="sa-lb-stage" onClick={(e) => e.target === e.currentTarget && onClose()}>
-        {p.video
-          ? full && <video key={p.id} src={full} poster={thumb ?? undefined} controls autoPlay playsInline />
-          : <img key={p.id} src={full ?? thumb ?? ''} alt="" style={thumb ? { backgroundImage: `url("${thumb}")` } : undefined} />}
+        {p.video ? (
+          full && <video key={p.id} src={full} poster={thumb ?? undefined} controls autoPlay playsInline />
+        ) : (
+          <img key={p.id} src={full ?? thumb ?? ''} alt="" style={thumb ? { backgroundImage: `url("${thumb}")` } : undefined} />
+        )}
       </div>
-      {prev !== null && <button className="sa-lb-nav prev" onClick={() => go(prev)} aria-label="Previous"><Icon name="chevronLeft" size={22} /></button>}
-      {next !== null && <button className="sa-lb-nav next" onClick={() => go(next)} aria-label="Next"><Icon name="chevronRight" size={22} /></button>}
+      {prev !== null && (
+        <button className="sa-lb-nav prev" onClick={() => go(prev)} aria-label="Previous">
+          <Icon name="chevronLeft" size={22} />
+        </button>
+      )}
+      {next !== null && (
+        <button className="sa-lb-nav next" onClick={() => go(next)} aria-label="Next">
+          <Icon name="chevronRight" size={22} />
+        </button>
+      )}
     </div>
   )
 }

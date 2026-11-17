@@ -54,7 +54,15 @@ describe('api client', () => {
     expect(safeHref('/\\evil.example')).toBeNull()
     expect(appRoute('/tasks/?task=abc')).toBe('/tasks/?task=abc') // the router ignores the trailing slash
     expect(appRoute('/contacts?person=1')).toBe('/contacts?person=1')
-    for (const serverSide of ['/accounts/profile/', '/app/tasks', '/map/', '/photos/?album=x', '/api/v2/me', '//evil.example', 'https://example.com/'])
+    for (const serverSide of [
+      '/accounts/profile/',
+      '/app/tasks',
+      '/map/',
+      '/photos/?album=x',
+      '/api/v2/me',
+      '//evil.example',
+      'https://example.com/',
+    ])
       expect(appRoute(serverSide)).toBeNull()
   })
 })
@@ -74,14 +82,22 @@ describe('dates', () => {
     ]
     const groups = groupByDue(items, (t) => t.due, now)
     expect(groups.map((g) => [g.key, g.items.map((t) => t.id).join('')])).toEqual([
-      ['overdue', 'ac'], ['today', 'b'], ['tomorrow', 'd'], ['day:2026-11-07', 'e'], ['later', 'f'], ['nodate', 'g'],
+      ['overdue', 'ac'],
+      ['today', 'b'],
+      ['tomorrow', 'd'],
+      ['day:2026-11-07', 'e'],
+      ['later', 'f'],
+      ['nodate', 'g'],
     ])
     expect(groups[3].label).toMatch(/Sat/)
   })
 
   it('groups photos by day and builds Monday-first month grids', () => {
     const days = groupByDay([{ d: '2026-08-01T15:00:00' }, { d: '2026-08-01T09:00:00' }, { d: '2026-07-30T10:00:00' }], (x) => x.d)
-    expect(days.map((g) => [g.key, g.items.length])).toEqual([['2026-08-01', 2], ['2026-07-30', 1]])
+    expect(days.map((g) => [g.key, g.items.length])).toEqual([
+      ['2026-08-01', 2],
+      ['2026-07-30', 1],
+    ])
     const grid = monthGrid(new Date(2026, 10, 15))
     expect(grid).toHaveLength(6)
     expect(grid[0][0].getDay()).toBe(1)
@@ -129,7 +145,12 @@ describe('justified rows', () => {
 describe('quick add preview', () => {
   it('spots labels, project, priority, date and repeat', () => {
     expect(previewQuick('Pay rent tomorrow 5pm *bills +Home !3 every month')).toEqual({
-      title: 'Pay rent', labels: ['bills'], project: 'Home', priority: 3, when: 'tomorrow 5pm', repeat: 'every month',
+      title: 'Pay rent',
+      labels: ['bills'],
+      project: 'Home',
+      priority: 3,
+      when: 'tomorrow 5pm',
+      repeat: 'every month',
     })
     expect(previewQuick('Call mom').title).toBe('Call mom')
   })
@@ -152,7 +173,9 @@ describe('favicon', () => {
   it('serialises an app glyph onto its colour tile, once per app', async () => {
     const { faviconSvg, faviconUrl } = await import('./favicon')
     const svg = faviconSvg('calendar', '#0891b2')
-    expect(svg).toMatch(/^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8.5" fill="#0891b2"\/>/)
+    expect(svg).toMatch(
+      /^<svg xmlns="http:\/\/www.w3.org\/2000\/svg" viewBox="0 0 32 32"><rect width="32" height="32" rx="8.5" fill="#0891b2"\/>/,
+    )
     expect(svg).toContain('<rect x="3" y="4.5" width="18" height="16.5" rx="2.5"></rect><path d="M3 9.5h18M8 3v3M16 3v3"></path>')
     expect(faviconSvg('apps', '#000')).toContain('fill="currentColor" stroke="none"')
     expect(faviconUrl('calendar', '#0891b2')).toBe('data:image/svg+xml,' + encodeURIComponent(svg))

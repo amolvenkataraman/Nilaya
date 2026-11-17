@@ -40,7 +40,8 @@ export function apiUrl(path: string, query?: Query): string {
   const params = new URLSearchParams()
   for (const [k, v] of Object.entries(query ?? {})) {
     if (v === undefined || v === null || v === '') continue
-    if (Array.isArray(v)) v.forEach((x) => params.append(k, String(x))) // ?k=a&k=b
+    if (Array.isArray(v))
+      v.forEach((x) => params.append(k, String(x))) // ?k=a&k=b
     else params.set(k, String(v))
   }
   const qs = params.toString()
@@ -59,7 +60,7 @@ export function errorMessage(status: number, data: unknown): string {
     return d
       .map((e: { msg?: string; loc?: unknown[] }) => {
         const field = Array.isArray(e.loc) ? String(e.loc[e.loc.length - 1] ?? '') : ''
-        return field && field !== 'body' ? `${field}: ${e.msg ?? 'invalid'}` : e.msg ?? 'Invalid input'
+        return field && field !== 'body' ? `${field}: ${e.msg ?? 'invalid'}` : (e.msg ?? 'Invalid input')
       })
       .join('; ')
   }
@@ -137,7 +138,12 @@ export function appRoute(url: string): string | null {
   if (!href || !href.startsWith('/')) return null
   const [path, search = ''] = href.split('?')
   if (/^\/(?:api|admin|static|media|private|photo_cdn|feeds|\.well-known|dav)(?:\/|$)/.test(path)) return null
-  if (/^\/(?:app(?:\/|$)|accounts\/|apps\/$|map\/$|analytics\/$|settings\/api-keys\/$|photos\/(?:map_new|search|day|view-photo|superlatives\/.+|geoguessr_ent)\/)/.test(path)) return null
+  if (
+    /^\/(?:app(?:\/|$)|accounts\/|apps\/$|map\/$|analytics\/$|settings\/api-keys\/$|photos\/(?:map_new|search|day|view-photo|superlatives\/.+|geoguessr_ent)\/)/.test(
+      path,
+    )
+  )
+    return null
   if ((path === '/photos/' && /(?:^|&)album=/.test(search)) || (path === '/contacts/' && /(?:^|&)id=/.test(search))) return null
   return href
 }

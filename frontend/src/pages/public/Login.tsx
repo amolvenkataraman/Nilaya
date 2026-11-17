@@ -46,24 +46,57 @@ export default function Login() {
     <PublicFrame>
       <section className="card pub-auth">
         <div className="pub-auth-head">
-          <span className="app-logo pub-auth-logo" aria-hidden="true"><Icon name="home" size={22} /></span>
+          <span className="app-logo pub-auth-logo" aria-hidden="true">
+            <Icon name="home" size={22} />
+          </span>
           <h1>Sign in</h1>
           <p className="muted small">to continue to Nilaya</p>
         </div>
         <form className="pub-form" onSubmit={submit} noValidate>
           <label className="field">
             <span>Username</span>
-            <input className="input" name="username" autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false}
-              autoFocus required value={username} onChange={(e) => setUsername(e.target.value)} disabled={already} />
+            <input
+              className="input"
+              name="username"
+              autoComplete="username"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              autoFocus
+              required
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              disabled={already}
+            />
           </label>
           <label className="field">
             <span>Password</span>
-            <input className="input" type="password" name="password" autoComplete="current-password" required
-              value={password} onChange={(e) => setPassword(e.target.value)} disabled={already} />
+            <input
+              className="input"
+              type="password"
+              name="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              disabled={already}
+            />
           </label>
-          {error && <p className="pub-error" role="alert"><Icon name="alert" size={14} />{error}</p>}
+          {error && (
+            <p className="pub-error" role="alert">
+              <Icon name="alert" size={14} />
+              {error}
+            </p>
+          )}
           <button className="btn primary pub-submit" type="submit" disabled={pending || already || !username.trim() || !password}>
-            {pending || already ? <><span className="spinner pub-spin" />Signing in…</> : 'Sign in'}
+            {pending || already ? (
+              <>
+                <span className="spinner pub-spin" />
+                Signing in…
+              </>
+            ) : (
+              'Sign in'
+            )}
           </button>
         </form>
         <p className="pub-auth-foot small muted">

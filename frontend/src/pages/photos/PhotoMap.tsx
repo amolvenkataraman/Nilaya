@@ -18,7 +18,8 @@ import { photosInArea } from './util'
 type Box = { south: number; west: number; north: number; east: number }
 const CLUSTER_PX = 72
 const CLUSTER_KEY = 'app.photos.mapClusters'
-const short = (n: number) => (n >= 10_000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n))
+const short = (n: number) =>
+  n >= 10_000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n)
 
 /** Text-only marker content (Leaflet treats strings as HTML). */
 function clusterNode(n: number): HTMLElement {
@@ -43,7 +44,10 @@ function drawClusters(m: L.Map, g: L.LayerGroup, pts: HeatPoint[]) {
       c.n += p.count
       c.lat += p.lat * p.count
       c.lng += p.lng * p.count
-      c.s = Math.min(c.s, p.lat); c.nn = Math.max(c.nn, p.lat); c.w = Math.min(c.w, p.lng); c.e = Math.max(c.e, p.lng)
+      c.s = Math.min(c.s, p.lat)
+      c.nn = Math.max(c.nn, p.lat)
+      c.w = Math.min(c.w, p.lng)
+      c.e = Math.max(c.e, p.lng)
     }
   }
   // Grid cells can put two markers side by side across a cell edge: merge neighbours closer than a marker.
@@ -52,9 +56,17 @@ function drawClusters(m: L.Map, g: L.LayerGroup, pts: HeatPoint[]) {
   for (const c of [...cells.values()].sort((a, b) => b.n - a.n)) {
     const pt = m.project([c.lat / c.n, c.lng / c.n], zoom)
     const near = kept.find((k) => Math.hypot(k.x - pt.x, k.y - pt.y) < CLUSTER_PX * 0.75)
-    if (!near) { kept.push({ ...c, x: pt.x, y: pt.y }); continue }
-    near.n += c.n; near.lat += c.lat; near.lng += c.lng
-    near.s = Math.min(near.s, c.s); near.nn = Math.max(near.nn, c.nn); near.w = Math.min(near.w, c.w); near.e = Math.max(near.e, c.e)
+    if (!near) {
+      kept.push({ ...c, x: pt.x, y: pt.y })
+      continue
+    }
+    near.n += c.n
+    near.lat += c.lat
+    near.lng += c.lng
+    near.s = Math.min(near.s, c.s)
+    near.nn = Math.max(near.nn, c.nn)
+    near.w = Math.min(near.w, c.w)
+    near.e = Math.max(near.e, c.e)
   }
   for (const c of kept) {
     const size = Math.round(26 + Math.min(18, Math.log10(c.n + 1) * 6))
@@ -100,11 +112,19 @@ export function PhotoMapPage() {
   const fileInput = useRef<HTMLInputElement>(null)
   const [trackCount, setTrackCount] = useState(0)
   const [clusters, setClustersState] = useState(() => {
-    try { return localStorage.getItem(CLUSTER_KEY) !== '0' } catch { return true }
+    try {
+      return localStorage.getItem(CLUSTER_KEY) !== '0'
+    } catch {
+      return true
+    }
   })
   const setClusters = (v: boolean) => {
     setClustersState(v)
-    try { localStorage.setItem(CLUSTER_KEY, v ? '1' : '0') } catch { /* ignore */ }
+    try {
+      localStorage.setItem(CLUSTER_KEY, v ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
   }
   const [box, setBox] = useState<Box | null>(null)
   const [heatFilter, setHeatFilter] = useHeatFilter()
@@ -115,7 +135,10 @@ export function PhotoMapPage() {
     if (!el.current) return
     const m = L.map(el.current, { zoomControl: false, worldCopyJump: true }).setView([30, 0], 2)
     L.control.zoom({ position: 'bottomright' }).addTo(m)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' }).addTo(m)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    }).addTo(m)
     layer.current = new HeatLayer([], 20).addTo(m) as HeatLayer
     clusterLayer.current = L.layerGroup().addTo(m)
     tracks.current = L.layerGroup().addTo(m)
@@ -125,7 +148,12 @@ export function PhotoMapPage() {
       t = setTimeout(() => {
         const b = m.getBounds()
         const f = (v: number, up: boolean) => (up ? Math.ceil(v * 100) : Math.floor(v * 100)) / 100
-        setBox({ south: f(Math.max(-90, b.getSouth()), false), west: f(Math.max(-180, b.getWest()), false), north: f(Math.min(90, b.getNorth()), true), east: f(Math.min(180, b.getEast()), true) })
+        setBox({
+          south: f(Math.max(-90, b.getSouth()), false),
+          west: f(Math.max(-180, b.getWest()), false),
+          north: f(Math.min(90, b.getNorth()), true),
+          east: f(Math.min(180, b.getEast()), true),
+        })
       }, 350)
     }
     m.on('moveend', report)
@@ -222,29 +250,71 @@ export function PhotoMapPage() {
         <strong className="xsmall">Where your photos were taken</strong>
         {points.isFetching && <span className="spinner" aria-label="Loading" />}
         <HeatFilterControls f={heatFilter} set={setHeatFilter} />
-        <label className="row xsmall" style={{ gap: '0.375rem' }}><input type="checkbox" checked={clusters} onChange={(e) => setClusters(e.target.checked)} />Show counts (click one to zoom in)</label>
+        <label className="row xsmall" style={{ gap: '0.375rem' }}>
+          <input type="checkbox" checked={clusters} onChange={(e) => setClusters(e.target.checked)} />
+          Show counts (click one to zoom in)
+        </label>
         <div className="row" style={{ gap: '0.375rem', flexWrap: 'wrap' }}>
-          <button className="btn sm" onClick={() => fileInput.current?.click()} title="Draw GPX tracks from files on this device (nothing is uploaded)"><Icon name="run" size={14} />Add GPX track</button>
-          {trackCount > 0 && <button className="btn ghost sm" onClick={() => (tracks.current?.clearLayers(), setTrackCount(0))}>Clear tracks</button>}
-          <button className="btn ghost sm" onClick={showArea} title="The timeline, filtered to the area in view"><Icon name="photo" size={14} />Photos in this area</button>
-          <input ref={fileInput} type="file" accept=".gpx,application/gpx+xml" multiple hidden onChange={(e) => (addTracks(e.target.files), (e.target.value = ''))} />
+          <button
+            className="btn sm"
+            onClick={() => fileInput.current?.click()}
+            title="Draw GPX tracks from files on this device (nothing is uploaded)"
+          >
+            <Icon name="run" size={14} />
+            Add GPX track
+          </button>
+          {trackCount > 0 && (
+            <button className="btn ghost sm" onClick={() => (tracks.current?.clearLayers(), setTrackCount(0))}>
+              Clear tracks
+            </button>
+          )}
+          <button className="btn ghost sm" onClick={showArea} title="The timeline, filtered to the area in view">
+            <Icon name="photo" size={14} />
+            Photos in this area
+          </button>
+          <input
+            ref={fileInput}
+            type="file"
+            accept=".gpx,application/gpx+xml"
+            multiple
+            hidden
+            onChange={(e) => (addTracks(e.target.files), (e.target.value = ''))}
+          />
         </div>
-        <span className="muted xsmall tabular">{total.toLocaleString()} {total === 1 ? 'photo' : 'photos'} in view · click the map for photos near a spot</span>
-        <span className="row xsmall muted" style={{ gap: '0.375rem' }}>Fewer <span className="pm-ramp" aria-hidden="true" /> more</span>
+        <span className="muted xsmall tabular">
+          {total.toLocaleString()} {total === 1 ? 'photo' : 'photos'} in view · click the map for photos near a spot
+        </span>
+        <span className="row xsmall muted" style={{ gap: '0.375rem' }}>
+          Fewer <span className="pm-ramp" aria-hidden="true" /> more
+        </span>
       </div>
       {at && (
         <div className="ph-near">
           <div className="row">
             <strong className="small grow">Photos near here</strong>
-            <button className="btn ghost icon sm" onClick={() => (setAt(null), pin.current?.remove())} aria-label="Close"><Icon name="x" size={14} /></button>
+            <button className="btn ghost icon sm" onClick={() => (setAt(null), pin.current?.remove())} aria-label="Close">
+              <Icon name="x" size={14} />
+            </button>
           </div>
-          {near.isPending ? <p className="muted xsmall">Looking…</p> : !near.data?.count ? <p className="muted xsmall">No photos within a short walk of this spot.</p> : (
+          {near.isPending ? (
+            <p className="muted xsmall">Looking…</p>
+          ) : !near.data?.count ? (
+            <p className="muted xsmall">No photos within a short walk of this spot.</p>
+          ) : (
             <>
-              <p className="xsmall"><strong>{near.data.count.toLocaleString()}</strong> photos · {near.data.visits} visits{near.data.last_visit && ` · last ${day(near.data.last_visit)}`}{near.data.first_visit && ` · first ${day(near.data.first_visit)}`}</p>
+              <p className="xsmall">
+                <strong>{near.data.count.toLocaleString()}</strong> photos · {near.data.visits} visits
+                {near.data.last_visit && ` · last ${day(near.data.last_visit)}`}
+                {near.data.first_visit && ` · first ${day(near.data.first_visit)}`}
+              </p>
               <div className="pl-strip">
                 {near.data.photos.slice(0, 12).map((p) => {
                   const src = safeHref(p.thumb_url)
-                  return <Link key={p.id} to={`/photos?photo=${p.id}`} className="pl-thumb">{src && <img src={src} alt="" loading="lazy" />}</Link>
+                  return (
+                    <Link key={p.id} to={`/photos?photo=${p.id}`} className="pl-thumb">
+                      {src && <img src={src} alt="" loading="lazy" />}
+                    </Link>
+                  )
                 })}
               </div>
             </>

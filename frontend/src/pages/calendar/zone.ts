@@ -21,7 +21,10 @@ export const HOME_ZONE: string = (() => {
   }
 })()
 
-export interface CalPrefs { tz: Zone; weekStart: WeekStart }
+export interface CalPrefs {
+  tz: Zone
+  weekStart: WeekStart
+}
 export const CalPrefsContext = createContext<CalPrefs>({ tz: undefined, weekStart: 1 })
 export const useCalPrefs = () => useContext(CalPrefsContext)
 
@@ -30,13 +33,29 @@ const partsCache = new Map<string, Intl.DateTimeFormat>()
 function partsFmt(tz: string): Intl.DateTimeFormat {
   let f = partsCache.get(tz)
   if (!f) {
-    f = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23', year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' })
+    f = new Intl.DateTimeFormat('en-US', {
+      timeZone: tz,
+      hourCycle: 'h23',
+      year: 'numeric',
+      month: 'numeric',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: 'numeric',
+      second: 'numeric',
+    })
     partsCache.set(tz, f)
   }
   return f
 }
 
-export interface Wall { y: number; mo: number; d: number; h: number; mi: number; s: number }
+export interface Wall {
+  y: number
+  mo: number
+  d: number
+  h: number
+  mi: number
+  s: number
+}
 
 /** Wall-clock parts of instant `t` in `tz` (month 0-based). */
 export function wallParts(t: number, tz: Zone): Wall {
@@ -105,7 +124,8 @@ export function zoneMinutes(t: number, tz: Zone): number {
 export const dayStartIn = (day: Date, tz: Zone) => zonedTime(day.getFullYear(), day.getMonth(), day.getDate(), 0, tz)
 
 /** The instant `min` wall-clock minutes into `day` in `tz` (1440 = the next midnight). */
-export const atZoneMin = (day: Date, min: number, tz: Zone) => new Date(zonedTime(day.getFullYear(), day.getMonth(), day.getDate(), min, tz))
+export const atZoneMin = (day: Date, min: number, tz: Zone) =>
+  new Date(zonedTime(day.getFullYear(), day.getMonth(), day.getDate(), min, tz))
 
 /** Move an instant by whole days and minutes on `tz`'s wall clock (a drag in the week grid). */
 export function shiftWall(t: number, days: number, mins: number, tz: Zone): Date {
@@ -117,9 +137,14 @@ export function shiftWall(t: number, days: number, mins: number, tz: Zone): Date
 /** "3:30 PM" in `tz`. */
 export const fmtTimeIn = (d: Date | number, tz: Zone) => dateFormatter({ hour: 'numeric', minute: '2-digit', timeZone: tz }).format(d)
 /** Date#toLocaleDateString-like text in `tz` (cached formatters). */
-export const fmtDateIn = (d: Date | number, opts: Intl.DateTimeFormatOptions, tz: Zone) => dateFormatter({ ...opts, timeZone: tz }).format(d)
+export const fmtDateIn = (d: Date | number, opts: Intl.DateTimeFormatOptions, tz: Zone) =>
+  dateFormatter({ ...opts, timeZone: tz }).format(d)
 /** Short chip time: "3pm", "3:30pm". */
-export const chipTime = (d: Date | number, tz: Zone) => fmtTimeIn(d, tz).replace(/:00(?=\s|$)/, '').replace(/\s/g, '').toLowerCase()
+export const chipTime = (d: Date | number, tz: Zone) =>
+  fmtTimeIn(d, tz)
+    .replace(/:00(?=\s|$)/, '')
+    .replace(/\s/g, '')
+    .toLowerCase()
 
 /** "GMT-5", "GMT+5:30", "GMT" for an offset in ms. */
 export function gmtText(off: number): string {
@@ -150,14 +175,67 @@ export function fromZoneInput(value: string, tz: Zone): string | null {
 
 // ---------------------------------------------------------------- zone list
 const FALLBACK_ZONES = [
-  'Pacific/Honolulu', 'America/Anchorage', 'America/Los_Angeles', 'America/Vancouver', 'America/Denver', 'America/Phoenix', 'America/Chicago',
-  'America/Mexico_City', 'America/Toronto', 'America/New_York', 'America/Halifax', 'America/St_Johns', 'America/Bogota', 'America/Lima',
-  'America/Santiago', 'America/Sao_Paulo', 'America/Argentina/Buenos_Aires', 'Atlantic/Azores', 'Atlantic/Reykjavik', 'Europe/London',
-  'Europe/Dublin', 'Europe/Lisbon', 'Europe/Paris', 'Europe/Berlin', 'Europe/Madrid', 'Europe/Rome', 'Europe/Amsterdam', 'Europe/Stockholm',
-  'Europe/Warsaw', 'Europe/Athens', 'Europe/Helsinki', 'Europe/Istanbul', 'Europe/Moscow', 'Africa/Lagos', 'Africa/Cairo', 'Africa/Johannesburg',
-  'Africa/Nairobi', 'Asia/Jerusalem', 'Asia/Riyadh', 'Asia/Tehran', 'Asia/Dubai', 'Asia/Karachi', 'Asia/Kolkata', 'Asia/Kathmandu', 'Asia/Dhaka',
-  'Asia/Bangkok', 'Asia/Jakarta', 'Asia/Singapore', 'Asia/Shanghai', 'Asia/Hong_Kong', 'Asia/Taipei', 'Asia/Manila', 'Asia/Seoul', 'Asia/Tokyo',
-  'Australia/Perth', 'Australia/Adelaide', 'Australia/Brisbane', 'Australia/Sydney', 'Pacific/Auckland', 'Pacific/Fiji', 'UTC',
+  'Pacific/Honolulu',
+  'America/Anchorage',
+  'America/Los_Angeles',
+  'America/Vancouver',
+  'America/Denver',
+  'America/Phoenix',
+  'America/Chicago',
+  'America/Mexico_City',
+  'America/Toronto',
+  'America/New_York',
+  'America/Halifax',
+  'America/St_Johns',
+  'America/Bogota',
+  'America/Lima',
+  'America/Santiago',
+  'America/Sao_Paulo',
+  'America/Argentina/Buenos_Aires',
+  'Atlantic/Azores',
+  'Atlantic/Reykjavik',
+  'Europe/London',
+  'Europe/Dublin',
+  'Europe/Lisbon',
+  'Europe/Paris',
+  'Europe/Berlin',
+  'Europe/Madrid',
+  'Europe/Rome',
+  'Europe/Amsterdam',
+  'Europe/Stockholm',
+  'Europe/Warsaw',
+  'Europe/Athens',
+  'Europe/Helsinki',
+  'Europe/Istanbul',
+  'Europe/Moscow',
+  'Africa/Lagos',
+  'Africa/Cairo',
+  'Africa/Johannesburg',
+  'Africa/Nairobi',
+  'Asia/Jerusalem',
+  'Asia/Riyadh',
+  'Asia/Tehran',
+  'Asia/Dubai',
+  'Asia/Karachi',
+  'Asia/Kolkata',
+  'Asia/Kathmandu',
+  'Asia/Dhaka',
+  'Asia/Bangkok',
+  'Asia/Jakarta',
+  'Asia/Singapore',
+  'Asia/Shanghai',
+  'Asia/Hong_Kong',
+  'Asia/Taipei',
+  'Asia/Manila',
+  'Asia/Seoul',
+  'Asia/Tokyo',
+  'Australia/Perth',
+  'Australia/Adelaide',
+  'Australia/Brisbane',
+  'Australia/Sydney',
+  'Pacific/Auckland',
+  'Pacific/Fiji',
+  'UTC',
 ]
 
 /** Every IANA zone this browser knows (a short list where Intl can't enumerate them). */
@@ -165,7 +243,9 @@ export function allZones(): string[] {
   let zones: string[] = []
   try {
     zones = (Intl as unknown as { supportedValuesOf?: (k: string) => string[] }).supportedValuesOf?.('timeZone') ?? []
-  } catch { /* old browser */ }
+  } catch {
+    /* old browser */
+  }
   if (!zones.length) zones = FALLBACK_ZONES
   const set = new Set(zones)
   for (const z of [HOME_ZONE, 'UTC']) set.add(z)
@@ -203,7 +283,9 @@ export function useDisplayZone(): [Zone, (tz: Zone) => void] {
     try {
       if (v) sessionStorage.setItem(TZ_KEY, v)
       else sessionStorage.removeItem(TZ_KEY)
-    } catch { /* this page only */ }
+    } catch {
+      /* this page only */
+    }
   }
   return [tz, set]
 }
@@ -224,7 +306,9 @@ export function useWeekStart(userId: string | undefined): [WeekStart, (v: WeekSt
     setV(next)
     try {
       if (key) localStorage.setItem(key, String(next))
-    } catch { /* this page only */ }
+    } catch {
+      /* this page only */
+    }
   }
   return [v, set]
 }

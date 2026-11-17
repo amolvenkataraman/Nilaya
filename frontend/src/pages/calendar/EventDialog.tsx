@@ -18,14 +18,24 @@ export type EventDraft = { event: CalEvent } | { start: Date; end?: Date; allDay
 type Kind = 'event' | 'all_day' | 'deadline'
 
 const REPEATS: [string, string][] = [
-  ['', 'Does not repeat'], ['FREQ=DAILY', 'Every day'], ['FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', 'Every weekday'],
-  ['FREQ=WEEKLY', 'Every week'], ['FREQ=MONTHLY', 'Every month'], ['FREQ=YEARLY', 'Every year'],
+  ['', 'Does not repeat'],
+  ['FREQ=DAILY', 'Every day'],
+  ['FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR', 'Every weekday'],
+  ['FREQ=WEEKLY', 'Every week'],
+  ['FREQ=MONTHLY', 'Every month'],
+  ['FREQ=YEARLY', 'Every year'],
 ]
 const REMINDER_PRESETS = [0, 5, 10, 15, 30, 60, 120, 1440, 2880, 10080]
 /** The preset an existing RRULE matches (ignoring UNTIL/COUNT/BYDAY order), or 'custom'. */
 function repeatPreset(rrule?: string | null): string {
   if (!rrule) return ''
-  const norm = rrule.replace(/^RRULE:/i, '').split(';').filter((p) => !/^(UNTIL|COUNT|WKST|INTERVAL=1)\b/i.test(p)).sort().join(';').toUpperCase()
+  const norm = rrule
+    .replace(/^RRULE:/i, '')
+    .split(';')
+    .filter((p) => !/^(UNTIL|COUNT|WKST|INTERVAL=1)\b/i.test(p))
+    .sort()
+    .join(';')
+    .toUpperCase()
   const hit = REPEATS.find(([r]) => r && r.split(';').sort().join(';') === norm)
   return hit ? hit[0] : 'custom'
 }
@@ -37,7 +47,9 @@ function defaultCalendar(cals: Calendar[]): number | undefined {
   let last: number | null = null
   try {
     last = Number(localStorage.getItem(LAST_CAL)) || null
-  } catch { /* ignore */ }
+  } catch {
+    /* ignore */
+  }
   return (editable.find((c) => c.id === last) ?? editable.find((c) => !c.synced) ?? editable[0])?.id
 }
 
@@ -53,22 +65,55 @@ function initial(draft: EventDraft, tz: Zone) {
     const sDay = zoneDay(s.getTime(), tz)
     const days = allDayRange(e) ?? { first: sDay, last: sDay }
     return {
-      kind, name: e.name, calendar: e.calendar_id, category: e.category_id ?? '' as number | '', location: e.location ?? '', description: e.description ?? '',
-      colour: e.colour ?? '', icon: e.icon ?? '', tags: (e.tags ?? []).join(', '), repeat: repeatPreset(e.rrule), reminders: null as number[] | null,
-      rrule: e.rrule ?? '', meeting: e.meeting_url ?? '', place: e.place?.id ?? '', status: e.status ?? 'confirmed', busy: e.transparency !== 'free', visibility: e.visibility ?? 'default',
-      start: toLocalInput(e.start), end: toLocalInput(e.end ?? new Date(s.getTime() + 3600_000).toISOString()),
-      startDate: dayKey(days.first), endDate: dayKey(days.last), completed: e.completed,
+      kind,
+      name: e.name,
+      calendar: e.calendar_id,
+      category: e.category_id ?? ('' as number | ''),
+      location: e.location ?? '',
+      description: e.description ?? '',
+      colour: e.colour ?? '',
+      icon: e.icon ?? '',
+      tags: (e.tags ?? []).join(', '),
+      repeat: repeatPreset(e.rrule),
+      reminders: null as number[] | null,
+      rrule: e.rrule ?? '',
+      meeting: e.meeting_url ?? '',
+      place: e.place?.id ?? '',
+      status: e.status ?? 'confirmed',
+      busy: e.transparency !== 'free',
+      visibility: e.visibility ?? 'default',
+      start: toLocalInput(e.start),
+      end: toLocalInput(e.end ?? new Date(s.getTime() + 3600_000).toISOString()),
+      startDate: dayKey(days.first),
+      endDate: dayKey(days.last),
+      completed: e.completed,
     }
   }
   const s = draft.start
   const en = draft.end ?? new Date(s.getTime() + 3600_000)
   return {
-    kind: (draft.allDay ? 'all_day' : 'event') as Kind, name: '', calendar: undefined as number | undefined, category: '' as number | '', location: '', description: '',
-    colour: '', icon: '', tags: '', repeat: '', reminders: null as number[] | null,
-    rrule: '', meeting: '', place: '', status: 'confirmed' as const, busy: true, visibility: 'default' as const,
+    kind: (draft.allDay ? 'all_day' : 'event') as Kind,
+    name: '',
+    calendar: undefined as number | undefined,
+    category: '' as number | '',
+    location: '',
+    description: '',
+    colour: '',
+    icon: '',
+    tags: '',
+    repeat: '',
+    reminders: null as number[] | null,
+    rrule: '',
+    meeting: '',
+    place: '',
+    status: 'confirmed' as const,
+    busy: true,
+    visibility: 'default' as const,
     // All-day drafts carry dates (local midnights); timed ones carry instants (their date in tz).
-    start: toLocalInput(s.toISOString()), end: toLocalInput(en.toISOString()),
-    startDate: draft.allDay ? dayKey(s) : zoneDayKey(s.getTime(), tz), endDate: draft.allDay ? dayKey(draft.end ? addDays(draft.end, -1) : s) : zoneDayKey(s.getTime(), tz),
+    start: toLocalInput(s.toISOString()),
+    end: toLocalInput(en.toISOString()),
+    startDate: draft.allDay ? dayKey(s) : zoneDayKey(s.getTime(), tz),
+    endDate: draft.allDay ? dayKey(draft.end ? addDays(draft.end, -1) : s) : zoneDayKey(s.getTime(), tz),
     completed: false,
   }
 }
@@ -83,15 +128,40 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
   const [f, setF] = useState(() => initial(draft, tz))
   const [error, setError] = useState('')
   const [confirm, setConfirm] = useState(false)
-  const [more, setMore] = useState(() => !!(editing && (editing.colour || editing.icon || editing.tags?.length || editing.place || editing.meeting_url || editing.status === 'tentative' || editing.visibility === 'private')))
+  const [more, setMore] = useState(
+    () =>
+      !!(
+        editing &&
+        (editing.colour ||
+          editing.icon ||
+          editing.tags?.length ||
+          editing.place ||
+          editing.meeting_url ||
+          editing.status === 'tentative' ||
+          editing.visibility === 'private')
+      ),
+  )
   const recurring = !!(editing && (editing.recurring || editing.series_id))
   const [scope, setScope] = useState<Scope>('this')
   // Reminders live on the event detail; load them (cached) when editing.
-  const detail = useQuery({ queryKey: ['calendar', 'event', editing?.id], queryFn: () => get<EventDetail>(`calendar/events/${editing!.id}`), enabled: !!editing, staleTime: 30_000 })
-  const icons = useQuery({ queryKey: ['calendar', 'icons'], queryFn: () => get<string[]>('calendar/icons'), staleTime: 60 * 60_000, enabled: more }).data ?? []
+  const detail = useQuery({
+    queryKey: ['calendar', 'event', editing?.id],
+    queryFn: () => get<EventDetail>(`calendar/events/${editing!.id}`),
+    enabled: !!editing,
+    staleTime: 30_000,
+  })
+  const icons =
+    useQuery({ queryKey: ['calendar', 'icons'], queryFn: () => get<string[]>('calendar/icons'), staleTime: 60 * 60_000, enabled: more })
+      .data ?? []
   const reminders = f.reminders ?? detail.data?.reminders ?? null
   const [pending, setPending] = useState<AttendeeDraft[]>([])
-  const places = useQuery({ queryKey: ['places', 'list', 'all'], queryFn: () => get<{ id: string; name: string; address: string | null }[]>('places/'), staleTime: 5 * 60_000, enabled: more }).data ?? []
+  const places =
+    useQuery({
+      queryKey: ['places', 'list', 'all'],
+      queryFn: () => get<{ id: string; name: string; address: string | null }[]>('places/'),
+      staleTime: 5 * 60_000,
+      enabled: more,
+    }).data ?? []
   const create = useCreateEvent()
   const update = useUpdateEvent()
   const remove = useDeleteEvent()
@@ -105,33 +175,49 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
   const readOnly = !!editing && !cals.find((c) => c.id === editing.calendar_id)?.can_edit
   // Categories belong to the calendar's owner: someone else's calendar uses theirs.
   const foreign = cal && cal.role !== 'owner' ? cal.id : null
-  const ownerCats = useQuery({ queryKey: [...keys.categories, foreign], queryFn: () => get<Category[]>('calendar/categories', { calendar: foreign! }), enabled: foreign != null, staleTime: 60 * 60_000 }).data
+  const ownerCats = useQuery({
+    queryKey: [...keys.categories, foreign],
+    queryFn: () => get<Category[]>('calendar/categories', { calendar: foreign! }),
+    enabled: foreign != null,
+    staleTime: 60 * 60_000,
+  }).data
   const cats = (foreign != null ? ownerCats : ownCats) ?? []
   const busy = create.isPending || update.isPending
 
   function body(): EventIn | null {
-    if (!f.name.trim()) return setError('Give the event a title.'), null
-    if (!calendarId) return setError('Pick a calendar you can edit.'), null
+    if (!f.name.trim()) return (setError('Give the event a title.'), null)
+    if (!calendarId) return (setError('Pick a calendar you can edit.'), null)
     let start: string | null = null
     let end: string | null = null
     let dates: Pick<EventIn, 'start_date' | 'end_date'> | null = null
     if (f.kind === 'all_day') {
-      if (!f.startDate) return setError('Pick a date.'), null
+      if (!f.startDate) return (setError('Pick a date.'), null)
       const last = f.endDate && f.endDate >= f.startDate ? f.endDate : f.startDate
       // Dates only (end exclusive): the server places them in the calendar's zone.
       dates = { start_date: f.startDate, end_date: dayKey(addDays(parseDayKey(last), 1)) }
     } else {
       start = fromLocalInput(f.start)
-      if (!start) return setError('Pick a start time.'), null
+      if (!start) return (setError('Pick a start time.'), null)
       if (f.kind === 'event') {
         end = fromLocalInput(f.end)
-        if (!end || end <= start) return setError('The end must be after the start.'), null
+        if (!end || end <= start) return (setError('The end must be after the start.'), null)
       }
     }
     const out: EventIn = {
-      calendar_id: calendarId, name: f.name.trim(), kind: f.kind, ...(dates ?? { start, end }), all_day: f.kind === 'all_day', category_id: f.category === '' ? null : f.category,
-      location: f.location.trim() || null, description: f.description.trim() || null,
-      colour: f.colour || null, icon: f.icon || null, tags: f.tags.split(',').map((t) => t.trim()).filter(Boolean),
+      calendar_id: calendarId,
+      name: f.name.trim(),
+      kind: f.kind,
+      ...(dates ?? { start, end }),
+      all_day: f.kind === 'all_day',
+      category_id: f.category === '' ? null : f.category,
+      location: f.location.trim() || null,
+      description: f.description.trim() || null,
+      colour: f.colour || null,
+      icon: f.icon || null,
+      tags: f.tags
+        .split(',')
+        .map((t) => t.trim())
+        .filter(Boolean),
     }
     out.rrule = f.repeat === 'custom' ? f.rrule.trim() : f.repeat
     if (f.reminders !== null) out.reminders = f.reminders
@@ -149,14 +235,24 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
     if (!b) return
     try {
       localStorage.setItem(LAST_CAL, String(b.calendar_id))
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     if (editing) {
-      update.mutate({ id: editing.id, scope: recurring ? scope : undefined, body: { ...b, completed: f.kind === 'deadline' ? f.completed : undefined } }, { onSuccess: () => (toast.show('Event saved'), onClose()) })
+      update.mutate(
+        {
+          id: editing.id,
+          scope: recurring ? scope : undefined,
+          body: { ...b, completed: f.kind === 'deadline' ? f.completed : undefined },
+        },
+        { onSuccess: () => (toast.show('Event saved'), onClose()) },
+      )
     } else {
       create.mutate(b, {
         onSuccess: (e) => {
           // Attendees have their own endpoint: add the queued ones once the event exists.
-          for (const a of pending) post(`calendar/events/${encodeURIComponent(e.id)}/attendees`, a).catch((err: Error) => toast.error(err.message))
+          for (const a of pending)
+            post(`calendar/events/${encodeURIComponent(e.id)}/attendees`, a).catch((err: Error) => toast.error(err.message))
           toast.show(`Created "${e.name}"`)
           onClose()
         },
@@ -202,7 +298,9 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
               </button>
             )}
             <span className="spacer" />
-            <button className="btn" onClick={onClose}>{readOnly ? 'Close' : 'Cancel'}</button>
+            <button className="btn" onClick={onClose}>
+              {readOnly ? 'Close' : 'Cancel'}
+            </button>
             {!readOnly && (
               <button className="btn primary" onClick={save} disabled={busy}>
                 {busy ? 'Saving…' : editing ? 'Save' : 'Create'}
@@ -218,7 +316,7 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
             if (!readOnly) save()
           }}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !readOnly) (e.preventDefault(), save())
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && !readOnly) e.preventDefault(), save()
           }}
         >
           <fieldset disabled={readOnly} className="ev-fieldset">
@@ -247,7 +345,11 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
             </div>
 
             {tz && f.kind !== 'all_day' && (
-              <p className="help ev-zone-note"><Icon name="globe" size={12} /> Times are in {zoneCity(tz)} ({gmtLabel(new Date(fromLocalInput(f.start) ?? Date.now()).getTime(), tz)}), the zone shown in this window. Yours is {zoneCity(HOME_ZONE)}.</p>
+              <p className="help ev-zone-note">
+                <Icon name="globe" size={12} /> Times are in {zoneCity(tz)} (
+                {gmtLabel(new Date(fromLocalInput(f.start) ?? Date.now()).getTime(), tz)}), the zone shown in this window. Yours is{' '}
+                {zoneCity(HOME_ZONE)}.
+              </p>
             )}
             {f.kind === 'event' && (
               <div className="field-row">
@@ -257,7 +359,14 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
                 </label>
                 <label className="field">
                   <span>Ends</span>
-                  <input className="input" type="datetime-local" value={f.end} min={f.start} onChange={(e) => set('end', e.target.value)} required />
+                  <input
+                    className="input"
+                    type="datetime-local"
+                    value={f.end}
+                    min={f.start}
+                    onChange={(e) => set('end', e.target.value)}
+                    required
+                  />
                 </label>
               </div>
             )}
@@ -265,11 +374,25 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
               <div className="field-row">
                 <label className="field">
                   <span>From</span>
-                  <input className="input" type="date" value={f.startDate} onChange={(e) => setF((x) => ({ ...x, startDate: e.target.value, endDate: x.endDate < e.target.value ? e.target.value : x.endDate }))} required />
+                  <input
+                    className="input"
+                    type="date"
+                    value={f.startDate}
+                    onChange={(e) =>
+                      setF((x) => ({ ...x, startDate: e.target.value, endDate: x.endDate < e.target.value ? e.target.value : x.endDate }))
+                    }
+                    required
+                  />
                 </label>
                 <label className="field">
                   <span>To</span>
-                  <input className="input" type="date" value={f.endDate} min={f.startDate} onChange={(e) => set('endDate', e.target.value)} />
+                  <input
+                    className="input"
+                    type="date"
+                    value={f.endDate}
+                    min={f.startDate}
+                    onChange={(e) => set('endDate', e.target.value)}
+                  />
                 </label>
               </div>
             )}
@@ -296,111 +419,276 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
                   <span className="dot" style={{ background: f.colour || cal?.colour }} />
                   <select className="select" value={calendarId ?? ''} onChange={(e) => set('calendar', Number(e.target.value))}>
                     {(readOnly && cal ? [cal] : editable).map((c) => (
-                      <option key={c.id} value={c.id}>{c.name}</option>
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
                     ))}
                   </select>
                 </span>
               </label>
               <label className="field">
                 <span>Category</span>
-                <select className="select" value={f.category} onChange={(e) => set('category', e.target.value === '' ? '' : Number(e.target.value))}>
+                <select
+                  className="select"
+                  value={f.category}
+                  onChange={(e) => set('category', e.target.value === '' ? '' : Number(e.target.value))}
+                >
                   <option value="">None</option>
-                  {cats.filter((c) => c.name !== 'Uncategorized').map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+                  {cats
+                    .filter((c) => c.name !== 'Uncategorized')
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.label}
+                      </option>
+                    ))}
                 </select>
               </label>
             </div>
             <div className="field-row">
               <label className="field">
                 <span>Repeat</span>
-                <select className="select" value={f.repeat} onChange={(e) => set('repeat', e.target.value)} disabled={recurring && scope === 'this'}>
-                  {REPEATS.map(([r, l]) => <option key={r} value={r}>{l}</option>)}
-                  <option value="custom">{f.repeat === 'custom' && editing?.recurrence_text ? editing.recurrence_text : 'Custom (RRULE)…'}</option>
+                <select
+                  className="select"
+                  value={f.repeat}
+                  onChange={(e) => set('repeat', e.target.value)}
+                  disabled={recurring && scope === 'this'}
+                >
+                  {REPEATS.map(([r, l]) => (
+                    <option key={r} value={r}>
+                      {l}
+                    </option>
+                  ))}
+                  <option value="custom">
+                    {f.repeat === 'custom' && editing?.recurrence_text ? editing.recurrence_text : 'Custom (RRULE)…'}
+                  </option>
                 </select>
                 {f.repeat === 'custom' && (
-                  <input className="input" value={f.rrule} onChange={(e) => set('rrule', e.target.value)} placeholder="FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH" aria-label="Custom repeat rule (RRULE)" maxLength={500} />
+                  <input
+                    className="input"
+                    value={f.rrule}
+                    onChange={(e) => set('rrule', e.target.value)}
+                    placeholder="FREQ=WEEKLY;INTERVAL=2;BYDAY=TU,TH"
+                    aria-label="Custom repeat rule (RRULE)"
+                    maxLength={500}
+                  />
                 )}
               </label>
               <div className="field">
                 <span>Reminders</span>
                 <div className="ev-rem">
                   {(reminders ?? []).map((m) => (
-                    <button type="button" key={m} className="chip" onClick={() => set('reminders', (reminders ?? []).filter((x) => x !== m))} title="Remove">
+                    <button
+                      type="button"
+                      key={m}
+                      className="chip"
+                      onClick={() =>
+                        set(
+                          'reminders',
+                          (reminders ?? []).filter((x) => x !== m),
+                        )
+                      }
+                      title="Remove"
+                    >
                       {minutesText(m)} <Icon name="x" size={10} />
                     </button>
                   ))}
-                  <select className="select ev-rem-add" value="" aria-label="Add a reminder" onChange={(e) => e.target.value && set('reminders', [...(reminders ?? []), Number(e.target.value)].sort((a, b) => a - b))}>
+                  <select
+                    className="select ev-rem-add"
+                    value=""
+                    aria-label="Add a reminder"
+                    onChange={(e) =>
+                      e.target.value &&
+                      set(
+                        'reminders',
+                        [...(reminders ?? []), Number(e.target.value)].sort((a, b) => a - b),
+                      )
+                    }
+                  >
                     <option value="">{reminders?.length ? '+ Add' : reminders === null && !editing ? 'Default' : 'None · add'}</option>
-                    {REMINDER_PRESETS.filter((m) => !(reminders ?? []).includes(m)).map((m) => <option key={m} value={m}>{minutesText(m)}</option>)}
+                    {REMINDER_PRESETS.filter((m) => !(reminders ?? []).includes(m)).map((m) => (
+                      <option key={m} value={m}>
+                        {minutesText(m)}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
             </div>
             <label className="field">
               <span>Location</span>
-              <input className="input" value={f.location} onChange={(e) => set('location', e.target.value)} placeholder="Add a place" maxLength={256} />
+              <input
+                className="input"
+                value={f.location}
+                onChange={(e) => set('location', e.target.value)}
+                placeholder="Add a place"
+                maxLength={256}
+              />
             </label>
             <label className="field">
               <span>Description</span>
-              <textarea className="textarea" rows={3} value={f.description} onChange={(e) => set('description', e.target.value)} placeholder="Notes, links, agenda" />
+              <textarea
+                className="textarea"
+                rows={3}
+                value={f.description}
+                onChange={(e) => set('description', e.target.value)}
+                placeholder="Notes, links, agenda"
+              />
             </label>
             <button type="button" className="btn ghost sm ev-more-toggle" aria-expanded={more} onClick={() => setMore((m) => !m)}>
-              <Icon name={more ? 'chevronDown' : 'chevronRight'} size={14} />More: colour, icon, tags, place, meeting link, people, status
+              <Icon name={more ? 'chevronDown' : 'chevronRight'} size={14} />
+              More: colour, icon, tags, place, meeting link, people, status
             </button>
             {more && (
               <div className="ev-more-opts">
                 <div className="field">
                   <span>Colour</span>
                   <div className="cal-picker" role="radiogroup" aria-label="Event colour">
-                    <button type="button" role="radio" aria-checked={!f.colour} className="cal-pick" title="Calendar colour" onClick={() => set('colour', '')}>
-                      <span className="cal-swatch" style={{ background: cal?.colour }}>{!f.colour && <Icon name="check" size={12} />}</span>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={!f.colour}
+                      className="cal-pick"
+                      title="Calendar colour"
+                      onClick={() => set('colour', '')}
+                    >
+                      <span className="cal-swatch" style={{ background: cal?.colour }}>
+                        {!f.colour && <Icon name="check" size={12} />}
+                      </span>
                     </button>
                     {CAL_COLOURS.map((c) => (
-                      <button type="button" key={c} role="radio" aria-checked={f.colour === c} className="cal-pick" title={c} onClick={() => set('colour', c)}>
-                        <span className="cal-swatch" style={{ background: c }}>{f.colour === c && <Icon name="check" size={12} />}</span>
+                      <button
+                        type="button"
+                        key={c}
+                        role="radio"
+                        aria-checked={f.colour === c}
+                        className="cal-pick"
+                        title={c}
+                        onClick={() => set('colour', c)}
+                      >
+                        <span className="cal-swatch" style={{ background: c }}>
+                          {f.colour === c && <Icon name="check" size={12} />}
+                        </span>
                       </button>
                     ))}
                     <label className="cal-pick cal-custom" title="Custom colour">
-                      <span className="cal-swatch" style={{ background: f.colour && !CAL_COLOURS.includes(f.colour) ? f.colour : 'conic-gradient(#ef4444, #f59e0b, #10b981, #3b82f6, #8b5cf6, #ef4444)' }} />
-                      <input type="color" aria-label="Custom colour" value={f.colour || '#888888'} onChange={(e) => set('colour', e.target.value)} />
+                      <span
+                        className="cal-swatch"
+                        style={{
+                          background:
+                            f.colour && !CAL_COLOURS.includes(f.colour)
+                              ? f.colour
+                              : 'conic-gradient(#ef4444, #f59e0b, #10b981, #3b82f6, #8b5cf6, #ef4444)',
+                        }}
+                      />
+                      <input
+                        type="color"
+                        aria-label="Custom colour"
+                        value={f.colour || '#888888'}
+                        onChange={(e) => set('colour', e.target.value)}
+                      />
                     </label>
                   </div>
                 </div>
                 <div className="field">
                   <span>Icon</span>
                   <div className="cal-picker" role="radiogroup" aria-label="Event icon">
-                    <button type="button" role="radio" aria-checked={!f.icon} className="cal-pick" title="None" onClick={() => set('icon', '')}><Icon name="x" size={13} /></button>
+                    <button
+                      type="button"
+                      role="radio"
+                      aria-checked={!f.icon}
+                      className="cal-pick"
+                      title="None"
+                      onClick={() => set('icon', '')}
+                    >
+                      <Icon name="x" size={13} />
+                    </button>
                     {icons.map((i) => (
-                      <button type="button" key={i} role="radio" aria-checked={f.icon === i} className="cal-pick" title={i} aria-label={i} onClick={() => set('icon', i)}><Icon name={i} size={15} /></button>
+                      <button
+                        type="button"
+                        key={i}
+                        role="radio"
+                        aria-checked={f.icon === i}
+                        className="cal-pick"
+                        title={i}
+                        aria-label={i}
+                        onClick={() => set('icon', i)}
+                      >
+                        <Icon name={i} size={15} />
+                      </button>
                     ))}
                   </div>
                 </div>
-                <label className="field"><span>Tags</span><input className="input" value={f.tags} onChange={(e) => set('tags', e.target.value)} placeholder="work, travel" maxLength={300} /></label>
-                <label className="field"><span>Meeting link</span><input className="input" type="url" value={f.meeting} onChange={(e) => set('meeting', e.target.value)} placeholder="https://meet…" maxLength={500} /></label>
-                <label className="field"><span>Place</span>
+                <label className="field">
+                  <span>Tags</span>
+                  <input
+                    className="input"
+                    value={f.tags}
+                    onChange={(e) => set('tags', e.target.value)}
+                    placeholder="work, travel"
+                    maxLength={300}
+                  />
+                </label>
+                <label className="field">
+                  <span>Meeting link</span>
+                  <input
+                    className="input"
+                    type="url"
+                    value={f.meeting}
+                    onChange={(e) => set('meeting', e.target.value)}
+                    placeholder="https://meet…"
+                    maxLength={500}
+                  />
+                </label>
+                <label className="field">
+                  <span>Place</span>
                   <select className="select" value={f.place} onChange={(e) => set('place', e.target.value)}>
                     <option value="">None</option>
-                    {places.map((p) => <option key={p.id} value={p.id}>{p.name}{p.address ? ` · ${p.address}` : ''}</option>)}
-                    {f.place && !places.some((p) => p.id === f.place) && <option value={f.place}>{editing?.place?.name ?? 'Current place'}</option>}
+                    {places.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name}
+                        {p.address ? ` · ${p.address}` : ''}
+                      </option>
+                    ))}
+                    {f.place && !places.some((p) => p.id === f.place) && (
+                      <option value={f.place}>{editing?.place?.name ?? 'Current place'}</option>
+                    )}
                   </select>
                 </label>
                 <div className="field-row three">
-                  <label className="field"><span>Status</span>
+                  <label className="field">
+                    <span>Status</span>
                     <select className="select" value={f.status} onChange={(e) => set('status', e.target.value as typeof f.status)}>
-                      <option value="confirmed">Confirmed</option><option value="tentative">Tentative</option><option value="cancelled">Cancelled</option>
+                      <option value="confirmed">Confirmed</option>
+                      <option value="tentative">Tentative</option>
+                      <option value="cancelled">Cancelled</option>
                     </select>
                   </label>
-                  <label className="field"><span>Show as</span>
+                  <label className="field">
+                    <span>Show as</span>
                     <select className="select" value={f.busy ? 'busy' : 'free'} onChange={(e) => set('busy', e.target.value === 'busy')}>
-                      <option value="busy">Busy</option><option value="free">Free</option>
+                      <option value="busy">Busy</option>
+                      <option value="free">Free</option>
                     </select>
                   </label>
-                  <label className="field"><span>Visibility</span>
-                    <select className="select" value={f.visibility} onChange={(e) => set('visibility', e.target.value as typeof f.visibility)}>
-                      <option value="default">Calendar default</option><option value="public">Public</option><option value="private">Private</option>
+                  <label className="field">
+                    <span>Visibility</span>
+                    <select
+                      className="select"
+                      value={f.visibility}
+                      onChange={(e) => set('visibility', e.target.value as typeof f.visibility)}
+                    >
+                      <option value="default">Calendar default</option>
+                      <option value="public">Public</option>
+                      <option value="private">Private</option>
                     </select>
                   </label>
                 </div>
-                <Attendees eventId={editing?.id ?? null} attendees={detail.data?.attendees ?? []} pending={pending} onPending={setPending} />
+                <Attendees
+                  eventId={editing?.id ?? null}
+                  attendees={detail.data?.attendees ?? []}
+                  pending={pending}
+                  onPending={setPending}
+                />
               </div>
             )}
             {recurring && !readOnly && (
@@ -413,8 +701,16 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
                 </select>
               </label>
             )}
-            {readOnly && <p className="help"><Icon name="info" size={12} /> This calendar is read-only for you.</p>}
-            {error && <p className="error-text" role="alert">{error}</p>}
+            {readOnly && (
+              <p className="help">
+                <Icon name="info" size={12} /> This calendar is read-only for you.
+              </p>
+            )}
+            {error && (
+              <p className="error-text" role="alert">
+                {error}
+              </p>
+            )}
             <button type="submit" hidden />
           </fieldset>
         </form>
@@ -422,7 +718,11 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
       <Confirm
         open={confirm}
         title="Delete this event?"
-        body={editing ? `"${editing.name}" will be removed from ${cals.find((c) => c.id === editing.calendar_id)?.name ?? 'its calendar'}.` : undefined}
+        body={
+          editing
+            ? `"${editing.name}" will be removed from ${cals.find((c) => c.id === editing.calendar_id)?.name ?? 'its calendar'}.`
+            : undefined
+        }
         onClose={() => setConfirm(false)}
         onConfirm={() => {
           if (!editing) return
@@ -463,7 +763,15 @@ function MoreActions({ onDuplicate, onTask }: { onDuplicate: (days: number) => v
   )
   return (
     <span className="ev-more" ref={box}>
-      <button type="button" className="btn icon" aria-label="More actions" title="More" aria-haspopup="menu" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+      <button
+        type="button"
+        className="btn icon"
+        aria-label="More actions"
+        title="More"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
         <Icon name="more" />
       </button>
       {open && (

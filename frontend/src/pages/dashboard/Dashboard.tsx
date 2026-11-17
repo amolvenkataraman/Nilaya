@@ -13,10 +13,36 @@ import { useGlobals } from '../../components/Shell'
 import { APPS } from '../../components/nav'
 import { Boundary } from '../../components/resilience'
 import {
-  DASH_AGENDA_DAYS, DASH_INBOX_LIMIT, DASH_TODAY_PARAMS, keys, useAgenda, useInbox, useInsights, useMe,
-  useOverview, useProjects, useReadAll, useSetDone, useTasks,
+  DASH_AGENDA_DAYS,
+  DASH_INBOX_LIMIT,
+  DASH_TODAY_PARAMS,
+  keys,
+  useAgenda,
+  useInbox,
+  useInsights,
+  useMe,
+  useOverview,
+  useProjects,
+  useReadAll,
+  useSetDone,
+  useTasks,
 } from '../../lib/queries'
-import { coversDay, dayKey, fmtDate, fmtLongDate, fmtTime, greeting, groupByDue, isSameDay, placedStart, relTime, addDays, startOfDay, startOfWeek, weekdayName } from '../../lib/dates'
+import {
+  coversDay,
+  dayKey,
+  fmtDate,
+  fmtLongDate,
+  fmtTime,
+  greeting,
+  groupByDue,
+  isSameDay,
+  placedStart,
+  relTime,
+  addDays,
+  startOfDay,
+  startOfWeek,
+  weekdayName,
+} from '../../lib/dates'
 import type { AgendaItem } from '../../lib/types'
 // Imported statically: a lazy card under Suspense made React 19 hold the fallback ~300 ms. Its data
 // is still fetched only when the card is near the viewport (WhenVisible).
@@ -26,7 +52,9 @@ import './dashboard.css'
 function CardSkeleton({ className, title, rows }: { className: string; title: string; rows: number }) {
   return (
     <section className={'card ' + className} aria-busy="true" aria-label={title}>
-      <div className="card-head"><h2>{title}</h2></div>
+      <div className="card-head">
+        <h2>{title}</h2>
+      </div>
       <SkeletonRows rows={rows} />
     </section>
   )
@@ -45,13 +73,21 @@ function WhenVisible({ className, title, rows, children }: { className: string; 
     return () => io.disconnect()
   }, [shown])
   if (shown) return <>{children}</>
-  return <div ref={ref} className={className}><CardSkeleton className="" title={title} rows={rows} /></div>
+  return (
+    <div ref={ref} className={className}>
+      <CardSkeleton className="" title={title} rows={rows} />
+    </div>
+  )
 }
 
 /** Live clock, its own tiny component so the page doesn't re-render every second. */
 function Clock() {
   const t = useNow(1000)
-  return <time className="dash-clock tabular" dateTime={t.toISOString()}>{fmtTime(t)}</time>
+  return (
+    <time className="dash-clock tabular" dateTime={t.toISOString()}>
+      {fmtTime(t)}
+    </time>
+  )
 }
 
 export default function Dashboard() {
@@ -62,12 +98,26 @@ export default function Dashboard() {
   const { openQuickAdd } = useGlobals()
 
   const todayItems = useMemo(
-    () => (agenda.data ?? []).filter((i) => i.kind !== 'todo' && (i.kind === 'all_day' && i.start_date ? coversDay(i, now) : !i.start || isSameDay(new Date(i.start), now) || (i.end && new Date(i.end) > now && new Date(i.start) < now))),
+    () =>
+      (agenda.data ?? []).filter(
+        (i) =>
+          i.kind !== 'todo' &&
+          (i.kind === 'all_day' && i.start_date
+            ? coversDay(i, now)
+            : !i.start || isSameDay(new Date(i.start), now) || (i.end && new Date(i.end) > now && new Date(i.start) < now)),
+      ),
     [agenda.data, now],
   )
   const left = todayItems.filter((i) => i.kind !== 'all_day' && i.start && new Date(i.end ?? i.start) > now).length
 
-  const soon = (agenda.data ?? []).find((i) => i.kind !== 'todo' && i.kind !== 'all_day' && i.start && new Date(i.start) > now && new Date(i.start).getTime() - now.getTime() < 2 * 3600_000)
+  const soon = (agenda.data ?? []).find(
+    (i) =>
+      i.kind !== 'todo' &&
+      i.kind !== 'all_day' &&
+      i.start &&
+      new Date(i.start) > now &&
+      new Date(i.start).getTime() - now.getTime() < 2 * 3600_000,
+  )
   const summary: string[] = []
   if (soon) summary.push(`${soon.title} ${relTime(new Date(soon.start!), now)}`)
   if (agenda.data) summary.push(left ? `${left} ${left === 1 ? 'item' : 'items'} left today` : 'Nothing else scheduled today')
@@ -81,38 +131,77 @@ export default function Dashboard() {
       <div className="dash">
         <header className="dash-hero">
           <div className="grow">
-            <h1>{greeting(now)}{me?.first_name ? `, ${me.first_name}` : ''} <Clock /></h1>
+            <h1>
+              {greeting(now)}
+              {me?.first_name ? `, ${me.first_name}` : ''} <Clock />
+            </h1>
             <p className="dash-sub">
               <time dateTime={dayKey(now)}>{fmtLongDate(now)}</time>
-              {summary.map((s) => <span key={s}><span aria-hidden="true"> · </span>{s}</span>)}
+              {summary.map((s) => (
+                <span key={s}>
+                  <span aria-hidden="true"> · </span>
+                  {s}
+                </span>
+              ))}
             </p>
           </div>
-          <form className="dash-web" role="search" onSubmit={(e) => {
-            // Navigate (not a form post) so the page's CSP form-action 'self' stays strict.
-            e.preventDefault()
-            const q = (new FormData(e.currentTarget).get('q') ?? '').toString().trim()
-            if (q) window.open(`https://duckduckgo.com/?q=${encodeURIComponent(q)}`, '_blank', 'noopener,noreferrer')
-          }}>
+          <form
+            className="dash-web"
+            role="search"
+            onSubmit={(e) => {
+              // Navigate (not a form post) so the page's CSP form-action 'self' stays strict.
+              e.preventDefault()
+              const q = (new FormData(e.currentTarget).get('q') ?? '').toString().trim()
+              if (q) window.open(`https://duckduckgo.com/?q=${encodeURIComponent(q)}`, '_blank', 'noopener,noreferrer')
+            }}
+          >
             <Icon name="search" size={14} />
             <input name="q" type="search" placeholder="Search DuckDuckGo" aria-label="Search DuckDuckGo" maxLength={300} />
           </form>
           <div className="dash-actions">
-            <button className="btn" onClick={openQuickAdd}><Icon name="plus" />Task<span className="kbd">Q</span></button>
-            <Link className="btn" to="/calendar?new=1"><Icon name="calendar" />Event</Link>
+            <button className="btn" onClick={openQuickAdd}>
+              <Icon name="plus" />
+              Task<span className="kbd">Q</span>
+            </button>
+            <Link className="btn" to="/calendar?new=1">
+              <Icon name="calendar" />
+              Event
+            </Link>
           </div>
         </header>
 
         <div className="dash-grid">
-          <Boundary className="a-agenda" label="the agenda"><AgendaCard className="a-agenda" items={todayItems} tomorrow={(agenda.data ?? []).filter((i) => i.kind !== 'todo' && i.start && new Date(placedStart(i)!) >= startOfDay(addDays(now, 1)))} loading={agenda.isPending} error={agenda.data ? null : agenda.error} now={now} /></Boundary>
-          <Boundary className="a-tasks" label="tasks"><TasksCard className="a-tasks" /></Boundary>
-          <Boundary className="a-week" label="this week"><WeekCard className="a-week" now={now} /></Boundary>
+          <Boundary className="a-agenda" label="the agenda">
+            <AgendaCard
+              className="a-agenda"
+              items={todayItems}
+              tomorrow={(agenda.data ?? []).filter(
+                (i) => i.kind !== 'todo' && i.start && new Date(placedStart(i)!) >= startOfDay(addDays(now, 1)),
+              )}
+              loading={agenda.isPending}
+              error={agenda.data ? null : agenda.error}
+              now={now}
+            />
+          </Boundary>
+          <Boundary className="a-tasks" label="tasks">
+            <TasksCard className="a-tasks" />
+          </Boundary>
+          <Boundary className="a-week" label="this week">
+            <WeekCard className="a-week" now={now} />
+          </Boundary>
           <WhenVisible className="a-habits" title="Habits" rows={4}>
-            <Boundary className="a-habits" label="habits"><HabitsTodayCard className="a-habits" /></Boundary>
+            <Boundary className="a-habits" label="habits">
+              <HabitsTodayCard className="a-habits" />
+            </Boundary>
           </WhenVisible>
           <WhenVisible className="a-inbox" title="Notifications" rows={3}>
-            <Boundary className="a-inbox" label="notifications"><InboxCard className="a-inbox" /></Boundary>
+            <Boundary className="a-inbox" label="notifications">
+              <InboxCard className="a-inbox" />
+            </Boundary>
           </WhenVisible>
-          <Boundary className="a-links" label="links"><LinksCard className="a-links" onTask={openQuickAdd} /></Boundary>
+          <Boundary className="a-links" label="links">
+            <LinksCard className="a-links" onTask={openQuickAdd} />
+          </Boundary>
         </div>
       </div>
     </AppShell>
@@ -120,8 +209,20 @@ export default function Dashboard() {
 }
 
 // ---------------------------------------------------------------- agenda
-function AgendaCard({ items, tomorrow, loading, error, now, className }: {
-  items: AgendaItem[]; tomorrow: AgendaItem[]; loading: boolean; error: unknown; now: Date; className: string
+function AgendaCard({
+  items,
+  tomorrow,
+  loading,
+  error,
+  now,
+  className,
+}: {
+  items: AgendaItem[]
+  tomorrow: AgendaItem[]
+  loading: boolean
+  error: unknown
+  now: Date
+  className: string
 }) {
   const allDay = items.filter((i) => i.kind === 'all_day')
   const timed = items.filter((i) => i.kind !== 'all_day')
@@ -130,9 +231,15 @@ function AgendaCard({ items, tomorrow, loading, error, now, className }: {
   return (
     <section className={'card ' + className} aria-labelledby="dash-agenda-h">
       <div className="card-head">
-        <h2 id="dash-agenda-h"><Icon name="calendar" />Today</h2>
+        <h2 id="dash-agenda-h">
+          <Icon name="calendar" />
+          Today
+        </h2>
         <span className="spacer" />
-        <Link className="btn ghost sm" to="/calendar">Calendar<Icon name="chevronRight" size={14} /></Link>
+        <Link className="btn ghost sm" to="/calendar">
+          Calendar
+          <Icon name="chevronRight" size={14} />
+        </Link>
       </div>
       {loading ? (
         <SkeletonRows rows={5} />
@@ -143,7 +250,9 @@ function AgendaCard({ items, tomorrow, loading, error, now, className }: {
           {allDay.length > 0 && (
             <div className="dash-agenda-allday">
               {allDay.map((i) => (
-                <span key={i.id} className="allday-chip" style={{ '--c': i.colour } as React.CSSProperties}>{i.title}</span>
+                <span key={i.id} className="allday-chip" style={{ '--c': i.colour } as React.CSSProperties}>
+                  {i.title}
+                </span>
               ))}
             </div>
           )}
@@ -156,9 +265,23 @@ function AgendaCard({ items, tomorrow, loading, error, now, className }: {
               const isNext = next === i
               const past = !isNow && (end ?? start) !== null && (end ?? start)! <= now
               return (
-                <li key={i.kind + i.id} className={'dash-agenda-item' + (isNow ? ' now' : '') + (isNext ? ' next' : '') + (past ? ' past' : '')}>
+                <li
+                  key={i.kind + i.id}
+                  className={'dash-agenda-item' + (isNow ? ' now' : '') + (isNext ? ' next' : '') + (past ? ' past' : '')}
+                >
                   <div className="dash-agenda-time tabular">
-                    {start ? (i.kind === 'deadline' ? <span className="dl"><Icon name="flag" size={12} />{fmtTime(start)}</span> : fmtTime(start)) : ''}
+                    {start ? (
+                      i.kind === 'deadline' ? (
+                        <span className="dl">
+                          <Icon name="flag" size={12} />
+                          {fmtTime(start)}
+                        </span>
+                      ) : (
+                        fmtTime(start)
+                      )
+                    ) : (
+                      ''
+                    )}
                     {end && i.kind === 'event' && <span className="dash-agenda-end">{fmtTime(end)}</span>}
                   </div>
                   <span className="dash-agenda-bar" style={{ background: i.colour }} aria-hidden="true" />
@@ -169,9 +292,7 @@ function AgendaCard({ items, tomorrow, loading, error, now, className }: {
                       {isNext && start && <span className="chip">Next · {relTime(start, now)}</span>}
                       {i.kind === 'deadline' && <span className="chip warning">Due</span>}
                     </div>
-                    <div className="dash-agenda-meta truncate">
-                      {[i.calendar, i.location].filter(Boolean).join(' · ')}
-                    </div>
+                    <div className="dash-agenda-meta truncate">{[i.calendar, i.location].filter(Boolean).join(' · ')}</div>
                   </div>
                 </li>
               )
@@ -185,14 +306,23 @@ function AgendaCard({ items, tomorrow, loading, error, now, className }: {
                 const newDay = idx === 0 || !isSameDay(d, new Date(placedStart(tomorrow[idx - 1])!))
                 return (
                   <div key={i.kind + i.id} className="tomorrow-item">
-                    <span className="tomorrow-day">{newDay ? (isSameDay(d, addDays(now, 1)) ? 'Tomorrow' : fmtDate(d, { weekday: 'short', day: 'numeric' })) : ''}</span>
+                    <span className="tomorrow-day">
+                      {newDay ? (isSameDay(d, addDays(now, 1)) ? 'Tomorrow' : fmtDate(d, { weekday: 'short', day: 'numeric' })) : ''}
+                    </span>
                     <span className="dot" style={{ background: i.colour }} />
                     <span className="tabular muted">{i.kind === 'all_day' || !i.start ? 'All day' : fmtTime(d)}</span>
-                    <span className="truncate">{i.kind === 'deadline' ? 'Due: ' : ''}{i.title}</span>
+                    <span className="truncate">
+                      {i.kind === 'deadline' ? 'Due: ' : ''}
+                      {i.title}
+                    </span>
                   </div>
                 )
               })}
-              {tomorrow.length > 8 && <Link className="muted xsmall" to="/calendar?view=agenda">+{tomorrow.length - 8} more in the agenda</Link>}
+              {tomorrow.length > 8 && (
+                <Link className="muted xsmall" to="/calendar?view=agenda">
+                  +{tomorrow.length - 8} more in the agenda
+                </Link>
+              )}
             </div>
           )}
         </div>
@@ -215,10 +345,16 @@ function TasksCard({ className }: { className: string }) {
   return (
     <section className={'card ' + className} aria-labelledby="tasks-h">
       <div className="card-head">
-        <h2 id="tasks-h"><Icon name="tasks" />Tasks</h2>
+        <h2 id="tasks-h">
+          <Icon name="tasks" />
+          Tasks
+        </h2>
         {overview && overview.overdue > 0 && <span className="chip danger">{overview.overdue} overdue</span>}
         <span className="spacer" />
-        <Link className="btn ghost sm" to="/tasks">All tasks<Icon name="chevronRight" size={14} /></Link>
+        <Link className="btn ghost sm" to="/tasks">
+          All tasks
+          <Icon name="chevronRight" size={14} />
+        </Link>
       </div>
       <div className="dash-quick">
         <QuickAddInput compact defaultToday listKey={keys.taskList(TODAY_PARAMS)} placeholder="Add a task for today…" />
@@ -229,11 +365,16 @@ function TasksCard({ className }: { className: string }) {
         ) : tasks.error && !tasks.data ? (
           <ErrorBox error={tasks.error} retry={() => tasks.refetch()} />
         ) : groups.length === 0 ? (
-          <div className="empty">Nothing due today. {overview?.upcoming ? <Link to="/tasks?view=upcoming">{overview.upcoming} coming up this week</Link> : null}</div>
+          <div className="empty">
+            Nothing due today. {overview?.upcoming ? <Link to="/tasks?view=upcoming">{overview.upcoming} coming up this week</Link> : null}
+          </div>
         ) : (
           groups.map((g) => (
             <div key={g.key} className="task-group">
-              <div className={'task-group-label' + (g.key === 'overdue' ? ' danger' : '')}>{g.label}<span>{g.items.length}</span></div>
+              <div className={'task-group-label' + (g.key === 'overdue' ? ' danger' : '')}>
+                {g.label}
+                <span>{g.items.length}</span>
+              </div>
               {g.items.map((t) => (
                 <TaskRow
                   key={t.id}
@@ -271,13 +412,22 @@ function WeekCard({ className, now }: { className: string; now: Date }) {
   return (
     <section className={'card ' + className} aria-labelledby="week-h">
       <div className="card-head">
-        <h2 id="week-h"><Icon name="chart" />This week</h2>
+        <h2 id="week-h">
+          <Icon name="chart" />
+          This week
+        </h2>
         <span className="spacer" />
-        <Link className="btn ghost sm" to="/calendar?insights=week">Insights<Icon name="chevronRight" size={14} /></Link>
+        <Link className="btn ghost sm" to="/calendar?insights=week">
+          Insights
+          <Icon name="chevronRight" size={14} />
+        </Link>
       </div>
       <div className="card-body dash-week-body">
         {ins.isPending ? (
-          <><span className="sk" style={{ height: '2rem', width: '40%' }} /><span className="sk" style={{ height: '4.5rem' }} /></>
+          <>
+            <span className="sk" style={{ height: '2rem', width: '40%' }} />
+            <span className="sk" style={{ height: '4.5rem' }} />
+          </>
         ) : ins.error && !ins.data ? (
           <ErrorBox error={ins.error} />
         ) : d ? (
@@ -290,24 +440,33 @@ function WeekCard({ className, now }: { className: string; now: Date }) {
                 {hours(Math.abs(delta))} vs last week
               </span>
             </div>
-            <Columns
-              title="Hours per day"
-              values={d.by_weekday}
-              labels={dayLabels}
-              highlight={todayIdx}
-              format={hours}
-              height={76}
-            />
+            <Columns title="Hours per day" values={d.by_weekday} labels={dayLabels} highlight={todayIdx} format={hours} height={76} />
             {d.by_category.length > 0 ? (
-              <HBars items={d.by_category.slice(0, 5).map((c) => ({ key: c.id, label: c.label, value: c.hours, title: `${c.label}: ${hours(c.hours)} in ${c.events} events` }))} format={hours} />
+              <HBars
+                items={d.by_category.slice(0, 5).map((c) => ({
+                  key: c.id,
+                  label: c.label,
+                  value: c.hours,
+                  title: `${c.label}: ${hours(c.hours)} in ${c.events} events`,
+                }))}
+                format={hours}
+              />
             ) : (
               <div className="empty left">No timed events this week.</div>
             )}
             <div className="week-facts">
-              <span><strong>{d.totals.events}</strong> events</span>
-              <span><strong>{hours(d.totals.meeting_hours)}</strong> meetings</span>
-              <span><strong>{hours(d.totals.focus_hours)}</strong> focus</span>
-              <span><strong>{d.todos.completed}</strong> todos done</span>
+              <span>
+                <strong>{d.totals.events}</strong> events
+              </span>
+              <span>
+                <strong>{hours(d.totals.meeting_hours)}</strong> meetings
+              </span>
+              <span>
+                <strong>{hours(d.totals.focus_hours)}</strong> focus
+              </span>
+              <span>
+                <strong>{d.todos.completed}</strong> todos done
+              </span>
             </div>
           </>
         ) : null}
@@ -325,14 +484,27 @@ function InboxCard({ className }: { className: string }) {
   return (
     <section className={'card ' + className} aria-labelledby="inbox-h">
       <div className="card-head">
-        <h2 id="inbox-h"><Icon name="bell" />Notifications{unread > 0 && <span className="badge">{unread}</span>}</h2>
+        <h2 id="inbox-h">
+          <Icon name="bell" />
+          Notifications{unread > 0 && <span className="badge">{unread}</span>}
+        </h2>
         <span className="spacer" />
-        {unread > 0 && <button className="btn ghost sm" onClick={() => readAll.mutate()}>Mark all read</button>}
-        <Link className="btn ghost icon sm" to="/notifications" aria-label="All notifications"><Icon name="chevronRight" size={14} /></Link>
+        {unread > 0 && (
+          <button className="btn ghost sm" onClick={() => readAll.mutate()}>
+            Mark all read
+          </button>
+        )}
+        <Link className="btn ghost icon sm" to="/notifications" aria-label="All notifications">
+          <Icon name="chevronRight" size={14} />
+        </Link>
       </div>
       <div className="dash-inbox">
-        {inbox.isPending ? <SkeletonRows rows={3} /> : !inbox.data?.items.length ? (
-          <div className="empty"><Icon name="check" size={14} /> You're all caught up.</div>
+        {inbox.isPending ? (
+          <SkeletonRows rows={3} />
+        ) : !inbox.data?.items.length ? (
+          <div className="empty">
+            <Icon name="check" size={14} /> You're all caught up.
+          </div>
         ) : (
           inbox.data.items.map((n) => <NotificationRow key={n.id} n={n} onOpen={open} compact />)
         )}
@@ -354,19 +526,31 @@ function LinksCard({ className, onTask }: { className: string; onTask: () => voi
   ]
   return (
     <section className={'card ' + className} aria-labelledby="links-h">
-      <div className="card-head"><h2 id="links-h"><Icon name="zap" />Quick links</h2></div>
+      <div className="card-head">
+        <h2 id="links-h">
+          <Icon name="zap" />
+          Quick links
+        </h2>
+      </div>
       <div className="links">
         {links.map((l) => {
           const inner = (
             <>
               <AppLogo app={app(l.app)} size={2} />
-              <span className="link-text"><span className="truncate">{l.label}</span><span className="muted xsmall truncate">{l.sub}</span></span>
+              <span className="link-text">
+                <span className="truncate">{l.label}</span>
+                <span className="muted xsmall truncate">{l.sub}</span>
+              </span>
             </>
           )
           return l.to ? (
-            <Link key={l.label} to={l.to} className="link-tile">{inner}</Link>
+            <Link key={l.label} to={l.to} className="link-tile">
+              {inner}
+            </Link>
           ) : (
-            <button key={l.label} className="link-tile" onClick={l.run}>{inner}</button>
+            <button key={l.label} className="link-tile" onClick={l.run}>
+              {inner}
+            </button>
           )
         })}
       </div>

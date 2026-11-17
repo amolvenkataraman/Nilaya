@@ -33,13 +33,25 @@ interface Props {
   fit?: { key: number; points: [number, number][] } | null
 }
 
-export interface MapFocus { key: number; lat: number; lon: number; zoom?: number; bbox?: [number, number, number, number]; label?: string; address?: string }
+export interface MapFocus {
+  key: number
+  lat: number
+  lon: number
+  zoom?: number
+  bbox?: [number, number, number, number]
+  label?: string
+  address?: string
+}
 
 /** Marker colour by status (legend below the map). */
 function statusColour(status?: string): string {
   const css = getComputedStyle(document.documentElement)
   const v = (n: string, d: string) => css.getPropertyValue(n).trim() || d
-  return status === 'visited' ? v('--app-success', '#2f855a') : status === 'want_to_go' ? v('--app-warning', '#b7791f') : v('--app-accent', '#0f6d77')
+  return status === 'visited'
+    ? v('--app-success', '#2f855a')
+    : status === 'want_to_go'
+      ? v('--app-warning', '#b7791f')
+      : v('--app-accent', '#0f6d77')
 }
 const CLUSTER_PX = 44
 
@@ -63,8 +75,9 @@ function pinIcon(category: string, status: string | undefined, selected: boolean
     const badge = st === 'visited' ? `<span class="pm-pin-badge">${glyph(iconMarkup('check'))}</span>` : ''
     icon = L.divIcon({
       className: 'pm-pin-icon',
-      html: `<div class="pm-pin st-${st}${selected ? ' is-selected' : ''}"><svg class="pm-pin-shape" viewBox="0 0 28 36" aria-hidden="true" focusable="false"><path d="${PIN_PATH}"/></svg>`
-        + `<span class="pm-pin-glyph">${glyph(name ? iconMarkup(name) : DOT)}</span>${badge}</div>`,
+      html:
+        `<div class="pm-pin st-${st}${selected ? ' is-selected' : ''}"><svg class="pm-pin-shape" viewBox="0 0 28 36" aria-hidden="true" focusable="false"><path d="${PIN_PATH}"/></svg>` +
+        `<span class="pm-pin-glyph">${glyph(name ? iconMarkup(name) : DOT)}</span>${badge}</div>`,
       iconSize: [28, 36],
       iconAnchor: [14, 35],
       tooltipAnchor: [0, -30],
@@ -82,8 +95,23 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, cls: string, text?: s
   return e
 }
 
-
-export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, onEdit, onAddAt, suggestions, onSuggestion, heat, onBounds, addMode, focus, userPos, fit }: Props) {
+export function PlaceMap({
+  places,
+  selected,
+  categoryLabel,
+  canEdit,
+  onSelect,
+  onEdit,
+  onAddAt,
+  suggestions,
+  onSuggestion,
+  heat,
+  onBounds,
+  addMode,
+  focus,
+  userPos,
+  fit,
+}: Props) {
   const box = useRef<HTMLDivElement>(null)
   const map = useRef<L.Map | null>(null)
   const layer = useRef<L.LayerGroup | null>(null)
@@ -155,7 +183,9 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
     // Pins are rebuilt below (selecting, panning, a popup's auto-pan and a focused pin's auto-pan all redraw):
     // hand focus, and the selected place's open popup, to the replacement pins.
     let focusedId: string | undefined
-    markers.current.forEach((mk, id) => { if (mk.getElement() === document.activeElement) focusedId = id })
+    markers.current.forEach((mk, id) => {
+      if (mk.getElement() === document.activeElement) focusedId = id
+    })
     const reopen = !!selected && !!markers.current.get(selected)?.isPopupOpen()
     g.clearLayers()
     markers.current.clear()
@@ -183,8 +213,24 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
           if (node) node.replaceChildren(el('span', '', String(group.length)))
         })
         // Tooltips are built on first hover (hundreds of clusters redraw after every move).
-        mk.once('mouseover', () => mk.bindTooltip(el('span', '', group.slice(0, 5).map((p) => p.name).join(', ') + (group.length > 5 ? '…' : '')), { direction: 'top', offset: [0, -14] }).openTooltip())
-        mk.on('click', () => m.fitBounds(L.latLngBounds(group.map((p) => [p.latitude, p.longitude] as [number, number])), { padding: [60, 60], maxZoom: 17 }))
+        mk.once('mouseover', () =>
+          mk
+            .bindTooltip(
+              el(
+                'span',
+                '',
+                group
+                  .slice(0, 5)
+                  .map((p) => p.name)
+                  .join(', ') + (group.length > 5 ? '…' : ''),
+              ),
+              { direction: 'top', offset: [0, -14] },
+            )
+            .openTooltip(),
+        )
+        mk.on('click', () =>
+          m.fitBounds(L.latLngBounds(group.map((p) => [p.latitude, p.longitude] as [number, number])), { padding: [60, 60], maxZoom: 17 }),
+        )
         mk.addTo(g)
         continue
       }
@@ -192,8 +238,12 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
         const on = p.id === selected
         // Marker options set title as a DOM property (not HTML); with keyboard: true the pin is a focusable role=button.
         const mk = L.marker([p.latitude, p.longitude], {
-          icon: pinIcon(p.category, p.status, on), title: `${p.name} (${statusLabel(p.status)})`, alt: p.name,
-          keyboard: true, riseOnHover: true, zIndexOffset: on ? 1000 : 0,
+          icon: pinIcon(p.category, p.status, on),
+          title: `${p.name} (${statusLabel(p.status)})`,
+          alt: p.name,
+          keyboard: true,
+          riseOnHover: true,
+          zIndexOffset: on ? 1000 : 0,
           // No pan on focus: focus is handed to the rebuilt pin after each redraw, and a pan there would fight the
           // popup's auto-pan (each move redraws). Pins outside the view are culled or flown to on select anyway.
           autoPanOnFocus: false,
@@ -238,7 +288,10 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
       cb.current.onAddAt(lat, lng, label, address)
     })
     wrap.append(add)
-    L.popup({ closeButton: !!label, className: 'pm-popup', autoPanPadding: [24, 24] }).setLatLng(at).setContent(wrap).openOn(m)
+    L.popup({ closeButton: !!label, className: 'pm-popup', autoPanPadding: [24, 24] })
+      .setLatLng(at)
+      .setContent(wrap)
+      .openOn(m)
   }
 
   // Crosshair while adding.
@@ -252,7 +305,14 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
     const m = map.current
     if (!m || !focus) return
     const [s, n, w, e] = focus.bbox ?? [0, 0, 0, 0]
-    if (focus.bbox && (n - s > 0.002 || e - w > 0.002)) m.flyToBounds([[s, w], [n, e]], { maxZoom: focus.zoom ?? 17, duration: 0.8 })
+    if (focus.bbox && (n - s > 0.002 || e - w > 0.002))
+      m.flyToBounds(
+        [
+          [s, w],
+          [n, e],
+        ],
+        { maxZoom: focus.zoom ?? 17, duration: 0.8 },
+      )
     else m.flyTo([focus.lat, focus.lon], Math.max(m.getZoom(), focus.zoom ?? 16), { duration: 0.8 })
     if (focus.label !== undefined) {
       const t = setTimeout(() => addPopup(m, [focus.lat, focus.lon], focus.lat, focus.lon, focus.label, focus.address), 850)
@@ -267,7 +327,15 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
     me.current?.remove()
     me.current = null
     if (!userPos) return
-    me.current = L.circleMarker([userPos.lat, userPos.lon], { radius: 6, color: '#fff', weight: 2, fillColor: '#2563eb', fillOpacity: 1, interactive: false, className: 'pm-me' }).addTo(m)
+    me.current = L.circleMarker([userPos.lat, userPos.lon], {
+      radius: 6,
+      color: '#fff',
+      weight: 2,
+      fillColor: '#2563eb',
+      fillOpacity: 1,
+      interactive: false,
+      className: 'pm-me',
+    }).addTo(m)
   }, [userPos?.lat, userPos?.lon])
 
   useEffect(() => {
@@ -295,7 +363,14 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
     if (!g) return
     g.clearLayers()
     for (const sug of suggestions ?? []) {
-      const mk = L.circleMarker([sug.latitude, sug.longitude], { radius: 8, color: statusColour(), weight: 2, dashArray: '3 3', fillOpacity: 0.12, fillColor: statusColour() })
+      const mk = L.circleMarker([sug.latitude, sug.longitude], {
+        radius: 8,
+        color: statusColour(),
+        weight: 2,
+        dashArray: '3 3',
+        fillOpacity: 0.12,
+        fillColor: statusColour(),
+      })
       mk.bindTooltip(el('span', '', `${sug.name}: ${sug.photos} photos on ${sug.days} days`), { direction: 'top', offset: [0, -8] })
       mk.on('click', () => cb.current.onSuggestion?.(sug))
       mk.addTo(g)
@@ -314,7 +389,9 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
       // Opened by the redraw after the fly (see above), on the pin that redraw creates.
       pendingPopup.current = selected
       flying.current = true
-      m.once('moveend', () => { flying.current = false })
+      m.once('moveend', () => {
+        flying.current = false
+      })
       m.flyTo(ll, Math.max(m.getZoom(), 15), { duration: 0.6 })
     } else {
       const t = setTimeout(() => markers.current.get(selected)?.openPopup(), 0)
@@ -325,8 +402,11 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
   function popup(p: Place): HTMLElement {
     const wrap = el('div', 'pm-pop')
     wrap.append(el('div', 'pm-pop-title', p.name))
-    const st = p.status === 'visited' ? `Visited${p.visited_on ? ' ' + p.visited_on : ''}` : p.status === 'want_to_go' ? 'Want to go' : 'Saved'
-    const meta = [cb.current.categoryLabel(p.category), st, p.rating ? `${'★'.repeat(p.rating)}${'☆'.repeat(5 - p.rating)}` : ''].filter(Boolean).join(' · ')
+    const st =
+      p.status === 'visited' ? `Visited${p.visited_on ? ' ' + p.visited_on : ''}` : p.status === 'want_to_go' ? 'Want to go' : 'Saved'
+    const meta = [cb.current.categoryLabel(p.category), st, p.rating ? `${'★'.repeat(p.rating)}${'☆'.repeat(5 - p.rating)}` : '']
+      .filter(Boolean)
+      .join(' · ')
     if (meta) wrap.append(el('div', 'pm-pop-meta', meta))
     if (p.address) wrap.append(el('div', 'pm-pop-text', p.address))
     if (p.description) wrap.append(el('div', 'pm-pop-text', p.description))
@@ -357,16 +437,38 @@ export function PlaceMap({ places, selected, categoryLabel, canEdit, onSelect, o
         {STATUSES.map((s) => (
           <li key={s.key}>
             <span className={'pm-pin-key st-' + s.key} aria-hidden="true">
-              <svg viewBox="0 0 28 36"><path d={PIN_PATH} /></svg>
-              {s.key === 'visited' && <span className="pm-pin-badge"><Icon name="check" size={7} /></span>}
+              <svg viewBox="0 0 28 36">
+                <path d={PIN_PATH} />
+              </svg>
+              {s.key === 'visited' && (
+                <span className="pm-pin-badge">
+                  <Icon name="check" size={7} />
+                </span>
+              )}
             </span>
             {s.label}
           </li>
         ))}
-        {suggestions && suggestions.length > 0 && <li><span className="pm-dot ghost" />Suggested</li>}
-        <li><span className="pm-dot cluster">3</span>Group</li>
-        {userPos && <li><span className="pm-dot" style={{ background: '#2563eb' }} />You</li>}
-        {heat && <li className="pm-heat-key">Photos <span className="pm-ramp" aria-hidden="true" /> more</li>}
+        {suggestions && suggestions.length > 0 && (
+          <li>
+            <span className="pm-dot ghost" />
+            Suggested
+          </li>
+        )}
+        <li>
+          <span className="pm-dot cluster">3</span>Group
+        </li>
+        {userPos && (
+          <li>
+            <span className="pm-dot" style={{ background: '#2563eb' }} />
+            You
+          </li>
+        )}
+        {heat && (
+          <li className="pm-heat-key">
+            Photos <span className="pm-ramp" aria-hidden="true" /> more
+          </li>
+        )}
       </ul>
     </>
   )

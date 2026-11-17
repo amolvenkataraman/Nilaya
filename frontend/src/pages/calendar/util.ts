@@ -5,7 +5,12 @@ import { atZoneMin, dayStartIn, zoneDay, zoneDayKey, zoneMinutes, type WeekStart
 
 export type CalView = 'month' | 'week' | 'day' | 'agenda'
 
-export interface CalState { view: CalView; date: Date; insights: 'week' | 'month' | null; isNew: boolean }
+export interface CalState {
+  view: CalView
+  date: Date
+  insights: 'week' | 'month' | null
+  isNew: boolean
+}
 
 export function parseCalState(search: URLSearchParams, today = new Date()): CalState {
   const v = search.get('view')
@@ -68,7 +73,8 @@ export function allDayRange(e: Pick<CalEvent, 'all_day' | 'start_date' | 'end_da
 }
 
 /** The day key an event is filed under (its first day; timed events by the display zone's date). */
-export const eventDayKey = (e: CalEvent, tz?: Zone) => (e.all_day && e.start_date ? e.start_date : zoneDayKey(new Date(e.start).getTime(), tz))
+export const eventDayKey = (e: CalEvent, tz?: Zone) =>
+  e.all_day && e.start_date ? e.start_date : zoneDayKey(new Date(e.start).getTime(), tz)
 
 /** All-day events and multi-day timed events cover every day they touch; [start, end) with end exclusive.
  *  Timed events by their dates in the display zone; all-day events by their own dates, in any zone. */
@@ -97,7 +103,13 @@ export function eventsByDay(events: CalEvent[], tz?: Zone): Map<string, CalEvent
     }
   }
   for (const list of map.values()) {
-    list.sort((a, b) => Number(b.all_day) - Number(a.all_day) || (a.all_day ? (a.start_date ?? '').localeCompare(b.start_date ?? '') : 0) || a.start.localeCompare(b.start) || a.name.localeCompare(b.name))
+    list.sort(
+      (a, b) =>
+        Number(b.all_day) - Number(a.all_day) ||
+        (a.all_day ? (a.start_date ?? '').localeCompare(b.start_date ?? '') : 0) ||
+        a.start.localeCompare(b.start) ||
+        a.name.localeCompare(b.name),
+    )
   }
   return map
 }
@@ -113,7 +125,13 @@ export function wallMin(t: number, dayStart: number, dayEnd: number, tz?: Zone):
 /** The instant `min` wall-clock minutes into `day` in the display zone (the inverse of wallMin; 1440 = next midnight). */
 export const atWallMin = (day: Date, min: number, tz?: Zone) => atZoneMin(day, min, tz)
 
-export interface Placed { event: CalEvent; startMin: number; endMin: number; col: number; cols: number }
+export interface Placed {
+  event: CalEvent
+  startMin: number
+  endMin: number
+  col: number
+  cols: number
+}
 
 /**
  * Timed events of one day placed in columns: overlapping events share the width
@@ -177,7 +195,12 @@ export function hours(h: number): string {
 
 // ---------------------------------------------------------------- manual range sync (V1's "Sync events")
 /** A month range for syncing: 0-based months, end exclusive (the first of the end month), as in V1. */
-export interface MonthRange { sm: number; sy: number; em: number; ey: number }
+export interface MonthRange {
+  sm: number
+  sy: number
+  em: number
+  ey: number
+}
 
 /** V1's term presets. "This term" (T) starts this month; "Full term" (TF) starts at the term's first month.
  *  Terms: Sep–Dec (ends Jan 1 next year), Jan–Apr (ends May 1), May–Aug (ends Oct 1). */

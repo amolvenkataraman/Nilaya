@@ -11,7 +11,10 @@
     "dev": "vite",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "build": "tsc --noEmit -p tsconfig.json && vite build",
-    "test": "vitest run"
+    "test": "vitest run",
+    "lint": "biome check",
+    "format": "biome format --write",
+    "check": "tsc --noEmit -p tsconfig.json && biome check && vitest run"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

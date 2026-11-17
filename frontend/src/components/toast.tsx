@@ -1,6 +1,11 @@
 import { useSyncExternalStore } from 'react'
 
-interface ToastItem { id: number; text: string; error?: boolean; action?: { label: string; run: () => void } }
+interface ToastItem {
+  id: number
+  text: string
+  error?: boolean
+  action?: { label: string; run: () => void }
+}
 let items: ToastItem[] = []
 let seq = 0
 const listeners = new Set<() => void>()

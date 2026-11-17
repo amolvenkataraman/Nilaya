@@ -10,8 +10,7 @@ export type AlbumMember = { id: number; username: string; name: string; role: 'e
 
 export const useAlbums = () => useQuery(photoAlbumsQuery<Album[]>())
 export const useLibraries = () => useQuery(photoLibrariesQuery<Library[]>())
-export const useHiddenMode = () =>
-  useQuery(photoHiddenModeQuery<HiddenMode>())
+export const useHiddenMode = () => useQuery(photoHiddenModeQuery<HiddenMode>())
 
 /** Can the user change files in this library (owner/editor)? Libraries are matched by name (details.library). */
 export function canEditLibrary(libs: Library[] | undefined, name: string | undefined): boolean {
@@ -49,7 +48,8 @@ export function useLibraryVisibility() {
   const qc = useQueryClient()
   const done = () => refreshListings(qc)
   const setVisible = useMutation({
-    mutationFn: ({ id, visible }: { id: number; visible: boolean }) => patch<{ id: number; visible: boolean }>(`photos/libraries/${id}`, { visible }),
+    mutationFn: ({ id, visible }: { id: number; visible: boolean }) =>
+      patch<{ id: number; visible: boolean }>(`photos/libraries/${id}`, { visible }),
     onSettled: done,
     onError: (e) => toast.error((e as Error).message),
   })
@@ -63,15 +63,24 @@ export function useLibraryVisibility() {
     onSuccess: (_r, id, ctx) => {
       const name = ctx?.before?.find((l) => l.id === id)?.name ?? 'this library'
       const restore = ctx?.before?.filter((l) => l.visible) ?? []
-      toast.show(`Showing only ${name}`, restore.length ? {
-        action: {
-          label: 'Undo',
-          run: () => Promise.all((ctx?.before ?? []).map((l) => patch(`photos/libraries/${l.id}`, { visible: l.visible }))).then(() => {
-            qc.setQueryData(['photos', 'libraries'], ctx?.before)
-            done()
-          }, (e) => toast.error((e as Error).message)),
-        },
-      } : {})
+      toast.show(
+        `Showing only ${name}`,
+        restore.length
+          ? {
+              action: {
+                label: 'Undo',
+                run: () =>
+                  Promise.all((ctx?.before ?? []).map((l) => patch(`photos/libraries/${l.id}`, { visible: l.visible }))).then(
+                    () => {
+                      qc.setQueryData(['photos', 'libraries'], ctx?.before)
+                      done()
+                    },
+                    (e) => toast.error((e as Error).message),
+                  ),
+              },
+            }
+          : {},
+      )
     },
     onSettled: done,
     onError: (e) => toast.error((e as Error).message),
@@ -116,7 +125,8 @@ export function useAlbumMutations() {
     },
   })
   const update = useMutation({
-    mutationFn: ({ id, ...body }: { id: string; name?: string; description?: string; public?: boolean; cover_photo_id?: string }) => patch<Album>(`photos/albums/${id}`, body),
+    mutationFn: ({ id, ...body }: { id: string; name?: string; description?: string; public?: boolean; cover_photo_id?: string }) =>
+      patch<Album>(`photos/albums/${id}`, body),
     onSuccess: (a) => {
       qc.setQueryData<Album[]>(['photos', 'albums'], (old) => old?.map((x) => (x.id === a.id ? { ...x, ...a } : x)))
       refreshAlbums()
@@ -137,11 +147,21 @@ export async function deleteAlbum(qc: QueryClient, album: Album) {
 export async function removeFromAlbum(qc: QueryClient, album: Album, ids: string[]) {
   try {
     const r = await api<{ removed: number }>(`photos/albums/${album.id}/photos`, { method: 'DELETE', body: { ids } })
-    const refresh = () => (qc.invalidateQueries({ queryKey: ['photos', 'album', album.id] }), qc.invalidateQueries({ queryKey: ['photos', 'albums'] }))
+    const refresh = () => (
+      qc.invalidateQueries({ queryKey: ['photos', 'album', album.id] }), qc.invalidateQueries({ queryKey: ['photos', 'albums'] })
+    )
     refresh()
-    toast.show(`Removed ${r.removed} from "${album.name}"`, r.removed ? {
-      action: { label: 'Undo', run: () => post(`photos/albums/${album.id}/photos`, { ids }).then(refresh, (e) => toast.error((e as Error).message)) },
-    } : {})
+    toast.show(
+      `Removed ${r.removed} from "${album.name}"`,
+      r.removed
+        ? {
+            action: {
+              label: 'Undo',
+              run: () => post(`photos/albums/${album.id}/photos`, { ids }).then(refresh, (e) => toast.error((e as Error).message)),
+            },
+          }
+        : {},
+    )
     return true
   } catch (e) {
     const err = e as ApiError

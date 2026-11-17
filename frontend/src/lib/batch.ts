@@ -7,8 +7,11 @@ import { get } from './api'
 
 type Waiter = { resolve: (v: unknown) => void; reject: (e: unknown) => void }
 
-export function queryGroup<K extends string>(combined: string, members: Record<K, { key: readonly unknown[]; path: string }>,
-  pick: (all: Record<string, unknown>, k: K) => unknown) {
+export function queryGroup<K extends string>(
+  combined: string,
+  members: Record<K, { key: readonly unknown[]; path: string }>,
+  pick: (all: Record<string, unknown>, k: K) => unknown,
+) {
   let pending: { client: QueryClient; want: Map<K, Waiter[]> } | null = null
 
   const flush = async () => {
@@ -18,7 +21,11 @@ export function queryGroup<K extends string>(combined: string, members: Record<K
     const asked = [...want.keys()]
     if (asked.length === 1) {
       const k = asked[0]
-      try { settle(k, true, await get(members[k].path)) } catch (e) { settle(k, false, e) }
+      try {
+        settle(k, true, await get(members[k].path))
+      } catch (e) {
+        settle(k, false, e)
+      }
       return
     }
     try {
@@ -38,14 +45,15 @@ export function queryGroup<K extends string>(combined: string, members: Record<K
   }
 
   /** queryFn for member `k` (use with the member's own key). */
-  return <T>(k: K) => (ctx: QueryFunctionContext) =>
-    new Promise<T>((resolve, reject) => {
-      if (!pending) {
-        pending = { client: ctx.client, want: new Map() }
-        setTimeout(flush, 0)
-      }
-      const list = pending.want.get(k) ?? []
-      list.push({ resolve: resolve as (v: unknown) => void, reject })
-      pending.want.set(k, list)
-    })
+  return <T>(k: K) =>
+    (ctx: QueryFunctionContext) =>
+      new Promise<T>((resolve, reject) => {
+        if (!pending) {
+          pending = { client: ctx.client, want: new Map() }
+          setTimeout(flush, 0)
+        }
+        const list = pending.want.get(k) ?? []
+        list.push({ resolve: resolve as (v: unknown) => void, reject })
+        pending.want.set(k, list)
+      })
 }

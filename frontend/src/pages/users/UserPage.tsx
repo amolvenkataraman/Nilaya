@@ -13,7 +13,15 @@ import { PictureDialog } from '../settings/PictureDialog'
 import '../settings/settings.css'
 import './users.css'
 
-interface Person { id: UUID; username: string; name: string; description: string; profile_picture: string; is_staff: boolean; groups: GroupBrief[] }
+interface Person {
+  id: UUID
+  username: string
+  name: string
+  description: string
+  profile_picture: string
+  is_staff: boolean
+  groups: GroupBrief[]
+}
 
 export default function UserPage() {
   const { username = '' } = useParams()
@@ -28,9 +36,18 @@ export default function UserPage() {
   })
   const [picture, setPicture] = useState(false)
   // Your own card reads from /me so edits show at once (and every group, not only public ones).
-  const p: Person | undefined = mine && me
-    ? { id: me.id, username: me.username, name: [me.first_name, me.last_name].filter(Boolean).join(' ') || me.username, description: me.description, profile_picture: me.profile_picture, is_staff: me.is_staff, groups: me.groups }
-    : q.data
+  const p: Person | undefined =
+    mine && me
+      ? {
+          id: me.id,
+          username: me.username,
+          name: [me.first_name, me.last_name].filter(Boolean).join(' ') || me.username,
+          description: me.description,
+          profile_picture: me.profile_picture,
+          is_staff: me.is_staff,
+          groups: me.groups,
+        }
+      : q.data
   const topbar = (
     <button className="btn ghost sm" onClick={() => (window.history.length > 1 ? navigate(-1) : navigate('/'))}>
       <Icon name="x" size={14} />
@@ -48,7 +65,12 @@ export default function UserPage() {
                 <div className="user-pic">
                   <Avatar name={p.name} src={p.profile_picture} size={6} />
                   {mine && (
-                    <button className="btn icon sm user-pic-btn" onClick={() => setPicture(true)} title="Change profile picture" aria-label="Change profile picture">
+                    <button
+                      className="btn icon sm user-pic-btn"
+                      onClick={() => setPicture(true)}
+                      title="Change profile picture"
+                      aria-label="Change profile picture"
+                    >
                       <Icon name="camera" size={14} />
                     </button>
                   )}
@@ -63,19 +85,32 @@ export default function UserPage() {
               <h1 className="user-name">{p.name}</h1>
               <div className="user-handle">
                 <span>@{p.username}</span>
-                {p.is_staff && <span className="chip accent"><Icon name="shield" size={12} />Staff</span>}
+                {p.is_staff && (
+                  <span className="chip accent">
+                    <Icon name="shield" size={12} />
+                    Staff
+                  </span>
+                )}
               </div>
               {p.groups.length > 0 && (
                 <div className="user-groups" aria-label="Groups">
-                  {p.groups.map((g) => <span key={g.id} className="chip">{g.name}</span>)}
+                  {p.groups.map((g) => (
+                    <span key={g.id} className="chip">
+                      {g.name}
+                    </span>
+                  ))}
                 </div>
               )}
               {p.description ? <p className="user-desc pre-wrap">{p.description}</p> : <p className="user-desc muted">No description.</p>}
-              <div className="user-id xsmall muted" title="User ID">ID {p.id}</div>
+              <div className="user-id xsmall muted" title="User ID">
+                ID {p.id}
+              </div>
             </div>
           </article>
         ) : q.isPending ? (
-          <div className="set-card"><SkeletonRows rows={5} /></div>
+          <div className="set-card">
+            <SkeletonRows rows={5} />
+          </div>
         ) : q.error instanceof ApiError && q.error.status === 404 ? (
           <div className="set-card empty">There's no one with the username "{username}".</div>
         ) : (

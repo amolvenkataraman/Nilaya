@@ -32,7 +32,11 @@ function Bars({ rows }: { rows: { label: string; value: number; colour?: string;
           {w > 0 && (
             <svg width={w} height={6} className="ins-bar-svg" aria-hidden="true">
               <rect x={0} y={0} width={w} height={6} rx={3} className="ins-track" />
-              <path d={barPath(0, 0, Math.max(3, (r.value / max) * w), 6)} className="ins-mark" style={r.colour ? { fill: r.colour } : undefined} />
+              <path
+                d={barPath(0, 0, Math.max(3, (r.value / max) * w), 6)}
+                className="ins-mark"
+                style={r.colour ? { fill: r.colour } : undefined}
+              />
             </svg>
           )}
         </div>
@@ -57,7 +61,9 @@ function Heat({ heat, labels }: { heat: number[][]; labels: string[] }) {
   return (
     <div className="ins-heat">
       <div className="ins-heat-days" aria-hidden="true" style={{ gridTemplateRows: `repeat(7, ${ch}px)`, rowGap: gap }}>
-        {labels.map((d) => <span key={d}>{d}</span>)}
+        {labels.map((d) => (
+          <span key={d}>{d}</span>
+        ))}
       </div>
       <div className="ins-heat-plot">
         <div ref={ref} style={{ position: 'relative' }} onMouseLeave={() => setTip(null)}>
@@ -90,7 +96,11 @@ function Heat({ heat, labels }: { heat: number[][]; labels: string[] }) {
           <ChartTooltip tip={tip} width={w} />
         </div>
         <div className="ins-heat-hours" aria-hidden="true">
-          {[0, 6, 12, 18].map((h) => <span key={h} style={{ left: `${(h / 24) * 100}%` }}>{hourFmt.format(new Date(2000, 0, 1, h))}</span>)}
+          {[0, 6, 12, 18].map((h) => (
+            <span key={h} style={{ left: `${(h / 24) * 100}%` }}>
+              {hourFmt.format(new Date(2000, 0, 1, h))}
+            </span>
+          ))}
         </div>
       </div>
     </div>
@@ -127,8 +137,20 @@ function periodLabel(d: InsightsData): string {
   return `${fmtDate(s, { month: 'short', day: 'numeric' })} – ${fmtDate(e, sameMonth ? { day: 'numeric' } : { month: 'short', day: 'numeric' })}`
 }
 
-export function InsightsPanel({ period, date, weekStart = 1, onPeriod, onDate, onClose }: {
-  period: 'week' | 'month'; date: Date; weekStart?: 0 | 1; onPeriod: (p: 'week' | 'month') => void; onDate: (d: Date) => void; onClose: () => void
+export function InsightsPanel({
+  period,
+  date,
+  weekStart = 1,
+  onPeriod,
+  onDate,
+  onClose,
+}: {
+  period: 'week' | 'month'
+  date: Date
+  weekStart?: 0 | 1
+  onPeriod: (p: 'week' | 'month') => void
+  onDate: (d: Date) => void
+  onClose: () => void
 }) {
   const q = useInsights(period, dayKey(date))
   const d = q.data
@@ -142,15 +164,25 @@ export function InsightsPanel({ period, date, weekStart = 1, onPeriod, onDate, o
         <Icon name="chart" />
         <h2 className="grow">Insights</h2>
         <div className="seg" role="group" aria-label="Period">
-          <button aria-pressed={period === 'week'} onClick={() => onPeriod('week')}>Week</button>
-          <button aria-pressed={period === 'month'} onClick={() => onPeriod('month')}>Month</button>
+          <button aria-pressed={period === 'week'} onClick={() => onPeriod('week')}>
+            Week
+          </button>
+          <button aria-pressed={period === 'month'} onClick={() => onPeriod('month')}>
+            Month
+          </button>
         </div>
-        <button className="btn ghost icon sm" onClick={onClose} aria-label="Close insights"><Icon name="x" /></button>
+        <button className="btn ghost icon sm" onClick={onClose} aria-label="Close insights">
+          <Icon name="x" />
+        </button>
       </div>
       <div className="ins-period">
-        <button className="btn ghost icon sm" onClick={() => step(-1)} aria-label={`Previous ${period}`}><Icon name="chevronLeft" /></button>
+        <button className="btn ghost icon sm" onClick={() => step(-1)} aria-label={`Previous ${period}`}>
+          <Icon name="chevronLeft" />
+        </button>
         <span className="grow">{d ? periodLabel(d) : ' '}</span>
-        <button className="btn ghost icon sm" onClick={() => step(1)} aria-label={`Next ${period}`}><Icon name="chevronRight" /></button>
+        <button className="btn ghost icon sm" onClick={() => step(1)} aria-label={`Next ${period}`}>
+          <Icon name="chevronRight" />
+        </button>
       </div>
       <div className="ins-body" style={{ opacity: q.isPlaceholderData ? 0.6 : 1 }}>
         {q.isError && !q.data ? (
@@ -171,17 +203,51 @@ export function InsightsPanel({ period, date, weekStart = 1, onPeriod, onDate, o
               </div>
             </div>
             <div className="ins-tiles">
-              <Tile label="Events" value={String(d.totals.events)} sub={<Delta cur={d.totals.events} prev={d.previous.events} label={prevLabel} />} />
-              <Tile label="Meetings" value={hours(d.totals.meeting_hours)} sub={<Delta cur={d.totals.meeting_hours} prev={d.previous.meeting_hours} unit=" h" label={prevLabel} />} />
-              <Tile label="Focus time" value={hours(d.totals.focus_hours)} sub={<Delta cur={d.totals.focus_hours} prev={d.previous.focus_hours} unit=" h" label={prevLabel} />} />
-              <Tile label="Free days" value={String(d.totals.free_days)} sub={<span className="ins-delta">{d.totals.deadlines} deadline{d.totals.deadlines === 1 ? '' : 's'}</span>} />
+              <Tile
+                label="Events"
+                value={String(d.totals.events)}
+                sub={<Delta cur={d.totals.events} prev={d.previous.events} label={prevLabel} />}
+              />
+              <Tile
+                label="Meetings"
+                value={hours(d.totals.meeting_hours)}
+                sub={<Delta cur={d.totals.meeting_hours} prev={d.previous.meeting_hours} unit=" h" label={prevLabel} />}
+              />
+              <Tile
+                label="Focus time"
+                value={hours(d.totals.focus_hours)}
+                sub={<Delta cur={d.totals.focus_hours} prev={d.previous.focus_hours} unit=" h" label={prevLabel} />}
+              />
+              <Tile
+                label="Free days"
+                value={String(d.totals.free_days)}
+                sub={
+                  <span className="ins-delta">
+                    {d.totals.deadlines} deadline{d.totals.deadlines === 1 ? '' : 's'}
+                  </span>
+                }
+              />
             </div>
 
-            <Section title="Hours per day" aside={d.totals.busiest_day && <span className="muted xsmall">Busiest: {fmtDate(parseDayKey(d.totals.busiest_day.date), { weekday: 'short', month: 'short', day: 'numeric' })}</span>}>
+            <Section
+              title="Hours per day"
+              aside={
+                d.totals.busiest_day && (
+                  <span className="muted xsmall">
+                    Busiest: {fmtDate(parseDayKey(d.totals.busiest_day.date), { weekday: 'short', month: 'short', day: 'numeric' })}
+                  </span>
+                )
+              }
+            >
               <Columns
                 values={d.per_day.map((p) => p.hours)}
-                labels={d.per_day.map((p) => (period === 'week' ? fmtDate(parseDayKey(p.date), { weekday: 'narrow' }) : String(parseDayKey(p.date).getDate())))}
-                tips={d.per_day.map((p) => `${fmtDate(parseDayKey(p.date), { weekday: 'short', month: 'short', day: 'numeric' })}: ${hours(p.hours)}, ${p.events} event${p.events === 1 ? '' : 's'}`)}
+                labels={d.per_day.map((p) =>
+                  period === 'week' ? fmtDate(parseDayKey(p.date), { weekday: 'narrow' }) : String(parseDayKey(p.date).getDate()),
+                )}
+                tips={d.per_day.map(
+                  (p) =>
+                    `${fmtDate(parseDayKey(p.date), { weekday: 'short', month: 'short', day: 'numeric' })}: ${hours(p.hours)}, ${p.events} event${p.events === 1 ? '' : 's'}`,
+                )}
                 highlight={d.per_day.findIndex((p) => p.date === today)}
                 labelEvery={period === 'week' ? 1 : 7}
               />
@@ -189,45 +255,124 @@ export function InsightsPanel({ period, date, weekStart = 1, onPeriod, onDate, o
 
             {period === 'month' && (
               <Section title="By weekday">
-                <Columns values={inWeekOrder(d.by_weekday, weekStart)} labels={inWeekOrder(WEEKDAYS, weekStart)} tips={inWeekOrder(d.by_weekday.map((h, i) => `${WEEKDAYS[i]}: ${hours(h)}`), weekStart)} />
+                <Columns
+                  values={inWeekOrder(d.by_weekday, weekStart)}
+                  labels={inWeekOrder(WEEKDAYS, weekStart)}
+                  tips={inWeekOrder(
+                    d.by_weekday.map((h, i) => `${WEEKDAYS[i]}: ${hours(h)}`),
+                    weekStart,
+                  )}
+                />
               </Section>
             )}
 
             {d.by_category.length > 0 && (
               <Section title="By category">
-                <Bars rows={d.by_category.slice(0, 7).map((c) => ({ label: c.label, value: c.hours, tip: `${c.label}: ${hours(c.hours)} over ${c.events} event${c.events === 1 ? '' : 's'}` }))} />
+                <Bars
+                  rows={d.by_category.slice(0, 7).map((c) => ({
+                    label: c.label,
+                    value: c.hours,
+                    tip: `${c.label}: ${hours(c.hours)} over ${c.events} event${c.events === 1 ? '' : 's'}`,
+                  }))}
+                />
               </Section>
             )}
 
             {d.by_calendar.length > 0 && (
               <Section title="By calendar">
-                <Bars rows={d.by_calendar.map((c) => ({ label: c.name, value: c.hours, colour: c.colour, tip: `${c.name}: ${hours(c.hours)} over ${c.events} event${c.events === 1 ? '' : 's'}` }))} />
+                <Bars
+                  rows={d.by_calendar.map((c) => ({
+                    label: c.name,
+                    value: c.hours,
+                    colour: c.colour,
+                    tip: `${c.name}: ${hours(c.hours)} over ${c.events} event${c.events === 1 ? '' : 's'}`,
+                  }))}
+                />
               </Section>
             )}
 
-            <Section title="When you're busy" aside={d.totals.typical_start && <span className="muted xsmall">Typical day {d.totals.typical_start}–{d.totals.typical_end}</span>}>
+            <Section
+              title="When you're busy"
+              aside={
+                d.totals.typical_start && (
+                  <span className="muted xsmall">
+                    Typical day {d.totals.typical_start}–{d.totals.typical_end}
+                  </span>
+                )
+              }
+            >
               <Heat heat={inWeekOrder(d.heat, weekStart)} labels={inWeekOrder(WEEKDAYS, weekStart)} />
             </Section>
 
             <Section title="More">
               <dl className="ins-facts">
-                <div><dt>Average event</dt><dd className="tabular">{d.totals.avg_minutes} min</dd></div>
-                <div><dt>Longest</dt><dd className="tabular">{hours(d.totals.longest_minutes / 60)}</dd></div>
-                <div><dt>Evenings (after 6 PM)</dt><dd className="tabular">{hours(d.totals.evening_hours)}</dd></div>
-                <div><dt>Weekends</dt><dd className="tabular">{hours(d.totals.weekend_hours)}</dd></div>
-                <div><dt>Early (before 8 AM)</dt><dd className="tabular">{hours(d.totals.early_hours)}</dd></div>
-                <div><dt>All-day events</dt><dd className="tabular">{d.totals.all_day}</dd></div>
-                <div><dt>Deadlines</dt><dd className="tabular">{d.totals.deadlines} <span className="muted">({d.previous.deadlines} {prevLabel})</span></dd></div>
-                <div><dt>Tasks due</dt><dd className="tabular">{d.todos.due}</dd></div>
-                <div><dt>Tasks created</dt><dd className="tabular">{d.todos.created}</dd></div>
-                <div><dt>Overdue now</dt><dd className={'tabular' + (d.todos.overdue_now ? ' danger-text' : '')}>{d.todos.overdue_now}</dd></div>
-                <div><dt>Todos done</dt><dd className="tabular">{d.todos.completed} <span className="muted">({d.todos.completed_previous} {prevLabel})</span></dd></div>
-                <div><dt>Photos taken</dt><dd className="tabular">{d.photos}</dd></div>
+                <div>
+                  <dt>Average event</dt>
+                  <dd className="tabular">{d.totals.avg_minutes} min</dd>
+                </div>
+                <div>
+                  <dt>Longest</dt>
+                  <dd className="tabular">{hours(d.totals.longest_minutes / 60)}</dd>
+                </div>
+                <div>
+                  <dt>Evenings (after 6 PM)</dt>
+                  <dd className="tabular">{hours(d.totals.evening_hours)}</dd>
+                </div>
+                <div>
+                  <dt>Weekends</dt>
+                  <dd className="tabular">{hours(d.totals.weekend_hours)}</dd>
+                </div>
+                <div>
+                  <dt>Early (before 8 AM)</dt>
+                  <dd className="tabular">{hours(d.totals.early_hours)}</dd>
+                </div>
+                <div>
+                  <dt>All-day events</dt>
+                  <dd className="tabular">{d.totals.all_day}</dd>
+                </div>
+                <div>
+                  <dt>Deadlines</dt>
+                  <dd className="tabular">
+                    {d.totals.deadlines}{' '}
+                    <span className="muted">
+                      ({d.previous.deadlines} {prevLabel})
+                    </span>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Tasks due</dt>
+                  <dd className="tabular">{d.todos.due}</dd>
+                </div>
+                <div>
+                  <dt>Tasks created</dt>
+                  <dd className="tabular">{d.todos.created}</dd>
+                </div>
+                <div>
+                  <dt>Overdue now</dt>
+                  <dd className={'tabular' + (d.todos.overdue_now ? ' danger-text' : '')}>{d.todos.overdue_now}</dd>
+                </div>
+                <div>
+                  <dt>Todos done</dt>
+                  <dd className="tabular">
+                    {d.todos.completed}{' '}
+                    <span className="muted">
+                      ({d.todos.completed_previous} {prevLabel})
+                    </span>
+                  </dd>
+                </div>
+                <div>
+                  <dt>Photos taken</dt>
+                  <dd className="tabular">{d.photos}</dd>
+                </div>
               </dl>
               {d.top_locations.length > 0 && (
                 <div className="ins-places">
                   {d.top_locations.map((l) => (
-                    <span key={l.name} className="chip"><Icon name="pin" size={11} />{l.name}<span className="muted tabular">{l.count}</span></span>
+                    <span key={l.name} className="chip">
+                      <Icon name="pin" size={11} />
+                      {l.name}
+                      <span className="muted tabular">{l.count}</span>
+                    </span>
                   ))}
                 </div>
               )}

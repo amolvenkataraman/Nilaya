@@ -6,7 +6,19 @@ import type { CalEvent, Task } from '../../lib/types'
 import { BirthdayChip, PhotoBadge, TaskChip, isAllDayTask, type Birthday } from './extras'
 import { EventChip } from './MonthView'
 import { atWallMin, layoutDay, snap } from './util'
-import { HOME_ZONE, dayStartIn, fmtTimeIn, gmtLabel, shiftWall, useCalPrefs, wallParts, zoneDay, zoneDayKey, zoneMinutes, type Zone } from './zone'
+import {
+  HOME_ZONE,
+  dayStartIn,
+  fmtTimeIn,
+  gmtLabel,
+  shiftWall,
+  useCalPrefs,
+  wallParts,
+  zoneDay,
+  zoneDayKey,
+  zoneMinutes,
+  type Zone,
+} from './zone'
 
 interface Props {
   days: Date[]
@@ -30,7 +42,19 @@ interface Props {
 
 // Mouse/pen drag on the time grid: drag empty space to create a range, drag an event to move it
 // (also to another day), drag its bottom edge to resize. Touch keeps tap-to-create (scrolling wins).
-type Drag = { mode: 'create' | 'move' | 'resize'; ev?: CalEvent; day: number; origDay: number; a: number; b: number; anchor: number; origStart: number; moved: boolean; x0: number; y0: number }
+type Drag = {
+  mode: 'create' | 'move' | 'resize'
+  ev?: CalEvent
+  day: number
+  origDay: number
+  a: number
+  b: number
+  anchor: number
+  origStart: number
+  moved: boolean
+  x0: number
+  y0: number
+}
 const Q = 15
 const snapQ = (m: number) => Math.max(0, Math.min(1440, Math.round(m / Q) * Q))
 const minLabel = (m: number) => fmtTime(new Date(2000, 0, 1, 0, m))
@@ -46,7 +70,22 @@ function homeHours(day: Date, tz: Zone): string[] {
   })
 }
 
-export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDay, tasksByDay, photos, onTask, birthdaysByDay, canEdit, onMove, onZone }: Props) {
+export function WeekView({
+  days,
+  byDay,
+  colour,
+  now,
+  onCreate,
+  onEvent,
+  onOpenDay,
+  tasksByDay,
+  photos,
+  onTask,
+  birthdaysByDay,
+  canEdit,
+  onMove,
+  onZone,
+}: Props) {
   const { tz } = useCalPrefs()
   // A second gutter with the home zone's hours while another zone is shown (not on phones: too narrow).
   const narrowView = useMediaQuery('(max-width: 760px)')
@@ -64,7 +103,10 @@ export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDa
   function locate(e: { clientX: number; clientY: number }) {
     const cols = Array.from(body.current?.querySelectorAll<HTMLElement>('.day-col') ?? [])
     if (!cols.length) return { day: 0, min: 0 }
-    let day = cols.findIndex((c) => { const r = c.getBoundingClientRect(); return e.clientX >= r.left && e.clientX < r.right })
+    let day = cols.findIndex((c) => {
+      const r = c.getBoundingClientRect()
+      return e.clientX >= r.left && e.clientX < r.right
+    })
     if (day < 0) day = e.clientX < cols[0].getBoundingClientRect().left ? 0 : cols.length - 1
     const r = cols[0].getBoundingClientRect()
     return { day, min: Math.max(0, Math.min(1440, ((e.clientY - r.top) / r.height) * 1440)) }
@@ -81,7 +123,19 @@ export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDa
       const ev = placed[day]?.find((p) => p.event.id === evEl.dataset.ev)
       if (!ev || !canEdit?.(ev.event) || !onMove) return
       const resize = !!t.closest('.ev-resize')
-      d = { mode: resize ? 'resize' : 'move', ev: ev.event, day, origDay: day, a: ev.startMin, b: ev.endMin, anchor: min - ev.startMin, origStart: ev.startMin, moved: false, x0: pe.clientX, y0: pe.clientY }
+      d = {
+        mode: resize ? 'resize' : 'move',
+        ev: ev.event,
+        day,
+        origDay: day,
+        a: ev.startMin,
+        b: ev.endMin,
+        anchor: min - ev.startMin,
+        origStart: ev.startMin,
+        moved: false,
+        x0: pe.clientX,
+        y0: pe.clientY,
+      }
     } else {
       if (!t.closest('.day-col')) return
       const m0 = Math.floor(min / Q) * Q
@@ -125,7 +179,13 @@ export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDa
       if (ns.getTime() === s.getTime()) return
       moved?.(ev, ns, ev.end ? new Date(ns.getTime() + (new Date(ev.end).getTime() - s.getTime())) : null)
     }
-    const key = (e: KeyboardEvent) => { if (e.key === 'Escape') { e.stopPropagation(); dragRef.current = null; stop.current() } }
+    const key = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        dragRef.current = null
+        stop.current()
+      }
+    }
     stop.current = () => {
       window.removeEventListener('pointermove', move)
       window.removeEventListener('pointerup', up)
@@ -165,16 +225,29 @@ export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDa
     <div className={'week' + (dual ? ' dual' : '')} style={{ '--cols': days.length } as React.CSSProperties}>
       <div className="week-head">
         {onZone ? (
-          <button type="button" className={'gutter week-zone' + (tz ? ' on' : '')} onClick={onZone} title={zoneTitle} aria-label={zoneTitle}>
+          <button
+            type="button"
+            className={'gutter week-zone' + (tz ? ' on' : '')}
+            onClick={onZone}
+            title={zoneTitle}
+            aria-label={zoneTitle}
+          >
             {dual && <span className="home tabular">{gmtLabel(at, undefined)}</span>}
             <span className="tabular">{zoneLabel.replace('GMT', 'GMT\u200b') /* may wrap after "GMT" in a phone's narrow gutter */}</span>
           </button>
-        ) : <div className="gutter" aria-hidden="true" />}
+        ) : (
+          <div className="gutter" aria-hidden="true" />
+        )}
         {days.map((d) => {
           const t = isSameDay(d, nowDay)
           return (
             <div key={d.getTime()} className="week-day-wrap">
-              <button type="button" className={'week-day' + (t ? ' today' : '')} onClick={() => onOpenDay(d)} aria-label={fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}>
+              <button
+                type="button"
+                className={'week-day' + (t ? ' today' : '')}
+                onClick={() => onOpenDay(d)}
+                aria-label={fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}
+              >
                 <span className="wd">{fmtDate(d, { weekday: 'short' })}</span>
                 <span className="dn tabular">{d.getDate()}</span>
               </button>
@@ -187,26 +260,66 @@ export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDa
         <div className="gutter xsmall muted">all-day</div>
         {days.map((d, i) => (
           <div key={d.getTime()} className="allday-cell" onClick={() => onCreate(d, undefined, true)}>
-            {dayBdays[i].map((b) => <BirthdayChip key={b.id} b={b} />)}
-            {allDay[i].map((e) => <EventChip key={e.id} e={e} day={d} colour={colour(e)} onClick={() => onEvent(e)} />)}
-            {dayTasks[i].filter(isAllDayTask).map((t) => <TaskChip key={t.id} task={t} onOpen={(x) => onTask?.(x)} />)}
+            {dayBdays[i].map((b) => (
+              <BirthdayChip key={b.id} b={b} />
+            ))}
+            {allDay[i].map((e) => (
+              <EventChip key={e.id} e={e} day={d} colour={colour(e)} onClick={() => onEvent(e)} />
+            ))}
+            {dayTasks[i].filter(isAllDayTask).map((t) => (
+              <TaskChip key={t.id} task={t} onOpen={(x) => onTask?.(x)} />
+            ))}
           </div>
         ))}
       </div>
       <div className="week-scroll" ref={scroller}>
-        <div className={'week-body' + (drag ? ' dragging' : '')} ref={body} onPointerDown={onPointerDown}
-          onClickCapture={(e) => { if (suppress.current) { suppress.current = false; e.stopPropagation(); e.preventDefault() } }}>
+        <div
+          className={'week-body' + (drag ? ' dragging' : '')}
+          ref={body}
+          onPointerDown={onPointerDown}
+          onClickCapture={(e) => {
+            if (suppress.current) {
+              suppress.current = false
+              e.stopPropagation()
+              e.preventDefault()
+            }
+          }}
+        >
           <div className="gutter hours" aria-hidden="true">
             {HOURS.map((h) => (
-              <span key={h} style={{ top: `${(h / 24) * 100}%` }}>{h === 0 ? '' : hourFmt.format(new Date(2000, 0, 1, h))}</span>
+              <span key={h} style={{ top: `${(h / 24) * 100}%` }}>
+                {h === 0 ? '' : hourFmt.format(new Date(2000, 0, 1, h))}
+              </span>
             ))}
-            {home?.map((label, h) => h > 0 && <span key={'h' + h} className="home" style={{ top: `${(h / 24) * 100}%` }}>{label}</span>)}
+            {home?.map(
+              (label, h) =>
+                h > 0 && (
+                  <span key={'h' + h} className="home" style={{ top: `${(h / 24) * 100}%` }}>
+                    {label}
+                  </span>
+                ),
+            )}
           </div>
           {days.map((d, i) => (
-            <DayColumn key={d.getTime()} day={d} tz={tz} items={placed[i]} colour={colour} onEvent={onEvent} onCreate={onCreate} nowMin={isSameDay(d, nowDay) ? nowMin : null}
-              tasks={dayTasks[i].filter((t) => !isAllDayTask(t))} onTask={onTask} canEdit={onMove ? canEdit : undefined}
-              ghost={drag?.moved && drag.day === i ? { a: drag.a, b: drag.b, colour: drag.ev ? colour(drag.ev) : 'var(--app-accent)', name: drag.ev?.name ?? '' } : null}
-              draggingId={drag?.moved && drag.mode === 'move' ? drag.ev?.id : undefined} />
+            <DayColumn
+              key={d.getTime()}
+              day={d}
+              tz={tz}
+              items={placed[i]}
+              colour={colour}
+              onEvent={onEvent}
+              onCreate={onCreate}
+              nowMin={isSameDay(d, nowDay) ? nowMin : null}
+              tasks={dayTasks[i].filter((t) => !isAllDayTask(t))}
+              onTask={onTask}
+              canEdit={onMove ? canEdit : undefined}
+              ghost={
+                drag?.moved && drag.day === i
+                  ? { a: drag.a, b: drag.b, colour: drag.ev ? colour(drag.ev) : 'var(--app-accent)', name: drag.ev?.name ?? '' }
+                  : null
+              }
+              draggingId={drag?.moved && drag.mode === 'move' ? drag.ev?.id : undefined}
+            />
           ))}
         </div>
       </div>
@@ -214,10 +327,32 @@ export function WeekView({ days, byDay, colour, now, onCreate, onEvent, onOpenDa
   )
 }
 
-function DayColumn({ day, tz, items, colour, onEvent, onCreate, nowMin, tasks, onTask, canEdit, ghost, draggingId }: {
-  day: Date; tz: Zone; items: ReturnType<typeof layoutDay>; colour: (e: CalEvent) => string; onEvent: (e: CalEvent) => void
-  onCreate: (start: Date, end?: Date) => void; nowMin: number | null; tasks: Task[]; onTask?: (t: Task) => void
-  canEdit?: (e: CalEvent) => boolean; ghost: { a: number; b: number; colour: string; name: string } | null; draggingId?: string
+function DayColumn({
+  day,
+  tz,
+  items,
+  colour,
+  onEvent,
+  onCreate,
+  nowMin,
+  tasks,
+  onTask,
+  canEdit,
+  ghost,
+  draggingId,
+}: {
+  day: Date
+  tz: Zone
+  items: ReturnType<typeof layoutDay>
+  colour: (e: CalEvent) => string
+  onEvent: (e: CalEvent) => void
+  onCreate: (start: Date, end?: Date) => void
+  nowMin: number | null
+  tasks: Task[]
+  onTask?: (t: Task) => void
+  canEdit?: (e: CalEvent) => boolean
+  ghost: { a: number; b: number; colour: string; name: string } | null
+  draggingId?: string
 }) {
   const col = useRef<HTMLDivElement>(null)
   return (
@@ -240,31 +375,59 @@ function DayColumn({ day, tz, items, colour, onEvent, onCreate, nowMin, tasks, o
             key={e.id}
             type="button"
             data-ev={e.id}
-            className={'ev' + (e.kind === 'deadline' ? ' deadline' : '') + (dur < 45 ? ' short' : dur < 80 ? ' mid' : '') + (e.completed ? ' done' : '') + (draggingId === e.id ? ' drag-src' : '') + (canEdit?.(e) ? ' movable' : '') + (e.ghost ? ' ghost' : '')}
-            style={{
-              '--c': colour(e),
-              top: `${(startMin / 1440) * 100}%`,
-              height: e.kind === 'deadline' ? undefined : `calc(${(dur / 1440) * 100}% - 2px)`,
-              left: `calc(${(c / cols) * 100}% + 1px)`,
-              width: `calc(${(1 / cols) * 100}% - ${cols > 1 ? 3 : 6}px)`,
-            } as React.CSSProperties}
+            className={
+              'ev' +
+              (e.kind === 'deadline' ? ' deadline' : '') +
+              (dur < 45 ? ' short' : dur < 80 ? ' mid' : '') +
+              (e.completed ? ' done' : '') +
+              (draggingId === e.id ? ' drag-src' : '') +
+              (canEdit?.(e) ? ' movable' : '') +
+              (e.ghost ? ' ghost' : '')
+            }
+            style={
+              {
+                '--c': colour(e),
+                top: `${(startMin / 1440) * 100}%`,
+                height: e.kind === 'deadline' ? undefined : `calc(${(dur / 1440) * 100}% - 2px)`,
+                left: `calc(${(c / cols) * 100}% + 1px)`,
+                width: `calc(${(1 / cols) * 100}% - ${cols > 1 ? 3 : 6}px)`,
+              } as React.CSSProperties
+            }
             onClick={(ev) => (ev.stopPropagation(), onEvent(e))}
             title={label}
             aria-label={label}
           >
             {e.kind === 'deadline' ? (
-              <span className="ev-line"><Icon name="flag" size={11} /> <span className="truncate">{e.name}</span></span>
+              <span className="ev-line">
+                <Icon name="flag" size={11} /> <span className="truncate">{e.name}</span>
+              </span>
             ) : dur < 45 ? (
-              <span className="ev-line"><span className="truncate"><strong>{e.name}</strong> <span className="ev-time">{fmtTimeIn(s, tz)}</span></span></span>
+              <span className="ev-line">
+                <span className="truncate">
+                  <strong>{e.name}</strong> <span className="ev-time">{fmtTimeIn(s, tz)}</span>
+                </span>
+              </span>
             ) : (
               <>
-                <strong className="ev-name">{(e.icon || e.category?.icon) && <Icon name={(e.icon || e.category?.icon)!} size={11} />} {e.name}{e.recurring && <Icon name="repeat" size={10} />}</strong>
-                <span className="ev-time tabular">{fmtTimeIn(s, tz)} – {e.end ? fmtTimeIn(new Date(e.end), tz) : ''}</span>
+                <strong className="ev-name">
+                  {(e.icon || e.category?.icon) && <Icon name={(e.icon || e.category?.icon)!} size={11} />} {e.name}
+                  {e.recurring && <Icon name="repeat" size={10} />}
+                </strong>
+                <span className="ev-time tabular">
+                  {fmtTimeIn(s, tz)} – {e.end ? fmtTimeIn(new Date(e.end), tz) : ''}
+                </span>
                 {e.location && dur >= 75 && <span className="ev-time truncate">{e.location}</span>}
-                {e.category && e.category.name !== 'Uncategorized' && dur >= 100 && <span className="ev-time truncate">{e.category.name}</span>}
+                {e.category && e.category.name !== 'Uncategorized' && dur >= 100 && (
+                  <span className="ev-time truncate">{e.category.name}</span>
+                )}
               </>
             )}
-            {e.kind !== 'deadline' && e.end && canEdit?.(e) && zoneDayKey(s.getTime(), tz) === zoneDayKey(new Date(e.end).getTime() - 1, tz) && <span className="ev-resize" aria-hidden="true" />}
+            {e.kind !== 'deadline' &&
+              e.end &&
+              canEdit?.(e) &&
+              zoneDayKey(s.getTime(), tz) === zoneDayKey(new Date(e.end).getTime() - 1, tz) && (
+                <span className="ev-resize" aria-hidden="true" />
+              )}
           </button>
         )
       })}
@@ -277,8 +440,21 @@ function DayColumn({ day, tz, items, colour, onEvent, onCreate, nowMin, tasks, o
         )
       })}
       {ghost && (
-        <div className="ev-ghost" style={{ '--c': ghost.colour, top: `${(ghost.a / 1440) * 100}%`, height: `${((ghost.b - ghost.a) / 1440) * 100}%` } as React.CSSProperties} aria-hidden="true">
-          {ghost.name && <strong className="truncate">{ghost.name}</strong>}<span className="tabular">{minLabel(ghost.a)} – {minLabel(ghost.b)}</span>
+        <div
+          className="ev-ghost"
+          style={
+            {
+              '--c': ghost.colour,
+              top: `${(ghost.a / 1440) * 100}%`,
+              height: `${((ghost.b - ghost.a) / 1440) * 100}%`,
+            } as React.CSSProperties
+          }
+          aria-hidden="true"
+        >
+          {ghost.name && <strong className="truncate">{ghost.name}</strong>}
+          <span className="tabular">
+            {minLabel(ghost.a)} – {minLabel(ghost.b)}
+          </span>
         </div>
       )}
       {nowMin != null && <div className="now-line" style={{ top: `${(nowMin / 1440) * 100}%` }} aria-hidden="true" />}

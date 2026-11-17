@@ -70,7 +70,14 @@ export function fmtDate(d: Date, opts: Intl.DateTimeFormatOptions = { month: 'sh
   return dateFormatter(opts).format(d)
 }
 /** Same text as Date#toLocaleString() / toLocaleDateString(), from cached formatters. */
-const FULL: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: '2-digit', second: '2-digit' }
+const FULL: Intl.DateTimeFormatOptions = {
+  year: 'numeric',
+  month: 'numeric',
+  day: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  second: '2-digit',
+}
 const NUMERIC_DAY: Intl.DateTimeFormatOptions = { year: 'numeric', month: 'numeric', day: 'numeric' }
 export const fmtStamp = (d: Date | string) => dateFormatter(FULL).format(typeof d === 'string' ? new Date(d) : d)
 export const fmtNumericDay = (d: Date | string) => dateFormatter(NUMERIC_DAY).format(typeof d === 'string' ? new Date(d) : d)
@@ -121,7 +128,10 @@ export function shortStamp(iso: string, now: Date = new Date()): string {
   if (diff === 0) return fmtTime(d)
   if (diff === 1) return 'Yesterday'
   if (diff < 7 && diff > 0) return weekdayName(d, 'short')
-  return fmtDate(d, d.getFullYear() === now.getFullYear() ? { month: 'short', day: 'numeric' } : { year: 'numeric', month: 'short', day: 'numeric' })
+  return fmtDate(
+    d,
+    d.getFullYear() === now.getFullYear() ? { month: 'short', day: 'numeric' } : { year: 'numeric', month: 'short', day: 'numeric' },
+  )
 }
 
 export function greeting(now: Date = new Date()): string {
@@ -149,7 +159,11 @@ export function toDateInput(iso: string | null | undefined): string {
 
 // ---------- grouping
 export type DueGroupKey = 'overdue' | 'today' | 'tomorrow' | 'later' | 'nodate' | `day:${string}`
-export interface Group<T> { key: DueGroupKey; label: string; items: T[] }
+export interface Group<T> {
+  key: DueGroupKey
+  label: string
+  items: T[]
+}
 
 /**
  * Group items by due date: Overdue, Today, Tomorrow, each of the next 5 days by weekday,

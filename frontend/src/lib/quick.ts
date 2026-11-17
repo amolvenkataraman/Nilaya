@@ -26,7 +26,9 @@ export function previewQuick(text: string): QuickPreview {
     rest = rest.slice(0, m.index) + ' ' + rest.slice(m.index + m[0].length)
     return true
   }
-  while (take(new RegExp(String.raw`(?:^|\s)\*` + WORD, 'u'), (m) => out.labels.push(m[1] ?? m[2]))) { /* all labels */ }
+  while (take(new RegExp(String.raw`(?:^|\s)\*` + WORD, 'u'), (m) => out.labels.push(m[1] ?? m[2]))) {
+    /* all labels */
+  }
   take(new RegExp(String.raw`(?:^|\s)\+` + WORD, 'u'), (m) => (out.project = m[1] ?? m[2]))
   take(/(?:^|\s)!([1-5])\b/, (m) => (out.priority = Number(m[1])))
   take(new RegExp(REPEAT, 'i'), (m) => (out.repeat = m[1]))

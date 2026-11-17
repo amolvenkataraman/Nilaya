@@ -8,12 +8,29 @@ import { toast } from '../../components/toast'
 import { del, get, patch, post } from '../../lib/api'
 import { fmtDate, shortStamp } from '../../lib/dates'
 
-interface KeyApp { app: string; label: string; scopes: string[] }
-interface ApiKey {
-  id: string; name: string; prefix: string; scopes: string[]; created_on: string
-  expires_on: string | null; last_used_on: string | null; last_used_ip: string | null
+interface KeyApp {
+  app: string
+  label: string
+  scopes: string[]
 }
-interface Feed { id: string; kind: 'calendar' | 'tasks'; name: string; created_on: string; last_fetched_on: string | null; fetches: number }
+interface ApiKey {
+  id: string
+  name: string
+  prefix: string
+  scopes: string[]
+  created_on: string
+  expires_on: string | null
+  last_used_on: string | null
+  last_used_ip: string | null
+}
+interface Feed {
+  id: string
+  kind: 'calendar' | 'tasks'
+  name: string
+  created_on: string
+  last_fetched_on: string | null
+  fetches: number
+}
 
 const KEYS = ['settings', 'keys'] as const
 const APPS_KEY = ['settings', 'key-apps'] as const
@@ -40,7 +57,9 @@ function SecretBox({ value, label }: { value: string; label: string }) {
   const [copied, setCopied] = useState<'' | 'ok' | 'manual'>('')
   return (
     <div className="secret-row">
-      <code ref={ref} className="secret" aria-label={label}>{value}</code>
+      <code ref={ref} className="secret" aria-label={label}>
+        {value}
+      </code>
       <button
         type="button"
         className="btn sm"
@@ -78,7 +97,9 @@ export function ApiKeysSection() {
         {keys.isPending ? (
           <SkeletonRows rows={2} />
         ) : keys.isError && !keys.data ? (
-          <div className="card-body"><ErrorBox error={keys.error} retry={() => keys.refetch()} /></div>
+          <div className="card-body">
+            <ErrorBox error={keys.error} retry={() => keys.refetch()} />
+          </div>
         ) : !keys.data.length ? (
           <div className="empty">No keys yet. Create one to use the API from a script or another app.</div>
         ) : (
@@ -102,29 +123,51 @@ function KeyRow({ k, label, onEdit }: { k: ApiKey; label: (app: string) => strin
   const expired = !!k.expires_on && new Date(k.expires_on) <= new Date()
   return (
     <div className={'item-row' + (expired ? ' off' : '')}>
-      <span className="item-icon" aria-hidden="true"><Icon name="code" /></span>
+      <span className="item-icon" aria-hidden="true">
+        <Icon name="code" />
+      </span>
       <div className="item-main">
-        <div className="item-title"><span className="truncate">{k.name}</span>{expired && <span className="chip danger">Expired</span>}</div>
+        <div className="item-title">
+          <span className="truncate">{k.name}</span>
+          {expired && <span className="chip danger">Expired</span>}
+        </div>
         <div className="item-meta">
           <code>nly_{k.prefix}_…</code>
           <span>Created {day(k.created_on)}</span>
-          <span title={k.last_used_ip ? `From ${k.last_used_ip}` : undefined}>{k.last_used_on ? `Last used ${shortStamp(k.last_used_on)}` : 'Never used'}</span>
+          <span title={k.last_used_ip ? `From ${k.last_used_ip}` : undefined}>
+            {k.last_used_on ? `Last used ${shortStamp(k.last_used_on)}` : 'Never used'}
+          </span>
           {k.expires_on && !expired && <span>Expires {day(k.expires_on)}</span>}
           {!k.expires_on && <span>Never expires</span>}
         </div>
         <div className="item-chips">
           {k.scopes.map((s) => {
             const [app, level] = s.split(':')
-            return <span key={s} className={'chip' + (level === 'write' ? ' accent' : '')}>{label(app)}: {level === 'write' ? 'read & write' : 'read'}</span>
+            return (
+              <span key={s} className={'chip' + (level === 'write' ? ' accent' : '')}>
+                {label(app)}: {level === 'write' ? 'read & write' : 'read'}
+              </span>
+            )
           })}
         </div>
       </div>
       <div className="item-actions">
-        <Menu align="end" trigger={(p) => <button {...p} className="btn ghost icon sm" aria-label={`Actions for ${k.name}`}><Icon name="more" /></button>}>
+        <Menu
+          align="end"
+          trigger={(p) => (
+            <button {...p} className="btn ghost icon sm" aria-label={`Actions for ${k.name}`}>
+              <Icon name="more" />
+            </button>
+          )}
+        >
           {(close) => (
             <>
-              <MenuItem icon="edit" onClick={() => (close(), onEdit())}>Edit name and access</MenuItem>
-              <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>Revoke</MenuItem>
+              <MenuItem icon="edit" onClick={() => (close(), onEdit())}>
+                Edit name and access
+              </MenuItem>
+              <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>
+                Revoke
+              </MenuItem>
             </>
           )}
         </Menu>
@@ -153,13 +196,16 @@ function KeyDialog({ apiKey, apps, onClose }: { apiKey: ApiKey | null; apps: Key
   const [name, setName] = useState(apiKey?.name ?? '')
   const [levels, setLevels] = useState<Record<string, '' | 'read' | 'write'>>(() => {
     const out: Record<string, '' | 'read' | 'write'> = {}
-    for (const a of apps) out[a.app] = apiKey?.scopes.includes(`${a.app}:write`) ? 'write' : apiKey?.scopes.includes(`${a.app}:read`) ? 'read' : ''
+    for (const a of apps)
+      out[a.app] = apiKey?.scopes.includes(`${a.app}:write`) ? 'write' : apiKey?.scopes.includes(`${a.app}:read`) ? 'read' : ''
     return out
   })
   const [expiry, setExpiry] = useState('90')
   const [error, setError] = useState('')
   const [token, setToken] = useState('') // shown once, dropped when the dialog closes
-  const scopes = Object.entries(levels).filter(([, l]) => l).map(([a, l]) => `${a}:${l}`)
+  const scopes = Object.entries(levels)
+    .filter(([, l]) => l)
+    .map(([a, l]) => `${a}:${l}`)
   const save = useMutation({
     mutationFn: async (): Promise<string | null> => {
       if (apiKey) {
@@ -186,11 +232,29 @@ function KeyDialog({ apiKey, apps, onClose }: { apiKey: ApiKey | null; apps: Key
 
   if (token) {
     return (
-      <Dialog open onClose={onClose} title="Copy your key now" width="32rem" footer={<><span className="spacer" /><button className="btn primary" onClick={onClose}>Done</button></>}>
+      <Dialog
+        open
+        onClose={onClose}
+        title="Copy your key now"
+        width="32rem"
+        footer={
+          <>
+            <span className="spacer" />
+            <button className="btn primary" onClick={onClose}>
+              Done
+            </button>
+          </>
+        }
+      >
         <div className="stack" style={{ gap: 'var(--sp-3)' }}>
-          <p className="small muted">This is the only time the key is shown. Store it somewhere safe, such as a password manager. If you lose it, revoke it and make a new one.</p>
+          <p className="small muted">
+            This is the only time the key is shown. Store it somewhere safe, such as a password manager. If you lose it, revoke it and make
+            a new one.
+          </p>
           <SecretBox value={token} label="New API key" />
-          <p className="help">Send it as <code>Authorization: Bearer &lt;key&gt;</code> or <code>X-API-Key: &lt;key&gt;</code>.</p>
+          <p className="help">
+            Send it as <code>Authorization: Bearer &lt;key&gt;</code> or <code>X-API-Key: &lt;key&gt;</code>.
+          </p>
         </div>
       </Dialog>
     )
@@ -203,23 +267,43 @@ function KeyDialog({ apiKey, apps, onClose }: { apiKey: ApiKey | null; apps: Key
       width="30rem"
       footer={
         <>
-          {error ? <span className="error-text grow" role="alert">{error}</span> : <span className="spacer" />}
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" type="submit" form="key-form" disabled={save.isPending}>{save.isPending ? 'Saving…' : apiKey ? 'Save' : 'Create key'}</button>
+          {error ? (
+            <span className="error-text grow" role="alert">
+              {error}
+            </span>
+          ) : (
+            <span className="spacer" />
+          )}
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn primary" type="submit" form="key-form" disabled={save.isPending}>
+            {save.isPending ? 'Saving…' : apiKey ? 'Save' : 'Create key'}
+          </button>
         </>
       }
     >
       <form id="key-form" className="stack" style={{ gap: 'var(--sp-3)' }} onSubmit={(e) => (e.preventDefault(), submit())}>
         <label className="field">
           <span>Name</span>
-          <input className="input" value={name} maxLength={64} placeholder="e.g. Phone shortcut" onChange={(e) => setName(e.target.value)} />
+          <input
+            className="input"
+            value={name}
+            maxLength={64}
+            placeholder="e.g. Phone shortcut"
+            onChange={(e) => setName(e.target.value)}
+          />
         </label>
         <fieldset className="field scope-list">
           <legend className="label">Access</legend>
           {apps.map((a) => (
             <label key={a.app} className="scope-row">
               <span>{a.label}</span>
-              <select className="select" value={levels[a.app]} onChange={(e) => setLevels((l) => ({ ...l, [a.app]: e.target.value as '' | 'read' | 'write' }))}>
+              <select
+                className="select"
+                value={levels[a.app]}
+                onChange={(e) => setLevels((l) => ({ ...l, [a.app]: e.target.value as '' | 'read' | 'write' }))}
+              >
                 <option value="">No access</option>
                 <option value="read">Read</option>
                 <option value="write">Read &amp; write</option>
@@ -228,12 +312,19 @@ function KeyDialog({ apiKey, apps, onClose }: { apiKey: ApiKey | null; apps: Key
           ))}
         </fieldset>
         {apiKey ? (
-          <p className="help">{apiKey.expires_on ? `Expires ${day(apiKey.expires_on)}.` : 'Never expires.'} The expiry can't be changed; make a new key instead.</p>
+          <p className="help">
+            {apiKey.expires_on ? `Expires ${day(apiKey.expires_on)}.` : 'Never expires.'} The expiry can't be changed; make a new key
+            instead.
+          </p>
         ) : (
           <label className="field">
             <span>Expires</span>
             <select className="select" value={expiry} onChange={(e) => setExpiry(e.target.value)}>
-              {EXPIRY.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
+              {EXPIRY.map((x) => (
+                <option key={x.value} value={x.value}>
+                  {x.label}
+                </option>
+              ))}
             </select>
           </label>
         )}
@@ -249,7 +340,8 @@ export function FeedsSection() {
   const [kind, setKind] = useState<Feed['kind']>('calendar')
   const [created, setCreated] = useState<{ url: string; name: string } | null>(null) // shown once
   const create = useMutation({
-    mutationFn: (v: { kind: Feed['kind']; name: string; replace?: Feed }) => post<{ feed: Feed; url: string }>('feeds/', { kind: v.kind, name: v.name }),
+    mutationFn: (v: { kind: Feed['kind']; name: string; replace?: Feed }) =>
+      post<{ feed: Feed; url: string }>('feeds/', { kind: v.kind, name: v.name }),
     onSuccess: (res, v) => {
       setCreated({ url: res.url, name: res.feed.name }) // keep the new URL even if revoking the old one fails
       if (v.replace) {
@@ -275,12 +367,22 @@ export function FeedsSection() {
       </div>
       <div className="set-card">
         <div className="set-row inline">
-          <label className="set-label" htmlFor="feed-kind">New feed</label>
+          <label className="set-label" htmlFor="feed-kind">
+            New feed
+          </label>
           <div className="set-control">
             <select id="feed-kind" className="select" value={kind} onChange={(e) => setKind(e.target.value as Feed['kind'])}>
-              {Object.entries(FEED_KINDS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
+              {Object.entries(FEED_KINDS).map(([k, l]) => (
+                <option key={k} value={k}>
+                  {l}
+                </option>
+              ))}
             </select>
-            <button className="btn sm" disabled={create.isPending} onClick={() => create.mutate({ kind, name: kind === 'tasks' ? 'Tasks' : 'Calendar' })}>
+            <button
+              className="btn sm"
+              disabled={create.isPending}
+              onClick={() => create.mutate({ kind, name: kind === 'tasks' ? 'Tasks' : 'Calendar' })}
+            >
               <Icon name="plus" size={14} />
               Create
             </button>
@@ -288,20 +390,31 @@ export function FeedsSection() {
         </div>
         {created && (
           <div className="feed-created" role="status">
-            <div className="small"><strong>{created.name}</strong> feed address. Copy it now: it's only shown once.</div>
+            <div className="small">
+              <strong>{created.name}</strong> feed address. Copy it now: it's only shown once.
+            </div>
             <SecretBox value={created.url} label="Feed address" />
-            <button className="btn ghost sm" onClick={() => setCreated(null)}>Hide</button>
+            <button className="btn ghost sm" onClick={() => setCreated(null)}>
+              Hide
+            </button>
           </div>
         )}
         {feeds.isPending ? (
           <SkeletonRows rows={2} />
         ) : feeds.isError && !feeds.data ? (
-          <div className="card-body"><ErrorBox error={feeds.error} retry={() => feeds.refetch()} /></div>
+          <div className="card-body">
+            <ErrorBox error={feeds.error} retry={() => feeds.refetch()} />
+          </div>
         ) : !feeds.data.length ? (
           <div className="empty item-sep">No feeds yet.</div>
         ) : (
           feeds.data.map((f) => (
-            <FeedRow key={f.id} f={f} busy={create.isPending} onRegenerate={() => create.mutate({ kind: f.kind, name: f.name, replace: f })} />
+            <FeedRow
+              key={f.id}
+              f={f}
+              busy={create.isPending}
+              onRegenerate={() => create.mutate({ kind: f.kind, name: f.name, replace: f })}
+            />
           ))
         )}
       </div>
@@ -320,20 +433,40 @@ function FeedRow({ f, busy, onRegenerate }: { f: Feed; busy: boolean; onRegenera
   })
   return (
     <div className="item-row item-sep">
-      <span className="item-icon" aria-hidden="true"><Icon name={f.kind === 'tasks' ? 'tasks' : 'calendar'} /></span>
+      <span className="item-icon" aria-hidden="true">
+        <Icon name={f.kind === 'tasks' ? 'tasks' : 'calendar'} />
+      </span>
       <div className="item-main">
-        <div className="item-title"><span className="truncate">{FEED_KINDS[f.kind] ?? f.kind}</span>{f.name && <span className="chip">{f.name}</span>}</div>
+        <div className="item-title">
+          <span className="truncate">{FEED_KINDS[f.kind] ?? f.kind}</span>
+          {f.name && <span className="chip">{f.name}</span>}
+        </div>
         <div className="item-meta">
           <span>Created {day(f.created_on)}</span>
-          <span>{f.last_fetched_on ? `Last fetched ${shortStamp(f.last_fetched_on)} · ${f.fetches.toLocaleString()} time${f.fetches === 1 ? '' : 's'}` : 'Never fetched'}</span>
+          <span>
+            {f.last_fetched_on
+              ? `Last fetched ${shortStamp(f.last_fetched_on)} · ${f.fetches.toLocaleString()} time${f.fetches === 1 ? '' : 's'}`
+              : 'Never fetched'}
+          </span>
         </div>
       </div>
       <div className="item-actions">
-        <Menu align="end" trigger={(p) => <button {...p} className="btn ghost icon sm" aria-label="Feed actions" disabled={busy}><Icon name="more" /></button>}>
+        <Menu
+          align="end"
+          trigger={(p) => (
+            <button {...p} className="btn ghost icon sm" aria-label="Feed actions" disabled={busy}>
+              <Icon name="more" />
+            </button>
+          )}
+        >
           {(close) => (
             <>
-              <MenuItem icon="refresh" onClick={() => (close(), setConfirm('regen'))}>New address</MenuItem>
-              <MenuItem icon="trash" danger onClick={() => (close(), setConfirm('revoke'))}>Revoke</MenuItem>
+              <MenuItem icon="refresh" onClick={() => (close(), setConfirm('regen'))}>
+                New address
+              </MenuItem>
+              <MenuItem icon="trash" danger onClick={() => (close(), setConfirm('revoke'))}>
+                Revoke
+              </MenuItem>
             </>
           )}
         </Menu>
@@ -341,9 +474,11 @@ function FeedRow({ f, busy, onRegenerate }: { f: Feed; busy: boolean; onRegenera
       <Confirm
         open={confirm !== null}
         title={confirm === 'regen' ? 'Make a new address?' : 'Revoke this feed?'}
-        body={confirm === 'regen'
-          ? "The current address stops working; you'll need to subscribe again with the new one."
-          : 'Calendar apps subscribed to it stop getting updates.'}
+        body={
+          confirm === 'regen'
+            ? "The current address stops working; you'll need to subscribe again with the new one."
+            : 'Calendar apps subscribed to it stop getting updates.'
+        }
         confirmLabel={confirm === 'regen' ? 'New address' : 'Revoke'}
         onConfirm={() => (confirm === 'regen' ? onRegenerate() : revoke.mutate())}
         onClose={() => setConfirm(null)}
@@ -391,37 +526,71 @@ export function GuidesSection() {
         <div>
           <h2 id="set-guides">Developers: guides for developers and AI agents</h2>
           <p>
-            One Markdown guide per app: concepts, every endpoint and the JSON schemas. To let an AI agent (or a script) use an app,
-            give it that app's guide plus an <a href="#set-api">API key</a> with access to that app. Send the key as{' '}
+            One Markdown guide per app: concepts, every endpoint and the JSON schemas. To let an AI agent (or a script) use an app, give it
+            that app's guide plus an <a href="#set-api">API key</a> with access to that app. Send the key as{' '}
             <code>Authorization: Bearer &lt;key&gt;</code> or <code>X-API-Key: &lt;key&gt;</code>.
           </p>
         </div>
       </div>
       <div className="set-card">
-        {apps.isPending ? <SkeletonRows rows={3} /> : apps.isError && !apps.data ? (
-          <div className="card-body"><ErrorBox error={apps.error} retry={() => apps.refetch()} /></div>
+        {apps.isPending ? (
+          <SkeletonRows rows={3} />
+        ) : apps.isError && !apps.data ? (
+          <div className="card-body">
+            <ErrorBox error={apps.error} retry={() => apps.refetch()} />
+          </div>
         ) : (
           <div className="guide-grid">
             {apps.data.map((a) => (
               <div key={a.app} className="guide">
-                <span className="grow truncate">{a.label}<span className="muted xsmall"> · /api/v2/{a.app}/guide.md</span></span>
-                <a className="btn ghost sm" href={`/api/v2/${encodeURIComponent(a.app)}/guide.md`} target="_blank" rel="noopener noreferrer">Open</a>
+                <span className="grow truncate">
+                  {a.label}
+                  <span className="muted xsmall"> · /api/v2/{a.app}/guide.md</span>
+                </span>
+                <a
+                  className="btn ghost sm"
+                  href={`/api/v2/${encodeURIComponent(a.app)}/guide.md`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open
+                </a>
                 <button className="btn ghost sm" title="Copy the Markdown guide to paste into an AI agent" onClick={() => copy(a.app)}>
                   {copied === a.app ? 'Copied' : 'Copy'}
                 </button>
-                <button className="btn ghost sm" title="Download the guide as a .md file" onClick={() => download(a.app)}>Download .md</button>
+                <button className="btn ghost sm" title="Download the guide as a .md file" onClick={() => download(a.app)}>
+                  Download .md
+                </button>
               </div>
             ))}
           </div>
         )}
         <div className="card-body dev-links">
           <div className="row" style={{ gap: '0.5rem', flexWrap: 'wrap' }}>
-            <a className="btn sm" href="/api/v2/docs" target="_blank" rel="noopener noreferrer"><Icon name="book" size={14} />Interactive API docs</a>
-            <a className="btn sm" href="/api/v2/openapi.json" target="_blank" rel="noopener noreferrer"><Icon name="code" size={14} />OpenAPI schema</a>
+            <a className="btn sm" href="/api/v2/docs" target="_blank" rel="noopener noreferrer">
+              <Icon name="book" size={14} />
+              Interactive API docs
+            </a>
+            <a className="btn sm" href="/api/v2/openapi.json" target="_blank" rel="noopener noreferrer">
+              <Icon name="code" size={14} />
+              OpenAPI schema
+            </a>
           </div>
           <div className="dev-curl">
             <code>{curl}</code>
-            <button className="btn ghost icon sm" aria-label="Copy example" title="Copy example" onClick={() => navigator.clipboard?.writeText(curl).then(() => toast.show('Example copied'), () => toast.error('Copy failed'))}><Icon name="copy" size={14} /></button>
+            <button
+              className="btn ghost icon sm"
+              aria-label="Copy example"
+              title="Copy example"
+              onClick={() =>
+                navigator.clipboard?.writeText(curl).then(
+                  () => toast.show('Example copied'),
+                  () => toast.error('Copy failed'),
+                )
+              }
+            >
+              <Icon name="copy" size={14} />
+            </button>
           </div>
         </div>
       </div>

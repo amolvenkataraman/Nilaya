@@ -9,35 +9,100 @@ export type Period = 'day' | 'week' | 'month'
 export type Schedule = 'daily' | 'weekdays' | 'interval'
 
 export interface Habit {
-  id: string; name: string; description: string; colour: string; icon: string; position: number; archived: boolean
-  paused: boolean; start_date: string; end_date: string | null; kind: Kind; unit: string; goal: Goal; target: number
-  period: Period; schedule: Schedule; weekdays: number; interval: number; reminder_time: string | null
-  reminder_days: number; created_on: string
+  id: string
+  name: string
+  description: string
+  colour: string
+  icon: string
+  position: number
+  archived: boolean
+  paused: boolean
+  start_date: string
+  end_date: string | null
+  kind: Kind
+  unit: string
+  goal: Goal
+  target: number
+  period: Period
+  schedule: Schedule
+  weekdays: number
+  interval: number
+  reminder_time: string | null
+  reminder_days: number
+  created_on: string
 }
-export type HabitInput = Partial<Omit<Habit, 'id' | 'position' | 'created_on' | 'start_date'>> & { name?: string; start_date?: string | null }
+export type HabitInput = Partial<Omit<Habit, 'id' | 'position' | 'created_on' | 'start_date'>> & {
+  name?: string
+  start_date?: string | null
+}
 export interface TodayRow {
-  habit: Habit; due: boolean; done: boolean; over: boolean; value: number; skipped: boolean; note: string
-  period_value: number; period_required: number; streak: number; streak_unit: Period
+  habit: Habit
+  due: boolean
+  done: boolean
+  over: boolean
+  value: number
+  skipped: boolean
+  note: string
+  period_value: number
+  period_required: number
+  streak: number
+  streak_unit: Period
 }
 export interface Today {
-  date: string; done: number; total: number; left: number; over: number
+  date: string
+  done: number
+  total: number
+  left: number
+  over: number
   /** Days/periods met and judged in the last 7 days, all active habits. */
-  week_done: number; week_judged: number; habits: TodayRow[]
+  week_done: number
+  week_judged: number
+  habits: TodayRow[]
 }
-export interface Entry { habit_id: string; date: string; value: number; note: string; skipped: boolean }
-export interface Streak { habit_id: string; name: string; colour: string; current: number; best: number; unit: Period }
-export interface Overview { date: string; done: number; total: number; left: number; over: number; week_rate: number | null; streaks: Streak[] }
+export interface Entry {
+  habit_id: string
+  date: string
+  value: number
+  note: string
+  skipped: boolean
+}
+export interface Streak {
+  habit_id: string
+  name: string
+  colour: string
+  current: number
+  best: number
+  unit: Period
+}
+export interface Overview {
+  date: string
+  done: number
+  total: number
+  left: number
+  over: number
+  week_rate: number | null
+  streaks: Streak[]
+}
 export interface Stats {
-  habit_id: string; today: string; streak_unit: Period; current_streak: number; best_streak: number; score: number
+  habit_id: string
+  today: string
+  streak_unit: Period
+  current_streak: number
+  best_streak: number
+  score: number
   rates: { d7: number | null; d30: number | null; d90: number | null; all: number | null }
-  period_value: number; period_required: number
+  period_value: number
+  period_required: number
   score_trend: { date: string; score: number }[]
   heatmap: { start: string; end: string; levels: string; values: (number | null)[] }
   weekdays: { weekday: number; done: number; judged: number; rate: number | null; average: number | null }[]
   totals: { total: number; week: number; month: number; days: number; average: number | null; best: number | null }
   notes: { date: string; note: string; value: number; skipped: boolean }[]
 }
-export interface HabitSettings { evening_nudge: boolean; nudge_time: string }
+export interface HabitSettings {
+  evening_nudge: boolean
+  nudge_time: string
+}
 
 export const hk = {
   all: ['habits'] as const,
@@ -57,7 +122,11 @@ export const useHabitsOverview = () => useQuery({ queryKey: hk.overview, queryFn
 export const useHabits = (archived = false) =>
   useQuery({ queryKey: hk.list(archived), queryFn: () => get<Habit[]>('habits/', { include_archived: archived || undefined }) })
 export const useEntries = (start: string, end: string) =>
-  useQuery({ queryKey: hk.entries(start, end), queryFn: () => get<Entry[]>('habits/entries', { start, end }), placeholderData: keepPreviousData })
+  useQuery({
+    queryKey: hk.entries(start, end),
+    queryFn: () => get<Entry[]>('habits/entries', { start, end }),
+    placeholderData: keepPreviousData,
+  })
 export const useStats = (id: string | undefined) =>
   useQuery({ queryKey: hk.stats(id ?? ''), queryFn: () => get<Stats>(`habits/${id}/stats`), enabled: !!id })
 export const useHabitSettings = () => useQuery({ queryKey: hk.settings, queryFn: () => get<HabitSettings>('habits/settings') })
@@ -78,7 +147,15 @@ function patchCaches(qc: QueryClient, habit: Habit, day: string, value: number |
         const v = value ?? 0
         const periodValue = r.period_value - r.value + v
         const done = habit.goal === 'at_least' ? periodValue >= r.period_required : periodValue <= r.period_required
-        return { ...r, value: v, skipped, note: note ?? r.note, period_value: periodValue, done, over: habit.goal === 'at_most' && periodValue > r.period_required }
+        return {
+          ...r,
+          value: v,
+          skipped,
+          note: note ?? r.note,
+          period_value: periodValue,
+          done,
+          over: habit.goal === 'at_most' && periodValue > r.period_required,
+        }
       }),
     })
   }
@@ -87,7 +164,10 @@ function patchCaches(qc: QueryClient, habit: Habit, day: string, value: number |
     const old = data.find((e) => e.habit_id === habit.id && e.date === day)
     const rest = old ? data.filter((e) => e !== old) : data
     const n = note ?? old?.note ?? ''
-    qc.setQueryData<Entry[]>(key, !value && !skipped && !n ? rest : [...rest, { habit_id: habit.id, date: day, value: value ?? 0, note: n, skipped }])
+    qc.setQueryData<Entry[]>(
+      key,
+      !value && !skipped && !n ? rest : [...rest, { habit_id: habit.id, date: day, value: value ?? 0, note: n, skipped }],
+    )
   }
 }
 
@@ -104,14 +184,16 @@ export function useCheck() {
       const day = v.date ?? today?.date
       if (day) {
         const cur = v.current ?? today?.habits.find((r) => r.habit.id === v.habit.id)?.value ?? 0
-        const next = v.habit.kind === 'yesno' ? (v.done ?? cur < 1) ? 1 : 0 : Math.max(0, cur + (v.amount ?? 1))
+        const next = v.habit.kind === 'yesno' ? ((v.done ?? cur < 1) ? 1 : 0) : Math.max(0, cur + (v.amount ?? 1))
         patchCaches(qc, v.habit, day, next || null)
       }
       return { rollback: () => snaps.forEach(([k, d]) => qc.setQueryData(k, d)) }
     },
     onError: (e, _v, ctx) => (ctx?.rollback(), onError(e)),
     onSuccess: (row) => {
-      qc.setQueryData<Today>(hk.today, (old) => old && old.date ? { ...old, habits: old.habits.map((r) => (r.habit.id === row.habit.id ? row : r)) } : old)
+      qc.setQueryData<Today>(hk.today, (old) =>
+        old && old.date ? { ...old, habits: old.habits.map((r) => (r.habit.id === row.habit.id ? row : r)) } : old,
+      )
     },
     onSettled: () => refreshDerived(qc),
   })
@@ -121,9 +203,22 @@ export function useCheck() {
 export function useSetEntry() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ habit, day, value, skipped, note }: { habit: Habit; day: string; value: number | null; skipped?: boolean; note?: string }) =>
+    mutationFn: ({
+      habit,
+      day,
+      value,
+      skipped,
+      note,
+    }: {
+      habit: Habit
+      day: string
+      value: number | null
+      skipped?: boolean
+      note?: string
+    }) =>
       api<Entry & { today: TodayRow }>(`habits/entries/${habit.id}/${day}`, {
-        method: 'PUT', body: { value: value ?? 0, skipped: !!skipped, ...(note !== undefined ? { note } : {}) },
+        method: 'PUT',
+        body: { value: value ?? 0, skipped: !!skipped, ...(note !== undefined ? { note } : {}) },
       }),
     onMutate: async ({ habit, day, value, skipped, note }) => {
       await qc.cancelQueries({ queryKey: hk.all })
@@ -142,7 +237,8 @@ export function useSetEntry() {
 export function useSaveHabit() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, body }: { id?: string; body: HabitInput }) => (id ? patch<Habit>(`habits/${id}`, body) : post<Habit>('habits/', body)),
+    mutationFn: ({ id, body }: { id?: string; body: HabitInput }) =>
+      id ? patch<Habit>(`habits/${id}`, body) : post<Habit>('habits/', body),
     onSuccess: () => refreshDerived(qc),
     onError,
   })
@@ -151,8 +247,8 @@ export function useSaveHabit() {
 export function useArchiveHabit() {
   const qc = useQueryClient()
   // Undo runs outside the hook: the row that archived may be gone by then.
-  const undo = (h: Habit) => post<Habit>(`habits/${h.id}/archive`, { archived: false })
-    .then(() => (refreshDerived(qc), toast.show(`Restored "${h.name}"`)), onError)
+  const undo = (h: Habit) =>
+    post<Habit>(`habits/${h.id}/archive`, { archived: false }).then(() => (refreshDerived(qc), toast.show(`Restored "${h.name}"`)), onError)
   return useMutation({
     mutationFn: ({ id, archived }: { id: string; archived: boolean }) => post<Habit>(`habits/${id}/archive`, { archived }),
     onSuccess: (h) => {
@@ -168,7 +264,10 @@ export function usePauseHabit() {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ id, paused }: { id: string; paused: boolean }) => patch<Habit>(`habits/${id}`, { paused }),
-    onSuccess: (h) => (refreshDerived(qc), toast.show(h.paused ? `${h.name} paused. No reminders until you resume.` : `${h.name} resumed. Paused days count as skipped.`)),
+    onSuccess: (h) => (
+      refreshDerived(qc),
+      toast.show(h.paused ? `${h.name} paused. No reminders until you resume.` : `${h.name} resumed. Paused days count as skipped.`)
+    ),
     onError,
   })
 }
@@ -189,7 +288,10 @@ export function useReorder() {
     onMutate: (ids) => {
       const order = new Map(ids.map((id, i) => [id, i]))
       qc.setQueryData<Habit[]>(hk.list(false), (old) => old && [...old].sort((a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)))
-      qc.setQueryData<Today>(hk.today, (old) => old && { ...old, habits: [...old.habits].sort((a, b) => (order.get(a.habit.id) ?? 0) - (order.get(b.habit.id) ?? 0)) })
+      qc.setQueryData<Today>(
+        hk.today,
+        (old) => old && { ...old, habits: [...old.habits].sort((a, b) => (order.get(a.habit.id) ?? 0) - (order.get(b.habit.id) ?? 0)) },
+      )
     },
     onError,
     onSettled: () => refreshDerived(qc),

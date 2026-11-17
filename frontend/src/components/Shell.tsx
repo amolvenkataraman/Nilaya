@@ -28,7 +28,10 @@ export function usePageTitle(title: string) {
   }, [title])
 }
 
-interface Globals { openPalette: () => void; openQuickAdd: () => void }
+interface Globals {
+  openPalette: () => void
+  openQuickAdd: () => void
+}
 const GlobalsContext = createContext<Globals>({ openPalette: () => {}, openQuickAdd: () => {} })
 export const useGlobals = () => useContext(GlobalsContext)
 
@@ -39,9 +42,19 @@ export function Shell() {
   const location = useLocation()
 
   // Ctrl/Cmd-K anywhere; "/" when not typing; "g" then a letter jumps (Linear-style); "q" quick-adds a task.
-  useHotkey((e) => (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k', (e) => (e.preventDefault(), setPalette((p) => !p)), true)
-  useHotkey((e) => e.key === '/' && !e.metaKey && !e.ctrlKey, (e) => (e.preventDefault(), setPalette(true)))
-  useHotkey((e) => e.key === 'q' && !e.metaKey && !e.ctrlKey && !e.altKey, (e) => (e.preventDefault(), setQuickAdd(true)))
+  useHotkey(
+    (e) => (e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k',
+    (e) => (e.preventDefault(), setPalette((p) => !p)),
+    true,
+  )
+  useHotkey(
+    (e) => e.key === '/' && !e.metaKey && !e.ctrlKey,
+    (e) => (e.preventDefault(), setPalette(true)),
+  )
+  useHotkey(
+    (e) => e.key === 'q' && !e.metaKey && !e.ctrlKey && !e.altKey,
+    (e) => (e.preventDefault(), setQuickAdd(true)),
+  )
   const [gPending, setG] = useState(false)
   useHotkey(
     (e) => !e.metaKey && !e.ctrlKey && !e.altKey && (e.key === 'g' || gPending),

@@ -67,14 +67,27 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
         maxLength={MAX}
       />
       {text ? (
-        <button type="button" className="ph-search-clear" onClick={clear} aria-label="Clear search"><Icon name="x" size={14} /></button>
-      ) : <kbd className="ph-search-kbd" aria-hidden="true">/</kbd>}
+        <button type="button" className="ph-search-clear" onClick={clear} aria-label="Clear search">
+          <Icon name="x" size={14} />
+        </button>
+      ) : (
+        <kbd className="ph-search-kbd" aria-hidden="true">
+          /
+        </kbd>
+      )}
     </form>
   )
 }
 
 const ICON: Record<SearchTerm['type'], string> = {
-  place: 'pin', object: 'tag', camera: 'camera', date: 'calendar', media: 'photo', album: 'album', library: 'layers', text: 'search',
+  place: 'pin',
+  object: 'tag',
+  camera: 'camera',
+  date: 'calendar',
+  media: 'photo',
+  album: 'album',
+  library: 'layers',
+  text: 'search',
 }
 const kindOf = (t: SearchTerm) => (t.type === 'date' && /^\d{4}$/.test(t.value) ? 'Year' : t.kind)
 
@@ -86,15 +99,27 @@ export function SearchResults({ zoom }: { zoom: Zoom }) {
   const page = meta?.q === q ? meta.page : null
   const terms = page?.interpreted ?? []
   const media = terms.filter((t) => t.type === 'media').map((t) => t.value)
-  const noun = media.includes('video') && !media.includes('photo') ? 'video' : media.includes('photo') && !media.includes('video') ? 'photo' : 'item'
-  const sub = page
-    ? (page.count ? <>{countLabel(page.count, page.count_capped, noun)} · newest first</> : terms.length ? 'No matches' : 'Nothing understood')
-    : <span className="sk" style={{ display: 'inline-block', width: '9rem', height: '0.75rem' }} />
+  const noun =
+    media.includes('video') && !media.includes('photo') ? 'video' : media.includes('photo') && !media.includes('video') ? 'photo' : 'item'
+  const sub = page ? (
+    page.count ? (
+      <>{countLabel(page.count, page.count_capped, noun)} · newest first</>
+    ) : terms.length ? (
+      'No matches'
+    ) : (
+      'Nothing understood'
+    )
+  ) : (
+    <span className="sk" style={{ display: 'inline-block', width: '9rem', height: '0.75rem' }} />
+  )
   return (
     <div className="page ph-page">
       <SearchBox inline />
       <PageHead title={<span className="ph-sq-title">{q}</span>} sub={sub}>
-        <Link to="/photos" className="btn sm"><Icon name="x" size={14} />Clear search</Link>
+        <Link to="/photos" className="btn sm">
+          <Icon name="x" size={14} />
+          Clear search
+        </Link>
       </PageHead>
       <Interpretation q={q} page={page} />
       <PhotoStream
@@ -112,7 +137,12 @@ export function SearchResults({ zoom }: { zoom: Zoom }) {
 /** "Place: Toronto or Waterloo · Object: Dog · Year: 2019", each removable; typos and ignored words below. */
 function Interpretation({ q, page }: { q: string; page: SearchPage | null }) {
   const navigate = useNavigate()
-  if (!page) return <div className="ph-sq" aria-hidden="true"><span className="sk" style={{ width: '14rem', height: '1.5rem', borderRadius: 999 }} /></div>
+  if (!page)
+    return (
+      <div className="ph-sq" aria-hidden="true">
+        <span className="sk" style={{ width: '14rem', height: '1.5rem', borderRadius: 999 }} />
+      </div>
+    )
   const terms = page.interpreted
   // Same-type terms side by side with "or" between them (OR within a type, AND across types).
   const order: SearchTerm['type'][] = []
@@ -124,27 +154,42 @@ function Interpretation({ q, page }: { q: string; page: SearchPage | null }) {
         <div className="ph-sq" role="list" aria-label="How your search was read">
           {order.map((type) => (
             <span key={type} className="ph-sq-group">
-              {terms.filter((t) => t.type === type).map((t, i) => (
-                <span key={t.value + i} className="ph-sq-or">
-                  {i > 0 && <span className="ph-sq-join">or</span>}
-                  <span role="listitem" className={'ph-term t-' + t.type} title={[t.detail, t.typo ? `Read "${t.typo}" as ${t.label}` : ''].filter(Boolean).join('\n') || undefined}>
-                    <Icon name={t.type === 'media' && t.value === 'video' ? 'video' : ICON[t.type]} size={12} />
-                    <span className="ph-term-kind">{kindOf(t)}</span>
-                    <span className="ph-term-val">{t.label}</span>
-                    {t.detail && <span className="ph-term-more">{t.detail.split(', ').length} models</span>}
-                    <button type="button" onClick={() => navigate(href(dropSpan(q, t.span)))} aria-label={`Remove ${kindOf(t)}: ${t.label}`} title="Remove">
-                      <Icon name="x" size={11} />
-                    </button>
+              {terms
+                .filter((t) => t.type === type)
+                .map((t, i) => (
+                  <span key={t.value + i} className="ph-sq-or">
+                    {i > 0 && <span className="ph-sq-join">or</span>}
+                    <span
+                      role="listitem"
+                      className={'ph-term t-' + t.type}
+                      title={[t.detail, t.typo ? `Read "${t.typo}" as ${t.label}` : ''].filter(Boolean).join('\n') || undefined}
+                    >
+                      <Icon name={t.type === 'media' && t.value === 'video' ? 'video' : ICON[t.type]} size={12} />
+                      <span className="ph-term-kind">{kindOf(t)}</span>
+                      <span className="ph-term-val">{t.label}</span>
+                      {t.detail && <span className="ph-term-more">{t.detail.split(', ').length} models</span>}
+                      <button
+                        type="button"
+                        onClick={() => navigate(href(dropSpan(q, t.span)))}
+                        aria-label={`Remove ${kindOf(t)}: ${t.label}`}
+                        title="Remove"
+                      >
+                        <Icon name="x" size={11} />
+                      </button>
+                    </span>
                   </span>
-                </span>
-              ))}
+                ))}
             </span>
           ))}
         </div>
       )}
       {(typos.length > 0 || page.unmatched.length > 0) && (
         <p className="ph-sq-note">
-          {typos.map((t) => <span key={t.value}>Read “{t.typo}” as {t.label}</span>)}
+          {typos.map((t) => (
+            <span key={t.value}>
+              Read “{t.typo}” as {t.label}
+            </span>
+          ))}
           {page.unmatched.length > 0 && <span>Ignored: {page.unmatched.join(', ')}</span>}
         </p>
       )}
@@ -159,22 +204,36 @@ function NoResults({ q, page }: { q: string; page: SearchPage | null }) {
     s?.per_year.length ? `videos ${s.per_year[s.per_year.length - 1].year}` : 'videos',
     s?.countries[0] && s.per_year.length ? `${s.countries[0].name} ${s.per_year[0].year}` : undefined,
     'dog',
-  ].filter((x): x is string => !!x && x.toLowerCase() !== q.toLowerCase()).slice(0, 4)
+  ]
+    .filter((x): x is string => !!x && x.toLowerCase() !== q.toLowerCase())
+    .slice(0, 4)
   const understood = !!page?.interpreted.length
   return (
     <div className="ph-sq-empty">
       <Icon name="search" size={22} />
       <div>
-        <strong>{understood ? (page!.interpreted.length > 1 ? 'No photos match all of these' : 'No photos match this') : `Couldn't understand “${q}”`}</strong>
+        <strong>
+          {understood
+            ? page!.interpreted.length > 1
+              ? 'No photos match all of these'
+              : 'No photos match this'
+            : `Couldn't understand “${q}”`}
+        </strong>
         <p>
           {understood
-            ? page!.interpreted.length > 1 ? 'Terms of different kinds must all match; remove one above to widen the search.' : 'Nothing in your libraries matches it yet. Objects need the AI index to have run.'
+            ? page!.interpreted.length > 1
+              ? 'Terms of different kinds must all match; remove one above to widen the search.'
+              : 'Nothing in your libraries matches it yet. Objects need the AI index to have run.'
             : 'Search by place (city or country), thing (dog, car, food), camera (pixel 7, canon), date (2019, june 2023, last summer), type (videos, raw) or album name.'}
         </p>
         {examples.length > 0 && (
           <div className="ph-sq-try">
             <span>Try</span>
-            {examples.map((x) => <Link key={x} className="chip" to={href(x)}>{x}</Link>)}
+            {examples.map((x) => (
+              <Link key={x} className="chip" to={href(x)}>
+                {x}
+              </Link>
+            ))}
           </div>
         )}
       </div>

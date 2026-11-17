@@ -38,14 +38,33 @@ import { rangeGaps } from './Calendar'
 
 describe('task helpers', () => {
   it('parses time spent and words repeats', () => {
-    expect([parseMinutes('45m'), parseMinutes('1h 30m'), parseMinutes('1.5h'), parseMinutes('1:30'), parseMinutes('90'), parseMinutes(''), parseMinutes('soon')])
-      .toEqual([45, 90, 90, 90, 90, 0, null])
+    expect([
+      parseMinutes('45m'),
+      parseMinutes('1h 30m'),
+      parseMinutes('1.5h'),
+      parseMinutes('1:30'),
+      parseMinutes('90'),
+      parseMinutes(''),
+      parseMinutes('soon'),
+    ]).toEqual([45, 90, 90, 90, 90, 0, null])
     expect(repeatText(1, 604800)).toBe('Every week')
     expect(repeatText(3, 259200)).toBe('Every 3 days after completion')
     expect(repeatText(2, null, true)).toBe('Monthly')
   })
   it('knows whether a new task belongs to the list on screen', () => {
-    const t = { id: 'a', title: 'Pay rent', description: '', project_id: 'p1', parent_id: null, due: null, done: false, favorite: false, labels: [3], priority: 10, assignees: [] } as unknown as Task
+    const t = {
+      id: 'a',
+      title: 'Pay rent',
+      description: '',
+      project_id: 'p1',
+      parent_id: null,
+      due: null,
+      done: false,
+      favorite: false,
+      labels: [3],
+      priority: 10,
+      assignees: [],
+    } as unknown as Task
     expect(fitsList(t, { project: 'p2' })).toBe(false)
     expect(fitsList(t, { project: 'p1', label: '3' })).toBe(true)
     expect(fitsList(t, { view: 'today' })).toBe(false)
@@ -59,7 +78,25 @@ describe('task helpers', () => {
   })
   it('settles a changed task into cached pages: leaves, joins in order, never past the loaded range', () => {
     const qc = new QueryClient()
-    const mk = (id: string, position: number, done = false) => ({ id, title: id, description: '', project_id: 'p1', parent_id: null, bucket_id: null, due: null, done, done_at: done ? at(5, 9) : null, favorite: false, labels: [], priority: 10, assignees: [], position, created_on: at(1, 9), updated_on: at(1, 9) }) as unknown as Task
+    const mk = (id: string, position: number, done = false) =>
+      ({
+        id,
+        title: id,
+        description: '',
+        project_id: 'p1',
+        parent_id: null,
+        bucket_id: null,
+        due: null,
+        done,
+        done_at: done ? at(5, 9) : null,
+        favorite: false,
+        labels: [],
+        priority: 10,
+        assignees: [],
+        position,
+        created_on: at(1, 9),
+        updated_on: at(1, 9),
+      }) as unknown as Task
     const cursor = (t: Task) => btoa(JSON.stringify(['position', [t.position, t.created_on, t.id]])).replace(/=+$/, '')
     const openKey = ['tasks', 'list', { project: 'p1', done: false, sort: 'position' }, 'pages']
     const doneKey = ['tasks', 'list', { project: 'p1', done: true, sort: 'done' }]
@@ -74,13 +111,29 @@ describe('task helpers', () => {
     expect(listItems(qc.getQueryData(openKey)).map((t) => t.id)).toEqual(['c'])
   })
   it('finds the days a calendar still needs, and drop positions between neighbours', () => {
-    expect(rangeGaps([[10, 20]], 0, 30)).toEqual([[0, 10], [20, 30]])
-    expect(rangeGaps([[0, 15], [15, 40]], 10, 30)).toEqual([])
+    expect(rangeGaps([[10, 20]], 0, 30)).toEqual([
+      [0, 10],
+      [20, 30],
+    ])
+    expect(
+      rangeGaps(
+        [
+          [0, 15],
+          [15, 40],
+        ],
+        10,
+        30,
+      ),
+    ).toEqual([])
     expect(positionsBetween(2, 1, 2)).toEqual([1 + 1 / 3, 1 + 2 / 3])
     expect(positionsBetween(1, 5)).toEqual([6])
   })
   it('nests loaded subtasks, keeps orphans as roots', () => {
-    const { roots, kids } = nestTasks([{ id: 'a', parent_id: null }, { id: 'b', parent_id: 'a' }, { id: 'c', parent_id: 'zz' }])
+    const { roots, kids } = nestTasks([
+      { id: 'a', parent_id: null },
+      { id: 'b', parent_id: 'a' },
+      { id: 'c', parent_id: 'zz' },
+    ])
     expect(roots.map((t) => t.id)).toEqual(['a', 'c'])
     expect(kids.get('a')!.map((t) => t.id)).toEqual(['b'])
   })
@@ -90,13 +143,18 @@ describe('task helpers', () => {
     expect(calendarRange(new Date(2026, 10, 1)).start.getDay()).toBe(1)
   })
   it('drops projects in the tree, never into their own subtree', () => {
-    const p = (id: string, parent: string | null, position: number) => ({ id, parent_id: parent, position, name: id, is_inbox: false, archived: false, favorite: false }) as Project
+    const p = (id: string, parent: string | null, position: number) =>
+      ({ id, parent_id: parent, position, name: id, is_inbox: false, archived: false, favorite: false }) as Project
     const list = [p('a', null, 1), p('b', null, 2), p('c', 'a', 1)]
     expect(treeDrop(list, list[0], list[2], 'inside', false)).toBeNull()
     expect(treeDrop(list, list[1], list[0], 'inside', false)).toEqual({ parent_id: 'a', position: 2 })
     expect(treeDrop(list, list[2], list[0], 'before', false)).toEqual({ parent_id: null, position: 0 })
   })
   it('adds filters on top of a saved view without dropping its own', () => {
-    expect(withFilters({ label: '1', priority_min: 10 }, { label: '2', prio: 0, assignee: 'me' })).toEqual({ label: '1,2', priority_min: 10, assignee: 'me' })
+    expect(withFilters({ label: '1', priority_min: 10 }, { label: '2', prio: 0, assignee: 'me' })).toEqual({
+      label: '1,2',
+      priority_min: 10,
+      assignee: 'me',
+    })
   })
 })

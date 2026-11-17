@@ -5,8 +5,32 @@ import { Icon } from '../../components/Icon'
 import { Confirm, Dialog, ErrorBox, Menu, MenuItem, SkeletonRows, Switch, useDebounced, useHotkey } from '../../components/ui'
 import type { PlaceCategory, PlaceGroup } from '../../lib/types'
 import {
-  STATUSES, VISIBLE_KEY, categoryIcon, importPlaces, useDeleteGroup, useDeletePlace, useGroupVisibility, usePlaceCategories, usePlaceGroups, useSaveGroup, useSavePlace,
-  useShowOnlyGroup, useSuggestions, useVisiblePlaces, distanceM, fetchVisiblePins, placeQuery, usePlace, useVisibleTextMatches, type Group, type Pin, type ImportResult, type Place, type PlaceInput, type PlaceStatus, type Suggestion,
+  STATUSES,
+  VISIBLE_KEY,
+  categoryIcon,
+  importPlaces,
+  useDeleteGroup,
+  useDeletePlace,
+  useGroupVisibility,
+  usePlaceCategories,
+  usePlaceGroups,
+  useSaveGroup,
+  useSavePlace,
+  useShowOnlyGroup,
+  useSuggestions,
+  useVisiblePlaces,
+  distanceM,
+  fetchVisiblePins,
+  placeQuery,
+  usePlace,
+  useVisibleTextMatches,
+  type Group,
+  type Pin,
+  type ImportResult,
+  type Place,
+  type PlaceInput,
+  type PlaceStatus,
+  type Suggestion,
 } from './api'
 import { PlaceDetail, PlaceRow, StatsTab, SuggestedTab, SuggestionDetail, type Tab } from './PlacePanel'
 import { photosInArea } from '../photos/util'
@@ -24,10 +48,18 @@ import './places.css'
 type Draft = Partial<PlaceInput> & { id?: string }
 
 function readSet<T>(key: string): Set<T> {
-  try { return new Set(JSON.parse(localStorage.getItem(key) || '[]') as T[]) } catch { return new Set() }
+  try {
+    return new Set(JSON.parse(localStorage.getItem(key) || '[]') as T[])
+  } catch {
+    return new Set()
+  }
 }
 function writeSet<T>(key: string, v: Set<T>, max = 500) {
-  try { localStorage.setItem(key, JSON.stringify([...v].slice(-max))) } catch { /* per page only */ }
+  try {
+    localStorage.setItem(key, JSON.stringify([...v].slice(-max)))
+  } catch {
+    /* per page only */
+  }
 }
 const spotKey = (s: Suggestion) => `${s.latitude.toFixed(3)},${s.longitude.toFixed(3)}`
 let focusSeq = 0
@@ -45,7 +77,13 @@ export default function PlacesPage() {
   const q = useDebounced(text.trim().toLowerCase(), 250)
   const [pos, setPos] = useState<{ lat: number; lon: number } | null>(null)
   // Photo heat map: on/off, year and "include photos taken on planes" remembered per device.
-  const [heatOn, setHeatOn] = useState(() => { try { return localStorage.getItem('app.places.heat') === '1' } catch { return false } })
+  const [heatOn, setHeatOn] = useState(() => {
+    try {
+      return localStorage.getItem('app.places.heat') === '1'
+    } catch {
+      return false
+    }
+  })
   const [heatFilter, setHeatFilter] = useHeatFilter()
   const [box, setBox] = useState<{ south: number; west: number; north: number; east: number } | null>(null)
   const boxTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -65,11 +103,32 @@ export default function PlacesPage() {
     staleTime: 30 * 60_000,
     placeholderData: keepPreviousData,
   })
-  const toggleHeat = () => setHeatOn((v) => { try { localStorage.setItem('app.places.heat', v ? '0' : '1') } catch { /* ignore */ } return !v })
+  const toggleHeat = () =>
+    setHeatOn((v) => {
+      try {
+        localStorage.setItem('app.places.heat', v ? '0' : '1')
+      } catch {
+        /* ignore */
+      }
+      return !v
+    })
 
   // Groups are hidden by default (per person, on the server): the map loads only the groups turned on.
-  const [showArchived, setShowArchivedState] = useState(() => { try { return localStorage.getItem('app.places.showArchived') === '1' } catch { return false } })
-  const setShowArchived = (v: boolean) => { setShowArchivedState(v); try { localStorage.setItem('app.places.showArchived', v ? '1' : '0') } catch { /* ignore */ } }
+  const [showArchived, setShowArchivedState] = useState(() => {
+    try {
+      return localStorage.getItem('app.places.showArchived') === '1'
+    } catch {
+      return false
+    }
+  })
+  const setShowArchived = (v: boolean) => {
+    setShowArchivedState(v)
+    try {
+      localStorage.setItem('app.places.showArchived', v ? '1' : '0')
+    } catch {
+      /* ignore */
+    }
+  }
   const groups = usePlaceGroups(showArchived)
   const cats = usePlaceCategories()
   const anyVisible = !!groups.data?.some((g) => g.visible && !g.archived)
@@ -94,19 +153,43 @@ export default function PlacesPage() {
   const [fit, setFit] = useState<{ key: number; points: [number, number][] } | null>(null)
   const qc = useQueryClient()
   const groupById = (id: number) => groups.data?.find((g) => g.id === id)
-  const turnOn = (id: number) => { const g = groupById(id); if (g && !g.visible && !g.archived) setVisible.mutate({ id, visible: true }) }
+  const turnOn = (id: number) => {
+    const g = groupById(id)
+    if (g && !g.visible && !g.archived) setVisible.mutate({ id, visible: true })
+  }
   const dismiss = (x: Suggestion) => {
-    setDismissed((d) => { const n = new Set(d); n.add(spotKey(x)); saveDismissed(n); return n })
+    setDismissed((d) => {
+      const n = new Set(d)
+      n.add(spotKey(x))
+      saveDismissed(n)
+      return n
+    })
     if (sug === x) setSug(null)
-    toast.show('Suggestion dismissed', { action: { label: 'Undo', run: () => setDismissed((d) => { const n = new Set(d); n.delete(spotKey(x)); saveDismissed(n); return n }) } })
+    toast.show('Suggestion dismissed', {
+      action: {
+        label: 'Undo',
+        run: () =>
+          setDismissed((d) => {
+            const n = new Set(d)
+            n.delete(spotKey(x))
+            saveDismissed(n)
+            return n
+          }),
+      },
+    })
   }
   const focusSuggestion = (x: Suggestion) => {
     setSug(x)
     setParam('place', null)
     setFocus({ key: ++focusSeq, lat: x.latitude, lon: x.longitude, zoom: 15 })
   }
-  const saveSuggestion = (x: Suggestion) => newPlace(x.latitude, x.longitude, { name: x.name, address: x.address, status: 'visited', visited_on: x.last_day })
-  useHotkey((e) => e.key === 'Escape' && addMode && !document.querySelector('.dialog'), () => setAddMode(false), true)
+  const saveSuggestion = (x: Suggestion) =>
+    newPlace(x.latitude, x.longitude, { name: x.name, address: x.address, status: 'visited', visited_on: x.last_day })
+  useHotkey(
+    (e) => e.key === 'Escape' && addMode && !document.querySelector('.dialog'),
+    () => setAddMode(false),
+    true,
+  )
   const mineGroups = useMemo(() => (groups.data ?? []).filter((g) => g.mine && !g.archived), [groups.data])
   const catLabel = useMemo(() => {
     const m = new Map((cats.data ?? []).map((c) => [c.key, c.label]))
@@ -134,8 +217,17 @@ export default function PlacesPage() {
       return
     }
     setDraft({
-      name: '', group_id: groupId && mineGroups.some((g) => g.id === groupId) ? groupId : mineGroups[0].id,
-      category: category ?? 'other', latitude: lat, longitude: lon, address: '', description: '', notes: '', rating: null, status: 'saved', ...extra,
+      name: '',
+      group_id: groupId && mineGroups.some((g) => g.id === groupId) ? groupId : mineGroups[0].id,
+      category: category ?? 'other',
+      latitude: lat,
+      longitude: lon,
+      address: '',
+      description: '',
+      notes: '',
+      rating: null,
+      status: 'saved',
+      ...extra,
     })
   }
 
@@ -148,29 +240,41 @@ export default function PlacesPage() {
   }, [params, groups.data])
 
   // One request for the groups that are on; filters and counts happen here over that set.
-  const everything = useMemo(() => (anyVisible ? all.data ?? [] : []), [all.data, anyVisible])
+  const everything = useMemo(() => (anyVisible ? (all.data ?? []) : []), [all.data, anyVisible])
   const inGroup = groupId ? everything.filter((p) => p.group_id === groupId) : everything
   // Pins carry no address/notes/description: a text filter also asks the server which places match those.
   const textHits = useVisibleTextMatches(q, anyVisible)
   const textIds = useMemo(() => new Set((textHits.data ?? []).map((p) => p.id)), [textHits.data])
   const places = useMemo(() => {
-    const list = inGroup.filter((p) =>
-      (!category || p.category === category) && (!status || (p.status ?? 'saved') === status) && (!minRating || (p.rating ?? 0) >= minRating) &&
-      (!q || p.name.toLowerCase().includes(q) || textIds.has(p.id)))
+    const list = inGroup.filter(
+      (p) =>
+        (!category || p.category === category) &&
+        (!status || (p.status ?? 'saved') === status) &&
+        (!minRating || (p.rating ?? 0) >= minRating) &&
+        (!q || p.name.toLowerCase().includes(q) || textIds.has(p.id)),
+    )
     // Nearest first once your location is known.
-    return pos ? list.map((p) => [distanceM(pos, { lat: p.latitude, lon: p.longitude }), p] as const).sort((a, b) => a[0] - b[0]).map((x) => x[1]) : list
+    return pos
+      ? list
+          .map((p) => [distanceM(pos, { lat: p.latitude, lon: p.longitude }), p] as const)
+          .sort((a, b) => a[0] - b[0])
+          .map((x) => x[1])
+      : list
   }, [inGroup, category, status, minRating, q, pos, textIds])
   const count = (fn: (p: Pin) => boolean) => inGroup.filter(fn).length
   const filtered = !!(groupId || category || status || q || minRating)
   // The open place loads in full (pins have no description, notes or address); its pin fills in meanwhile.
   const pinSel = everything.find((p) => p.id === selected) ?? null
   const oneSel = usePlace(selected)
-  const sel: Place | null = oneSel.data?.id === selected ? oneSel.data
-    : pinSel ? { description: '', notes: '', altitude: null, ...pinSel } : null
+  const sel: Place | null =
+    oneSel.data?.id === selected ? oneSel.data : pinSel ? { description: '', notes: '', altitude: null, ...pinSel } : null
   /** Edit with every field: fetch the full place first (cached for a minute). */
   const editPlace = (p: Pin) => {
     if ('description' in p && 'notes' in p && p.description !== undefined && p.notes !== undefined) return setDraft({ ...(p as Place) })
-    qc.fetchQuery(placeQuery(p.id)).then((full) => setDraft({ ...full }), (e) => toast.error((e as Error).message))
+    qc.fetchQuery(placeQuery(p.id)).then(
+      (full) => setDraft({ ...full }),
+      (e) => toast.error((e as Error).message),
+    )
   }
   const prefetchPlace = (id: string) => void qc.prefetchQuery(placeQuery(id))
 
@@ -193,47 +297,148 @@ export default function PlacesPage() {
         title="Groups"
         action={
           <span className="row" style={{ gap: 0 }}>
-            <button className="btn ghost icon sm" onClick={() => qc.invalidateQueries({ queryKey: ['places'] })} aria-label="Refresh" title="Refresh"><Icon name="refresh" size={14} className={all.isFetching || groups.isFetching ? 'spin' : ''} /></button>
-            <button className="btn ghost icon sm" onClick={() => (mineGroups.length ? setImporting(true) : (toast.show('Create a group first'), setGroupDraft({ name: '', description: '', is_public: false })))} aria-label="Import places" title="Import (GeoJSON, KML, GPX, Google Takeout, CSV)"><Icon name="arrowDown" size={14} /></button>
-            <button className="btn ghost icon sm" onClick={() => setGroupDraft({ name: '', description: '', is_public: false })} aria-label="New group" title="New group"><Icon name="plus" size={14} /></button>
+            <button
+              className="btn ghost icon sm"
+              onClick={() => qc.invalidateQueries({ queryKey: ['places'] })}
+              aria-label="Refresh"
+              title="Refresh"
+            >
+              <Icon name="refresh" size={14} className={all.isFetching || groups.isFetching ? 'spin' : ''} />
+            </button>
+            <button
+              className="btn ghost icon sm"
+              onClick={() =>
+                mineGroups.length
+                  ? setImporting(true)
+                  : (toast.show('Create a group first'), setGroupDraft({ name: '', description: '', is_public: false }))
+              }
+              aria-label="Import places"
+              title="Import (GeoJSON, KML, GPX, Google Takeout, CSV)"
+            >
+              <Icon name="arrowDown" size={14} />
+            </button>
+            <button
+              className="btn ghost icon sm"
+              onClick={() => setGroupDraft({ name: '', description: '', is_public: false })}
+              aria-label="New group"
+              title="New group"
+            >
+              <Icon name="plus" size={14} />
+            </button>
           </span>
         }
       >
-        {groups.isPending ? <SkeletonRows rows={2} /> : groups.error && !groups.data ? <ErrorBox error={groups.error} retry={() => groups.refetch()} /> : !groups.data?.length ? (
+        {groups.isPending ? (
+          <SkeletonRows rows={2} />
+        ) : groups.error && !groups.data ? (
+          <ErrorBox error={groups.error} retry={() => groups.refetch()} />
+        ) : !groups.data?.length ? (
           <p className="muted xsmall pl-side-note">No groups yet. Use + to create one.</p>
-        ) : (groups.data ?? []).map((g) => (
-          <div key={g.id} className={'pl-side-row' + (g.visible && !g.archived ? '' : ' hidden-group') + (g.archived ? ' archived' : '')}>
-            <input type="checkbox" className="pl-group-check" checked={g.visible && !g.archived} disabled={g.archived} onChange={(e) => setVisible.mutate({ id: g.id, visible: e.target.checked })}
-              aria-label={`Show ${g.name} on the map`} title={g.archived ? 'Archived: unarchive to show it' : g.visible ? 'Shown: hide from the map' : 'Hidden: show on the map'} />
-            <SideItem icon="folder" label={<>{g.name}{g.archived && <span className="chip pl-pub">Archived</span>}{g.is_public && <span className="chip pl-pub">Public</span>}{!g.mine && <span className="chip pl-pub">Shared</span>}</>}
-              count={g.count} active={groupId === g.id} onClick={() => { if (groupId === g.id) return setParam('group', null); turnOn(g.id); setParam('group', String(g.id)) }} />
-            <span className="pl-side-acts">
-              <GroupMenu g={g} onOnly={() => showOnly.mutate(g)} onEdit={() => setGroupDraft(g)} onDelete={() => setRemovingGroup(g)}
-                onPatch={(body) => saveGroup.mutate({ id: g.id, body }, { onSuccess: () => toast.show(body.archived === true ? `Archived "${g.name}"` : body.archived === false ? `Unarchived "${g.name}"` : body.is_public ? `"${g.name}" is public` : `"${g.name}" is private`) })} />
-            </span>
-          </div>
-        ))}
-        <div className="side-switch"><Switch checked={showArchived} onChange={setShowArchived} label="Show archived groups" /></div>
+        ) : (
+          (groups.data ?? []).map((g) => (
+            <div key={g.id} className={'pl-side-row' + (g.visible && !g.archived ? '' : ' hidden-group') + (g.archived ? ' archived' : '')}>
+              <input
+                type="checkbox"
+                className="pl-group-check"
+                checked={g.visible && !g.archived}
+                disabled={g.archived}
+                onChange={(e) => setVisible.mutate({ id: g.id, visible: e.target.checked })}
+                aria-label={`Show ${g.name} on the map`}
+                title={g.archived ? 'Archived: unarchive to show it' : g.visible ? 'Shown: hide from the map' : 'Hidden: show on the map'}
+              />
+              <SideItem
+                icon="folder"
+                label={
+                  <>
+                    {g.name}
+                    {g.archived && <span className="chip pl-pub">Archived</span>}
+                    {g.is_public && <span className="chip pl-pub">Public</span>}
+                    {!g.mine && <span className="chip pl-pub">Shared</span>}
+                  </>
+                }
+                count={g.count}
+                active={groupId === g.id}
+                onClick={() => {
+                  if (groupId === g.id) return setParam('group', null)
+                  turnOn(g.id)
+                  setParam('group', String(g.id))
+                }}
+              />
+              <span className="pl-side-acts">
+                <GroupMenu
+                  g={g}
+                  onOnly={() => showOnly.mutate(g)}
+                  onEdit={() => setGroupDraft(g)}
+                  onDelete={() => setRemovingGroup(g)}
+                  onPatch={(body) =>
+                    saveGroup.mutate(
+                      { id: g.id, body },
+                      {
+                        onSuccess: () =>
+                          toast.show(
+                            body.archived === true
+                              ? `Archived "${g.name}"`
+                              : body.archived === false
+                                ? `Unarchived "${g.name}"`
+                                : body.is_public
+                                  ? `"${g.name}" is public`
+                                  : `"${g.name}" is private`,
+                          ),
+                      },
+                    )
+                  }
+                />
+              </span>
+            </div>
+          ))
+        )}
+        <div className="side-switch">
+          <Switch checked={showArchived} onChange={setShowArchived} label="Show archived groups" />
+        </div>
       </SideSection>
       <SideSection>
-        <SideItem icon="map" label="All places" count={inGroup.length} active={!category && !status && !minRating} onClick={() => setParams(groupId ? new URLSearchParams({ group: String(groupId) }) : new URLSearchParams())} />
+        <SideItem
+          icon="map"
+          label="All places"
+          count={inGroup.length}
+          active={!category && !status && !minRating}
+          onClick={() => setParams(groupId ? new URLSearchParams({ group: String(groupId) }) : new URLSearchParams())}
+        />
         {STATUSES.map((s) => (
-          <SideItem key={s.key} icon={s.icon} label={s.label} count={count((p) => (p.status ?? 'saved') === s.key)} active={status === s.key} onClick={() => setParam('status', status === s.key ? null : s.key)} />
+          <SideItem
+            key={s.key}
+            icon={s.icon}
+            label={s.label}
+            count={count((p) => (p.status ?? 'saved') === s.key)}
+            active={status === s.key}
+            onClick={() => setParam('status', status === s.key ? null : s.key)}
+          />
         ))}
       </SideSection>
       <SideSection title="Rating">
         <div className="pl-rating-filter" role="group" aria-label="Minimum rating">
           {[0, 3, 4, 5].map((r) => (
             <button key={r} className="chip" aria-pressed={minRating === r} onClick={() => setParam('rating', r ? String(r) : null)}>
-              {r ? `${r}★${r < 5 ? '+' : ''}` : 'Any'}<span className="muted">{r ? count((p) => (p.rating ?? 0) >= r) : inGroup.length}</span>
+              {r ? `${r}★${r < 5 ? '+' : ''}` : 'Any'}
+              <span className="muted">{r ? count((p) => (p.rating ?? 0) >= r) : inGroup.length}</span>
             </button>
           ))}
         </div>
       </SideSection>
       <SideSection title="Categories">
-        {(cats.data ?? []).map((c) => ({ c, n: count((p) => p.category === c.key) })).sort((a, b) => b.n - a.n).map(({ c, n }) => (
-          <SideItem key={c.key} icon={categoryIcon(c.key) ?? 'map-pin'} label={c.label} count={n || undefined} active={category === c.key} onClick={() => setParam('category', category === c.key ? null : c.key)} />
-        ))}
+        {(cats.data ?? [])
+          .map((c) => ({ c, n: count((p) => p.category === c.key) }))
+          .sort((a, b) => b.n - a.n)
+          .map(({ c, n }) => (
+            <SideItem
+              key={c.key}
+              icon={categoryIcon(c.key) ?? 'map-pin'}
+              label={c.label}
+              count={n || undefined}
+              active={category === c.key}
+              onClick={() => setParam('category', category === c.key ? null : c.key)}
+            />
+          ))}
       </SideSection>
     </>
   )
@@ -244,12 +449,39 @@ export default function PlacesPage() {
       fullHeight
       topbar={
         <>
-          <PlaceSearch text={text} onText={setText} places={everything} groups={groups.data ?? []} onShowGroup={(g) => setVisible.mutate({ id: g.id, visible: true })}
-            onPlace={(p) => { setText(''); setSug(null); setParam('place', p.id); if (!everything.some((x) => x.id === p.id)) setFocus({ key: ++focusSeq, lat: p.latitude, lon: p.longitude, zoom: 16 }) }}
-            onHit={(h) => (setAddMode(false), setFocus({ key: ++focusSeq, lat: h.lat, lon: h.lon, bbox: h.bbox, label: h.name, address: h.address }))} />
-          <button className={'btn pl-add-btn' + (addMode ? ' on' : '')} aria-pressed={addMode} onClick={() => (mineGroups.length || addMode ? setAddMode((v) => !v) : newPlace())} title="Add place: click the map to drop it (Esc cancels)"><Icon name="pin" size={15} /><span>Add place</span></button>
-          <button className={'btn pl-heat-btn' + (heatOn ? ' on' : '')} aria-pressed={heatOn} onClick={toggleHeat} title="Photo heat map"><Icon name="photo" size={15} /><span>Heatmap</span></button>
-          <button className="btn pl-locate" onClick={locate} title="Show distances from your location"><Icon name="location" size={15} /><span>Near me</span></button>
+          <PlaceSearch
+            text={text}
+            onText={setText}
+            places={everything}
+            groups={groups.data ?? []}
+            onShowGroup={(g) => setVisible.mutate({ id: g.id, visible: true })}
+            onPlace={(p) => {
+              setText('')
+              setSug(null)
+              setParam('place', p.id)
+              if (!everything.some((x) => x.id === p.id)) setFocus({ key: ++focusSeq, lat: p.latitude, lon: p.longitude, zoom: 16 })
+            }}
+            onHit={(h) => (
+              setAddMode(false), setFocus({ key: ++focusSeq, lat: h.lat, lon: h.lon, bbox: h.bbox, label: h.name, address: h.address })
+            )}
+          />
+          <button
+            className={'btn pl-add-btn' + (addMode ? ' on' : '')}
+            aria-pressed={addMode}
+            onClick={() => (mineGroups.length || addMode ? setAddMode((v) => !v) : newPlace())}
+            title="Add place: click the map to drop it (Esc cancels)"
+          >
+            <Icon name="pin" size={15} />
+            <span>Add place</span>
+          </button>
+          <button className={'btn pl-heat-btn' + (heatOn ? ' on' : '')} aria-pressed={heatOn} onClick={toggleHeat} title="Photo heat map">
+            <Icon name="photo" size={15} />
+            <span>Heatmap</span>
+          </button>
+          <button className="btn pl-locate" onClick={locate} title="Show distances from your location">
+            <Icon name="location" size={15} />
+            <span>Near me</span>
+          </button>
           <button className="btn primary pl-new" onClick={() => newPlace()}>
             <Icon name="plus" size={15} />
             <span>New place</span>
@@ -270,7 +502,7 @@ export default function PlacesPage() {
             onAddAt={(lat, lon, name, address) => (setAddMode(false), newPlace(lat, lon, name ? { name, address: address ?? '' } : {}))}
             suggestions={tab === 'suggested' ? suggestions : undefined}
             onSuggestion={focusSuggestion}
-            heat={heatOn ? heat.data ?? [] : null}
+            heat={heatOn ? (heat.data ?? []) : null}
             onBounds={onBounds}
             addMode={addMode}
             focus={focus}
@@ -282,59 +514,137 @@ export default function PlacesPage() {
               <strong className="xsmall">Photo heat map</strong>
               {heat.isFetching && <span className="spinner" aria-label="Loading" />}
               <HeatFilterControls f={heatFilter} set={setHeatFilter} enabled={heatOn} />
-              <span className="muted xsmall tabular">{(heat.data ?? []).reduce((t, p) => t + p.count, 0).toLocaleString()} photos in view</span>
+              <span className="muted xsmall tabular">
+                {(heat.data ?? []).reduce((t, p) => t + p.count, 0).toLocaleString()} photos in view
+              </span>
             </div>
           )}
-          <p className={'pl-hint' + (addMode ? ' on' : '')}>{addMode ? <>Click the map to place the pin · <button className="pl-hint-x" onClick={() => setAddMode(false)}>Cancel (Esc)</button></>
-            : groups.data && !anyVisible && groups.data.length ? 'Turn on a group to see its places' : 'Click the map to add a place'}</p>
+          <p className={'pl-hint' + (addMode ? ' on' : '')}>
+            {addMode ? (
+              <>
+                Click the map to place the pin ·{' '}
+                <button className="pl-hint-x" onClick={() => setAddMode(false)}>
+                  Cancel (Esc)
+                </button>
+              </>
+            ) : groups.data && !anyVisible && groups.data.length ? (
+              'Turn on a group to see its places'
+            ) : (
+              'Click the map to add a place'
+            )}
+          </p>
           {box && (
-            <Link className="btn sm pl-photos-area" to={photosInArea(box.north, box.south, box.east, box.west)} title="Photos taken in the visible area">
-              <Icon name="photo" size={14} /><span>Photos in this area</span>
+            <Link
+              className="btn sm pl-photos-area"
+              to={photosInArea(box.north, box.south, box.east, box.west)}
+              title="Photos taken in the visible area"
+            >
+              <Icon name="photo" size={14} />
+              <span>Photos in this area</span>
             </Link>
           )}
         </div>
         <section className="pl-list" aria-label="Places">
           {sug && tab === 'suggested' && !sel ? (
-            <SuggestionDetail s={sug} pos={pos} onSave={() => saveSuggestion(sug)} onDismiss={() => dismiss(sug)} onClose={() => setSug(null)} />
+            <SuggestionDetail
+              s={sug}
+              pos={pos}
+              onSave={() => saveSuggestion(sug)}
+              onDismiss={() => dismiss(sug)}
+              onClose={() => setSug(null)}
+            />
           ) : sel ? (
-            <PlaceDetail p={sel} catLabel={catLabel} group={groupById(sel.group_id)} canEdit={canEdit(sel)} pos={pos}
-              onEdit={() => editPlace(sel)} onClose={() => setParam('place', null)} onShowGroup={() => turnOn(sel.group_id)} />
+            <PlaceDetail
+              p={sel}
+              catLabel={catLabel}
+              group={groupById(sel.group_id)}
+              canEdit={canEdit(sel)}
+              pos={pos}
+              onEdit={() => editPlace(sel)}
+              onClose={() => setParam('place', null)}
+              onShowGroup={() => turnOn(sel.group_id)}
+            />
           ) : (
             <>
               <div className="tabs pl-tabs" role="tablist">
-                <button role="tab" aria-selected={tab === 'places'} onClick={() => setParam('tab', null)}>Places <span className="muted">{places.length}</span></button>
-                <button role="tab" aria-selected={tab === 'suggested'} onClick={() => setParam('tab', 'suggested')}>Suggested{suggestions && suggestions.length > 0 && <span className="muted"> {suggestions.length}</span>}</button>
-                <button role="tab" aria-selected={tab === 'stats'} onClick={() => setParam('tab', 'stats')}>Stats</button>
+                <button role="tab" aria-selected={tab === 'places'} onClick={() => setParam('tab', null)}>
+                  Places <span className="muted">{places.length}</span>
+                </button>
+                <button role="tab" aria-selected={tab === 'suggested'} onClick={() => setParam('tab', 'suggested')}>
+                  Suggested{suggestions && suggestions.length > 0 && <span className="muted"> {suggestions.length}</span>}
+                </button>
+                <button role="tab" aria-selected={tab === 'stats'} onClick={() => setParam('tab', 'stats')}>
+                  Stats
+                </button>
               </div>
               {tab === 'suggested' ? (
-                <SuggestedTab items={suggestions} pending={suggestionsQ.isPending} error={suggestionsQ.error} retry={() => suggestionsQ.refetch()} onSave={saveSuggestion} onFocus={focusSuggestion} onDismiss={dismiss} />
+                <SuggestedTab
+                  items={suggestions}
+                  pending={suggestionsQ.isPending}
+                  error={suggestionsQ.error}
+                  retry={() => suggestionsQ.refetch()}
+                  onSave={saveSuggestion}
+                  onFocus={focusSuggestion}
+                  onDismiss={dismiss}
+                />
               ) : tab === 'stats' ? (
                 <StatsTab onSelect={(id) => setParam('place', id)} catLabel={catLabel} />
               ) : (
                 <>
                   {filtered && (
                     <div className="pl-list-head">
-                      <h2 className="muted small">{places.length} of {everything.length} shown{pos ? ' · nearest first' : ''}</h2>
-                      <button className="btn ghost sm" onClick={() => (setText(''), setParams(new URLSearchParams()))}>Clear filters</button>
+                      <h2 className="muted small">
+                        {places.length} of {everything.length} shown{pos ? ' · nearest first' : ''}
+                      </h2>
+                      <button className="btn ghost sm" onClick={() => (setText(''), setParams(new URLSearchParams()))}>
+                        Clear filters
+                      </button>
                     </div>
                   )}
-                  {groups.isPending || (anyVisible && all.isPending) ? <SkeletonRows rows={6} /> : all.isError && !all.data ? <ErrorBox error={all.error} retry={() => all.refetch()} /> : !places.length ? (
-                    <div className="empty left">{filtered ? 'No places match.' : !groups.data?.length ? 'No places yet. Create a group, then use Add place, search the map, import a file, or save a suggestion.'
-                      : !anyVisible ? 'Turn on a group in the sidebar to see its places. Search finds places in every group.' : 'No places in the groups that are on.'}</div>
+                  {groups.isPending || (anyVisible && all.isPending) ? (
+                    <SkeletonRows rows={6} />
+                  ) : all.isError && !all.data ? (
+                    <ErrorBox error={all.error} retry={() => all.refetch()} />
+                  ) : !places.length ? (
+                    <div className="empty left">
+                      {filtered
+                        ? 'No places match.'
+                        : !groups.data?.length
+                          ? 'No places yet. Create a group, then use Add place, search the map, import a file, or save a suggestion.'
+                          : !anyVisible
+                            ? 'Turn on a group in the sidebar to see its places. Search finds places in every group.'
+                            : 'No places in the groups that are on.'}
+                    </div>
                   ) : (
                     <ul className="pl-items">
                       {places.slice(0, limit).map((p) => (
                         <li key={p.id} className="pl-item" onPointerEnter={() => prefetchPlace(p.id)}>
-                          <PlaceRow p={p} active={selected === p.id} onSelect={() => setParam('place', p.id)} catLabel={catLabel} groupName={groupName} pos={pos} />
+                          <PlaceRow
+                            p={p}
+                            active={selected === p.id}
+                            onSelect={() => setParam('place', p.id)}
+                            catLabel={catLabel}
+                            groupName={groupName}
+                            pos={pos}
+                          />
                           {canEdit(p) && (
-                            <button className="btn ghost icon sm pl-item-edit" onClick={() => editPlace(p)} aria-label={`Edit ${p.name}`} title="Edit">
+                            <button
+                              className="btn ghost icon sm pl-item-edit"
+                              onClick={() => editPlace(p)}
+                              aria-label={`Edit ${p.name}`}
+                              title="Edit"
+                            >
                               <Icon name="edit" size={14} />
                             </button>
                           )}
                         </li>
                       ))}
                       {places.length > limit && (
-                        <li className="pl-more-row"><button className="btn sm" onClick={() => setLimit((l) => l + 500)}>Show {Math.min(500, places.length - limit).toLocaleString()} more of {(places.length - limit).toLocaleString()}</button></li>
+                        <li className="pl-more-row">
+                          <button className="btn sm" onClick={() => setLimit((l) => l + 500)}>
+                            Show {Math.min(500, places.length - limit).toLocaleString()} more of {(places.length - limit).toLocaleString()}
+                          </button>
+                        </li>
                       )}
                     </ul>
                   )}
@@ -344,37 +654,108 @@ export default function PlacesPage() {
           )}
         </section>
       </div>
-      {draft && <PlaceDialog draft={draft} groups={mineGroups} categories={cats.data ?? []} onClose={() => setDraft(null)} onSaved={(p) => (turnOn(p.group_id), setParam('place', p.id))} onDeleted={() => setParam('place', null)} />}
-      {groupDraft && <GroupDialog group={groupDraft} onClose={() => setGroupDraft(null)} onDeleted={(id) => groupId === id && setParam('group', null)}
-        onCreated={(g) => setVisible.mutate({ id: g.id, visible: true })} />}
-      <Confirm open={!!removingGroup} title={`Delete "${removingGroup?.name}"?`} body={`This also deletes the ${removingGroup?.count ?? 0} ${removingGroup?.count === 1 ? 'place' : 'places'} in it.`}
-        onClose={() => setRemovingGroup(null)} onConfirm={() => removingGroup && removeGroup.mutate(removingGroup, { onSuccess: () => groupId === removingGroup.id && setParam('group', null) })} />
-      {importing && <ImportDialog groups={mineGroups} onClose={() => setImporting(false)} onDone={async (gid) => {
-        // Turn the group on, then fit the map to its places once they're loaded.
-        const g = groupById(gid)
-        if (g && !g.visible) await setVisible.mutateAsync({ id: gid, visible: true })
-        const fresh = await qc.fetchQuery({ queryKey: VISIBLE_KEY, queryFn: () => fetchVisiblePins(), staleTime: 0 })
-        const pts = fresh.filter((p) => p.group_id === gid).map((p) => [p.latitude, p.longitude] as [number, number])
-        if (pts.length) setFit({ key: Date.now(), points: pts })
-      }} />}
+      {draft && (
+        <PlaceDialog
+          draft={draft}
+          groups={mineGroups}
+          categories={cats.data ?? []}
+          onClose={() => setDraft(null)}
+          onSaved={(p) => (turnOn(p.group_id), setParam('place', p.id))}
+          onDeleted={() => setParam('place', null)}
+        />
+      )}
+      {groupDraft && (
+        <GroupDialog
+          group={groupDraft}
+          onClose={() => setGroupDraft(null)}
+          onDeleted={(id) => groupId === id && setParam('group', null)}
+          onCreated={(g) => setVisible.mutate({ id: g.id, visible: true })}
+        />
+      )}
+      <Confirm
+        open={!!removingGroup}
+        title={`Delete "${removingGroup?.name}"?`}
+        body={`This also deletes the ${removingGroup?.count ?? 0} ${removingGroup?.count === 1 ? 'place' : 'places'} in it.`}
+        onClose={() => setRemovingGroup(null)}
+        onConfirm={() =>
+          removingGroup && removeGroup.mutate(removingGroup, { onSuccess: () => groupId === removingGroup.id && setParam('group', null) })
+        }
+      />
+      {importing && (
+        <ImportDialog
+          groups={mineGroups}
+          onClose={() => setImporting(false)}
+          onDone={async (gid) => {
+            // Turn the group on, then fit the map to its places once they're loaded.
+            const g = groupById(gid)
+            if (g && !g.visible) await setVisible.mutateAsync({ id: gid, visible: true })
+            const fresh = await qc.fetchQuery({ queryKey: VISIBLE_KEY, queryFn: () => fetchVisiblePins(), staleTime: 0 })
+            const pts = fresh.filter((p) => p.group_id === gid).map((p) => [p.latitude, p.longitude] as [number, number])
+            if (pts.length) setFit({ key: Date.now(), points: pts })
+          }}
+        />
+      )}
     </AppShell>
   )
 }
 
 /** ⋯ menu of a group: show only, edit, public/private, export, archive, delete (owner actions only for owners). */
-function GroupMenu({ g, onOnly, onEdit, onDelete, onPatch }: {
-  g: Group; onOnly: () => void; onEdit: () => void; onDelete: () => void; onPatch: (b: { is_public?: boolean; archived?: boolean }) => void
+function GroupMenu({
+  g,
+  onOnly,
+  onEdit,
+  onDelete,
+  onPatch,
+}: {
+  g: Group
+  onOnly: () => void
+  onEdit: () => void
+  onDelete: () => void
+  onPatch: (b: { is_public?: boolean; archived?: boolean }) => void
 }) {
   return (
-    <Menu align="end" label={`${g.name} options`} trigger={(p) => <button {...p} className="btn ghost icon sm" aria-label={`${g.name} options`} title="Options"><Icon name="more" size={14} /></button>}>
+    <Menu
+      align="end"
+      label={`${g.name} options`}
+      trigger={(p) => (
+        <button {...p} className="btn ghost icon sm" aria-label={`${g.name} options`} title="Options">
+          <Icon name="more" size={14} />
+        </button>
+      )}
+    >
       {(close) => (
         <>
-          {!g.archived && <MenuItem icon="map" onClick={() => (close(), onOnly())}>Show only this</MenuItem>}
-          {g.mine && <MenuItem icon="edit" onClick={() => (close(), onEdit())}>Edit group</MenuItem>}
-          {g.mine && <MenuItem icon={g.is_public ? 'shield' : 'users'} onClick={() => (close(), onPatch({ is_public: !g.is_public }))}>{g.is_public ? 'Make private' : 'Share with everyone (public)'}</MenuItem>}
-          <MenuItem icon="arrowUp" href={`/api/v2/places/groups/${g.id}/export`} onClick={close}>Export GeoJSON</MenuItem>
-          {g.mine && <MenuItem icon="folder" onClick={() => (close(), onPatch({ archived: !g.archived }))}>{g.archived ? 'Unarchive' : 'Archive'}</MenuItem>}
-          {g.mine && <><div className="menu-sep" /><MenuItem icon="trash" danger onClick={() => (close(), onDelete())}>Delete group…</MenuItem></>}
+          {!g.archived && (
+            <MenuItem icon="map" onClick={() => (close(), onOnly())}>
+              Show only this
+            </MenuItem>
+          )}
+          {g.mine && (
+            <MenuItem icon="edit" onClick={() => (close(), onEdit())}>
+              Edit group
+            </MenuItem>
+          )}
+          {g.mine && (
+            <MenuItem icon={g.is_public ? 'shield' : 'users'} onClick={() => (close(), onPatch({ is_public: !g.is_public }))}>
+              {g.is_public ? 'Make private' : 'Share with everyone (public)'}
+            </MenuItem>
+          )}
+          <MenuItem icon="arrowUp" href={`/api/v2/places/groups/${g.id}/export`} onClick={close}>
+            Export GeoJSON
+          </MenuItem>
+          {g.mine && (
+            <MenuItem icon="folder" onClick={() => (close(), onPatch({ archived: !g.archived }))}>
+              {g.archived ? 'Unarchive' : 'Archive'}
+            </MenuItem>
+          )}
+          {g.mine && (
+            <>
+              <div className="menu-sep" />
+              <MenuItem icon="trash" danger onClick={() => (close(), onDelete())}>
+                Delete group…
+              </MenuItem>
+            </>
+          )}
         </>
       )}
     </Menu>
@@ -389,7 +770,9 @@ function ImportDialog({ groups, onClose, onDone }: { groups: PlaceGroup[]; onClo
   const [error, setError] = useState('')
   const [busy, setBusy] = useState(false)
   // Preview as soon as a file and group are picked (dry run: nothing is saved).
-  useEffect(() => { if (file && group) void run(true) }, [file, group])
+  useEffect(() => {
+    if (file && group) void run(true)
+  }, [file, group])
   const run = async (dry: boolean) => {
     if (!file || !group) return
     if (file.size > 5 * 1024 * 1024) return setError('This file is over 5 MB.')
@@ -411,35 +794,107 @@ function ImportDialog({ groups, onClose, onDone }: { groups: PlaceGroup[]; onClo
     }
   }
   return (
-    <Dialog open onClose={onClose} title="Import places" width="30rem"
-      footer={<><span className="spacer" /><button className="btn" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!preview || !preview.new || busy} onClick={() => run(false)}>{preview ? `Import ${preview.new}` : 'Import'}</button></>}>
+    <Dialog
+      open
+      onClose={onClose}
+      title="Import places"
+      width="30rem"
+      footer={
+        <>
+          <span className="spacer" />
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button className="btn primary" disabled={!preview || !preview.new || busy} onClick={() => run(false)}>
+            {preview ? `Import ${preview.new}` : 'Import'}
+          </button>
+        </>
+      }
+    >
       <p className="help">GeoJSON, KML/KMZ, GPX, Google Takeout (Saved places) or CSV, up to 5 MB. Duplicates are skipped.</p>
-      <label className="field"><span>File</span><input className="input" type="file" accept=".json,.geojson,.kml,.kmz,.gpx,.csv" onChange={(e) => { setFile(e.target.files?.[0] ?? null); setPreview(null); setError('') }} /></label>
-      <label className="field"><span>Into group</span>
-        <select className="select" value={group} onChange={(e) => { setGroup(Number(e.target.value)); setPreview(null) }}>
-          {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+      <label className="field">
+        <span>File</span>
+        <input
+          className="input"
+          type="file"
+          accept=".json,.geojson,.kml,.kmz,.gpx,.csv"
+          onChange={(e) => {
+            setFile(e.target.files?.[0] ?? null)
+            setPreview(null)
+            setError('')
+          }}
+        />
+      </label>
+      <label className="field">
+        <span>Into group</span>
+        <select
+          className="select"
+          value={group}
+          onChange={(e) => {
+            setGroup(Number(e.target.value))
+            setPreview(null)
+          }}
+        >
+          {groups.map((g) => (
+            <option key={g.id} value={g.id}>
+              {g.name}
+            </option>
+          ))}
         </select>
       </label>
-      {file && !preview && <button className="btn sm" onClick={() => run(true)} disabled={busy}>{busy ? 'Reading…' : 'Preview'}</button>}
+      {file && !preview && (
+        <button className="btn sm" onClick={() => run(true)} disabled={busy}>
+          {busy ? 'Reading…' : 'Preview'}
+        </button>
+      )}
       {preview && (
         <div className="pl-import-preview small">
-          <strong>{preview.format}</strong> file: {preview.found} found · <strong>{preview.new} new</strong> · {preview.duplicates} duplicates{preview.invalid ? ` · ${preview.invalid} invalid` : ''}
-          {preview.sample.length > 0 && <div className="muted xsmall">{preview.sample.join(', ')}{preview.new > preview.sample.length ? '…' : ''}</div>}
+          <strong>{preview.format}</strong> file: {preview.found} found · <strong>{preview.new} new</strong> · {preview.duplicates}{' '}
+          duplicates{preview.invalid ? ` · ${preview.invalid} invalid` : ''}
+          {preview.sample.length > 0 && (
+            <div className="muted xsmall">
+              {preview.sample.join(', ')}
+              {preview.new > preview.sample.length ? '…' : ''}
+            </div>
+          )}
         </div>
       )}
-      {error && <p className="error-text" role="alert">{error}</p>}
+      {error && (
+        <p className="error-text" role="alert">
+          {error}
+        </p>
+      )}
     </Dialog>
   )
 }
 
-function PlaceDialog({ draft, groups, categories, onClose, onSaved, onDeleted }: {
-  draft: Draft; groups: PlaceGroup[]; categories: PlaceCategory[]; onClose: () => void; onSaved: (p: Place) => void; onDeleted: () => void
+function PlaceDialog({
+  draft,
+  groups,
+  categories,
+  onClose,
+  onSaved,
+  onDeleted,
+}: {
+  draft: Draft
+  groups: PlaceGroup[]
+  categories: PlaceCategory[]
+  onClose: () => void
+  onSaved: (p: Place) => void
+  onDeleted: () => void
 }) {
   const [f, setF] = useState(() => ({
-    name: draft.name ?? '', group_id: String(draft.group_id ?? groups[0]?.id ?? ''), category: draft.category ?? 'other',
-    latitude: draft.latitude != null ? String(+draft.latitude.toFixed(6)) : '', longitude: draft.longitude != null ? String(+draft.longitude.toFixed(6)) : '',
-    address: draft.address ?? '', description: draft.description ?? '', notes: draft.notes ?? '', rating: String(draft.rating ?? ''),
-    status: (draft.status ?? 'saved') as PlaceStatus, visited_on: draft.visited_on ?? '',
+    name: draft.name ?? '',
+    group_id: String(draft.group_id ?? groups[0]?.id ?? ''),
+    category: draft.category ?? 'other',
+    latitude: draft.latitude != null ? String(+draft.latitude.toFixed(6)) : '',
+    longitude: draft.longitude != null ? String(+draft.longitude.toFixed(6)) : '',
+    address: draft.address ?? '',
+    description: draft.description ?? '',
+    notes: draft.notes ?? '',
+    rating: String(draft.rating ?? ''),
+    status: (draft.status ?? 'saved') as PlaceStatus,
+    visited_on: draft.visited_on ?? '',
   }))
   const [confirm, setConfirm] = useState(false)
   const save = useSavePlace()
@@ -455,9 +910,16 @@ function PlaceDialog({ draft, groups, categories, onClose, onSaved, onDeleted }:
   const submit = () => {
     if (!valid) return
     const body: Partial<PlaceInput> = {
-      name: f.name.trim(), group_id: Number(f.group_id), category: f.category, latitude: lat, longitude: lon,
-      address: f.address.trim() || null, description: f.description.trim(), notes: f.notes.trim(),
-      rating: f.rating ? Number(f.rating) : editing ? 0 : null, status: f.status,
+      name: f.name.trim(),
+      group_id: Number(f.group_id),
+      category: f.category,
+      latitude: lat,
+      longitude: lon,
+      address: f.address.trim() || null,
+      description: f.description.trim(),
+      notes: f.notes.trim(),
+      rating: f.rating ? Number(f.rating) : editing ? 0 : null,
+      status: f.status,
     }
     // Visited with no date: leave it to the server (keeps the old date, or today for a new visit).
     if (f.status !== 'visited') body.visited_on = null
@@ -476,12 +938,17 @@ function PlaceDialog({ draft, groups, categories, onClose, onSaved, onDeleted }:
           <>
             {editing && (
               <button className="btn danger" onClick={() => setConfirm(true)}>
-                <Icon name="trash" size={14} />Delete
+                <Icon name="trash" size={14} />
+                Delete
               </button>
             )}
             <span className="spacer" />
-            <button className="btn" onClick={onClose}>Cancel</button>
-            <button className="btn primary" disabled={!valid || save.isPending} onClick={submit}>{editing ? 'Save' : 'Add place'}</button>
+            <button className="btn" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="btn primary" disabled={!valid || save.isPending} onClick={submit}>
+              {editing ? 'Save' : 'Add place'}
+            </button>
           </>
         }
       >
@@ -494,13 +961,21 @@ function PlaceDialog({ draft, groups, categories, onClose, onSaved, onDeleted }:
             <label className="field">
               <span>Category</span>
               <select className="select" value={f.category} onChange={set('category')}>
-                {categories.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
+                {categories.map((c) => (
+                  <option key={c.key} value={c.key}>
+                    {c.label}
+                  </option>
+                ))}
               </select>
             </label>
             <label className="field">
               <span>Group</span>
               <select className="select" value={f.group_id} onChange={set('group_id')}>
-                {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+                {groups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    {g.name}
+                  </option>
+                ))}
               </select>
             </label>
           </div>
@@ -508,7 +983,11 @@ function PlaceDialog({ draft, groups, categories, onClose, onSaved, onDeleted }:
             <label className="field">
               <span>Status</span>
               <select className="select" value={f.status} onChange={set('status')}>
-                {STATUSES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
+                {STATUSES.map((s) => (
+                  <option key={s.key} value={s.key}>
+                    {s.label}
+                  </option>
+                ))}
               </select>
             </label>
             {f.status === 'visited' && (
@@ -521,7 +1000,12 @@ function PlaceDialog({ draft, groups, categories, onClose, onSaved, onDeleted }:
               <span>Rating</span>
               <select className="select" value={f.rating} onChange={set('rating')}>
                 <option value="">No rating</option>
-                {[5, 4, 3, 2, 1].map((n) => <option key={n} value={n}>{'★'.repeat(n)}{'☆'.repeat(5 - n)}</option>)}
+                {[5, 4, 3, 2, 1].map((n) => (
+                  <option key={n} value={n}>
+                    {'★'.repeat(n)}
+                    {'☆'.repeat(5 - n)}
+                  </option>
+                ))}
               </select>
             </label>
           </div>
@@ -532,16 +1016,30 @@ function PlaceDialog({ draft, groups, categories, onClose, onSaved, onDeleted }:
           <div className="field-row">
             <label className="field">
               <span>Latitude</span>
-              <input className="input tabular" inputMode="decimal" value={f.latitude} onChange={set('latitude')} aria-invalid={!latOk && f.latitude !== ''} />
+              <input
+                className="input tabular"
+                inputMode="decimal"
+                value={f.latitude}
+                onChange={set('latitude')}
+                aria-invalid={!latOk && f.latitude !== ''}
+              />
               {!latOk && f.latitude !== '' && <span className="error-text">Between -90 and 90</span>}
             </label>
             <label className="field">
               <span>Longitude</span>
-              <input className="input tabular" inputMode="decimal" value={f.longitude} onChange={set('longitude')} aria-invalid={!lonOk && f.longitude !== ''} />
+              <input
+                className="input tabular"
+                inputMode="decimal"
+                value={f.longitude}
+                onChange={set('longitude')}
+                aria-invalid={!lonOk && f.longitude !== ''}
+              />
               {!lonOk && f.longitude !== '' && <span className="error-text">Between -180 and 180</span>}
             </label>
           </div>
-          {(f.latitude === '' || f.longitude === '') && <p className="help">Tip: close this and click the map to fill in the coordinates.</p>}
+          {(f.latitude === '' || f.longitude === '') && (
+            <p className="help">Tip: close this and click the map to fill in the coordinates.</p>
+          )}
           <label className="field">
             <span>Description</span>
             <input className="input" value={f.description} onChange={set('description')} maxLength={500} />
@@ -564,7 +1062,17 @@ function PlaceDialog({ draft, groups, categories, onClose, onSaved, onDeleted }:
   )
 }
 
-function GroupDialog({ group, onClose, onDeleted, onCreated }: { group: Partial<Group>; onClose: () => void; onDeleted: (id: number) => void; onCreated: (g: PlaceGroup) => void }) {
+function GroupDialog({
+  group,
+  onClose,
+  onDeleted,
+  onCreated,
+}: {
+  group: Partial<Group>
+  onClose: () => void
+  onDeleted: (id: number) => void
+  onCreated: (g: PlaceGroup) => void
+}) {
   const [name, setName] = useState(group.name ?? '')
   const [description, setDescription] = useState(group.description ?? '')
   const [isPublic, setPublic] = useState(!!group.is_public)
@@ -574,7 +1082,10 @@ function GroupDialog({ group, onClose, onDeleted, onCreated }: { group: Partial<
   const editing = group.id != null
   const submit = () => {
     if (!name.trim()) return
-    save.mutate({ id: group.id, body: { name: name.trim(), description: description.trim(), is_public: isPublic } }, { onSuccess: (g) => (onClose(), !editing && onCreated(g)) })
+    save.mutate(
+      { id: group.id, body: { name: name.trim(), description: description.trim(), is_public: isPublic } },
+      { onSuccess: (g) => (onClose(), !editing && onCreated(g)) },
+    )
   }
   return (
     <>
@@ -585,10 +1096,19 @@ function GroupDialog({ group, onClose, onDeleted, onCreated }: { group: Partial<
         width="28rem"
         footer={
           <>
-            {editing && <button className="btn danger" onClick={() => setConfirm(true)}><Icon name="trash" size={14} />Delete</button>}
+            {editing && (
+              <button className="btn danger" onClick={() => setConfirm(true)}>
+                <Icon name="trash" size={14} />
+                Delete
+              </button>
+            )}
             <span className="spacer" />
-            <button className="btn" onClick={onClose}>Cancel</button>
-            <button className="btn primary" disabled={!name.trim() || save.isPending} onClick={submit}>{editing ? 'Save' : 'Create group'}</button>
+            <button className="btn" onClick={onClose}>
+              Cancel
+            </button>
+            <button className="btn primary" disabled={!name.trim() || save.isPending} onClick={submit}>
+              {editing ? 'Save' : 'Create group'}
+            </button>
           </>
         }
       >

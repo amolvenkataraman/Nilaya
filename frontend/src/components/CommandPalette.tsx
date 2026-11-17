@@ -12,7 +12,15 @@ import { cycleTheme } from '../lib/theme'
 import { dueLabel } from '../lib/dates'
 import type { TaskPage } from '../lib/types'
 
-interface Item { id: string; group: string; label: string; hint?: string; icon: string; run: () => void; colour?: string }
+interface Item {
+  id: string
+  group: string
+  label: string
+  hint?: string
+  icon: string
+  run: () => void
+  colour?: string
+}
 
 function score(label: string, q: string): number {
   const l = label.toLowerCase()
@@ -51,7 +59,14 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
   const items = useMemo<Item[]>(() => {
     const ql = q.trim().toLowerCase()
     const go = (to: string) => () => (onClose(), navigate(to))
-    const pages: Item[] = NAV.map((n) => ({ id: 'p' + n.to, group: 'Pages', label: n.label, icon: n.icon, hint: `G ${n.key.toUpperCase()}`, run: go(n.to) }))
+    const pages: Item[] = NAV.map((n) => ({
+      id: 'p' + n.to,
+      group: 'Pages',
+      label: n.label,
+      icon: n.icon,
+      hint: `G ${n.key.toUpperCase()}`,
+      run: go(n.to),
+    }))
     const actions: Item[] = [
       { id: 'a-task', group: 'Actions', label: 'New task', icon: 'plus', hint: 'Q', run: onQuickAdd },
       { id: 'a-event', group: 'Actions', label: 'New event', icon: 'calendar', run: go('/calendar?new=1') },
@@ -64,22 +79,38 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
       { id: 'a-keys', group: 'Actions', label: 'API keys', icon: 'code', run: go('/settings#set-api') },
     ]
     const views: Item[] = [
-      ['today', 'Today'], ['upcoming', 'Upcoming'], ['overdue', 'Overdue'], ['inbox', 'Inbox'], ['done', 'Completed tasks'],
+      ['today', 'Today'],
+      ['upcoming', 'Upcoming'],
+      ['overdue', 'Overdue'],
+      ['inbox', 'Inbox'],
+      ['done', 'Completed tasks'],
     ].map(([v, label]) => ({ id: 'v' + v, group: 'Task views', label, icon: 'tasks', run: go(`/tasks?view=${v}`) }))
     const projs: Item[] = (projects ?? [])
       .filter((p) => !p.is_inbox)
-      .map((p) => ({ id: 'pr' + p.id, group: 'Projects', label: p.name, icon: 'folder', colour: p.colour, hint: p.open_count ? String(p.open_count) : undefined, run: go(`/tasks?project=${p.id}`) }))
-    const ranked = [...pages, ...actions, ...views, ...projs]
-      .map((it) => ({ it, s: score(it.label, ql) }))
-      .filter((x) => x.s > 0)
+      .map((p) => ({
+        id: 'pr' + p.id,
+        group: 'Projects',
+        label: p.name,
+        icon: 'folder',
+        colour: p.colour,
+        hint: p.open_count ? String(p.open_count) : undefined,
+        run: go(`/tasks?project=${p.id}`),
+      }))
+    const ranked = [...pages, ...actions, ...views, ...projs].map((it) => ({ it, s: score(it.label, ql) })).filter((x) => x.s > 0)
     if (ql) ranked.sort((a, b) => b.s - a.s)
     let out = ranked.map((x) => x.it)
     if (!ql) out = out.filter((it) => it.group !== 'Projects' || out.indexOf(it) < 30)
     const found: Item[] = (tasks.data?.items ?? []).map((t) => ({
-      id: 't' + t.id, group: 'Tasks', label: t.title, icon: t.done ? 'check' : 'tasks', hint: t.due ? dueLabel(t.due) : undefined,
+      id: 't' + t.id,
+      group: 'Tasks',
+      label: t.title,
+      icon: t.done ? 'check' : 'tasks',
+      hint: t.due ? dueLabel(t.due) : undefined,
       run: go(`/tasks?view=all&task=${t.id}`),
     }))
-    const create: Item[] = ql ? [{ id: 'create', group: 'Create', label: `Add task "${q.trim()}"`, icon: 'plus', run: () => createTask(q.trim()) }] : []
+    const create: Item[] = ql
+      ? [{ id: 'create', group: 'Create', label: `Add task "${q.trim()}"`, icon: 'plus', run: () => createTask(q.trim()) }]
+      : []
     // Group order: best matches first when searching
     const groups = ql ? [...out, ...found, ...create] : [...actions, ...pages, ...views, ...projs]
     return groups
@@ -116,10 +147,10 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
             aria-controls="palette-list"
             aria-activedescendant={items[active] ? `pi-${active}` : undefined}
             onKeyDown={(e) => {
-              if (e.key === 'ArrowDown') (e.preventDefault(), setActive((a) => Math.min(a + 1, items.length - 1)))
-              else if (e.key === 'ArrowUp') (e.preventDefault(), setActive((a) => Math.max(a - 1, 0)))
-              else if (e.key === 'Enter') (e.preventDefault(), items[active]?.run())
-              else if (e.key === 'Escape') (e.preventDefault(), onClose())
+              if (e.key === 'ArrowDown') e.preventDefault(), setActive((a) => Math.min(a + 1, items.length - 1))
+              else if (e.key === 'ArrowUp') e.preventDefault(), setActive((a) => Math.max(a - 1, 0))
+              else if (e.key === 'Enter') e.preventDefault(), items[active]?.run()
+              else if (e.key === 'Escape') e.preventDefault(), onClose()
             }}
           />
           {tasks.isFetching && <span className="spinner" aria-label="Searching" />}
@@ -151,10 +182,16 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
           })}
         </div>
         <div className="palette-foot">
-          <span><span className="kbd">↑</span> <span className="kbd">↓</span> to move</span>
-          <span><span className="kbd">Enter</span> to open</span>
+          <span>
+            <span className="kbd">↑</span> <span className="kbd">↓</span> to move
+          </span>
+          <span>
+            <span className="kbd">Enter</span> to open
+          </span>
           <span className="spacer" />
-          <span><span className="kbd">G</span> then a letter jumps</span>
+          <span>
+            <span className="kbd">G</span> then a letter jumps
+          </span>
         </div>
       </div>
     </>,

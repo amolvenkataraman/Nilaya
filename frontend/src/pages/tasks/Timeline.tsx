@@ -14,7 +14,12 @@ const STEP = 14
 type Edge = 'move' | 'start' | 'end'
 
 const prioLevel = (p: number) => (p >= 20 ? 20 : p >= 15 ? 15 : p >= 10 ? 10 : 5)
-const PRIO_COLOUR: Record<number, string> = { 5: 'var(--app-muted)', 10: 'var(--app-accent)', 15: 'var(--app-warning)', 20: 'var(--app-danger)' }
+const PRIO_COLOUR: Record<number, string> = {
+  5: 'var(--app-muted)',
+  10: 'var(--app-accent)',
+  15: 'var(--app-warning)',
+  20: 'var(--app-danger)',
+}
 
 /** [first day, last day] of a task's bar (local midnight), or null when it has no dates. */
 export function taskSpan(t: Pick<Task, 'start' | 'due'>): [Date, Date] | null {
@@ -77,8 +82,14 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
     let outside = 0
     for (const t of tasks) {
       const sp = taskSpan(t)
-      if (!sp) { if (!t.done) undated++; continue }
-      if (sp[1] < start || sp[0] >= end) { outside++; continue }
+      if (!sp) {
+        if (!t.done) undated++
+        continue
+      }
+      if (sp[1] < start || sp[0] >= end) {
+        outside++
+        continue
+      }
       out.push({ t, s: sp[0], e: sp[1] })
     }
     out.sort((a, b) => a.s.getTime() - b.s.getTime() || a.e.getTime() - b.e.getTime() || a.t.title.localeCompare(b.t.title))
@@ -125,7 +136,11 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
       if (!moved && Math.abs(ev.clientX - x0) < 4) return
       moved = true
       const d = Math.round((ev.clientX - x0) / dayW)
-      if (d !== delta || !shown) { shown = true; delta = d; setDrag({ id: t.id, edge, delta: d }) }
+      if (d !== delta || !shown) {
+        shown = true
+        delta = d
+        setDrag({ id: t.id, edge, delta: d })
+      }
     }
     const up = () => {
       el.removeEventListener('pointermove', move)
@@ -149,38 +164,78 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
   return (
     <div className="tl">
       <div className="tl-head">
-        <h2 className="tl-range">{fmtDate(start, { month: 'short', day: 'numeric' })} – {fmtDate(addDays(end, -1), { month: 'short', day: 'numeric', year: 'numeric' })}</h2>
+        <h2 className="tl-range">
+          {fmtDate(start, { month: 'short', day: 'numeric' })} –{' '}
+          {fmtDate(addDays(end, -1), { month: 'short', day: 'numeric', year: 'numeric' })}
+        </h2>
         <span className="muted xsmall tl-note">
-          {[undated ? `${plural(undated, 'undated task')} not shown` : '', outside ? `${outside} outside this range` : ''].filter(Boolean).join(' · ')}
+          {[undated ? `${plural(undated, 'undated task')} not shown` : '', outside ? `${outside} outside this range` : '']
+            .filter(Boolean)
+            .join(' · ')}
         </span>
         <span className="spacer" />
         <div className="tl-nav">
-          <button className="btn sm icon" onClick={() => setStart(addDays(start, -STEP))} aria-label="Two weeks earlier" title="Two weeks earlier"><Icon name="chevronLeft" size={14} /></button>
-          <button className="btn sm" onClick={() => setStart(home)} disabled={start.getTime() === home.getTime()}>Today</button>
-          <button className="btn sm icon" onClick={() => setStart(addDays(start, STEP))} aria-label="Two weeks later" title="Two weeks later"><Icon name="chevronRight" size={14} /></button>
+          <button
+            className="btn sm icon"
+            onClick={() => setStart(addDays(start, -STEP))}
+            aria-label="Two weeks earlier"
+            title="Two weeks earlier"
+          >
+            <Icon name="chevronLeft" size={14} />
+          </button>
+          <button className="btn sm" onClick={() => setStart(home)} disabled={start.getTime() === home.getTime()}>
+            Today
+          </button>
+          <button
+            className="btn sm icon"
+            onClick={() => setStart(addDays(start, STEP))}
+            aria-label="Two weeks later"
+            title="Two weeks later"
+          >
+            <Icon name="chevronRight" size={14} />
+          </button>
         </div>
       </div>
       {rows.length === 0 ? (
         <div className="empty tasks-empty">No tasks with dates in this range. Give tasks a start or due date to plan them here.</div>
       ) : (
         <div className="tl-scroll" ref={scroller}>
-          <div className="tl-grid" style={{ '--days': DAYS, gridTemplateRows: `auto auto repeat(${rows.length}, 2.25rem)` } as CSSProperties}>
+          <div
+            className="tl-grid"
+            style={{ '--days': DAYS, gridTemplateRows: `auto auto repeat(${rows.length}, 2.25rem)` } as CSSProperties}
+          >
             <div className="tl-corner">Task</div>
             {months.map((m) => (
-              <div key={m.from} className="tl-month" style={{ gridColumn: `${m.from + 2} / span ${m.span}` }}><span>{m.label}</span></div>
+              <div key={m.from} className="tl-month" style={{ gridColumn: `${m.from + 2} / span ${m.span}` }}>
+                <span>{m.label}</span>
+              </div>
             ))}
             {days.map((d, i) => {
               const we = d.getDay() === 0 || d.getDay() === 6
               return (
-                <div key={i} ref={i === 0 ? dayCell : undefined} className={'tl-day' + (we ? ' we' : '') + (i === todayIdx ? ' today' : '') + (d.getDay() === 1 ? ' wk' : '')}
-                  style={{ gridColumn: i + 2 }} title={fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}>
-                  <span className="tl-wd">{fmtDate(d, { weekday: 'narrow' })}</span>{d.getDate()}
+                <div
+                  key={i}
+                  ref={i === 0 ? dayCell : undefined}
+                  className={'tl-day' + (we ? ' we' : '') + (i === todayIdx ? ' today' : '') + (d.getDay() === 1 ? ' wk' : '')}
+                  style={{ gridColumn: i + 2 }}
+                  title={fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}
+                >
+                  <span className="tl-wd">{fmtDate(d, { weekday: 'narrow' })}</span>
+                  {d.getDate()}
                 </div>
               )
             })}
-            {days.map((d, i) => (d.getDay() === 0 || d.getDay() === 6 || d.getDay() === 1) && (
-              <div key={'c' + i} className={'tl-col' + (d.getDay() === 1 ? ' wk' : ' we')} style={{ gridColumn: i + 2 }} aria-hidden="true" />
-            ))}
+            {days.map(
+              (d, i) =>
+                (d.getDay() === 0 || d.getDay() === 6 || d.getDay() === 1) && (
+                  <div
+                    key={'c' + i}
+                    className={'tl-col' + (d.getDay() === 1 ? ' wk' : ' we')}
+                    style={{ gridColumn: i + 2 }}
+                    aria-hidden="true"
+                  />
+                ),
+            )}
             {todayIdx >= 0 && todayIdx < DAYS && <div className="tl-now" style={{ gridColumn: todayIdx + 2 }} aria-hidden="true" />}
             {rows.map(({ t, s, e }, r) => {
               const row = r + 3
@@ -195,14 +250,37 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
               const clipR = to > DAYS - 1
               from = Math.max(0, Math.min(DAYS - 1, from))
               to = Math.max(from, Math.min(DAYS - 1, to))
-              const overdue = !t.done && !!t.due && (new Date(t.due) < new Date()) && (dayDiff(new Date(), new Date(t.due)) < 0 || !isEndOfDay(new Date(t.due)))
+              const overdue =
+                !t.done &&
+                !!t.due &&
+                new Date(t.due) < new Date() &&
+                (dayDiff(new Date(), new Date(t.due)) < 0 || !isEndOfDay(new Date(t.due)))
               const short = to - from < 3
               const range = `${t.start ? fmtDate(new Date(t.start), { month: 'short', day: 'numeric' }) + ' → ' : ''}${t.due ? fmtDate(new Date(t.due), { month: 'short', day: 'numeric' }) : 'no due date'}`
-              const cls = 'tl-bar p' + prioLevel(t.priority) + (t.done ? ' done' : '') + (overdue ? ' overdue' : '') + (short ? ' short' : '') +
-                (clipL ? ' clip-l' : '') + (clipR ? ' clip-r' : '') + (drag?.id === t.id ? ' dragging' : '') + (t.id === selected ? ' sel' : '')
+              const cls =
+                'tl-bar p' +
+                prioLevel(t.priority) +
+                (t.done ? ' done' : '') +
+                (overdue ? ' overdue' : '') +
+                (short ? ' short' : '') +
+                (clipL ? ' clip-l' : '') +
+                (clipR ? ' clip-r' : '') +
+                (drag?.id === t.id ? ' dragging' : '') +
+                (t.id === selected ? ' sel' : '')
               return [
-                <div key={'r' + t.id} className={'tl-rowline' + (t.id === selected ? ' sel' : '')} style={{ gridRow: row }} aria-hidden="true" />,
-                <button key={'n' + t.id} className={'tl-name' + (t.done ? ' done' : '')} style={{ gridRow: row }} onClick={() => onOpen(t)} title={t.title}>
+                <div
+                  key={'r' + t.id}
+                  className={'tl-rowline' + (t.id === selected ? ' sel' : '')}
+                  style={{ gridRow: row }}
+                  aria-hidden="true"
+                />,
+                <button
+                  key={'n' + t.id}
+                  className={'tl-name' + (t.done ? ' done' : '')}
+                  style={{ gridRow: row }}
+                  onClick={() => onOpen(t)}
+                  title={t.title}
+                >
                   <span className="tl-dot" style={{ background: t.colour || PRIO_COLOUR[prioLevel(t.priority)] }} />
                   <span className="truncate">{t.title}</span>
                 </button>,
@@ -211,11 +289,19 @@ export function Timeline({ tasks, onOpen, selected }: { tasks: Task[]; onOpen: (
                   type="button"
                   className={cls}
                   data-task={t.id}
-                  style={{ gridRow: row, gridColumn: `${from + 2} / ${to + 3}`, '--c': t.colour || PRIO_COLOUR[prioLevel(t.priority)] } as CSSProperties}
+                  style={
+                    {
+                      gridRow: row,
+                      gridColumn: `${from + 2} / ${to + 3}`,
+                      '--c': t.colour || PRIO_COLOUR[prioLevel(t.priority)],
+                    } as CSSProperties
+                  }
                   aria-label={`${t.title}, ${range}${overdue ? ', overdue' : ''}${t.done ? ', completed' : ''}. Open details`}
                   title={`${t.title}\n${range}\nDrag to move, drag an edge to change the start or due date`}
                   onPointerDown={(ev) => onPointerDown(ev, t)}
-                  onClick={() => { if (!justDragged.current) onOpen(t) }}
+                  onClick={() => {
+                    if (!justDragged.current) onOpen(t)
+                  }}
                 >
                   {!clipL && <span className="tl-h l" data-edge="start" aria-hidden="true" />}
                   <span className="tl-bar-t">{t.title}</span>

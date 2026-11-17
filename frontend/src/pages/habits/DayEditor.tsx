@@ -7,11 +7,23 @@ import { fmtDate } from '../../lib/dates'
 import { useSetEntry, type Habit } from './api'
 import { fmtNum, parseDay } from './util'
 
-export interface DayTarget { habit: Habit; day: string; value: number; skipped: boolean; note: string; focus?: 'note' }
+export interface DayTarget {
+  habit: Habit
+  day: string
+  value: number
+  skipped: boolean
+  note: string
+  focus?: 'note'
+}
 
 export function DayDialog({ target, onClose }: { target: DayTarget | null; onClose: () => void }) {
   return (
-    <Dialog open={!!target} onClose={onClose} title={target ? `${target.habit.name} · ${fmtDate(parseDay(target.day), { weekday: 'short', month: 'short', day: 'numeric' })}` : ''} width="24rem">
+    <Dialog
+      open={!!target}
+      onClose={onClose}
+      title={target ? `${target.habit.name} · ${fmtDate(parseDay(target.day), { weekday: 'short', month: 'short', day: 'numeric' })}` : ''}
+      width="24rem"
+    >
       {target && <DayForm key={target.habit.id + target.day} t={target} onDone={onClose} />}
     </Dialog>
   )
@@ -40,23 +52,64 @@ function DayForm({ t, onDone }: { t: DayTarget; onDone: () => void }) {
       {measurable ? (
         <label className="field">
           <span>Amount{h.unit ? ` (${h.unit})` : ''}</span>
-          <input className="input" type="number" inputMode="decimal" min={0} step="any" value={amount} disabled={skipped}
-            onChange={(e) => setAmount(e.target.value)} autoFocus={t.focus !== 'note'} />
+          <input
+            className="input"
+            type="number"
+            inputMode="decimal"
+            min={0}
+            step="any"
+            value={amount}
+            disabled={skipped}
+            onChange={(e) => setAmount(e.target.value)}
+            autoFocus={t.focus !== 'note'}
+          />
         </label>
       ) : (
-        <label className="h-check-row"><input type="checkbox" checked={done} disabled={skipped} onChange={(e) => setDone(e.target.checked)} autoFocus={t.focus !== 'note'} />Done</label>
+        <label className="h-check-row">
+          <input
+            type="checkbox"
+            checked={done}
+            disabled={skipped}
+            onChange={(e) => setDone(e.target.checked)}
+            autoFocus={t.focus !== 'note'}
+          />
+          Done
+        </label>
       )}
-      <label className="h-check-row"><input type="checkbox" checked={skipped} onChange={(e) => setSkipped(e.target.checked)} />Skip this day (keeps the streak)</label>
+      <label className="h-check-row">
+        <input type="checkbox" checked={skipped} onChange={(e) => setSkipped(e.target.checked)} />
+        Skip this day (keeps the streak)
+      </label>
       <label className="field">
         <span>Note</span>
-        <textarea className="textarea" rows={3} maxLength={500} value={note} onChange={(e) => setNote(e.target.value)} placeholder="How did it go?" autoFocus={t.focus === 'note'} />
+        <textarea
+          className="textarea"
+          rows={3}
+          maxLength={500}
+          value={note}
+          onChange={(e) => setNote(e.target.value)}
+          placeholder="How did it go?"
+          autoFocus={t.focus === 'note'}
+        />
       </label>
-      {error && <span className="error-text" role="alert">{error}</span>}
+      {error && (
+        <span className="error-text" role="alert">
+          {error}
+        </span>
+      )}
       <div className="row" style={{ gap: '0.5rem' }}>
-        {(t.value > 0 || t.skipped || t.note) && <button type="button" className="btn ghost" onClick={() => save(0, false, '')}>Clear day</button>}
+        {(t.value > 0 || t.skipped || t.note) && (
+          <button type="button" className="btn ghost" onClick={() => save(0, false, '')}>
+            Clear day
+          </button>
+        )}
         <span className="spacer" />
-        <button type="button" className="btn" onClick={onDone}>Cancel</button>
-        <button type="submit" className="btn primary">Save</button>
+        <button type="button" className="btn" onClick={onDone}>
+          Cancel
+        </button>
+        <button type="submit" className="btn primary">
+          Save
+        </button>
       </div>
     </form>
   )

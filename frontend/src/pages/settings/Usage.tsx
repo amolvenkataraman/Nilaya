@@ -6,7 +6,10 @@ import { ErrorBox, SkeletonRows, useMediaQuery } from '../../components/ui'
 import { get } from '../../lib/api'
 import { addDays, dayKey, fmtDate, parseDayKey, startOfDay } from '../../lib/dates'
 
-interface Totals { views: number | null; calls: number | null }
+interface Totals {
+  views: number | null
+  calls: number | null
+}
 interface Summary {
   days: number
   per_day: (Totals & { day: string; people: number })[]
@@ -33,7 +36,11 @@ function series(d: Summary, maxLabels: number) {
     const every = Math.ceil(d.days / maxLabels)
     return {
       values: daily.map((k) => byDay.get(k) ?? 0),
-      labels: daily.map((k, i) => ((d.days - 1 - i) % every === 0 ? fmtDate(parseDayKey(k), d.days <= 7 ? { weekday: 'short' } : { month: 'short', day: 'numeric' }) : '')),
+      labels: daily.map((k, i) =>
+        (d.days - 1 - i) % every === 0
+          ? fmtDate(parseDayKey(k), d.days <= 7 ? { weekday: 'short' } : { month: 'short', day: 'numeric' })
+          : '',
+      ),
       unit: 'day',
     }
   }
@@ -45,7 +52,9 @@ function series(d: Summary, maxLabels: number) {
   const every = Math.ceil(weeks.length / Math.max(2, maxLabels - 2))
   return {
     values: weeks.map((w) => w.v),
-    labels: weeks.map((w, i) => ((weeks.length - 1 - i) % every === 0 ? fmtDate(parseDayKey(w.start), { month: 'short', day: 'numeric' }) : '')),
+    labels: weeks.map((w, i) =>
+      (weeks.length - 1 - i) % every === 0 ? fmtDate(parseDayKey(w.start), { month: 'short', day: 'numeric' }) : '',
+    ),
     unit: 'week',
   }
 }
@@ -76,12 +85,16 @@ export function UsagePage() {
         </div>
         <div className="seg" role="group" aria-label="Period">
           {PERIODS.map((p) => (
-            <button key={p.days} type="button" aria-pressed={days === p.days} onClick={() => setDays(p.days)}>{p.label}</button>
+            <button key={p.days} type="button" aria-pressed={days === p.days} onClick={() => setDays(p.days)}>
+              {p.label}
+            </button>
           ))}
         </div>
       </div>
       {q.isPending ? (
-        <div className="set-card"><SkeletonRows rows={6} /></div>
+        <div className="set-card">
+          <SkeletonRows rows={6} />
+        </div>
       ) : q.isError && !d ? (
         <ErrorBox error={q.error} retry={() => q.refetch()} />
       ) : d && totals && chart ? (
@@ -101,55 +114,82 @@ export function UsagePage() {
           </div>
           <div className="usage-grid">
             <section className="card">
-              <div className="card-head"><h2>Page views per {chart.unit}</h2></div>
+              <div className="card-head">
+                <h2>Page views per {chart.unit}</h2>
+              </div>
               <div className="card-body">
-                {chart.values.some((v) => v > 0)
-                  ? <Columns values={chart.values} labels={chart.labels} format={fmt} height={200} title={`Page views per ${chart.unit}`} />
-                  : <div className="empty">No usage in this period yet.</div>}
+                {chart.values.some((v) => v > 0) ? (
+                  <Columns values={chart.values} labels={chart.labels} format={fmt} height={200} title={`Page views per ${chart.unit}`} />
+                ) : (
+                  <div className="empty">No usage in this period yet.</div>
+                )}
               </div>
             </section>
             <section className="card">
-              <div className="card-head"><h2>Page views by app</h2></div>
+              <div className="card-head">
+                <h2>Page views by app</h2>
+              </div>
               <div className="card-body">
                 {d.apps.length ? (
                   <HBars
                     items={d.apps.map((a) => ({
-                      key: a.app, label: a.app, value: n(a.views),
+                      key: a.app,
+                      label: a.app,
+                      value: n(a.views),
                       title: `${a.app}: ${fmt(n(a.views))} views · ${fmt(n(a.calls))} API calls · ${a.people} ${a.people === 1 ? 'person' : 'people'}`,
                     }))}
                     format={fmt}
                   />
-                ) : <div className="empty">No usage in this period yet.</div>}
+                ) : (
+                  <div className="empty">No usage in this period yet.</div>
+                )}
               </div>
             </section>
           </div>
           <section className="card">
-            <div className="card-head"><h2>People × apps</h2><span className="count">page views · API calls</span></div>
+            <div className="card-head">
+              <h2>People × apps</h2>
+              <span className="count">page views · API calls</span>
+            </div>
             {d.people.length ? (
               <div className="usage-table-wrap">
                 <table className="usage-table">
                   <thead>
                     <tr>
                       <th scope="col">Person</th>
-                      <th scope="col" className="num">Active days</th>
-                      {d.apps.map((a) => <th key={a.app} scope="col" className="num">{a.app}</th>)}
+                      <th scope="col" className="num">
+                        Active days
+                      </th>
+                      {d.apps.map((a) => (
+                        <th key={a.app} scope="col" className="num">
+                          {a.app}
+                        </th>
+                      ))}
                     </tr>
                   </thead>
                   <tbody>
                     {d.people.map((p) => (
                       <tr key={p.user}>
-                        <th scope="row" title={`@${p.user}`}>{p.name}</th>
+                        <th scope="row" title={`@${p.user}`}>
+                          {p.name}
+                        </th>
                         <td className="num">{fmt(p.active_days)}</td>
                         {d.apps.map((a) => {
                           const m = cells.get(`${p.user}|${a.app}`)
-                          return <td key={a.app} className={'num' + (m ? '' : ' zero')}>{m ? `${fmt(n(m.views))} · ${fmt(n(m.calls))}` : '–'}</td>
+                          return (
+                            <td key={a.app} className={'num' + (m ? '' : ' zero')}>
+                              {m ? `${fmt(n(m.views))} · ${fmt(n(m.calls))}` : '–'}
+                            </td>
+                          )
                         })}
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            ) : <div className="empty">No usage in this period yet.</div>}
+            ) : (
+              <div className="empty">No usage in this period yet.</div>
+            )}
           </section>
         </div>
       ) : null}

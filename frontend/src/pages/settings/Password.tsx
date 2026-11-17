@@ -43,29 +43,74 @@ export function PasswordSection() {
         {/* Lets password managers attach the new password to the right account. */}
         <input type="text" name="username" autoComplete="username" hidden readOnly />
         <div className="set-row">
-          <label className="set-label" htmlFor="pw-old">Current password</label>
+          <label className="set-label" htmlFor="pw-old">
+            Current password
+          </label>
           <div className="set-control fill">
-            <input id="pw-old" className="input" type="password" autoComplete="current-password" value={old} onChange={(e) => (setOld(e.target.value), setError(''))} />
+            <input
+              id="pw-old"
+              className="input"
+              type="password"
+              autoComplete="current-password"
+              value={old}
+              onChange={(e) => (setOld(e.target.value), setError(''))}
+            />
           </div>
         </div>
         <div className="set-row top">
-          <label className="set-label" htmlFor="pw-new">New password<small>At least {MIN} characters, not too common or close to your name</small></label>
+          <label className="set-label" htmlFor="pw-new">
+            New password<small>At least {MIN} characters, not too common or close to your name</small>
+          </label>
           <div className="set-control fill col">
-            <input id="pw-new" className="input" type="password" autoComplete="new-password" maxLength={128} value={next} aria-invalid={tooShort || undefined} aria-describedby="pw-new-err" onChange={(e) => (setNext(e.target.value), setError(''))} />
-            <span id="pw-new-err" className="error-text" aria-live="polite">{tooShort ? `${MIN - next.length} more character${MIN - next.length > 1 ? 's' : ''} needed` : ''}</span>
+            <input
+              id="pw-new"
+              className="input"
+              type="password"
+              autoComplete="new-password"
+              maxLength={128}
+              value={next}
+              aria-invalid={tooShort || undefined}
+              aria-describedby="pw-new-err"
+              onChange={(e) => (setNext(e.target.value), setError(''))}
+            />
+            <span id="pw-new-err" className="error-text" aria-live="polite">
+              {tooShort ? `${MIN - next.length} more character${MIN - next.length > 1 ? 's' : ''} needed` : ''}
+            </span>
           </div>
         </div>
         <div className="set-row top">
-          <label className="set-label" htmlFor="pw-confirm">Confirm new password</label>
+          <label className="set-label" htmlFor="pw-confirm">
+            Confirm new password
+          </label>
           <div className="set-control fill col">
-            <input id="pw-confirm" className="input" type="password" autoComplete="new-password" maxLength={128} value={confirm} aria-invalid={mismatch || undefined} aria-describedby="pw-confirm-err" onChange={(e) => (setConfirm(e.target.value), setError(''))} />
-            <span id="pw-confirm-err" className="error-text" aria-live="polite">{mismatch ? "Doesn't match the new password" : ''}</span>
+            <input
+              id="pw-confirm"
+              className="input"
+              type="password"
+              autoComplete="new-password"
+              maxLength={128}
+              value={confirm}
+              aria-invalid={mismatch || undefined}
+              aria-describedby="pw-confirm-err"
+              onChange={(e) => (setConfirm(e.target.value), setError(''))}
+            />
+            <span id="pw-confirm-err" className="error-text" aria-live="polite">
+              {mismatch ? "Doesn't match the new password" : ''}
+            </span>
           </div>
         </div>
         <div className="set-foot">
-          {error ? <span className="set-status err" role="alert">{error}</span> : <span className="set-status">{change.isPending ? 'Changing…' : ''}</span>}
+          {error ? (
+            <span className="set-status err" role="alert">
+              {error}
+            </span>
+          ) : (
+            <span className="set-status">{change.isPending ? 'Changing…' : ''}</span>
+          )}
           <span className="spacer" />
-          <button type="submit" className="btn primary" disabled={!ready}>Change password</button>
+          <button type="submit" className="btn primary" disabled={!ready}>
+            Change password
+          </button>
         </div>
       </form>
     </section>

@@ -5,7 +5,17 @@ import { Link } from 'react-router'
 
 export const userPath = (username: string) => `/users/${encodeURIComponent(username)}`
 
-export function UserLink({ username, children, className, title }: { username: string; children?: ReactNode; className?: string; title?: string }) {
+export function UserLink({
+  username,
+  children,
+  className,
+  title,
+}: {
+  username: string
+  children?: ReactNode
+  className?: string
+  title?: string
+}) {
   return (
     <Link to={userPath(username)} className={className} title={title ?? `@${username}`} onClick={(e) => e.stopPropagation()}>
       {children ?? `@${username}`}

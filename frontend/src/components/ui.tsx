@@ -1,7 +1,13 @@
 // Shared UI primitives: popover menu, dialog, drawer, skeletons, avatar, switch, hotkeys.
 import {
-  useCallback, useEffect, useLayoutEffect, useRef, useState,
-  type CSSProperties, type KeyboardEvent as ReactKeyboardEvent, type ReactNode,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type ReactNode,
 } from 'react'
 import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
@@ -30,7 +36,8 @@ export function useHotkey(match: (e: KeyboardEvent) => boolean, fn: (e: Keyboard
 }
 
 // ---------------------------------------------------------------- focus helpers
-const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
+const FOCUSABLE =
+  'a[href],button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])'
 
 function trapTab(e: ReactKeyboardEvent, root: HTMLElement | null) {
   if (e.key !== 'Tab' || !root) return
@@ -57,7 +64,12 @@ function useRestoreFocus(open: boolean) {
 
 // ---------------------------------------------------------------- popover menu
 interface MenuProps {
-  trigger: (p: { ref: (el: HTMLElement | null) => void; onClick: () => void; 'aria-expanded': boolean; 'aria-haspopup': 'menu' }) => ReactNode
+  trigger: (p: {
+    ref: (el: HTMLElement | null) => void
+    onClick: () => void
+    'aria-expanded': boolean
+    'aria-haspopup': 'menu'
+  }) => ReactNode
   children: (close: () => void) => ReactNode
   align?: 'start' | 'end'
   width?: string
@@ -143,8 +155,22 @@ export function Menu({ trigger, children, align = 'start', width, label }: MenuP
   )
 }
 
-export function MenuItem({ icon, children, onClick, danger, end, href, active }: {
-  icon?: string; children: ReactNode; onClick?: () => void; danger?: boolean; end?: ReactNode; href?: string; active?: boolean
+export function MenuItem({
+  icon,
+  children,
+  onClick,
+  danger,
+  end,
+  href,
+  active,
+}: {
+  icon?: string
+  children: ReactNode
+  onClick?: () => void
+  danger?: boolean
+  end?: ReactNode
+  href?: string
+  active?: boolean
 }) {
   const cls = 'menu-item' + (danger ? ' danger' : '') + (active ? ' active' : '')
   const inner = (
@@ -154,13 +180,36 @@ export function MenuItem({ icon, children, onClick, danger, end, href, active }:
       {end != null && <span className="end">{end}</span>}
     </>
   )
-  if (href) return <a role="menuitem" className={cls} href={href} onClick={onClick}>{inner}</a>
-  return <button type="button" role="menuitem" className={cls} onClick={onClick}>{inner}</button>
+  if (href)
+    return (
+      <a role="menuitem" className={cls} href={href} onClick={onClick}>
+        {inner}
+      </a>
+    )
+  return (
+    <button type="button" role="menuitem" className={cls} onClick={onClick}>
+      {inner}
+    </button>
+  )
 }
 
 // ---------------------------------------------------------------- dialog
-export function Dialog({ open, onClose, title, children, footer, width, labelledBy }: {
-  open: boolean; onClose: () => void; title: ReactNode; children: ReactNode; footer?: ReactNode; width?: string; labelledBy?: string
+export function Dialog({
+  open,
+  onClose,
+  title,
+  children,
+  footer,
+  width,
+  labelledBy,
+}: {
+  open: boolean
+  onClose: () => void
+  title: ReactNode
+  children: ReactNode
+  footer?: ReactNode
+  width?: string
+  labelledBy?: string
 }) {
   const ref = useRef<HTMLDivElement>(null)
   const id = labelledBy ?? 'dlg-title'
@@ -170,7 +219,10 @@ export function Dialog({ open, onClose, title, children, footer, width, labelled
     // Keep focus a child already took (React autoFocus); otherwise the first field in the body.
     if (!ref.current?.contains(document.activeElement)) {
       const body = ref.current?.querySelector('.dialog-body')
-      const el = body?.querySelector<HTMLElement>('input:not([type=checkbox]):not([type=radio]),textarea,select') ?? body?.querySelector<HTMLElement>('button') ?? ref.current?.querySelector<HTMLElement>('button')
+      const el =
+        body?.querySelector<HTMLElement>('input:not([type=checkbox]):not([type=radio]),textarea,select') ??
+        body?.querySelector<HTMLElement>('button') ??
+        ref.current?.querySelector<HTMLElement>('button')
       el?.focus()
     }
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && (e.stopPropagation(), onClose())
@@ -181,9 +233,19 @@ export function Dialog({ open, onClose, title, children, footer, width, labelled
   return createPortal(
     <>
       <div className="scrim" onClick={onClose} />
-      <div ref={ref} className="dialog" role="dialog" aria-modal="true" aria-labelledby={id} style={width ? { width: `min(${width}, calc(100vw - 2rem))` } : undefined} onKeyDown={(e) => trapTab(e, ref.current)}>
+      <div
+        ref={ref}
+        className="dialog"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={id}
+        style={width ? { width: `min(${width}, calc(100vw - 2rem))` } : undefined}
+        onKeyDown={(e) => trapTab(e, ref.current)}
+      >
         <div className="dialog-head">
-          <h2 id={id} className="grow">{title}</h2>
+          <h2 id={id} className="grow">
+            {title}
+          </h2>
           <button type="button" className="btn ghost icon sm" onClick={onClose} aria-label="Close">
             <Icon name="x" />
           </button>
@@ -197,8 +259,20 @@ export function Dialog({ open, onClose, title, children, footer, width, labelled
 }
 
 /** Simple confirm dialog driven by a promise-less callback. */
-export function Confirm({ open, title, body, confirmLabel = 'Delete', onConfirm, onClose }: {
-  open: boolean; title: string; body?: ReactNode; confirmLabel?: string; onConfirm: () => void; onClose: () => void
+export function Confirm({
+  open,
+  title,
+  body,
+  confirmLabel = 'Delete',
+  onConfirm,
+  onClose,
+}: {
+  open: boolean
+  title: string
+  body?: ReactNode
+  confirmLabel?: string
+  onConfirm: () => void
+  onClose: () => void
 }) {
   return (
     <Dialog
@@ -209,8 +283,17 @@ export function Confirm({ open, title, body, confirmLabel = 'Delete', onConfirm,
       footer={
         <>
           <span className="spacer" />
-          <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" style={{ background: 'var(--app-danger)', borderColor: 'var(--app-danger)', color: '#fff' }} onClick={() => { onConfirm(); onClose() }}>
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="btn primary"
+            style={{ background: 'var(--app-danger)', borderColor: 'var(--app-danger)', color: '#fff' }}
+            onClick={() => {
+              onConfirm()
+              onClose()
+            }}
+          >
             {confirmLabel}
           </button>
         </>
@@ -237,7 +320,15 @@ export function Drawer({ open, onClose, children, label }: { open: boolean; onCl
   return createPortal(
     <>
       <div className="scrim drawer-scrim" onClick={onClose} />
-      <aside ref={ref} className="drawer" role="dialog" aria-modal="true" aria-label={label} tabIndex={-1} onKeyDown={(e) => trapTab(e, ref.current)}>
+      <aside
+        ref={ref}
+        className="drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+        tabIndex={-1}
+        onKeyDown={(e) => trapTab(e, ref.current)}
+      >
         {children}
       </aside>
     </>,
@@ -261,18 +352,46 @@ export function SkeletonRows({ rows = 4, avatar = false }: { rows?: number; avat
 
 export function Avatar({ name, src, size = 1.75 }: { name: string; src?: string | null; size?: number }) {
   const [broken, setBroken] = useState(false)
-  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0]!.toUpperCase()).join('') || '?'
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]!.toUpperCase())
+      .join('') || '?'
   const style = { width: `${size}rem`, height: `${size}rem`, fontSize: `${size * 0.4}rem` }
   // Only same-site image paths: the profile picture is served by the app itself.
   const safe = src && /^\/(?![/\\])/.test(src) && !broken ? src : null
   return safe ? (
-    <img className="avatar" src={safe} alt="" style={style} width={Math.round(size * 16)} height={Math.round(size * 16)} loading="lazy" decoding="async" onError={() => setBroken(true)} />
+    <img
+      className="avatar"
+      src={safe}
+      alt=""
+      style={style}
+      width={Math.round(size * 16)}
+      height={Math.round(size * 16)}
+      loading="lazy"
+      decoding="async"
+      onError={() => setBroken(true)}
+    />
   ) : (
-    <span className="avatar" style={style} aria-hidden="true">{initials}</span>
+    <span className="avatar" style={style} aria-hidden="true">
+      {initials}
+    </span>
   )
 }
 
-export function Switch({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label?: ReactNode; disabled?: boolean }) {
+export function Switch({
+  checked,
+  onChange,
+  label,
+  disabled,
+}: {
+  checked: boolean
+  onChange: (v: boolean) => void
+  label?: ReactNode
+  disabled?: boolean
+}) {
   return (
     <label className="switch">
       <input type="checkbox" role="switch" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
@@ -287,7 +406,11 @@ export function ErrorBox({ error, retry }: { error: unknown; retry?: () => void 
     <div className="error-box" role="alert">
       <Icon name="alert" />
       <span className="grow">{(error as Error)?.message || 'Something went wrong.'}</span>
-      {retry && <button className="btn sm" onClick={retry}>Retry</button>}
+      {retry && (
+        <button className="btn sm" onClick={retry}>
+          Retry
+        </button>
+      )}
     </div>
   )
 }

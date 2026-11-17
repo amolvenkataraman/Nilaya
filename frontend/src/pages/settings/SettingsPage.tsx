@@ -37,7 +37,11 @@ function timezones(current: string): string[] {
   return zones
 }
 
-interface SectionDef { id: string; label: string; icon: string }
+interface SectionDef {
+  id: string
+  label: string
+  icon: string
+}
 const ACCOUNT: SectionDef[] = [
   { id: 'set-profile', label: 'Profile', icon: 'user' },
   { id: 'set-password', label: 'Password', icon: 'shield' },
@@ -104,7 +108,9 @@ export default function SettingsPage() {
   const ids = [...ACCOUNT, ...DEVELOPER, ...(staff ? [ADMIN] : []), MORE].map((s) => s.id)
   const [active, go] = useActiveSection(ids, !usage)
   const open = (id: string) => (usage ? navigate(`/settings#${id}`) : go(id))
-  const item = (s: SectionDef) => <SideItem key={s.id} icon={s.icon} label={s.label} active={!usage && active === s.id} onClick={() => open(s.id)} />
+  const item = (s: SectionDef) => (
+    <SideItem key={s.id} icon={s.icon} label={s.label} active={!usage && active === s.id} onClick={() => open(s.id)} />
+  )
   const sidebar = (
     <>
       <SideSection>{ACCOUNT.map(item)}</SideSection>
@@ -124,31 +130,41 @@ export default function SettingsPage() {
   )
   return (
     <AppShell app="settings" sidebar={sidebar} pageTitle={usage ? 'Usage' : 'Settings'}>
-    <div className={'page set-page' + (usage ? ' usage-page' : '')}>
-      {usage ? (
-        me.isPending ? <div className="set-card"><SkeletonRows rows={5} /></div>
-          : staff ? <UsagePage />
-          : <ErrorBox error={me.error ?? new Error('Usage is visible to staff only.')} />
-      ) : (
-        <>
-          {me.isPending ? (
-            <div className="set-card"><SkeletonRows rows={5} /></div>
-          ) : me.isError && !me.data ? (
-            <div className="set-card"><ErrorBox error={me.error} retry={() => me.refetch()} /></div>
+      <div className={'page set-page' + (usage ? ' usage-page' : '')}>
+        {usage ? (
+          me.isPending ? (
+            <div className="set-card">
+              <SkeletonRows rows={5} />
+            </div>
+          ) : staff ? (
+            <UsagePage />
           ) : (
-            <Profile me={me.data} />
-          )}
-          <PasswordSection />
-          <Appearance />
-          <Shortcuts />
-          <ApiKeysSection />
-          <FeedsSection />
-          <GuidesSection />
-          {staff && <AdminSection />}
-          <Links username={me.data?.username} />
-        </>
-      )}
-    </div>
+            <ErrorBox error={me.error ?? new Error('Usage is visible to staff only.')} />
+          )
+        ) : (
+          <>
+            {me.isPending ? (
+              <div className="set-card">
+                <SkeletonRows rows={5} />
+              </div>
+            ) : me.isError && !me.data ? (
+              <div className="set-card">
+                <ErrorBox error={me.error} retry={() => me.refetch()} />
+              </div>
+            ) : (
+              <Profile me={me.data} />
+            )}
+            <PasswordSection />
+            <Appearance />
+            <Shortcuts />
+            <ApiKeysSection />
+            <FeedsSection />
+            <GuidesSection />
+            {staff && <AdminSection />}
+            <Links username={me.data?.username} />
+          </>
+        )}
+      </div>
     </AppShell>
   )
 }
@@ -180,7 +196,8 @@ function Profile({ me }: { me: Me }) {
       onSuccess: () => toast.show(body.username ? `Profile saved. You're now @${body.username}` : 'Profile saved'),
       onError: (e) => {
         const msg = (e as Error).message
-        if (body.username && /username/i.test(msg)) setNameError(msg)  // shown under the field
+        if (body.username && /username/i.test(msg))
+          setNameError(msg) // shown under the field
         else toast.error(msg)
       },
     })
@@ -202,50 +219,117 @@ function Profile({ me }: { me: Me }) {
         }}
       >
         <div className="profile-head">
-          <button type="button" className="profile-pic" onClick={() => setPicture(true)} aria-label="Change profile picture" title="Change profile picture">
+          <button
+            type="button"
+            className="profile-pic"
+            onClick={() => setPicture(true)}
+            aria-label="Change profile picture"
+            title="Change profile picture"
+          >
             <Avatar name={name} src={me.profile_picture} size={3} />
-            <span className="profile-pic-cam" aria-hidden="true"><Icon name="camera" size={12} /></span>
+            <span className="profile-pic-cam" aria-hidden="true">
+              <Icon name="camera" size={12} />
+            </span>
           </button>
           <div className="grow" style={{ minWidth: 0 }}>
             <div className="name truncate">{name}</div>
-            <div className="small muted truncate">@{me.username}{me.email ? ` · ${me.email}` : ''}</div>
+            <div className="small muted truncate">
+              @{me.username}
+              {me.email ? ` · ${me.email}` : ''}
+            </div>
           </div>
           <div className="profile-actions">
-            <button type="button" className="btn sm" onClick={() => setPicture(true)}>Change photo</button>
-            <Link className="btn ghost sm" to={userPath(me.username)}>View profile</Link>
+            <button type="button" className="btn sm" onClick={() => setPicture(true)}>
+              Change photo
+            </button>
+            <Link className="btn ghost sm" to={userPath(me.username)}>
+              View profile
+            </Link>
           </div>
         </div>
         <div className="set-row">
-          <label className="set-label" htmlFor="pf-first">First name</label>
-          <div className="set-control fill"><input id="pf-first" className="input" value={form.first_name} onChange={set('first_name')} maxLength={150} autoComplete="given-name" /></div>
+          <label className="set-label" htmlFor="pf-first">
+            First name
+          </label>
+          <div className="set-control fill">
+            <input
+              id="pf-first"
+              className="input"
+              value={form.first_name}
+              onChange={set('first_name')}
+              maxLength={150}
+              autoComplete="given-name"
+            />
+          </div>
         </div>
         <div className="set-row">
-          <label className="set-label" htmlFor="pf-last">Last name</label>
-          <div className="set-control fill"><input id="pf-last" className="input" value={form.last_name} onChange={set('last_name')} maxLength={150} autoComplete="family-name" /></div>
+          <label className="set-label" htmlFor="pf-last">
+            Last name
+          </label>
+          <div className="set-control fill">
+            <input
+              id="pf-last"
+              className="input"
+              value={form.last_name}
+              onChange={set('last_name')}
+              maxLength={150}
+              autoComplete="family-name"
+            />
+          </div>
         </div>
         <div className="set-row top">
-          <label className="set-label" htmlFor="pf-about">About<small>Shown on your profile</small></label>
-          <div className="set-control fill"><textarea id="pf-about" className="textarea" rows={3} value={form.description} onChange={set('description')} maxLength={512} /></div>
+          <label className="set-label" htmlFor="pf-about">
+            About<small>Shown on your profile</small>
+          </label>
+          <div className="set-control fill">
+            <textarea id="pf-about" className="textarea" rows={3} value={form.description} onChange={set('description')} maxLength={512} />
+          </div>
         </div>
         <div className="set-row">
-          <label className="set-label" htmlFor="pf-bday">Birthday</label>
-          <div className="set-control fill"><input id="pf-bday" type="date" className="input" value={form.birthday} onChange={set('birthday')} /></div>
+          <label className="set-label" htmlFor="pf-bday">
+            Birthday
+          </label>
+          <div className="set-control fill">
+            <input id="pf-bday" type="date" className="input" value={form.birthday} onChange={set('birthday')} />
+          </div>
         </div>
         <div className="set-row">
-          <label className="set-label" htmlFor="pf-tz">Time zone<small>Used for reminders and quick-add dates</small></label>
+          <label className="set-label" htmlFor="pf-tz">
+            Time zone<small>Used for reminders and quick-add dates</small>
+          </label>
           <div className="set-control fill">
             <select id="pf-tz" className="select" value={form.timezone} onChange={set('timezone')}>
               {!form.timezone && <option value="">Not set</option>}
-              {zones.map((z) => <option key={z} value={z}>{z.replace(/_/g, ' ')}</option>)}
+              {zones.map((z) => (
+                <option key={z} value={z}>
+                  {z.replace(/_/g, ' ')}
+                </option>
+              ))}
             </select>
           </div>
         </div>
         <div className="set-row top">
-          <label className="set-label" htmlFor="pf-user">Username<small>Your profile and availability links use it</small></label>
+          <label className="set-label" htmlFor="pf-user">
+            Username<small>Your profile and availability links use it</small>
+          </label>
           <div className="set-control fill">
-            <input id="pf-user" className={'input' + (nameError ? ' invalid' : '')} value={form.username} onChange={set('username')} maxLength={150}
-              autoComplete="username" spellCheck={false} pattern="[\w.@+\-]+" aria-invalid={!!nameError || undefined} aria-describedby={nameError ? 'pf-user-err' : undefined} />
-            {nameError && <p id="pf-user-err" className="field-error" role="alert">{nameError}</p>}
+            <input
+              id="pf-user"
+              className={'input' + (nameError ? ' invalid' : '')}
+              value={form.username}
+              onChange={set('username')}
+              maxLength={150}
+              autoComplete="username"
+              spellCheck={false}
+              pattern="[\w.@+\-]+"
+              aria-invalid={!!nameError || undefined}
+              aria-describedby={nameError ? 'pf-user-err' : undefined}
+            />
+            {nameError && (
+              <p id="pf-user-err" className="field-error" role="alert">
+                {nameError}
+              </p>
+            )}
           </div>
         </div>
         <div className="set-row">
@@ -257,17 +341,29 @@ function Profile({ me }: { me: Me }) {
             <span className="set-label">Groups</span>
             <span className="set-value profile-groups">
               {me.is_staff && <span className="chip accent">Staff</span>}
-              {me.groups.map((g) => <span key={g.id} className="chip">{g.name}</span>)}
+              {me.groups.map((g) => (
+                <span key={g.id} className="chip">
+                  {g.name}
+                </span>
+              ))}
             </span>
           </div>
         )}
         <div className="set-foot">
           <span className="set-status">
-            {update.isPending ? 'Saving…' : dirty ? `${dirtyKeys.length} unsaved change${dirtyKeys.length > 1 ? 's' : ''}` : 'All changes saved'}
+            {update.isPending
+              ? 'Saving…'
+              : dirty
+                ? `${dirtyKeys.length} unsaved change${dirtyKeys.length > 1 ? 's' : ''}`
+                : 'All changes saved'}
           </span>
           <span className="spacer" />
-          <button type="button" className="btn" disabled={!dirty || update.isPending} onClick={() => setForm(initial)}>Reset</button>
-          <button type="submit" className="btn primary" disabled={!dirty || update.isPending}>Save</button>
+          <button type="button" className="btn" disabled={!dirty || update.isPending} onClick={() => setForm(initial)}>
+            Reset
+          </button>
+          <button type="submit" className="btn primary" disabled={!dirty || update.isPending}>
+            Save
+          </button>
         </div>
       </form>
       <PictureDialog open={picture} onClose={() => setPicture(false)} />
@@ -331,7 +427,13 @@ function Shortcuts() {
           {SHORTCUTS.map(([label, keys]) => (
             <div key={label} className="shortcut">
               <span>{label}</span>
-              <span className="keys">{keys.map((k) => <span key={k} className="kbd">{k === 'Ctrl' && mac ? '⌘' : k}</span>)}</span>
+              <span className="keys">
+                {keys.map((k) => (
+                  <span key={k} className="kbd">
+                    {k === 'Ctrl' && mac ? '⌘' : k}
+                  </span>
+                ))}
+              </span>
             </div>
           ))}
         </div>

@@ -63,7 +63,19 @@ export function usePhotoParam() {
 
 /** One tile. Memoized, and subscribed only to its own selected state, so selecting one photo or
  *  loading another page doesn't re-render every tile. `order` returns the stream (for Shift ranges). */
-export const Thumb = memo(function Thumb({ photo, width, height, onOpen, order }: { photo: Photo; width: number; height: number; onOpen: (id: string) => void; order: () => Photo[] }) {
+export const Thumb = memo(function Thumb({
+  photo,
+  width,
+  height,
+  onOpen,
+  order,
+}: {
+  photo: Photo
+  width: number
+  height: number
+  onOpen: (id: string) => void
+  order: () => Photo[]
+}) {
   const src = safeHref(photo.thumb_url)
   const [loaded, setLoaded] = useState(false)
   const mode = selection.useSelect((s) => s.mode)
@@ -79,7 +91,9 @@ export const Thumb = memo(function Thumb({ photo, width, height, onOpen, order }
       style={{ width, height }}
       aria-label={aria}
       aria-pressed={mode ? picked : undefined}
-      onPointerEnter={(e) => { e.currentTarget.title = tileTitle(photo) }}
+      onPointerEnter={(e) => {
+        e.currentTarget.title = tileTitle(photo)
+      }}
       onClick={(e) => {
         if (press.current?.fired) return void (press.current = null)
         if (mode || e.shiftKey || e.metaKey || e.ctrlKey) {
@@ -89,20 +103,51 @@ export const Thumb = memo(function Thumb({ photo, width, height, onOpen, order }
       }}
       onPointerDown={(e) => {
         if (e.pointerType === 'mouse') return
-        const st = { x: e.clientX, y: e.clientY, fired: false, t: setTimeout(() => { st.fired = true; select.toggle(photo, order()) }, 500) }
+        const st = {
+          x: e.clientX,
+          y: e.clientY,
+          fired: false,
+          t: setTimeout(() => {
+            st.fired = true
+            select.toggle(photo, order())
+          }, 500),
+        }
         press.current = st
       }}
       onPointerMove={(e) => {
         const p = press.current
-        if (p && !p.fired && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) (clearTimeout(p.t), (press.current = null))
+        if (p && !p.fired && Math.hypot(e.clientX - p.x, e.clientY - p.y) > 10) clearTimeout(p.t), (press.current = null)
       }}
       onPointerUp={() => press.current && !press.current.fired && (clearTimeout(press.current.t), (press.current = null))}
       onContextMenu={(e) => press.current?.fired && e.preventDefault()}
     >
-      {src && <img src={src} alt="" loading="lazy" decoding="async" width={width} height={height} onLoad={() => setLoaded(true)} draggable={false} />}
-      <span className="ph-pick" aria-hidden="true" onClick={(e) => { e.stopPropagation(); select.toggle(photo, order(), e.shiftKey) }}><Icon name="check" size={12} /></span>
+      {src && (
+        <img
+          src={src}
+          alt=""
+          loading="lazy"
+          decoding="async"
+          width={width}
+          height={height}
+          onLoad={() => setLoaded(true)}
+          draggable={false}
+        />
+      )}
+      <span
+        className="ph-pick"
+        aria-hidden="true"
+        onClick={(e) => {
+          e.stopPropagation()
+          select.toggle(photo, order(), e.shiftKey)
+        }}
+      >
+        <Icon name="check" size={12} />
+      </span>
       {(photo.has_raw || photo.has_orig) && (
-        <span className="ph-badges">{photo.has_raw && <span>RAW</span>}{photo.has_orig && <span>ORIG</span>}</span>
+        <span className="ph-badges">
+          {photo.has_raw && <span>RAW</span>}
+          {photo.has_orig && <span>ORIG</span>}
+        </span>
       )}
       {text && width > 88 && <span className="ph-label">{text}</span>}
       {photo.video && (
@@ -117,10 +162,39 @@ export const Thumb = memo(function Thumb({ photo, width, height, onOpen, order }
 
 type DayInfo = { photos: number; videos: number; size_kb: number }
 
-const DayGroup = memo(function DayGroup({ date, dayKeyStr, items, width, target, gap, onOpen, info, order, link }: {
-  date: Date | null; dayKeyStr: string; items: Photo[]; width: number; target: number; gap: number; onOpen: (id: string) => void; info?: DayInfo; order: () => Photo[]; link: boolean
+const DayGroup = memo(function DayGroup({
+  date,
+  dayKeyStr,
+  items,
+  width,
+  target,
+  gap,
+  onOpen,
+  info,
+  order,
+  link,
+}: {
+  date: Date | null
+  dayKeyStr: string
+  items: Photo[]
+  width: number
+  target: number
+  gap: number
+  onOpen: (id: string) => void
+  info?: DayInfo
+  order: () => Photo[]
+  link: boolean
 }) {
-  const rows = useMemo(() => justify(items.map((p) => p.aspect), width, target, gap), [items, width, target, gap])
+  const rows = useMemo(
+    () =>
+      justify(
+        items.map((p) => p.aspect),
+        width,
+        target,
+        gap,
+      ),
+    [items, width, target, gap],
+  )
   const height = rows.reduce((s, r) => s + r.height, 0) + gap * Math.max(0, rows.length - 1)
   const allPicked = selection.useSelect((s) => s.picked.size > 0 && items.length > 0 && items.every((p) => s.picked.has(p.id)))
   const places = useMemo(() => {
@@ -136,16 +210,38 @@ const DayGroup = memo(function DayGroup({ date, dayKeyStr, items, width, target,
   return (
     <section className="ph-day" style={{ containIntrinsicSize: `auto ${height + 40}px` }} data-day={dayKeyStr}>
       <h2 className="ph-day-head">
-        <button className={'ph-day-pick' + (allPicked ? ' on' : '')} aria-pressed={allPicked} aria-label={`Select all from ${date ? dayLabel(date) : 'this day'}`}
-          onClick={() => select.setMany(items, !allPicked)}><Icon name="check" size={11} /></button>
-        {date && link ? <Link to={`/photos/day/${dayKeyStr}`} className="ph-day-link" title="All photos from this day">{dayLabel(date)}</Link> : <span>{date ? dayLabel(date) : 'Undated'}</span>}
+        <button
+          className={'ph-day-pick' + (allPicked ? ' on' : '')}
+          aria-pressed={allPicked}
+          aria-label={`Select all from ${date ? dayLabel(date) : 'this day'}`}
+          onClick={() => select.setMany(items, !allPicked)}
+        >
+          <Icon name="check" size={11} />
+        </button>
+        {date && link ? (
+          <Link to={`/photos/day/${dayKeyStr}`} className="ph-day-link" title="All photos from this day">
+            {dayLabel(date)}
+          </Link>
+        ) : (
+          <span>{date ? dayLabel(date) : 'Undated'}</span>
+        )}
         {places.length > 0 && (
           <span className="ph-day-place" title={places.map(([k, n]) => `${k}: ${n}`).join('\n')}>
-            {places.slice(0, 5).map(([k]) => k.split(',')[0]).join(' · ')}{places.length > 5 ? ` +${places.length - 5}` : ''}
+            {places
+              .slice(0, 5)
+              .map(([k]) => k.split(',')[0])
+              .join(' · ')}
+            {places.length > 5 ? ` +${places.length - 5}` : ''}
           </span>
         )}
         <span className="ph-day-count tabular">
-          {[ph ? `${ph} photo${ph === 1 ? '' : 's'}` : '', v ? `${v} video${v === 1 ? '' : 's'}` : '', info?.size_kb ? fmtBytes(info.size_kb) : ''].filter(Boolean).join(' · ')}
+          {[
+            ph ? `${ph} photo${ph === 1 ? '' : 's'}` : '',
+            v ? `${v} video${v === 1 ? '' : 's'}` : '',
+            info?.size_kb ? fmtBytes(info.size_kb) : '',
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </span>
       </h2>
       <div className="ph-rows" style={{ gap }}>
@@ -163,7 +259,18 @@ const DayGroup = memo(function DayGroup({ date, dayKeyStr, items, width, target,
 
 type Cursor = { before?: string; before_id?: string }
 
-export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBefore, dayInfo = false, dayLinks = true, onItems, onFirstPage }: {
+export function PhotoStream({
+  queryKey,
+  path,
+  params,
+  empty,
+  zoom = 'm',
+  startBefore,
+  dayInfo = false,
+  dayLinks = true,
+  onItems,
+  onFirstPage,
+}: {
   queryKey: readonly unknown[]
   path: string
   params?: Record<string, string | number | boolean | undefined>
@@ -197,24 +304,36 @@ export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBe
   const onFirstRef = useRef(onFirstPage)
   onFirstRef.current = onFirstPage
   const first = q.data?.pages[0]
-  useEffect(() => { if (first) onFirstRef.current?.(first) }, [first])
+  useEffect(() => {
+    if (first) onFirstRef.current?.(first)
+  }, [first])
   // Per-day totals ("10 photos · 1 video · 56.6 MB"): one /photos/days request per loaded page, cached.
-  const pageRanges = useMemo(() => (q.data?.pages ?? []).map((pg) => {
-    const ds = pg.items.map((p) => p.date_taken).filter(Boolean) as string[]
-    if (!ds.length) return null
-    const a = dayKey(new Date(ds[0])), b = dayKey(new Date(ds[ds.length - 1])) // newest or oldest first
-    return (a < b ? [a, b] : [b, a]) as readonly [string, string]
-  }).filter(Boolean) as (readonly [string, string])[], [q.data])
+  const pageRanges = useMemo(
+    () =>
+      (q.data?.pages ?? [])
+        .map((pg) => {
+          const ds = pg.items.map((p) => p.date_taken).filter(Boolean) as string[]
+          if (!ds.length) return null
+          const a = dayKey(new Date(ds[0])),
+            b = dayKey(new Date(ds[ds.length - 1])) // newest or oldest first
+          return (a < b ? [a, b] : [b, a]) as readonly [string, string]
+        })
+        .filter(Boolean) as (readonly [string, string])[],
+    [q.data],
+  )
   const dayQs = useQueries({
-    queries: dayInfo ? pageRanges.map(([start, end]) => ({
-      queryKey: ['photos', 'days', start, end],
-      queryFn: () => get<Record<string, DayInfo>>('photos/days', { start, end }),
-      staleTime: 30 * 60_000,
-    })) : [],
+    queries: dayInfo
+      ? pageRanges.map(([start, end]) => ({
+          queryKey: ['photos', 'days', start, end],
+          queryFn: () => get<Record<string, DayInfo>>('photos/days', { start, end }),
+          staleTime: 30 * 60_000,
+        }))
+      : [],
   })
   const dayMap = useMemo(() => Object.assign({}, ...dayQs.map((d) => d.data ?? {})) as Record<string, DayInfo>, [dayQs])
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && selection.get().mode && !document.querySelector('.dialog,.viewer') && select.setMode(false)
+    const onKey = (e: KeyboardEvent) =>
+      e.key === 'Escape' && selection.get().mode && !document.querySelector('.dialog,.viewer') && select.setMode(false)
     document.addEventListener('keydown', onKey)
     return () => document.removeEventListener('keydown', onKey)
   }, [])
@@ -268,7 +387,22 @@ export function PhotoStream({ queryKey, path, params, empty, zoom = 'm', startBe
       ) : !items.length ? (
         <div className="empty left">{empty}</div>
       ) : (
-        width > 0 && days.map((d) => <DayGroup key={d.key} dayKeyStr={d.key} date={d.date} items={d.items} width={width} target={target} gap={gap} onOpen={onOpen} info={dayMap[d.key]} order={getOrder} link={dayLinks} />)
+        width > 0 &&
+        days.map((d) => (
+          <DayGroup
+            key={d.key}
+            dayKeyStr={d.key}
+            date={d.date}
+            items={d.items}
+            width={width}
+            target={target}
+            gap={gap}
+            onOpen={onOpen}
+            info={dayMap[d.key]}
+            order={getOrder}
+            link={dayLinks}
+          />
+        ))
       )}
       <div ref={sentinel} className="ph-sentinel" aria-hidden="true" />
       {q.isFetchingNextPage && <StreamSkeleton width={width} target={target} gap={gap} rows={1} />}
@@ -294,7 +428,9 @@ function StreamSkeleton({ width, target, gap, rows = 3 }: { width: number; targe
       <div className="ph-rows" style={{ gap }}>
         {r.map((row, i) => (
           <div key={i} className="ph-row" style={{ height: row.height, gap }}>
-            {row.boxes.map((b) => <span key={b.index} className="sk" style={{ width: b.width, height: b.height, borderRadius: 0 }} />)}
+            {row.boxes.map((b) => (
+              <span key={b.index} className="sk" style={{ width: b.width, height: b.height, borderRadius: 0 }} />
+            ))}
           </div>
         ))}
       </div>

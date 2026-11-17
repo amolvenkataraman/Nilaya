@@ -22,7 +22,12 @@ export function AgendaView({ onOpen }: { onOpen: (item: AgendaItem) => void }) {
   const { tz } = useCalPrefs()
   const now = zoneDay(Date.now(), tz) // today in the display zone
   if (q.isError && !q.data) return <ErrorBox error={q.error} retry={() => q.refetch()} />
-  if (q.isPending) return <div className="agenda"><SkeletonRows rows={8} /></div>
+  if (q.isPending)
+    return (
+      <div className="agenda">
+        <SkeletonRows rows={8} />
+      </div>
+    )
   const today = now
   const todayStart = dayStartIn(today, tz)
   const items = q.data
@@ -36,24 +41,38 @@ export function AgendaView({ onOpen }: { onOpen: (item: AgendaItem) => void }) {
     if (at && !dateOnly(i)) return toZoneInput(at, tz)
     return i.kind === 'all_day' && at && at < todayAt ? todayAt : at
   }
-  const rest = items.filter((i) => !overdue.includes(i))
+  const rest = items
+    .filter((i) => !overdue.includes(i))
     .map((i, n) => ({ i, n, key: placeOf(i) ? dayKey(new Date(placeOf(i)!)) : '~' }))
     .sort((a, b) => a.key.localeCompare(b.key) || a.n - b.n)
     .map((x) => x.i)
   const groups = groupByDay(rest, placeOf)
-  if (!items.length) return <div className="agenda"><p className="empty">Nothing in the next two weeks.</p></div>
+  if (!items.length)
+    return (
+      <div className="agenda">
+        <p className="empty">Nothing in the next two weeks.</p>
+      </div>
+    )
   return (
     <div className="agenda">
       {overdue.length > 0 && (
         <section className="agenda-day">
           <h2 className="agenda-date overdue">Overdue</h2>
-          <ul>{overdue.map((i) => <Row key={i.kind + i.id} item={i} tz={tz} onOpen={onOpen} showDate />)}</ul>
+          <ul>
+            {overdue.map((i) => (
+              <Row key={i.kind + i.id} item={i} tz={tz} onOpen={onOpen} showDate />
+            ))}
+          </ul>
         </section>
       )}
       {groups.map((g) => (
         <section key={g.key} className={'agenda-day' + (g.date && dayKey(g.date) === dayKey(now) ? ' is-today' : '')}>
           <h2 className="agenda-date">{g.date ? dayHeading(g.date, now) : 'No date'}</h2>
-          <ul>{g.items.map((i) => <Row key={i.kind + i.id} item={i} tz={tz} onOpen={onOpen} />)}</ul>
+          <ul>
+            {g.items.map((i) => (
+              <Row key={i.kind + i.id} item={i} tz={tz} onOpen={onOpen} />
+            ))}
+          </ul>
         </section>
       ))}
     </div>
@@ -67,7 +86,8 @@ function Row({ item: i, tz, onOpen, showDate }: { item: AgendaItem; tz: Zone; on
   let time = ''
   if (i.kind === 'all_day') time = 'All day'
   else if (s) time = (i.kind === 'deadline' || i.kind === 'todo') && isEndOfDay(s) ? 'Due' : fmtTimeIn(s, zone)
-  if (showDate && s) time = i.kind === 'all_day' ? fmtDate(s, { month: 'short', day: 'numeric' }) : fmtDateIn(s, { month: 'short', day: 'numeric' }, zone)
+  if (showDate && s)
+    time = i.kind === 'all_day' ? fmtDate(s, { month: 'short', day: 'numeric' }) : fmtDateIn(s, { month: 'short', day: 'numeric' }, zone)
   const body = (
     <>
       <span className="agenda-bar" style={{ background: i.colour }} />
@@ -89,9 +109,13 @@ function Row({ item: i, tz, onOpen, showDate }: { item: AgendaItem; tz: Zone; on
   return (
     <li>
       {i.kind === 'todo' ? (
-        <Link className="agenda-item" to={`/tasks?view=all&task=${encodeURIComponent(i.id)}`}>{body}</Link>
+        <Link className="agenda-item" to={`/tasks?view=all&task=${encodeURIComponent(i.id)}`}>
+          {body}
+        </Link>
       ) : (
-        <button type="button" className="agenda-item" onClick={() => onOpen(i)}>{body}</button>
+        <button type="button" className="agenda-item" onClick={() => onOpen(i)}>
+          {body}
+        </button>
       )}
     </li>
   )

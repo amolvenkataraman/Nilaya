@@ -46,14 +46,37 @@ export function EventChip({ e, colour, day, onClick }: { e: CalEvent; colour: st
     const cont = day && !isSameDay(first, day)
     const more = day && !isSameDay(last, day)
     return (
-      <button type="button" data-ev={e.id} className={'chip-ev allday' + (cont ? ' cont' : '') + (more ? ' more' : '') + (e.ghost ? ' ghost' : '')} style={style} onClick={(ev) => (ev.stopPropagation(), onClick())} title={label} aria-label={label}>
-        {(e.icon || e.category?.icon) && <Icon name={(e.icon || e.category?.icon)!} size={11} />}<span className="truncate">{e.name}</span>
+      <button
+        type="button"
+        data-ev={e.id}
+        className={'chip-ev allday' + (cont ? ' cont' : '') + (more ? ' more' : '') + (e.ghost ? ' ghost' : '')}
+        style={style}
+        onClick={(ev) => (ev.stopPropagation(), onClick())}
+        title={label}
+        aria-label={label}
+      >
+        {(e.icon || e.category?.icon) && <Icon name={(e.icon || e.category?.icon)!} size={11} />}
+        <span className="truncate">{e.name}</span>
       </button>
     )
   }
   return (
-    <button type="button" data-ev={e.id} className={'chip-ev' + (e.completed ? ' done' : '') + (e.ghost ? ' ghost' : '')} style={style} onClick={(ev) => (ev.stopPropagation(), onClick())} title={label} aria-label={label}>
-      {e.kind === 'deadline' ? <Icon name="flag" size={11} className="chip-flag" /> : (e.icon || e.category?.icon) ? <Icon name={(e.icon || e.category?.icon)!} size={11} className="chip-flag" /> : <span className="chip-dot" />}
+    <button
+      type="button"
+      data-ev={e.id}
+      className={'chip-ev' + (e.completed ? ' done' : '') + (e.ghost ? ' ghost' : '')}
+      style={style}
+      onClick={(ev) => (ev.stopPropagation(), onClick())}
+      title={label}
+      aria-label={label}
+    >
+      {e.kind === 'deadline' ? (
+        <Icon name="flag" size={11} className="chip-flag" />
+      ) : e.icon || e.category?.icon ? (
+        <Icon name={(e.icon || e.category?.icon)!} size={11} className="chip-flag" />
+      ) : (
+        <span className="chip-dot" />
+      )}
       {e.recurring && <Icon name="repeat" size={9} className="chip-rep" />}
       <span className="chip-time tabular">{chipTime(new Date(e.start), tz)}</span>
       <span className="truncate">{e.name}</span>
@@ -61,7 +84,23 @@ export function EventChip({ e, colour, day, onClick }: { e: CalEvent; colour: st
   )
 }
 
-export function MonthView({ days, month, byDay, colour, today, selected, compact, onSelect, onOpenDay, onCreate, onEvent, tasksByDay, photos, onTask, birthdaysByDay }: Props) {
+export function MonthView({
+  days,
+  month,
+  byDay,
+  colour,
+  today,
+  selected,
+  compact,
+  onSelect,
+  onOpenDay,
+  onCreate,
+  onEvent,
+  tasksByDay,
+  photos,
+  onTask,
+  birthdaysByDay,
+}: Props) {
   const [moreDay, setMoreDay] = useState<Date | null>(null)
   // As many chips as fit in a row's height (rows share the viewport; 4K scales with rem).
   const grid = useRef<HTMLDivElement>(null)
@@ -105,30 +144,41 @@ export function MonthView({ days, month, byDay, colour, today, selected, compact
                   onClick={() => (compact ? onSelect(d) : onCreate(d))}
                 >
                   <div className="month-cell-head">
-                  <button
-                    type="button"
-                    className="day-num tabular"
-                    aria-label={label}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      if (compact) onSelect(d)
-                      else onOpenDay(d)
-                    }}
-                  >
-                    {d.getDate() === 1 && !compact ? fmtDate(d, { month: 'short', day: 'numeric' }) : d.getDate()}
-                  </button>
-                  <PhotoBadge day={d} count={photos?.[dayKey(d)]} />
+                    <button
+                      type="button"
+                      className="day-num tabular"
+                      aria-label={label}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        if (compact) onSelect(d)
+                        else onOpenDay(d)
+                      }}
+                    >
+                      {d.getDate() === 1 && !compact ? fmtDate(d, { month: 'short', day: 'numeric' }) : d.getDate()}
+                    </button>
+                    <PhotoBadge day={d} count={photos?.[dayKey(d)]} />
                   </div>
                   {compact ? (
                     <div className="dots" aria-hidden="true">
-                      {list.slice(0, 4).map((x) => <span key={x.key} className="dot" style={{ background: x.event ? colour(x.event) : x.bday ? 'var(--app-warning)' : 'var(--app-accent)' }} />)}
+                      {list.slice(0, 4).map((x) => (
+                        <span
+                          key={x.key}
+                          className="dot"
+                          style={{ background: x.event ? colour(x.event) : x.bday ? 'var(--app-warning)' : 'var(--app-accent)' }}
+                        />
+                      ))}
                     </div>
                   ) : (
                     <div className="chips">
-                      {shown.map((x) => x.event
-                        ? <EventChip key={x.key} e={x.event} day={d} colour={colour(x.event)} onClick={() => onEvent(x.event!)} />
-                        : x.bday ? <BirthdayChip key={x.key} b={x.bday} />
-                        : <TaskChip key={x.key} task={x.task!} onOpen={(t) => onTask?.(t)} />)}
+                      {shown.map((x) =>
+                        x.event ? (
+                          <EventChip key={x.key} e={x.event} day={d} colour={colour(x.event)} onClick={() => onEvent(x.event!)} />
+                        ) : x.bday ? (
+                          <BirthdayChip key={x.key} b={x.bday} />
+                        ) : (
+                          <TaskChip key={x.key} task={x.task!} onOpen={(t) => onTask?.(t)} />
+                        ),
+                      )}
                       {hidden > 0 && (
                         <button type="button" className="chip-more" onClick={(ev) => (ev.stopPropagation(), setMoreDay(d))}>
                           {hidden} more
@@ -143,12 +193,29 @@ export function MonthView({ days, month, byDay, colour, today, selected, compact
         ))}
       </div>
       {moreDay && (
-        <Dialog open onClose={() => setMoreDay(null)} title={fmtDate(moreDay, { weekday: 'long', month: 'long', day: 'numeric' })} width="22rem">
+        <Dialog
+          open
+          onClose={() => setMoreDay(null)}
+          title={fmtDate(moreDay, { weekday: 'long', month: 'long', day: 'numeric' })}
+          width="22rem"
+        >
           <div className="day-pop">
-            {dayEntries(byDay.get(dayKey(moreDay)) ?? [], tasksByDay?.get(dayKey(moreDay)), birthdaysByDay?.get(dayKey(moreDay))).map((x) => x.event
-              ? <EventChip key={x.key} e={x.event} day={moreDay} colour={colour(x.event)} onClick={() => (setMoreDay(null), onEvent(x.event!))} />
-              : x.bday ? <BirthdayChip key={x.key} b={x.bday} big />
-              : <TaskChip key={x.key} task={x.task!} big onOpen={(t) => (setMoreDay(null), onTask?.(t))} />)}
+            {dayEntries(byDay.get(dayKey(moreDay)) ?? [], tasksByDay?.get(dayKey(moreDay)), birthdaysByDay?.get(dayKey(moreDay))).map(
+              (x) =>
+                x.event ? (
+                  <EventChip
+                    key={x.key}
+                    e={x.event}
+                    day={moreDay}
+                    colour={colour(x.event)}
+                    onClick={() => (setMoreDay(null), onEvent(x.event!))}
+                  />
+                ) : x.bday ? (
+                  <BirthdayChip key={x.key} b={x.bday} big />
+                ) : (
+                  <TaskChip key={x.key} task={x.task!} big onOpen={(t) => (setMoreDay(null), onTask?.(t))} />
+                ),
+            )}
           </div>
         </Dialog>
       )}
@@ -157,9 +224,26 @@ export function MonthView({ days, month, byDay, colour, today, selected, compact
 }
 
 /** Phone month view: the selected day's events under the grid. */
-export function DayList({ day, events, colour, onEvent, onCreate, tasks = [], onTask, photos, birthdays = [] }: {
-  day: Date; events: CalEvent[]; colour: (e: CalEvent) => string; onEvent: (e: CalEvent) => void; onCreate: () => void
-  tasks?: Task[]; onTask?: (t: Task) => void; photos?: number; birthdays?: Birthday[]
+export function DayList({
+  day,
+  events,
+  colour,
+  onEvent,
+  onCreate,
+  tasks = [],
+  onTask,
+  photos,
+  birthdays = [],
+}: {
+  day: Date
+  events: CalEvent[]
+  colour: (e: CalEvent) => string
+  onEvent: (e: CalEvent) => void
+  onCreate: () => void
+  tasks?: Task[]
+  onTask?: (t: Task) => void
+  photos?: number
+  birthdays?: Birthday[]
 }) {
   const { tz } = useCalPrefs()
   return (
@@ -167,11 +251,23 @@ export function DayList({ day, events, colour, onEvent, onCreate, tasks = [], on
       <div className="day-list-head">
         <h2>{fmtDate(day, { weekday: 'long', month: 'long', day: 'numeric' })}</h2>
         <PhotoBadge day={day} count={photos} />
-        <button className="btn ghost sm" onClick={onCreate}><Icon name="plus" size={14} /> Add</button>
+        <button className="btn ghost sm" onClick={onCreate}>
+          <Icon name="plus" size={14} /> Add
+        </button>
       </div>
-      {birthdays.length > 0 && <div className="day-list-tasks">{birthdays.map((b) => <BirthdayChip key={b.id} b={b} big />)}</div>}
+      {birthdays.length > 0 && (
+        <div className="day-list-tasks">
+          {birthdays.map((b) => (
+            <BirthdayChip key={b.id} b={b} big />
+          ))}
+        </div>
+      )}
       {tasks.length > 0 && (
-        <div className="day-list-tasks">{tasks.map((t) => <TaskChip key={t.id} task={t} big onOpen={(x) => onTask?.(x)} />)}</div>
+        <div className="day-list-tasks">
+          {tasks.map((t) => (
+            <TaskChip key={t.id} task={t} big onOpen={(x) => onTask?.(x)} />
+          ))}
+        </div>
       )}
       {events.length === 0 && !tasks.length && !birthdays.length ? (
         <p className="empty left">Nothing scheduled.</p>
@@ -183,7 +279,9 @@ export function DayList({ day, events, colour, onEvent, onCreate, tasks = [], on
                 <span className="agenda-bar" style={{ background: colour(e) }} />
                 <span className="agenda-time tabular">{e.all_day ? 'All day' : fmtTimeIn(new Date(e.start), tz)}</span>
                 <span className="grow">
-                  <span className={'agenda-title' + (e.completed ? ' done' : '')}>{e.kind === 'deadline' && <Icon name="flag" size={12} />} {e.name}</span>
+                  <span className={'agenda-title' + (e.completed ? ' done' : '')}>
+                    {e.kind === 'deadline' && <Icon name="flag" size={12} />} {e.name}
+                  </span>
                   {e.location && <span className="agenda-sub truncate">{e.location}</span>}
                 </span>
               </button>

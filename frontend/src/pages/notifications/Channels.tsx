@@ -29,7 +29,7 @@ function useChannelPatch() {
     onMutate: async ({ id, body }) => {
       await qc.cancelQueries({ queryKey: KEY })
       const prev = qc.getQueryData<Channel[]>(KEY)
-      if (!body.config) qc.setQueryData<Channel[]>(KEY, (old) => old?.map((c) => (c.id === id ? { ...c, ...body } as Channel : c)))
+      if (!body.config) qc.setQueryData<Channel[]>(KEY, (old) => old?.map((c) => (c.id === id ? ({ ...c, ...body } as Channel) : c)))
       return { prev }
     },
     onError: (e, _v, ctx) => {
@@ -60,7 +60,9 @@ export function ChannelsTab() {
       </div>
       <div className="chan-list">
         {channels.isPending ? (
-          <div className="set-card"><SkeletonRows rows={3} avatar /></div>
+          <div className="set-card">
+            <SkeletonRows rows={3} avatar />
+          </div>
         ) : channels.isError && !channels.data ? (
           <ErrorBox error={channels.error} retry={() => channels.refetch()} />
         ) : !channels.data.length ? (
@@ -104,19 +106,26 @@ function ChannelRow({ c, kindLabel, onEdit }: { c: Channel; kindLabel: string; o
   const dest = destination(c, types)
   return (
     <div className={'chan-row' + (c.enabled ? '' : ' off')}>
-      <span className="chan-icon" aria-hidden="true"><Icon name={KIND_ICON[c.kind] ?? 'bell'} /></span>
+      <span className="chan-icon" aria-hidden="true">
+        <Icon name={KIND_ICON[c.kind] ?? 'bell'} />
+      </span>
       <div className="chan-main">
         <div className="chan-title">
           <span className="truncate">{c.name}</span>
           <span className="chip">{kindLabel}</span>
         </div>
-        {dest && <div className="chan-dest truncate" title={dest}>{dest}</div>}
+        {dest && (
+          <div className="chan-dest truncate" title={dest}>
+            {dest}
+          </div>
+        )}
         <div className="chan-meta">
           <span className="chip">{MIN_PRIORITY.find((p) => p.value === c.min_priority)?.label ?? `Priority ${c.min_priority}+`}</span>
           {c.last_sent_at ? <span>Last sent {shortStamp(c.last_sent_at)}</span> : <span>Never sent</span>}
           {result && (
             <span className={result.ok ? 'chan-ok' : 'chan-error'} role="status">
-              <Icon name={result.ok ? 'check' : 'alert'} size={12} /><span className="truncate">{result.text}</span>
+              <Icon name={result.ok ? 'check' : 'alert'} size={12} />
+              <span className="truncate">{result.text}</span>
             </span>
           )}
           {c.last_error && !result && (
@@ -135,13 +144,21 @@ function ChannelRow({ c, kindLabel, onEdit }: { c: Channel; kindLabel: string; o
           onChange={(e) => update.mutate({ id: c.id, body: { min_priority: Number(e.target.value) } })}
         >
           {!MIN_PRIORITY.some((p) => p.value === c.min_priority) && <option value={c.min_priority}>Priority {c.min_priority}+</option>}
-          {MIN_PRIORITY.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+          {MIN_PRIORITY.map((p) => (
+            <option key={p.value} value={p.value}>
+              {p.label}
+            </option>
+          ))}
         </select>
         <button className="btn sm" onClick={() => test.mutate()} disabled={test.isPending || !c.enabled}>
           {test.isPending ? 'Sending…' : 'Test'}
         </button>
         <span className="chan-switch" title={c.enabled ? 'Enabled' : 'Disabled'}>
-          <Switch checked={c.enabled} onChange={(v) => update.mutate({ id: c.id, body: { enabled: v } })} label={<span className="sr-only">Enabled</span>} />
+          <Switch
+            checked={c.enabled}
+            onChange={(v) => update.mutate({ id: c.id, body: { enabled: v } })}
+            label={<span className="sr-only">Enabled</span>}
+          />
         </span>
         <Menu
           align="end"
@@ -154,10 +171,16 @@ function ChannelRow({ c, kindLabel, onEdit }: { c: Channel; kindLabel: string; o
         >
           {(close) => (
             <>
-              <MenuItem icon="edit" onClick={() => (close(), onEdit())}>Edit</MenuItem>
-              <MenuItem icon="send" onClick={() => (close(), test.mutate())}>Send test</MenuItem>
+              <MenuItem icon="edit" onClick={() => (close(), onEdit())}>
+                Edit
+              </MenuItem>
+              <MenuItem icon="send" onClick={() => (close(), test.mutate())}>
+                Send test
+              </MenuItem>
               <div className="menu-sep" />
-              <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>Delete</MenuItem>
+              <MenuItem icon="trash" danger onClick={() => (close(), setConfirm(true))}>
+                Delete
+              </MenuItem>
             </>
           )}
         </Menu>
@@ -211,7 +234,9 @@ function ChannelDialog({ channel, types, onClose }: { channel: Channel | null; t
       footer={
         <>
           {error ? <span className="error-text grow">{error}</span> : <span className="spacer" />}
-          <button className="btn" onClick={onClose}>Cancel</button>
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
           <button className="btn primary" form="chan-form" type="submit" disabled={!canSave}>
             {save.isPending ? 'Saving…' : channel ? 'Save' : 'Add channel'}
           </button>
@@ -242,7 +267,11 @@ function ChannelDialog({ channel, types, onClose }: { channel: Channel | null; t
                 if (!nameTouched) setName(t?.label ?? '')
               }}
             >
-              {types.map((t) => <option key={t.kind} value={t.kind}>{t.label}</option>)}
+              {types.map((t) => (
+                <option key={t.kind} value={t.kind}>
+                  {t.label}
+                </option>
+              ))}
             </select>
           </label>
         )}
@@ -252,7 +281,10 @@ function ChannelDialog({ channel, types, onClose }: { channel: Channel | null; t
         </label>
         {type?.fields.map((f) => (
           <label key={f.key} className="field">
-            <span>{f.label}{f.required && !(channel && f.secret) ? '' : ' '}</span>
+            <span>
+              {f.label}
+              {f.required && !(channel && f.secret) ? '' : ' '}
+            </span>
             <input
               className="input"
               type={f.secret ? 'password' : f.key === 'address' ? 'email' : 'text'}
@@ -260,7 +292,11 @@ function ChannelDialog({ channel, types, onClose }: { channel: Channel | null; t
               spellCheck={false}
               value={config[f.key] ?? ''}
               required={f.required && !(channel && f.secret)}
-              placeholder={channel && f.secret ? `Leave blank to keep ${channel.config[f.key] ? String(channel.config[f.key]) : 'the current value'}` : ''}
+              placeholder={
+                channel && f.secret
+                  ? `Leave blank to keep ${channel.config[f.key] ? String(channel.config[f.key]) : 'the current value'}`
+                  : ''
+              }
               onChange={(e) => setConfig((c) => ({ ...c, [f.key]: e.target.value }))}
             />
           </label>
@@ -268,7 +304,11 @@ function ChannelDialog({ channel, types, onClose }: { channel: Channel | null; t
         <label className="field">
           <span>Send</span>
           <select className="select" value={minPriority} onChange={(e) => setMinPriority(Number(e.target.value))}>
-            {MIN_PRIORITY.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}
+            {MIN_PRIORITY.map((p) => (
+              <option key={p.value} value={p.value}>
+                {p.label}
+              </option>
+            ))}
           </select>
         </label>
       </form>

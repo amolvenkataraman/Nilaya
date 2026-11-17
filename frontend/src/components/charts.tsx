@@ -2,7 +2,11 @@
 // text tokens, hover readouts). Larger chart sets live with their page.
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 
-export function HBars({ items, format = (v) => String(v), max }: {
+export function HBars({
+  items,
+  format = (v) => String(v),
+  max,
+}: {
   items: { key: string | number; label: string; value: number; colour?: string; title?: string }[]
   format?: (v: number) => string
   max?: number
@@ -14,7 +18,10 @@ export function HBars({ items, format = (v) => String(v), max }: {
         <div key={i.key} className="hbar" role="listitem" title={i.title ?? `${i.label}: ${format(i.value)}`}>
           <span className="hbar-label">{i.label}</span>
           <span className="hbar-track" aria-hidden="true">
-            <span className="hbar-fill" style={{ width: `${(i.value / top) * 100}%`, ...(i.colour ? { ['--bar' as string]: i.colour } : {}) }} />
+            <span
+              className="hbar-fill"
+              style={{ width: `${(i.value / top) * 100}%`, ...(i.colour ? { ['--bar' as string]: i.colour } : {}) }}
+            />
           </span>
           <span className="hbar-value">{format(i.value)}</span>
         </div>
@@ -25,8 +32,20 @@ export function HBars({ items, format = (v) => String(v), max }: {
 
 /** Thin vertical columns with labels under each and a value readout on hover/focus. Bars are SVG
  *  (stretched to the width); text is HTML so it never distorts. */
-export function Columns({ values, labels, highlight, format = (v) => String(v), height = 72, title }: {
-  values: number[]; labels: string[]; highlight?: number; format?: (v: number) => string; height?: number; title: string
+export function Columns({
+  values,
+  labels,
+  highlight,
+  format = (v) => String(v),
+  height = 72,
+  title,
+}: {
+  values: number[]
+  labels: string[]
+  highlight?: number
+  format?: (v: number) => string
+  height?: number
+  title: string
 }) {
   const [hover, setHover] = useState<number | null>(null)
   const n = values.length
@@ -36,9 +55,18 @@ export function Columns({ values, labels, highlight, format = (v) => String(v), 
   const bw = 34
   const shown = hover ?? highlight ?? null
   return (
-    <figure className="cols" role="img" aria-label={`${title}: ${values.map((v, i) => `${labels[i]} ${format(v)}`).join(', ')}`} style={{ ['--n' as string]: n }}>
+    <figure
+      className="cols"
+      role="img"
+      aria-label={`${title}: ${values.map((v, i) => `${labels[i]} ${format(v)}`).join(', ')}`}
+      style={{ ['--n' as string]: n }}
+    >
       <div className="cols-values" aria-hidden="true">
-        {values.map((v, i) => <span key={i} className={i === shown && v > 0 ? 'on' : ''}>{v > 0 ? format(v) : ''}</span>)}
+        {values.map((v, i) => (
+          <span key={i} className={i === shown && v > 0 ? 'on' : ''}>
+            {v > 0 ? format(v) : ''}
+          </span>
+        ))}
       </div>
       <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" style={{ height: `${(height - 30) / 16}rem` }} aria-hidden="true">
         {values.map((v, i) => {
@@ -48,13 +76,19 @@ export function Columns({ values, labels, highlight, format = (v) => String(v), 
             <g key={i} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
               <rect x={i * 100} y={0} width={100} height={H} fill="transparent" />
               {h > 0 && <rect className={'col' + (i === highlight ? ' hl' : '')} x={x} y={H - h} width={bw} height={h} rx={6} ry={4} />}
-              {h > 6 && <rect className={'col' + (i === highlight ? ' hl' : '')} x={x} y={H - Math.min(h, 6)} width={bw} height={Math.min(h, 6)} />}
+              {h > 6 && (
+                <rect className={'col' + (i === highlight ? ' hl' : '')} x={x} y={H - Math.min(h, 6)} width={bw} height={Math.min(h, 6)} />
+              )}
             </g>
           )
         })}
       </svg>
       <div className="cols-labels" aria-hidden="true">
-        {labels.map((l, i) => <span key={i} className={i === highlight ? 'hl' : ''}>{l}</span>)}
+        {labels.map((l, i) => (
+          <span key={i} className={i === highlight ? 'hl' : ''}>
+            {l}
+          </span>
+        ))}
       </div>
     </figure>
   )
@@ -81,18 +115,40 @@ export function colPath(x: number, y: number, w: number, h: number, r = 3): stri
   return `M${x},${y + h}V${y + rr}Q${x},${y} ${x + rr},${y}H${x + w - rr}Q${x + w},${y} ${x + w},${y + rr}V${y + h}Z`
 }
 
-export interface ChartTip { x: number; y: number; text: string }
+export interface ChartTip {
+  x: number
+  y: number
+  text: string
+}
 /** Hover/focus readout. Kept inside the plot: it flips to start or end alignment near the edges. */
 export function ChartTooltip({ tip, width }: { tip: ChartTip | null; width?: number }) {
   if (!tip) return null
   const edge = width && tip.x < 70 ? ' start' : width && tip.x > width - 70 ? ' end' : ''
-  return <div className={'chart-tip' + edge} style={{ left: tip.x, top: tip.y }} role="tooltip">{tip.text}</div>
+  return (
+    <div className={'chart-tip' + edge} style={{ left: tip.x, top: tip.y }} role="tooltip">
+      {tip.text}
+    </div>
+  )
 }
 
 /** Thin columns drawn in real (measured) pixels: rounded data ends, one hue, a tooltip per column on
  *  hover and on keyboard focus (arrow keys), and x labels thinned so they never overlap or leave the plot. */
-export function PlotColumns({ values, labels, tips, highlight, labelEvery = 1, height = 88, title }: {
-  values: number[]; labels: string[]; tips: string[]; highlight?: number; labelEvery?: number; height?: number; title?: string
+export function PlotColumns({
+  values,
+  labels,
+  tips,
+  highlight,
+  labelEvery = 1,
+  height = 88,
+  title,
+}: {
+  values: number[]
+  labels: string[]
+  tips: string[]
+  highlight?: number
+  labelEvery?: number
+  height?: number
+  title?: string
 }) {
   const [ref, { w }] = useSize<HTMLDivElement>()
   const [tip, setTip] = useState<ChartTip | null>(null)
@@ -119,8 +175,16 @@ export function PlotColumns({ values, labels, tips, highlight, labelEvery = 1, h
   }
   return (
     <div className="chart-cols-wrap">
-      <div ref={ref} className="chart-cols" style={{ height }} tabIndex={0} aria-label={title ? `${title}. Use the arrow keys for values.` : undefined}
-        onMouseLeave={() => show(null)} onBlur={() => show(null)} onKeyDown={onKey}>
+      <div
+        ref={ref}
+        className="chart-cols"
+        style={{ height }}
+        tabIndex={0}
+        aria-label={title ? `${title}. Use the arrow keys for values.` : undefined}
+        onMouseLeave={() => show(null)}
+        onBlur={() => show(null)}
+        onKeyDown={onKey}
+      >
         {w > 0 && (
           <svg width={w} height={height} role="img" aria-label={(title ? title + ': ' : '') + tips.join('; ')}>
             <line x1={0} x2={w} y1={plotH + 0.5} y2={plotH + 0.5} className="chart-base" />
@@ -129,7 +193,10 @@ export function PlotColumns({ values, labels, tips, highlight, labelEvery = 1, h
               const x = i * slot + (slot - bw) / 2
               return (
                 <g key={i}>
-                  <path d={colPath(x, plotH - bh, bw, bh)} className={'chart-mark' + (i === highlight ? ' strong' : '') + (hover != null && hover !== i ? ' dim' : '')} />
+                  <path
+                    d={colPath(x, plotH - bh, bw, bh)}
+                    className={'chart-mark' + (i === highlight ? ' strong' : '') + (hover != null && hover !== i ? ' dim' : '')}
+                  />
                   <rect x={i * slot} y={0} width={slot} height={height} fill="transparent" onMouseEnter={() => show(i)}>
                     <title>{tips[i]}</title>
                   </rect>
@@ -141,12 +208,17 @@ export function PlotColumns({ values, labels, tips, highlight, labelEvery = 1, h
         <ChartTooltip tip={tip} width={w} />
       </div>
       <div className="chart-xlabels" aria-hidden="true">
-        {w > 0 && labels.map((l, i) => {
-          if (i % every !== 0 || !l) return null
-          const left = i * slot + slot / 2
-          // Centred under the column, but pushed back inside the plot at either end.
-          return <span key={i} style={{ left, transform: `translateX(max(${-left}px, min(-50%, calc(${w - left}px - 100%))))` }}>{l}</span>
-        })}
+        {w > 0 &&
+          labels.map((l, i) => {
+            if (i % every !== 0 || !l) return null
+            const left = i * slot + slot / 2
+            // Centred under the column, but pushed back inside the plot at either end.
+            return (
+              <span key={i} style={{ left, transform: `translateX(max(${-left}px, min(-50%, calc(${w - left}px - 100%))))` }}>
+                {l}
+              </span>
+            )
+          })}
       </div>
     </div>
   )
@@ -157,9 +229,8 @@ export function StackBar({ parts, label }: { parts: { key: string; value: number
   const total = parts.reduce((a, p) => a + Math.max(0, p.value), 0)
   return (
     <div className="stackbar" role="img" aria-label={label} title={label}>
-      {total > 0 && parts.map((p) => p.value > 0 && (
-        <span key={p.key} className={p.className} style={{ width: `${(p.value / total) * 100}%` }} />
-      ))}
+      {total > 0 &&
+        parts.map((p) => p.value > 0 && <span key={p.key} className={p.className} style={{ width: `${(p.value / total) * 100}%` }} />)}
     </div>
   )
 }

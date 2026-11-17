@@ -26,13 +26,23 @@ export function PublicFrame({ children, wide, bare }: { children: ReactNode; wid
     <div className="pub">
       <header className="pub-bar">
         <a href="/" className="pub-brand" aria-label="Nilaya home">
-          <span className="app-logo pub-logo" aria-hidden="true"><Icon name="home" size={15} /></span>
+          <span className="app-logo pub-logo" aria-hidden="true">
+            <Icon name="home" size={15} />
+          </span>
           <span className="pub-brand-text">Nilaya</span>
         </a>
         <span className="grow" />
-        {!onAuthPage && (inside
-          ? <a className="btn sm" href="/">Open app<Icon name="arrowRight" size={13} /></a>
-          : <Link className="btn sm primary" to={loginHere(loc)}>Sign in</Link>)}
+        {!onAuthPage &&
+          (inside ? (
+            <a className="btn sm" href="/">
+              Open app
+              <Icon name="arrowRight" size={13} />
+            </a>
+          ) : (
+            <Link className="btn sm primary" to={loginHere(loc)}>
+              Sign in
+            </Link>
+          ))}
       </header>
       <main className={'pub-main' + (wide ? ' wide' : '') + (bare ? ' bare' : '')}>{children}</main>
     </div>
@@ -43,7 +53,9 @@ export function PublicFrame({ children, wide, bare }: { children: ReactNode; wid
 export function PublicNotice({ icon = 'info', title, children }: { icon?: string; title: string; children?: ReactNode }) {
   return (
     <section className="card pub-notice" role="status">
-      <span className="pub-notice-icon"><Icon name={icon} size={22} /></span>
+      <span className="pub-notice-icon">
+        <Icon name={icon} size={22} />
+      </span>
       <h1>{title}</h1>
       {children}
     </section>

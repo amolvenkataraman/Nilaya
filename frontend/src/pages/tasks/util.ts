@@ -12,7 +12,13 @@ export const REPEAT_PRESETS: { label: string; short: string; mode: number; every
   { label: 'Every month', short: 'Monthly', mode: 2, every: null },
   { label: 'Every year', short: 'Yearly', mode: 1, every: 31536000 },
 ]
-export const REPEAT_UNITS: [string, number][] = [['hours', 3600], ['days', 86400], ['weeks', 604800], ['months', 2592000], ['years', 31536000]]
+export const REPEAT_UNITS: [string, number][] = [
+  ['hours', 3600],
+  ['days', 86400],
+  ['weeks', 604800],
+  ['months', 2592000],
+  ['years', 31536000],
+]
 
 /** "Every week", "Every 3 days after completion"; short gives "Weekly" for rows. */
 export function repeatText(mode: number, every: number | null, short = false): string {
@@ -37,7 +43,11 @@ export function repeatParts(every: number | null): [number, number] {
 }
 
 // ---------------------------------------------------------------- reminders
-export interface ReminderIn { at: string | null; relative_to: '' | 'due' | 'start'; offset: number }
+export interface ReminderIn {
+  at: string | null
+  relative_to: '' | 'due' | 'start'
+  offset: number
+}
 
 export const durText = (secs: number) => {
   const a = Math.abs(secs)
@@ -55,8 +65,11 @@ export function reminderText(r: Pick<TaskReminder, 'relative_to' | 'offset'>): s
   return `${durText(r.offset)} ${r.offset < 0 ? 'before' : 'after'} ${what}`
 }
 
-export const reminderIn = (r: Pick<TaskReminder, 'at' | 'relative_to' | 'offset'>): ReminderIn =>
-  ({ at: r.relative_to ? null : r.at, relative_to: (r.relative_to || '') as ReminderIn['relative_to'], offset: r.offset || 0 })
+export const reminderIn = (r: Pick<TaskReminder, 'at' | 'relative_to' | 'offset'>): ReminderIn => ({
+  at: r.relative_to ? null : r.at,
+  relative_to: (r.relative_to || '') as ReminderIn['relative_to'],
+  offset: r.offset || 0,
+})
 
 // ---------------------------------------------------------------- time spent
 /** Minutes from "45m", "1h 30m", "1.5h", "1:30" or "90"; "" is 0; null when unreadable. */
@@ -117,7 +130,11 @@ export function rescheduleTo(t: Pick<Task, 'due' | 'start'>, day: Date): { due: 
 /** Whether I can edit a task, as the server decides (tasks.service.can_edit_task): a loose task is its
  *  creator's; in a project it takes edit rights there (a creator made view-only keeps none). Until the
  *  projects load, my own tasks count as editable. No `me` yet: assume yes (the server still checks). */
-export function canEditTask(t: Pick<Task, 'owner' | 'project_id'>, me: { id: string } | undefined, projects: Project[] | undefined): boolean {
+export function canEditTask(
+  t: Pick<Task, 'owner' | 'project_id'>,
+  me: { id: string } | undefined,
+  projects: Project[] | undefined,
+): boolean {
   if (!me) return true
   if (!t.project_id) return t.owner.id === me.id
   const p = projects?.find((x) => x.id === t.project_id)

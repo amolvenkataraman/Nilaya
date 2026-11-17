@@ -25,9 +25,15 @@ export function EventSearch({ calendars, onPick }: { calendars?: Calendar[]; onP
     enabled: open && q.length >= 2,
     staleTime: 60_000,
   })
-  const items = (res.data ?? []).slice().sort((a, b) => Math.abs(new Date(a.start).getTime() - Date.now()) - Math.abs(new Date(b.start).getTime() - Date.now())).slice(0, 12)
+  const items = (res.data ?? [])
+    .slice()
+    .sort((a, b) => Math.abs(new Date(a.start).getTime() - Date.now()) - Math.abs(new Date(b.start).getTime() - Date.now()))
+    .slice(0, 12)
   useEffect(() => setActive(0), [q])
-  useHotkey((e) => e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !document.querySelector('.dialog,.palette'), (e) => (e.preventDefault(), setOpen(true)))
+  useHotkey(
+    (e) => e.key === '/' && !e.ctrlKey && !e.metaKey && !e.altKey && !document.querySelector('.dialog,.palette'),
+    (e) => (e.preventDefault(), setOpen(true)),
+  )
   useEffect(() => {
     if (!open) return
     const down = (e: PointerEvent) => !box.current?.contains(e.target as Node) && setOpen(false)
@@ -40,30 +46,61 @@ export function EventSearch({ calendars, onPick }: { calendars?: Calendar[]; onP
     setOpen(false)
     setText('')
   }
-  if (!open) return <button className="btn ghost icon" onClick={() => setOpen(true)} aria-label="Search events" title="Search events (/)"><Icon name="search" size={17} /></button>
+  if (!open)
+    return (
+      <button className="btn ghost icon" onClick={() => setOpen(true)} aria-label="Search events" title="Search events (/)">
+        <Icon name="search" size={17} />
+      </button>
+    )
   return (
     <div className="ev-search" ref={box}>
       <Icon name="search" size={14} />
-      <input autoFocus value={text} onChange={(e) => setText(e.target.value)} placeholder="Search events" aria-label="Search events"
+      <input
+        autoFocus
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        placeholder="Search events"
+        aria-label="Search events"
         onKeyDown={(e) => {
-          if (e.key === 'Escape') (e.stopPropagation(), setOpen(false))
-          else if (e.key === 'ArrowDown') (e.preventDefault(), setActive((a) => Math.min(a + 1, items.length - 1)))
-          else if (e.key === 'ArrowUp') (e.preventDefault(), setActive((a) => Math.max(a - 1, 0)))
-          else if (e.key === 'Enter' && items[active]) (e.preventDefault(), pick(items[active]))
-        }} />
+          if (e.key === 'Escape') e.stopPropagation(), setOpen(false)
+          else if (e.key === 'ArrowDown') e.preventDefault(), setActive((a) => Math.min(a + 1, items.length - 1))
+          else if (e.key === 'ArrowUp') e.preventDefault(), setActive((a) => Math.max(a - 1, 0))
+          else if (e.key === 'Enter' && items[active]) e.preventDefault(), pick(items[active])
+        }}
+      />
       {res.isFetching && <span className="spinner" />}
       {q.length >= 2 && !res.isPending && (
         <ul className="ev-search-results" role="listbox">
-          {items.length === 0 && <li className="muted small" style={{ padding: '0.5rem' }}>No events match "{q}".</li>}
+          {items.length === 0 && (
+            <li className="muted small" style={{ padding: '0.5rem' }}>
+              No events match "{q}".
+            </li>
+          )}
           {items.map((e, i) => {
             const s = e.all_day ? eventDays(e).first : new Date(e.start) // all-day: its calendar date
             const z = e.all_day ? undefined : tz // timed: in the display zone
             return (
               <li key={e.id}>
-                <button role="option" aria-selected={i === active} className={i === active ? 'on' : ''} onMouseMove={() => setActive(i)} onClick={() => pick(e)}>
+                <button
+                  role="option"
+                  aria-selected={i === active}
+                  className={i === active ? 'on' : ''}
+                  onMouseMove={() => setActive(i)}
+                  onClick={() => pick(e)}
+                >
                   <span className="dot" style={{ background: e.display_colour || colour(e.calendar_id) }} />
-                  <span className="grow truncate">{e.name}{e.location && <span className="muted"> · {e.location}</span>}</span>
-                  <span className="muted xsmall tabular">{fmtDateIn(s, { month: 'short', day: 'numeric', year: s.getFullYear() !== today.getFullYear() ? 'numeric' : undefined }, z)}{e.all_day ? '' : (e.kind === 'deadline' ? ' · due ' : ' · ') + fmtTimeIn(s, z)}</span>
+                  <span className="grow truncate">
+                    {e.name}
+                    {e.location && <span className="muted"> · {e.location}</span>}
+                  </span>
+                  <span className="muted xsmall tabular">
+                    {fmtDateIn(
+                      s,
+                      { month: 'short', day: 'numeric', year: s.getFullYear() !== today.getFullYear() ? 'numeric' : undefined },
+                      z,
+                    )}
+                    {e.all_day ? '' : (e.kind === 'deadline' ? ' · due ' : ' · ') + fmtTimeIn(s, z)}
+                  </span>
                 </button>
               </li>
             )

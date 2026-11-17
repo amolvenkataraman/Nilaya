@@ -18,33 +18,51 @@ export function listItems(d: TaskList | undefined): Task[] {
   if (d.pages.length === 1) return d.pages[0].items
   const seen = new Set<string>()
   const out: Task[] = []
-  for (const p of d.pages) for (const t of p.items) if (!seen.has(t.id)) { seen.add(t.id); out.push(t) }
+  for (const p of d.pages)
+    for (const t of p.items)
+      if (!seen.has(t.id)) {
+        seen.add(t.id)
+        out.push(t)
+      }
   return out
 }
-export const listTotal = (d: TaskList | undefined): number | null | undefined => (d ? (isPages(d) ? d.pages[0]?.total : d.total) : undefined)
+export const listTotal = (d: TaskList | undefined): number | null | undefined =>
+  d ? (isPages(d) ? d.pages[0]?.total : d.total) : undefined
 const lastNext = (d: TaskList) => (isPages(d) ? d.pages.at(-1)?.next : d.next) ?? null
 
 // ---------------------------------------------------------------- sort order (mirrors tasks/api.py SORTS)
 type Key = [field: keyof Task, desc: boolean, date: boolean]
 const SORT_KEYS: Record<string, Key[]> = {
-  position: [['position', false, false], ['created_on', false, true]],
-  due: [['due', false, true], ['priority', true, false]],
-  priority: [['priority', true, false], ['due', false, true]],
+  position: [
+    ['position', false, false],
+    ['created_on', false, true],
+  ],
+  due: [
+    ['due', false, true],
+    ['priority', true, false],
+  ],
+  priority: [
+    ['priority', true, false],
+    ['due', false, true],
+  ],
   created: [['created_on', true, true]],
   updated: [['updated_on', true, true]],
   title: [['title', false, false]],
   done: [['done_at', true, true]],
 }
 type Val = number | string | null
-const keyOf = (t: Task, sort: string): Val[] =>
-  [...(SORT_KEYS[sort] ?? SORT_KEYS.position).map(([f, , date]) => {
+const keyOf = (t: Task, sort: string): Val[] => [
+  ...(SORT_KEYS[sort] ?? SORT_KEYS.position).map(([f, , date]) => {
     const v = t[f] as unknown
     return v == null ? null : date ? Date.parse(String(v)) : (v as number | string)
-  }), t.id]
+  }),
+  t.id,
+]
 function cmpKeys(a: Val[], b: Val[], sort: string): number {
   const keys = SORT_KEYS[sort] ?? SORT_KEYS.position
   for (let i = 0; i < a.length; i++) {
-    const x = a[i], y = b[i]
+    const x = a[i],
+      y = b[i]
     if (x === y) continue
     if (x == null) return 1 // nulls last
     if (y == null) return -1
@@ -72,7 +90,8 @@ const bool = (v: unknown) => (v === true || v === 'true' ? true : v === false ||
 
 /** Mirrors the server's list filters (tasks/api.py _filter); null = can't tell (refetch that list). */
 export function fitsList(t: Task, p: Params, me?: string, now = new Date()): boolean | null {
-  const end = new Date(now); end.setHours(23, 59, 59, 999)
+  const end = new Date(now)
+  end.setHours(23, 59, 59, 999)
   const due = t.due ? new Date(t.due) : null
   if (p.project && t.project_id !== p.project) return false
   if (p.parent && t.parent_id !== p.parent) return false
@@ -90,12 +109,18 @@ export function fitsList(t: Task, p: Params, me?: string, now = new Date()): boo
   const view = (p.view as string | undefined) || ''
   if (view && views[view] && !views[view]()) return false
   // Open tasks only, unless the list asks for done ones (a project's own list without `done` has both).
-  const done = view === 'done' ? true : bool(p.done) ?? (view || !p.project ? false : undefined)
+  const done = view === 'done' ? true : (bool(p.done) ?? (view || !p.project ? false : undefined))
   if (done !== undefined && t.done !== done) return false
   if (p.due_after && (!due || due < new Date(String(p.due_after)))) return false
   if (p.due_before && (!due || due >= new Date(String(p.due_before)))) return false
   if (p.done_after && (!t.done_at || new Date(t.done_at) < new Date(String(p.done_after)))) return false
-  if (p.label && !String(p.label).split(',').every((id) => t.labels.includes(Number(id)))) return false
+  if (
+    p.label &&
+    !String(p.label)
+      .split(',')
+      .every((id) => t.labels.includes(Number(id)))
+  )
+    return false
   if (p.priority_min && t.priority < Number(p.priority_min)) return false
   if (p.assignee && !t.assignees.some((a) => (typeof a === 'string' ? a === p.assignee : a.username === p.assignee))) return false
   if (p.q && !`${t.title} ${t.description}`.toLowerCase().includes(String(p.q).toLowerCase())) return false
@@ -106,7 +131,11 @@ export function fitsList(t: Task, p: Params, me?: string, now = new Date()): boo
 /** Rebuild a list from new flat items, keeping its page split (cursors stay valid: they're keyset). */
 function withItems(d: TaskList, items: Task[], delta: number): TaskList {
   if (!isPages(d)) return { ...d, items, total: d.total == null ? d.total : Math.max(0, d.total + delta) }
-  const pages = d.pages.map((p, i) => ({ ...p, total: i === 0 && p.total != null ? Math.max(0, p.total + delta) : p.total, items: [] as Task[] }))
+  const pages = d.pages.map((p, i) => ({
+    ...p,
+    total: i === 0 && p.total != null ? Math.max(0, p.total + delta) : p.total,
+    items: [] as Task[],
+  }))
   let at = 0
   d.pages.forEach((p, i) => {
     const n = i === d.pages.length - 1 ? items.length - at : Math.min(p.items.length, items.length - at)
@@ -151,12 +180,23 @@ export function settleTaskLists(qc: QueryClient, { tasks = [], gone = [], keep =
     if (goneSet.size || byId.size) {
       items = []
       for (const t of flat) {
-        if (goneSet.has(t.id)) { delta--; dirty = true; continue }
+        if (goneSet.has(t.id)) {
+          delta--
+          dirty = true
+          continue
+        }
         const n = byId.get(t.id)
-        if (!n) { items.push(t); continue }
+        if (!n) {
+          items.push(t)
+          continue
+        }
         present.add(t.id)
         const fit = fitsList(n, params, me)
-        if (fit === false) { delta--; dirty = true; continue }
+        if (fit === false) {
+          delta--
+          dirty = true
+          continue
+        }
         if (fit === null) stale.push(key)
         items.push(n)
         if (n !== t) dirty = true
@@ -165,8 +205,15 @@ export function settleTaskLists(qc: QueryClient, { tasks = [], gone = [], keep =
     for (const t of tasks) {
       if (present.has(t.id) || goneSet.has(t.id)) continue
       const fit = fitsList(t, params, me)
-      if (fit === null) { stale.push(key); continue }
-      if (fit && inRange(t)) { items.push(t); delta++; dirty = true }
+      if (fit === null) {
+        stale.push(key)
+        continue
+      }
+      if (fit && inRange(t)) {
+        items.push(t)
+        delta++
+        dirty = true
+      }
     }
     if (!dirty) continue
     // Re-sort only the changed tasks: take them out and insert each at its place (stable for the rest).
@@ -175,8 +222,13 @@ export function settleTaskLists(qc: QueryClient, { tasks = [], gone = [], keep =
       const keep = items.filter((t) => !byId.has(t.id) || !inRange(t))
       for (const t of items) {
         if (!byId.has(t.id) || !inRange(t)) continue
-        let lo = 0, hi = keep.length
-        while (lo < hi) { const mid = (lo + hi) >> 1; if (cmp(keep[mid], t) <= 0) lo = mid + 1; else hi = mid }
+        let lo = 0,
+          hi = keep.length
+        while (lo < hi) {
+          const mid = (lo + hi) >> 1
+          if (cmp(keep[mid], t) <= 0) lo = mid + 1
+          else hi = mid
+        }
         keep.splice(lo, 0, t)
       }
       items = keep
@@ -186,7 +238,10 @@ export function settleTaskLists(qc: QueryClient, { tasks = [], gone = [], keep =
   }
   for (const t of tasks) {
     const old = qc.getQueryData<TaskDetail>(['tasks', 'detail', t.id])
-    if (old) { snaps.push([['tasks', 'detail', t.id], old]); qc.setQueryData<TaskDetail>(['tasks', 'detail', t.id], { ...old, ...t }) }
+    if (old) {
+      snaps.push([['tasks', 'detail', t.id], old])
+      qc.setQueryData<TaskDetail>(['tasks', 'detail', t.id], { ...old, ...t })
+    }
   }
   for (const k of stale) qc.invalidateQueries({ queryKey: k, exact: true })
   return () => snaps.reverse().forEach(([k, d]) => qc.setQueryData(k, d))
@@ -200,12 +255,17 @@ export function patchTaskLists(qc: QueryClient, ids: Iterable<string>, fn: (t: T
     if (!data || !listItems(data).some((t) => set.has(t.id))) continue
     snaps.push([key, data])
     const map = (items: Task[]) => items.map((t) => (set.has(t.id) ? fn(t) : t))
-    const next: TaskList = isPages(data) ? { ...data, pages: data.pages.map((p) => ({ ...p, items: map(p.items) })) } : { ...data, items: map(data.items) }
+    const next: TaskList = isPages(data)
+      ? { ...data, pages: data.pages.map((p) => ({ ...p, items: map(p.items) })) }
+      : { ...data, items: map(data.items) }
     qc.setQueryData<TaskList>(key, next)
   }
   for (const id of set) {
     const old = qc.getQueryData<TaskDetail>(['tasks', 'detail', id])
-    if (old) { snaps.push([['tasks', 'detail', id], old]); qc.setQueryData<TaskDetail>(['tasks', 'detail', id], { ...old, ...fn(old) } as TaskDetail) }
+    if (old) {
+      snaps.push([['tasks', 'detail', id], old])
+      qc.setQueryData<TaskDetail>(['tasks', 'detail', id], { ...old, ...fn(old) } as TaskDetail)
+    }
   }
   return () => snaps.reverse().forEach(([k, d]) => qc.setQueryData(k, d))
 }

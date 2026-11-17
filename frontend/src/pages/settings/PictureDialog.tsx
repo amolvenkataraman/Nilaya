@@ -13,10 +13,16 @@ const OUT = 640 // exported square, px (the server keeps up to 1024)
 const MAX_ZOOM = 5
 
 // The crop square is 1 x 1 unit; offsets are in those units so the maths ignores the on-screen size.
-interface View { zoom: number; x: number; y: number; rot: 0 | 1 | 2 | 3 }
+interface View {
+  zoom: number
+  x: number
+  y: number
+  rot: 0 | 1 | 2 | 3
+}
 
 function dims(img: HTMLImageElement, rot: number) {
-  const w = img.naturalWidth, h = img.naturalHeight
+  const w = img.naturalWidth,
+    h = img.naturalHeight
   return rot % 2 ? { w: h, h: w } : { w, h }
 }
 
@@ -92,10 +98,11 @@ export function PictureDialog({ open, onClose }: { open: boolean; onClose: () =>
   }
 
   const update = (fn: (v: View) => View) => img && setView((v) => clamp(img, fn(v)))
-  const zoomTo = (z: number) => update((v) => {
-    const zoom = Math.min(MAX_ZOOM, Math.max(1, z))
-    return { ...v, zoom, x: (v.x * zoom) / v.zoom, y: (v.y * zoom) / v.zoom } // zoom about the centre
-  })
+  const zoomTo = (z: number) =>
+    update((v) => {
+      const zoom = Math.min(MAX_ZOOM, Math.max(1, z))
+      return { ...v, zoom, x: (v.x * zoom) / v.zoom, y: (v.y * zoom) / v.zoom } // zoom about the centre
+    })
 
   const onDown = (e: ReactPointerEvent<HTMLCanvasElement>) => {
     if (!img) return
@@ -106,7 +113,8 @@ export function PictureDialog({ open, onClose }: { open: boolean; onClose: () =>
     const d = drag.current
     if (!d || d.id !== e.pointerId) return
     const size = e.currentTarget.clientWidth || 1
-    const dx = (e.clientX - d.x) / size, dy = (e.clientY - d.y) / size
+    const dx = (e.clientX - d.x) / size,
+      dy = (e.clientY - d.y) / size
     drag.current = { ...d, x: e.clientX, y: e.clientY }
     update((v) => ({ ...v, x: v.x + dx, y: v.y + dy }))
   }
@@ -147,7 +155,12 @@ export function PictureDialog({ open, onClose }: { open: boolean; onClose: () =>
 
   const step = 0.02
   const onKey = (e: React.KeyboardEvent) => {
-    const moves: Record<string, [number, number]> = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, -step], ArrowDown: [0, step] }
+    const moves: Record<string, [number, number]> = {
+      ArrowLeft: [-step, 0],
+      ArrowRight: [step, 0],
+      ArrowUp: [0, -step],
+      ArrowDown: [0, step],
+    }
     const m = moves[e.key]
     if (m) {
       e.preventDefault()
@@ -165,8 +178,16 @@ export function PictureDialog({ open, onClose }: { open: boolean; onClose: () =>
       labelledBy="pic-title"
       footer={
         <>
-          {error ? <span className="error-text grow" role="alert">{error}</span> : <span className="spacer" />}
-          <button className="btn" onClick={onClose}>Cancel</button>
+          {error ? (
+            <span className="error-text grow" role="alert">
+              {error}
+            </span>
+          ) : (
+            <span className="spacer" />
+          )}
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
           <button className="btn primary" disabled={!img || upload.isPending} onClick={() => (setError(''), upload.mutate())}>
             {upload.isPending ? 'Uploading…' : 'Save picture'}
           </button>
@@ -174,7 +195,14 @@ export function PictureDialog({ open, onClose }: { open: boolean; onClose: () =>
       }
     >
       <div className="stack pic-body">
-        <input ref={fileInput} type="file" accept="image/*" className="sr-only" tabIndex={-1} onChange={(e) => (pick(e.target.files?.[0]), (e.target.value = ''))} />
+        <input
+          ref={fileInput}
+          type="file"
+          accept="image/*"
+          className="sr-only"
+          tabIndex={-1}
+          onChange={(e) => (pick(e.target.files?.[0]), (e.target.value = ''))}
+        />
         {img ? (
           <>
             <div className="crop-stage">
@@ -202,14 +230,28 @@ export function PictureDialog({ open, onClose }: { open: boolean; onClose: () =>
                 onChange={(e) => zoomTo(Number(e.target.value))}
                 aria-label="Zoom"
               />
-              <button type="button" className="btn ghost icon sm" title="Rotate left" aria-label="Rotate left" onClick={() => update((v) => ({ ...v, rot: ((v.rot + 3) % 4) as View['rot'], x: 0, y: 0 }))}>
+              <button
+                type="button"
+                className="btn ghost icon sm"
+                title="Rotate left"
+                aria-label="Rotate left"
+                onClick={() => update((v) => ({ ...v, rot: ((v.rot + 3) % 4) as View['rot'], x: 0, y: 0 }))}
+              >
                 <Icon name="refresh" size={14} className="flip-x" />
               </button>
-              <button type="button" className="btn ghost icon sm" title="Rotate right" aria-label="Rotate right" onClick={() => update((v) => ({ ...v, rot: ((v.rot + 1) % 4) as View['rot'], x: 0, y: 0 }))}>
+              <button
+                type="button"
+                className="btn ghost icon sm"
+                title="Rotate right"
+                aria-label="Rotate right"
+                onClick={() => update((v) => ({ ...v, rot: ((v.rot + 1) % 4) as View['rot'], x: 0, y: 0 }))}
+              >
                 <Icon name="refresh" size={14} />
               </button>
             </div>
-            <button type="button" className="btn sm pic-other" onClick={() => fileInput.current?.click()}>Choose another image</button>
+            <button type="button" className="btn sm pic-other" onClick={() => fileInput.current?.click()}>
+              Choose another image
+            </button>
           </>
         ) : (
           <button

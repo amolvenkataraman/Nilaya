@@ -28,7 +28,11 @@ function store<T>(initial: T) {
 /** The album being viewed (album page), so the action bar and viewer can offer album actions. */
 export const albumContext = store<Album | null>(null)
 
-export interface Selection { mode: boolean; picked: Map<string, Photo>; anchor: string | null }
+export interface Selection {
+  mode: boolean
+  picked: Map<string, Photo>
+  anchor: string | null
+}
 export const selection = store<Selection>({ mode: false, picked: new Map(), anchor: null })
 const setSel = (patch: Partial<Selection>) => selection.set({ ...selection.get(), ...patch })
 
@@ -65,7 +69,13 @@ export const select = {
 // ---------------------------------------------------------------- thumbnail label (per device)
 export type TileLabel = 'none' | 'time' | 'city' | 'camera' | 'mp' | 'size' | 'blur'
 export const TILE_LABELS: [TileLabel, string][] = [
-  ['none', 'None'], ['time', 'Time taken'], ['city', 'City'], ['camera', 'Camera'], ['mp', 'Megapixels'], ['size', 'Size'], ['blur', 'Blur score'],
+  ['none', 'None'],
+  ['time', 'Time taken'],
+  ['city', 'City'],
+  ['camera', 'Camera'],
+  ['mp', 'Megapixels'],
+  ['size', 'Size'],
+  ['blur', 'Blur score'],
 ]
 const LABEL_KEY = 'app.photos.label'
 const readLabel = (): TileLabel => {
@@ -79,18 +89,29 @@ const readLabel = (): TileLabel => {
 export const tileLabel = store<TileLabel>(readLabel())
 export function setTileLabel(v: TileLabel) {
   tileLabel.set(v)
-  try { localStorage.setItem(LABEL_KEY, v) } catch { /* ignore */ }
+  try {
+    localStorage.setItem(LABEL_KEY, v)
+  } catch {
+    /* ignore */
+  }
 }
 
 export function labelText(p: Photo, l: TileLabel): string {
   switch (l) {
-    case 'time': return p.date_taken ? fmtTime(new Date(p.date_taken)) : ''
-    case 'city': return p.city ?? ''
-    case 'camera': return p.camera ?? ''
-    case 'mp': return p.megapixels ? `${p.megapixels.toFixed(1)} MP` : ''
-    case 'size': return p.size_kb ? fmtBytes(p.size_kb) : ''
-    case 'blur': return p.blur != null ? `Blur ${Math.round(p.blur)}` : ''
-    default: return ''
+    case 'time':
+      return p.date_taken ? fmtTime(new Date(p.date_taken)) : ''
+    case 'city':
+      return p.city ?? ''
+    case 'camera':
+      return p.camera ?? ''
+    case 'mp':
+      return p.megapixels ? `${p.megapixels.toFixed(1)} MP` : ''
+    case 'size':
+      return p.size_kb ? fmtBytes(p.size_kb) : ''
+    case 'blur':
+      return p.blur != null ? `Blur ${Math.round(p.blur)}` : ''
+    default:
+      return ''
   }
 }
 
@@ -100,8 +121,14 @@ export function tileTitle(p: Photo): string {
   if (p.date_taken) lines.push(fmtStamp(p.date_taken))
   if (p.city || p.country) lines.push([p.city, p.country].filter(Boolean).join(', '))
   if (p.camera) lines.push(p.camera)
-  const tech = [p.width && p.height ? `${p.width}×${p.height}` : '', p.megapixels ? `${p.megapixels.toFixed(1)} MP` : '', p.size_kb ? fmtBytes(p.size_kb) : '',
-    p.size_total_kb && p.size_kb && p.size_total_kb > p.size_kb ? `${fmtBytes(p.size_total_kb)} with originals` : ''].filter(Boolean).join(' · ')
+  const tech = [
+    p.width && p.height ? `${p.width}×${p.height}` : '',
+    p.megapixels ? `${p.megapixels.toFixed(1)} MP` : '',
+    p.size_kb ? fmtBytes(p.size_kb) : '',
+    p.size_total_kb && p.size_kb && p.size_total_kb > p.size_kb ? `${fmtBytes(p.size_total_kb)} with originals` : '',
+  ]
+    .filter(Boolean)
+    .join(' · ')
   if (tech) lines.push(tech)
   if (p.blur != null) lines.push(`Blur score ${Math.round(p.blur)}`)
   if (p.has_raw || p.has_orig) lines.push([p.has_raw && 'RAW', p.has_orig && 'Original'].filter(Boolean).join(' + ') + ' kept')
@@ -137,10 +164,12 @@ export function SelectionBar() {
     try {
       const r = await post<{ changed: number }>('photos/hide', { ids, hidden })
       const verb = hidden ? 'Hid' : 'Unhid'
-      if (!r.changed) toast.error(hidden ? 'Nothing to hide: you can only hide your own photos.' : 'None of these were hidden (or they aren\'t yours).')
-      else toast.show(`${verb} ${r.changed} item${r.changed === 1 ? '' : 's'}${r.changed < n ? ` (${n - r.changed} skipped)` : ''}`, {
-        action: { label: 'Undo', run: () => post('photos/hide', { ids, hidden: !hidden }).then(refresh) },
-      })
+      if (!r.changed)
+        toast.error(hidden ? 'Nothing to hide: you can only hide your own photos.' : "None of these were hidden (or they aren't yours).")
+      else
+        toast.show(`${verb} ${r.changed} item${r.changed === 1 ? '' : 's'}${r.changed < n ? ` (${n - r.changed} skipped)` : ''}`, {
+          action: { label: 'Undo', run: () => post('photos/hide', { ids, hidden: !hidden }).then(refresh) },
+        })
       select.setMode(false)
       refresh()
     } catch (e) {
@@ -165,29 +194,69 @@ export function SelectionBar() {
   const share = () => copyLinks(photos.map((p) => safeHref(p.url)))
   return (
     <div className="ph-selbar" role="toolbar" aria-label="Selected photos">
-      <button className="btn ghost icon sm" onClick={() => select.setMode(false)} aria-label="Cancel selection" title="Cancel (Esc)"><Icon name="x" /></button>
+      <button className="btn ghost icon sm" onClick={() => select.setMode(false)} aria-label="Cancel selection" title="Cancel (Esc)">
+        <Icon name="x" />
+      </button>
       <strong className="tabular">{n ? `${n} selected` : 'Select photos'}</strong>
       {n > 0 && <span className="muted xsmall">{fmtBytes(photos.reduce((t, p) => t + (p.size_kb ?? 0), 0))}</span>}
       <span className="spacer" />
       {n > 0 && (
         <>
           {album?.mine && n === 1 && (
-            <button className="btn sm" onClick={() => setAlbumCover(qc, album, ids[0]).then(() => select.setMode(false))} title="Use this photo as the album cover"><Icon name="photo" size={14} /><span>Set as cover</span></button>
+            <button
+              className="btn sm"
+              onClick={() => setAlbumCover(qc, album, ids[0]).then(() => select.setMode(false))}
+              title="Use this photo as the album cover"
+            >
+              <Icon name="photo" size={14} />
+              <span>Set as cover</span>
+            </button>
           )}
           {album && (
-            <button className="btn sm" onClick={() => removeFromAlbum(qc, album, ids).then((ok) => ok && select.setMode(false))} title="Remove from this album (the photos stay in your library)"><Icon name="x" size={14} /><span>Remove from album</span></button>
+            <button
+              className="btn sm"
+              onClick={() => removeFromAlbum(qc, album, ids).then((ok) => ok && select.setMode(false))}
+              title="Remove from this album (the photos stay in your library)"
+            >
+              <Icon name="x" size={14} />
+              <span>Remove from album</span>
+            </button>
           )}
-          <button className="btn sm" onClick={() => setAlbumPick(true)}><Icon name="album" size={14} /><span>Add to album</span></button>
-          <button className="btn sm" onClick={share}><Icon name="link" size={14} /><span>Share</span></button>
-          <button className="btn sm" onClick={download}><Icon name="arrowDown" size={14} /><span>Download</span></button>
-          <button className="btn sm" onClick={() => hide(true)} title="Hide from everyone (only you can reveal them)"><Icon name="ban" size={14} /><span>Hide</span></button>
-          {hiddenMode && <button className="btn sm" onClick={() => hide(false)} title="Make hidden photos visible again"><Icon name="refresh" size={14} /><span>Unhide</span></button>}
-          <button className="btn sm danger" onClick={() => setConfirmDelete(true)} title="Delete (Del)"><Icon name="trash" size={14} /><span>Delete</span></button>
-          <button className="btn ghost sm" onClick={select.clear}>Clear</button>
+          <button className="btn sm" onClick={() => setAlbumPick(true)}>
+            <Icon name="album" size={14} />
+            <span>Add to album</span>
+          </button>
+          <button className="btn sm" onClick={share}>
+            <Icon name="link" size={14} />
+            <span>Share</span>
+          </button>
+          <button className="btn sm" onClick={download}>
+            <Icon name="arrowDown" size={14} />
+            <span>Download</span>
+          </button>
+          <button className="btn sm" onClick={() => hide(true)} title="Hide from everyone (only you can reveal them)">
+            <Icon name="ban" size={14} />
+            <span>Hide</span>
+          </button>
+          {hiddenMode && (
+            <button className="btn sm" onClick={() => hide(false)} title="Make hidden photos visible again">
+              <Icon name="refresh" size={14} />
+              <span>Unhide</span>
+            </button>
+          )}
+          <button className="btn sm danger" onClick={() => setConfirmDelete(true)} title="Delete (Del)">
+            <Icon name="trash" size={14} />
+            <span>Delete</span>
+          </button>
+          <button className="btn ghost sm" onClick={select.clear}>
+            Clear
+          </button>
         </>
       )}
       {albumPick && <AlbumPicker ids={ids} onClose={() => setAlbumPick(false)} />}
-      {confirmDelete && <DeleteDialog ids={ids} onClose={() => setConfirmDelete(false)} onDone={() => (select.setMode(false), refresh())} />}
+      {confirmDelete && (
+        <DeleteDialog ids={ids} onClose={() => setConfirmDelete(false)} onDone={() => (select.setMode(false), refresh())} />
+      )}
     </div>
   )
 }
@@ -204,9 +273,20 @@ export function AlbumPicker({ ids, onClose }: { ids: string[]; onClose: () => vo
     onSuccess: ({ added, album }) => {
       qc.invalidateQueries({ queryKey: ['photos', 'albums'] })
       qc.invalidateQueries({ queryKey: ['photos', 'album', album.id] })
-      toast.show(added.length ? `Added ${added.length} to "${album.name}"` : `Already in "${album.name}"`, added.length ? {
-        action: { label: 'Undo', run: () => api(`photos/albums/${album.id}/photos`, { method: 'DELETE', body: { ids: added } }).then(() => qc.invalidateQueries({ queryKey: ['photos', 'album', album.id] })) },
-      } : {})
+      toast.show(
+        added.length ? `Added ${added.length} to "${album.name}"` : `Already in "${album.name}"`,
+        added.length
+          ? {
+              action: {
+                label: 'Undo',
+                run: () =>
+                  api(`photos/albums/${album.id}/photos`, { method: 'DELETE', body: { ids: added } }).then(() =>
+                    qc.invalidateQueries({ queryKey: ['photos', 'album', album.id] }),
+                  ),
+              },
+            }
+          : {},
+      )
       onClose()
       select.setMode(false)
     },
@@ -216,7 +296,10 @@ export function AlbumPicker({ ids, onClose }: { ids: string[]; onClose: () => vo
     e.preventDefault()
     const n = name.trim()
     if (!n) return
-    create.mutate({ name: n.slice(0, 64), description: '', public: pub }, { onSuccess: (a) => add.mutate(a), onError: (err) => toast.error((err as Error).message) })
+    create.mutate(
+      { name: n.slice(0, 64), description: '', public: pub },
+      { onSuccess: (a) => add.mutate(a), onError: (err) => toast.error((err as Error).message) },
+    )
   }
   // The API doesn't say whether you can edit someone else's album: list yours first, then shared ones (the server checks).
   const list = [...(albums.data ?? [])].sort((a, b) => Number(b.mine) - Number(a.mine))
@@ -224,22 +307,42 @@ export function AlbumPicker({ ids, onClose }: { ids: string[]; onClose: () => vo
     <Dialog open onClose={onClose} title={`Add ${ids.length} to an album`} width="26rem">
       {creating ? (
         <form className="ph-newalb" onSubmit={createAndAdd}>
-          <label className="field"><span>New album name</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={64} autoFocus placeholder="e.g. Summer trip" /></label>
+          <label className="field">
+            <span>New album name</span>
+            <input
+              className="input"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              maxLength={64}
+              autoFocus
+              placeholder="e.g. Summer trip"
+            />
+          </label>
           <Switch checked={pub} onChange={setPub} label="Public album" />
           <div className="row" style={{ gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <button type="button" className="btn" onClick={() => setCreating(false)}>Back</button>
-            <button type="submit" className="btn primary" disabled={!name.trim() || create.isPending || add.isPending}>{create.isPending || add.isPending ? 'Creating…' : 'Create and add'}</button>
+            <button type="button" className="btn" onClick={() => setCreating(false)}>
+              Back
+            </button>
+            <button type="submit" className="btn primary" disabled={!name.trim() || create.isPending || add.isPending}>
+              {create.isPending || add.isPending ? 'Creating…' : 'Create and add'}
+            </button>
           </div>
         </form>
       ) : (
         <ul className="ph-albpick">
           <li>
             <button onClick={() => setCreating(true)}>
-              <span className="ph-albpick-cover"><Icon name="plus" /></span>
+              <span className="ph-albpick-cover">
+                <Icon name="plus" />
+              </span>
               <span className="grow truncate">New album…</span>
             </button>
           </li>
-          {albums.isPending && <li className="muted small" style={{ padding: '0.5rem' }}>Loading albums…</li>}
+          {albums.isPending && (
+            <li className="muted small" style={{ padding: '0.5rem' }}>
+              Loading albums…
+            </li>
+          )}
           {list.map((a) => {
             const src = a.cover ? safeHref(a.cover.thumb_url) : null
             return (
@@ -268,7 +371,10 @@ export function DeleteDialog({ ids, onClose, onDone }: { ids: string[]; onClose:
     try {
       const r = await post<{ deleted: number }>('photos/delete', { ids })
       if (!r.deleted) toast.error('Nothing was deleted. You can only delete from libraries you own or edit.')
-      else toast.show(`Deleted ${r.deleted} item${r.deleted === 1 ? '' : 's'}${r.deleted < n ? ` (${n - r.deleted} skipped: libraries you can only view)` : ''}`)
+      else
+        toast.show(
+          `Deleted ${r.deleted} item${r.deleted === 1 ? '' : 's'}${r.deleted < n ? ` (${n - r.deleted} skipped: libraries you can only view)` : ''}`,
+        )
       onDone()
       onClose()
     } catch (e) {
@@ -278,11 +384,38 @@ export function DeleteDialog({ ids, onClose, onDone }: { ids: string[]; onClose:
     }
   }
   return (
-    <Dialog open onClose={onClose} title={`Permanently delete ${n} item${n === 1 ? '' : 's'}?`} width="28rem"
-      footer={<><span className="spacer" /><button className="btn" onClick={onClose}>Cancel</button>
-        <button className="btn primary" style={{ background: 'var(--app-danger)', borderColor: 'var(--app-danger)', color: '#fff' }} disabled={typed !== 'DELETE' || busy} onClick={run}>{busy ? 'Deleting…' : 'Delete forever'}</button></>}>
-      <p className="small">This removes the files from disk, including originals and RAW files. It can't be undone. To keep them out of sight instead, use <strong>Hide</strong>.</p>
-      <label className="field"><span>Type <strong>DELETE</strong> to confirm</span><input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus autoComplete="off" /></label>
+    <Dialog
+      open
+      onClose={onClose}
+      title={`Permanently delete ${n} item${n === 1 ? '' : 's'}?`}
+      width="28rem"
+      footer={
+        <>
+          <span className="spacer" />
+          <button className="btn" onClick={onClose}>
+            Cancel
+          </button>
+          <button
+            className="btn primary"
+            style={{ background: 'var(--app-danger)', borderColor: 'var(--app-danger)', color: '#fff' }}
+            disabled={typed !== 'DELETE' || busy}
+            onClick={run}
+          >
+            {busy ? 'Deleting…' : 'Delete forever'}
+          </button>
+        </>
+      }
+    >
+      <p className="small">
+        This removes the files from disk, including originals and RAW files. It can't be undone. To keep them out of sight instead, use{' '}
+        <strong>Hide</strong>.
+      </p>
+      <label className="field">
+        <span>
+          Type <strong>DELETE</strong> to confirm
+        </span>
+        <input className="input" value={typed} onChange={(e) => setTyped(e.target.value)} autoFocus autoComplete="off" />
+      </label>
     </Dialog>
   )
 }
@@ -291,19 +424,37 @@ export function DeleteDialog({ ids, onClose, onDone }: { ids: string[]; onClose:
 export function SelectToggle() {
   const s = selection.use()
   return (
-    <button className={'btn sm ph-select-btn' + (s.mode ? ' on' : '')} aria-pressed={s.mode} onClick={() => select.setMode(!s.mode)} title="Select photos (shift-click for a range)">
-      <Icon name="check" size={14} /><span>Select</span>
+    <button
+      className={'btn sm ph-select-btn' + (s.mode ? ' on' : '')}
+      aria-pressed={s.mode}
+      onClick={() => select.setMode(!s.mode)}
+      title="Select photos (shift-click for a range)"
+    >
+      <Icon name="check" size={14} />
+      <span>Select</span>
     </button>
   )
 }
 export function LabelMenu() {
   const l = tileLabel.use()
   return (
-    <Menu align="end" label="Label on thumbnails" trigger={(p) => <button {...p} className="btn ghost icon sm" aria-label="Label on thumbnails" title="Label on thumbnails"><Icon name="tag" size={15} /></button>}>
+    <Menu
+      align="end"
+      label="Label on thumbnails"
+      trigger={(p) => (
+        <button {...p} className="btn ghost icon sm" aria-label="Label on thumbnails" title="Label on thumbnails">
+          <Icon name="tag" size={15} />
+        </button>
+      )}
+    >
       {(close) => (
         <>
           <div className="menu-label">Label on thumbnails</div>
-          {TILE_LABELS.map(([k, name]) => <MenuItem key={k} active={l === k} end={l === k ? '✓' : undefined} onClick={() => (close(), setTileLabel(k))}>{name}</MenuItem>)}
+          {TILE_LABELS.map(([k, name]) => (
+            <MenuItem key={k} active={l === k} end={l === k ? '✓' : undefined} onClick={() => (close(), setTileLabel(k))}>
+              {name}
+            </MenuItem>
+          ))}
         </>
       )}
     </Menu>

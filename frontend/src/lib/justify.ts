@@ -2,8 +2,15 @@
 // scaling a run of photos to a common height near `target`. The last row keeps `target`
 // height and is left-aligned instead of being stretched.
 
-export interface Box { index: number; width: number; height: number }
-export interface Row { height: number; boxes: Box[] }
+export interface Box {
+  index: number
+  width: number
+  height: number
+}
+export interface Row {
+  height: number
+  boxes: Box[]
+}
 
 export function justify(aspects: number[], width: number, target: number, gap: number, maxScale = 1.6): Row[] {
   const rows: Row[] = []

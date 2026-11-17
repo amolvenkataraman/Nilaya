@@ -14,26 +14,60 @@ const PATHS: Record<string, string> = {
   pen: 'M10.5 2.5l3 3-8 8H2.5v-3zM9 4l3 3',
   coffee: 'M3 6h8v4a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3zM11 7h1.5a1.5 1.5 0 0 1 0 3H11M5.5 2.5v1.5M8 2.5v1.5',
   sun: 'M8 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6zM8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1 1M12 12l1 1M3 13l1-1M12 4l1-1',
-  brain: 'M8 3v10M8 3a2.5 2.5 0 0 0-4.5 1.5A2.5 2.5 0 0 0 3 9a2.5 2.5 0 0 0 2 4h3M8 3a2.5 2.5 0 0 1 4.5 1.5A2.5 2.5 0 0 1 13 9a2.5 2.5 0 0 1-2 4H8',
+  brain:
+    'M8 3v10M8 3a2.5 2.5 0 0 0-4.5 1.5A2.5 2.5 0 0 0 3 9a2.5 2.5 0 0 0 2 4h3M8 3a2.5 2.5 0 0 1 4.5 1.5A2.5 2.5 0 0 1 13 9a2.5 2.5 0 0 1-2 4H8',
   ban: 'M8 14A6 6 0 1 0 8 2a6 6 0 0 0 0 12zM3.8 3.8l8.4 8.4',
   music: 'M6 12V3.5l7-1.5v8.5M6 12a2 2 0 1 1-2-2 2 2 0 0 1 2 2zM13 10.5a2 2 0 1 1-2-2 2 2 0 0 1 2 2z',
   bed: 'M1.5 4v9M1.5 10h13v3M14.5 10V8a2 2 0 0 0-2-2H7v4M4.5 8.5a1.2 1.2 0 1 0 0-.01',
-  flame: 'M8 14.5c2.8 0 4.5-1.9 4.5-4.4 0-2.4-1.6-3.9-2.6-5.6-.5 1.3-1.2 2-2 2.3.3-2.3-.6-4.2-2.4-5.3.2 2-1 3.4-2.1 4.8C2.6 7.4 3.5 9 3.5 10.1c0 2.5 1.7 4.4 4.5 4.4z',
+  flame:
+    'M8 14.5c2.8 0 4.5-1.9 4.5-4.4 0-2.4-1.6-3.9-2.6-5.6-.5 1.3-1.2 2-2 2.3.3-2.3-.6-4.2-2.4-5.3.2 2-1 3.4-2.1 4.8C2.6 7.4 3.5 9 3.5 10.1c0 2.5 1.7 4.4 4.5 4.4z',
   skip: 'M3.5 3.5v9l6-4.5zM12.5 3.5v9',
   minus: 'M3 8h10',
   pause: 'M5.5 3.5v9M10.5 3.5v9',
 }
-export const HABIT_ICONS = ['drop', 'book', 'run', 'dumbbell', 'leaf', 'moon', 'heart', 'pen', 'coffee', 'sun', 'brain', 'ban', 'music', 'bed']
+export const HABIT_ICONS = [
+  'drop',
+  'book',
+  'run',
+  'dumbbell',
+  'leaf',
+  'moon',
+  'heart',
+  'pen',
+  'coffee',
+  'sun',
+  'brain',
+  'ban',
+  'music',
+  'bed',
+]
 export const HABIT_COLOURS: [string, string][] = [
-  ['', 'Teal'], ['#2a78d6', 'Blue'], ['#6250d6', 'Violet'], ['#e87ba4', 'Pink'], ['#e34948', 'Red'],
-  ['#eb6834', 'Orange'], ['#eda100', 'Yellow'], ['#008300', 'Green'], ['#1baf7a', 'Aqua'],
+  ['', 'Teal'],
+  ['#2a78d6', 'Blue'],
+  ['#6250d6', 'Violet'],
+  ['#e87ba4', 'Pink'],
+  ['#e34948', 'Red'],
+  ['#eb6834', 'Orange'],
+  ['#eda100', 'Yellow'],
+  ['#008300', 'Green'],
+  ['#1baf7a', 'Aqua'],
 ]
 
 export function HIcon({ name, size = 1 }: { name: string; size?: number }) {
   const d = PATHS[name]
   if (!d) return null
   return (
-    <svg viewBox="0 0 16 16" width={`${size}rem`} height={`${size}rem`} fill="none" stroke="currentColor" strokeWidth={1.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <svg
+      viewBox="0 0 16 16"
+      width={`${size}rem`}
+      height={`${size}rem`}
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={1.5}
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
       <path d={d} />
     </svg>
   )

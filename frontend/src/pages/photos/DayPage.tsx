@@ -34,27 +34,50 @@ export function DayPage({ zoom }: { zoom: Zoom }) {
     }
     return [...counts.values()].sort((a, b) => b.n - a.n)
   }, [items])
-  if (!day) return <div className="page ph-page"><PageHead back="/photos" title="Day" /><div className="empty left">That isn't a valid date.</div></div>
+  if (!day)
+    return (
+      <div className="page ph-page">
+        <PageHead back="/photos" title="Day" />
+        <div className="empty left">That isn't a valid date.</div>
+      </div>
+    )
   const prev = dayKey(addDays(day, -1))
   const next = dayKey(addDays(day, 1))
   const sub = totals
-    ? [totals.photos ? plural(totals.photos, 'photo') : '', totals.videos ? plural(totals.videos, 'video') : '', totals.size_kb ? fmtBytes(totals.size_kb) : ''].filter(Boolean).join(' · ') || 'No photos'
+    ? [
+        totals.photos ? plural(totals.photos, 'photo') : '',
+        totals.videos ? plural(totals.videos, 'video') : '',
+        totals.size_kb ? fmtBytes(totals.size_kb) : '',
+      ]
+        .filter(Boolean)
+        .join(' · ') || 'No photos'
     : ' '
   return (
     <div className="page ph-page">
       <PageHead back="/photos" title={fmtDate(day, { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })} sub={sub}>
         <div className="seg" role="group" aria-label="Other days">
-          <Link to={`/photos/day/${prev}`} className="ph-seg-link" title="Previous day" aria-label="Previous day"><Icon name="chevronLeft" size={14} /></Link>
-          <Link to={`/photos/day/${next}`} className="ph-seg-link" title="Next day" aria-label="Next day"><Icon name="chevronRight" size={14} /></Link>
+          <Link to={`/photos/day/${prev}`} className="ph-seg-link" title="Previous day" aria-label="Previous day">
+            <Icon name="chevronLeft" size={14} />
+          </Link>
+          <Link to={`/photos/day/${next}`} className="ph-seg-link" title="Next day" aria-label="Next day">
+            <Icon name="chevronRight" size={14} />
+          </Link>
         </div>
-        <Link to={`/photos?date=${date}`} className="btn sm" title="Open the timeline at this day"><Icon name="photo" size={14} /><span>In timeline</span></Link>
+        <Link to={`/photos?date=${date}`} className="btn sm" title="Open the timeline at this day">
+          <Icon name="photo" size={14} />
+          <span>In timeline</span>
+        </Link>
       </PageHead>
       {places.length > 0 && (
         <div className="ph-places" aria-label="Places this day">
           <Icon name="pin" size={14} />
           {places.slice(0, 12).map((p) => (
-            <Link key={`${p.city}|${p.country}`} className="chip" to={p.city ? `/photos?city=${encodeURIComponent(p.city)}` : `/photos?country=${encodeURIComponent(p.country!)}`}
-              title={`${[p.city, p.country].filter(Boolean).join(', ')}: ${plural(p.n, 'item')}`}>
+            <Link
+              key={`${p.city}|${p.country}`}
+              className="chip"
+              to={p.city ? `/photos?city=${encodeURIComponent(p.city)}` : `/photos?country=${encodeURIComponent(p.country!)}`}
+              title={`${[p.city, p.country].filter(Boolean).join(', ')}: ${plural(p.n, 'item')}`}
+            >
               {[p.city, p.country].filter(Boolean).join(', ')} <span className="muted">{p.n}</span>
             </Link>
           ))}

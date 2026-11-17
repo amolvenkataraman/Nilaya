@@ -44,7 +44,11 @@ function readOpen(app: string): boolean {
 
 export function AppLogo({ app, size = 1.5 }: { app: AppDef; size?: number }) {
   return (
-    <span className="app-logo" style={{ '--hue': app.hue, width: `${size}rem`, height: `${size}rem` } as React.CSSProperties} aria-hidden="true">
+    <span
+      className="app-logo"
+      style={{ '--hue': app.hue, width: `${size}rem`, height: `${size}rem` } as React.CSSProperties}
+      aria-hidden="true"
+    >
       <Icon name={app.icon} size={size * 10.5} />
     </span>
   )
@@ -72,7 +76,9 @@ export function AppShell({ app: appId, title, pageTitle, topbar, sidebar, sideba
     setOpen((o) => {
       try {
         localStorage.setItem(`app.sidebar.${appId}`, o ? '0' : '1')
-      } catch { /* ignore */ }
+      } catch {
+        /* ignore */
+      }
       return !o
     })
   }
@@ -80,7 +86,9 @@ export function AppShell({ app: appId, title, pageTitle, topbar, sidebar, sideba
 
   return (
     <div className={'app' + (fullHeight ? ' full' : '')} data-app={app.id}>
-      <a className="skip-link" href="#content">Skip to content</a>
+      <a className="skip-link" href="#content">
+        Skip to content
+      </a>
       <header className="topbar">
         {sidebar ? (
           <button
@@ -117,7 +125,9 @@ export function AppShell({ app: appId, title, pageTitle, topbar, sidebar, sideba
                 <div className="sidebar-drawer-head">
                   <AppLogo app={app} />
                   <strong className="grow">{app.label}</strong>
-                  <button className="btn ghost icon sm" onClick={() => setDrawer(false)} aria-label="Close sidebar"><Icon name="x" /></button>
+                  <button className="btn ghost icon sm" onClick={() => setDrawer(false)} aria-label="Close sidebar">
+                    <Icon name="x" />
+                  </button>
                 </div>
               )}
               <Boundary label="this panel">{sidebar}</Boundary>
@@ -125,7 +135,9 @@ export function AppShell({ app: appId, title, pageTitle, topbar, sidebar, sideba
           </>
         )}
         <main id="content" className="app-main" tabIndex={-1}>
-          <Boundary label="this page" className="page-fail">{children}</Boundary>
+          <Boundary label="this page" className="page-fail">
+            {children}
+          </Boundary>
         </main>
       </div>
     </div>
@@ -143,7 +155,12 @@ function GlobalItems() {
   const themeLabel = { system: 'Theme: system', light: 'Theme: light', dark: 'Theme: dark' }[pref]
   return (
     <div className="global-items">
-      <button className="search-trigger" onClick={openPalette} aria-label="Search or jump to" title={`Search or jump to (${mac ? '⌘' : 'Ctrl'} K)`}>
+      <button
+        className="search-trigger"
+        onClick={openPalette}
+        aria-label="Search or jump to"
+        title={`Search or jump to (${mac ? '⌘' : 'Ctrl'} K)`}
+      >
         <Icon name="search" />
         <span className="search-text">Search</span>
         <span className="kbd search-kbd">{mac ? '⌘' : 'Ctrl'} K</span>
@@ -170,17 +187,19 @@ function GlobalItems() {
                 <div key={g || 'home'} className="launcher-group" role="group" aria-label={g || 'Home'}>
                   {g && <div className="launcher-label">{g}</div>}
                   <div className="launcher-grid">
-                    {apps.map((a) => a.external ? (
-                      <a key={a.id} href={a.to} role="menuitem" className="launcher-app" onClick={close}>
-                        <AppLogo app={a} size={2} />
-                        <span className="truncate">{a.label}</span>
-                      </a>
-                    ) : (
-                      <Link key={a.id} to={a.to} role="menuitem" className="launcher-app" onClick={close}>
-                        <AppLogo app={a} size={2} />
-                        <span className="truncate">{a.label}</span>
-                      </Link>
-                    ))}
+                    {apps.map((a) =>
+                      a.external ? (
+                        <a key={a.id} href={a.to} role="menuitem" className="launcher-app" onClick={close}>
+                          <AppLogo app={a} size={2} />
+                          <span className="truncate">{a.label}</span>
+                        </a>
+                      ) : (
+                        <Link key={a.id} to={a.to} role="menuitem" className="launcher-app" onClick={close}>
+                          <AppLogo app={a} size={2} />
+                          <span className="truncate">{a.label}</span>
+                        </Link>
+                      ),
+                    )}
                   </div>
                 </div>
               )
@@ -204,14 +223,34 @@ function GlobalItems() {
               <div className="truncate">{me?.email || me?.username}</div>
             </div>
             <div className="menu-sep" />
-            {me && <MenuItem icon="user" onClick={() => (close(), navigate(`/users/${encodeURIComponent(me.username)}`))}>Your profile</MenuItem>}
-            <MenuItem icon="settings" onClick={() => (close(), navigate('/settings'))}>Settings</MenuItem>
-            <MenuItem icon="code" onClick={() => (close(), navigate('/settings#set-guides'))}>Developers &amp; API</MenuItem>
-            {me?.is_staff && <MenuItem icon="chart" onClick={() => (close(), navigate('/settings/usage'))}>Usage</MenuItem>}
-            {me?.is_staff && <MenuItem icon="wrench" href="/admin/" end={<Icon name="external" size={12} />}>Admin</MenuItem>}
-            <MenuItem icon={themeIcon} onClick={cycleTheme}>{themeLabel}</MenuItem>
+            {me && (
+              <MenuItem icon="user" onClick={() => (close(), navigate(`/users/${encodeURIComponent(me.username)}`))}>
+                Your profile
+              </MenuItem>
+            )}
+            <MenuItem icon="settings" onClick={() => (close(), navigate('/settings'))}>
+              Settings
+            </MenuItem>
+            <MenuItem icon="code" onClick={() => (close(), navigate('/settings#set-guides'))}>
+              Developers &amp; API
+            </MenuItem>
+            {me?.is_staff && (
+              <MenuItem icon="chart" onClick={() => (close(), navigate('/settings/usage'))}>
+                Usage
+              </MenuItem>
+            )}
+            {me?.is_staff && (
+              <MenuItem icon="wrench" href="/admin/" end={<Icon name="external" size={12} />}>
+                Admin
+              </MenuItem>
+            )}
+            <MenuItem icon={themeIcon} onClick={cycleTheme}>
+              {themeLabel}
+            </MenuItem>
             <div className="menu-sep" />
-            <MenuItem icon="logout" onClick={logout}>Log out</MenuItem>
+            <MenuItem icon="logout" onClick={logout}>
+              Log out
+            </MenuItem>
           </>
         )}
       </Menu>
@@ -220,8 +259,22 @@ function GlobalItems() {
 }
 
 /** Standard sidebar nav item (use inside an AppShell sidebar). */
-export function SideItem({ icon, label, active, count, onClick, colour, to }: {
-  icon?: string; label: ReactNode; active?: boolean; count?: ReactNode; onClick?: () => void; colour?: string; to?: string
+export function SideItem({
+  icon,
+  label,
+  active,
+  count,
+  onClick,
+  colour,
+  to,
+}: {
+  icon?: string
+  label: ReactNode
+  active?: boolean
+  count?: ReactNode
+  onClick?: () => void
+  colour?: string
+  to?: string
 }) {
   const inner = (
     <>
@@ -230,8 +283,17 @@ export function SideItem({ icon, label, active, count, onClick, colour, to }: {
       {count != null && count !== 0 && <span className="side-count">{count}</span>}
     </>
   )
-  if (to) return <Link to={to} className={'side-item' + (active ? ' active' : '')} aria-current={active ? 'page' : undefined} onClick={onClick}>{inner}</Link>
-  return <button type="button" className={'side-item' + (active ? ' active' : '')} aria-current={active ? 'page' : undefined} onClick={onClick}>{inner}</button>
+  if (to)
+    return (
+      <Link to={to} className={'side-item' + (active ? ' active' : '')} aria-current={active ? 'page' : undefined} onClick={onClick}>
+        {inner}
+      </Link>
+    )
+  return (
+    <button type="button" className={'side-item' + (active ? ' active' : '')} aria-current={active ? 'page' : undefined} onClick={onClick}>
+      {inner}
+    </button>
+  )
 }
 
 export function SideSection({ title, action, children }: { title?: ReactNode; action?: ReactNode; children: ReactNode }) {

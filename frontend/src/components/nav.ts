@@ -1,5 +1,16 @@
 // The apps: launcher grid, command palette and the G-then-letter hotkeys.
-export interface AppDef { id: string; to: string; label: string; icon: string; key?: string; hue: string; external?: boolean; soon?: boolean; group?: string; staff?: boolean }
+export interface AppDef {
+  id: string
+  to: string
+  label: string
+  icon: string
+  key?: string
+  hue: string
+  external?: boolean
+  soon?: boolean
+  group?: string
+  staff?: boolean
+}
 
 /** Order used everywhere apps are listed (launcher, palette, shortcuts, Home): planning apps together. */
 export const APPS: AppDef[] = [

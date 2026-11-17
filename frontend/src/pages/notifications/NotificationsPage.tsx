@@ -40,7 +40,12 @@ export default function NotificationsPage() {
       <div className="page set-page notif-page">
         {tab === 'inbox' && <InboxTab unreadOnly={unreadOnly} />}
         {tab === 'channels' && <ChannelsTab />}
-        {tab === 'reminders' && <><RemindersTab /><AppReminders /></>}
+        {tab === 'reminders' && (
+          <>
+            <RemindersTab />
+            <AppReminders />
+          </>
+        )}
       </div>
     </AppShell>
   )

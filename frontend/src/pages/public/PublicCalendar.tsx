@@ -11,9 +11,28 @@ import { ErrorBox, SkeletonRows, useMediaQuery } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { PublicFrame, PublicNotice, loginHere, usePublicTitle } from './PublicFrame'
 
-interface PublicCal { id: number; name: string; colour: string; description: string; owner: string; time_zone: string; subscribed: boolean | null }
-interface PublicEvent { id: string; name: string; start: string; end: string | null; all_day: boolean; location: string | null; busy: boolean }
-interface Placed extends PublicEvent { s: Date; e: Date }
+interface PublicCal {
+  id: number
+  name: string
+  colour: string
+  description: string
+  owner: string
+  time_zone: string
+  subscribed: boolean | null
+}
+interface PublicEvent {
+  id: string
+  name: string
+  start: string
+  end: string | null
+  all_day: boolean
+  location: string | null
+  busy: boolean
+}
+interface Placed extends PublicEvent {
+  s: Date
+  e: Date
+}
 
 const MAX_CHIPS = 3
 const monthTitle = dateFormatter({ month: 'long', year: 'numeric' })
@@ -40,7 +59,7 @@ export default function PublicCalendar() {
   const qc = useQueryClient()
   const phone = useMediaQuery('(max-width: 640px)')
   const month = parseMonth(params.get('month'))
-  const weeks = useMemo(() => monthGrid(month, 0), [month.getTime()])  // eslint-disable-line react-hooks/exhaustive-deps
+  const weeks = useMemo(() => monthGrid(month, 0), [month.getTime()]) // eslint-disable-line react-hooks/exhaustive-deps
   const first = weeks[0][0]
   const last = weeks[5][6]
   const today = new Date()
@@ -53,8 +72,12 @@ export default function PublicCalendar() {
   })
   const events = useQuery({
     queryKey: ['public', 'calendar', id, 'events', dayKey(first)],
-    queryFn: ({ signal }) => get<PublicEvent[]>(`calendar/public/calendars/${encodeURIComponent(id)}/events`,
-      { start: first.toISOString(), end: addDays(last, 1).toISOString() }, signal),
+    queryFn: ({ signal }) =>
+      get<PublicEvent[]>(
+        `calendar/public/calendars/${encodeURIComponent(id)}/events`,
+        { start: first.toISOString(), end: addDays(last, 1).toISOString() },
+        signal,
+      ),
     enabled: cal.isSuccess,
     staleTime: 5 * 60_000,
     placeholderData: (prev) => prev,
@@ -63,7 +86,8 @@ export default function PublicCalendar() {
 
   const byDay = useMemo(() => {
     const map = new Map<string, Placed[]>()
-    const placed = (events.data ?? []).map((e) => ({ ...e, s: new Date(e.start), e: new Date(e.end ?? e.start) }))
+    const placed = (events.data ?? [])
+      .map((e) => ({ ...e, s: new Date(e.start), e: new Date(e.end ?? e.start) }))
       .sort((a, b) => Number(b.all_day) - Number(a.all_day) || a.s.getTime() - b.s.getTime())
     for (const ev of placed) for (const k of daysOf(ev, first, last)) map.set(k, [...(map.get(k) ?? []), ev])
     return map
@@ -78,20 +102,37 @@ export default function PublicCalendar() {
     onError: (e) => toast.error((e as Error).message),
   })
 
-  const go = (d: Date) => setParams((p) => {
-    const x = new URLSearchParams(p)
-    if (monthKey(d) === monthKey(today)) x.delete('month')
-    else x.set('month', monthKey(d))
-    return x
-  }, { replace: true })
+  const go = (d: Date) =>
+    setParams(
+      (p) => {
+        const x = new URLSearchParams(p)
+        if (monthKey(d) === monthKey(today)) x.delete('month')
+        else x.set('month', monthKey(d))
+        return x
+      },
+      { replace: true },
+    )
 
-  if (cal.isPending) return <PublicFrame wide><div className="card"><SkeletonRows rows={6} /></div></PublicFrame>
+  if (cal.isPending)
+    return (
+      <PublicFrame wide>
+        <div className="card">
+          <SkeletonRows rows={6} />
+        </div>
+      </PublicFrame>
+    )
   if (!cal.data) {
     return (
       <PublicFrame>
-        {cal.error instanceof ApiError && cal.error.status === 404
-          ? <PublicNotice icon="calendar" title="This calendar isn't public"><p className="muted small">It doesn't exist, or its owner hasn't shared it with a link.</p></PublicNotice>
-          : <div className="card"><ErrorBox error={cal.error} retry={() => cal.refetch()} /></div>}
+        {cal.error instanceof ApiError && cal.error.status === 404 ? (
+          <PublicNotice icon="calendar" title="This calendar isn't public">
+            <p className="muted small">It doesn't exist, or its owner hasn't shared it with a link.</p>
+          </PublicNotice>
+        ) : (
+          <div className="card">
+            <ErrorBox error={cal.error} retry={() => cal.refetch()} />
+          </div>
+        )}
       </PublicFrame>
     )
   }
@@ -103,11 +144,26 @@ export default function PublicCalendar() {
 
   let action = null
   if (c.subscribed === null || !signedIn()) {
-    action = <Link className="btn" to={loginHere(loc)}><Icon name="plus" size={14} />Sign in to subscribe</Link>
+    action = (
+      <Link className="btn" to={loginHere(loc)}>
+        <Icon name="plus" size={14} />
+        Sign in to subscribe
+      </Link>
+    )
   } else if (c.subscribed) {
-    action = <a className="btn" href="/calendar"><Icon name="check" size={14} />Subscribed · Open Calendar</a>
+    action = (
+      <a className="btn" href="/calendar">
+        <Icon name="check" size={14} />
+        Subscribed · Open Calendar
+      </a>
+    )
   } else {
-    action = <button className="btn primary" disabled={subscribe.isPending} onClick={() => subscribe.mutate()}><Icon name="plus" size={14} />{subscribe.isPending ? 'Subscribing…' : 'Subscribe'}</button>
+    action = (
+      <button className="btn primary" disabled={subscribe.isPending} onClick={() => subscribe.mutate()}>
+        <Icon name="plus" size={14} />
+        {subscribe.isPending ? 'Subscribing…' : 'Subscribe'}
+      </button>
+    )
   }
 
   return (
@@ -123,38 +179,67 @@ export default function PublicCalendar() {
       </header>
 
       <div className="pc-toolbar">
-        <button className="btn" onClick={() => go(new Date())}>Today</button>
+        <button className="btn" onClick={() => go(new Date())}>
+          Today
+        </button>
         <span className="pc-nav">
-          <button className="btn ghost icon" onClick={() => go(addMonths(month, -1))} aria-label="Previous month" title="Previous month"><Icon name="chevronLeft" /></button>
-          <button className="btn ghost icon" onClick={() => go(addMonths(month, 1))} aria-label="Next month" title="Next month"><Icon name="chevronRight" /></button>
+          <button className="btn ghost icon" onClick={() => go(addMonths(month, -1))} aria-label="Previous month" title="Previous month">
+            <Icon name="chevronLeft" />
+          </button>
+          <button className="btn ghost icon" onClick={() => go(addMonths(month, 1))} aria-label="Next month" title="Next month">
+            <Icon name="chevronRight" />
+          </button>
         </span>
-        <h2 className="pc-title" aria-live="polite">{monthTitle.format(month)}</h2>
+        <h2 className="pc-title" aria-live="polite">
+          {monthTitle.format(month)}
+        </h2>
         {events.isFetching && <span className="spinner" aria-label="Loading" />}
       </div>
-      {events.isError && <div className="card pc-err"><ErrorBox error={events.error} retry={() => events.refetch()} /></div>}
+      {events.isError && (
+        <div className="card pc-err">
+          <ErrorBox error={events.error} retry={() => events.refetch()} />
+        </div>
+      )}
 
       {phone ? (
-        <section className="card pc-agenda" style={{ '--cal': colour } as CSSProperties} aria-label={`Events in ${monthTitle.format(month)}`}>
-          {weeks.flat().filter(inMonth).filter((d) => byDay.has(dayKey(d))).map((d) => (
-            <div key={dayKey(d)} className={'pc-aday' + (isSameDay(d, today) ? ' today' : '')}>
-              <span className="pc-adate tabular">{agendaDay.format(d)}</span>
-              <ul>
-                {byDay.get(dayKey(d))!.map((ev) => (
-                  <li key={ev.id + dayKey(d)} title={tip(ev)}>
-                    <span className="pc-dot" aria-hidden="true" />
-                    <span className="pc-atime tabular muted">{ev.all_day ? 'All day' : fmtTime(ev.s)}</span>
-                    <span className="grow"><span className={ev.busy ? 'muted' : ''}>{ev.name}</span>{ev.location && <span className="xsmall muted pc-aloc">{ev.location}</span>}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-          {!events.isPending && ![...byDay.keys()].some((k) => k.startsWith(monthKey(month))) && <p className="empty">Nothing this month.</p>}
+        <section
+          className="card pc-agenda"
+          style={{ '--cal': colour } as CSSProperties}
+          aria-label={`Events in ${monthTitle.format(month)}`}
+        >
+          {weeks
+            .flat()
+            .filter(inMonth)
+            .filter((d) => byDay.has(dayKey(d)))
+            .map((d) => (
+              <div key={dayKey(d)} className={'pc-aday' + (isSameDay(d, today) ? ' today' : '')}>
+                <span className="pc-adate tabular">{agendaDay.format(d)}</span>
+                <ul>
+                  {byDay.get(dayKey(d))!.map((ev) => (
+                    <li key={ev.id + dayKey(d)} title={tip(ev)}>
+                      <span className="pc-dot" aria-hidden="true" />
+                      <span className="pc-atime tabular muted">{ev.all_day ? 'All day' : fmtTime(ev.s)}</span>
+                      <span className="grow">
+                        <span className={ev.busy ? 'muted' : ''}>{ev.name}</span>
+                        {ev.location && <span className="xsmall muted pc-aloc">{ev.location}</span>}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          {!events.isPending && ![...byDay.keys()].some((k) => k.startsWith(monthKey(month))) && (
+            <p className="empty">Nothing this month.</p>
+          )}
           {events.isPending && <SkeletonRows rows={4} />}
         </section>
       ) : (
         <section className="card pc-grid" style={{ '--cal': colour } as CSSProperties} aria-label={monthTitle.format(month)}>
-          <div className="pc-weekdays" aria-hidden="true">{weeks[0].map((d) => <span key={d.getDay()}>{weekday.format(d)}</span>)}</div>
+          <div className="pc-weekdays" aria-hidden="true">
+            {weeks[0].map((d) => (
+              <span key={d.getDay()}>{weekday.format(d)}</span>
+            ))}
+          </div>
           {weeks.map((week) => (
             <div key={dayKey(week[0])} className="pc-week">
               {week.map((d) => {
@@ -163,9 +248,21 @@ export default function PublicCalendar() {
                   <div key={dayKey(d)} className={'pc-day' + (inMonth(d) ? '' : ' out') + (isSameDay(d, today) ? ' today' : '')}>
                     <span className="pc-daynum tabular">{d.getDate()}</span>
                     {list.slice(0, list.length > MAX_CHIPS ? MAX_CHIPS - 1 : MAX_CHIPS).map((ev) => (
-                      <span key={ev.id} className={'pc-chip' + (ev.all_day ? ' allday' : '') + (ev.busy ? ' busy' : '')} title={tip(ev)}>{chipLabel(ev)}</span>
+                      <span key={ev.id} className={'pc-chip' + (ev.all_day ? ' allday' : '') + (ev.busy ? ' busy' : '')} title={tip(ev)}>
+                        {chipLabel(ev)}
+                      </span>
                     ))}
-                    {list.length > MAX_CHIPS && <span className="pc-more xsmall muted" title={list.slice(MAX_CHIPS - 1).map(tip).join('\n')}>+{list.length - MAX_CHIPS + 1} more</span>}
+                    {list.length > MAX_CHIPS && (
+                      <span
+                        className="pc-more xsmall muted"
+                        title={list
+                          .slice(MAX_CHIPS - 1)
+                          .map(tip)
+                          .join('\n')}
+                      >
+                        +{list.length - MAX_CHIPS + 1} more
+                      </span>
+                    )}
                   </div>
                 )
               })}

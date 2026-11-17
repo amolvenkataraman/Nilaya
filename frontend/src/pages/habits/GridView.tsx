@@ -9,7 +9,17 @@ import { useCheck, useEntries, useHabits, type Entry, type Habit } from './api'
 import { DayDialog, useLongPress, type DayTarget } from './DayEditor'
 import { HabitBadge, dayMet, fmtNum, hc, isScheduled, parseDay } from './util'
 
-export function GridView({ range, end, onRange, onEnd }: { range: 'week' | 'month'; end: string; onRange: (r: 'week' | 'month') => void; onEnd: (d: string) => void }) {
+export function GridView({
+  range,
+  end,
+  onRange,
+  onEnd,
+}: {
+  range: 'week' | 'month'
+  end: string
+  onRange: (r: 'week' | 'month') => void
+  onEnd: (d: string) => void
+}) {
   const todayKey = dayKey(new Date())
   const span = range === 'week' ? 7 : 30
   const endDate = parseDay(end > todayKey ? todayKey : end)
@@ -25,15 +35,29 @@ export function GridView({ range, end, onRange, onEnd }: { range: 'week' | 'mont
     <div className="h-grid-wrap">
       <div className="h-toolbar">
         <div className="seg" role="group" aria-label="Range">
-          <button aria-pressed={range === 'week'} onClick={() => onRange('week')}>Week</button>
-          <button aria-pressed={range === 'month'} onClick={() => onRange('month')}>30 days</button>
+          <button aria-pressed={range === 'week'} onClick={() => onRange('week')}>
+            Week
+          </button>
+          <button aria-pressed={range === 'month'} onClick={() => onRange('month')}>
+            30 days
+          </button>
         </div>
         <div className="row" style={{ gap: '0.25rem' }}>
-          <button className="btn icon sm" aria-label="Earlier" onClick={() => onEnd(dayKey(addDays(endDate, -span)))}><Icon name="chevronLeft" size={14} /></button>
-          <button className="btn icon sm" aria-label="Later" disabled={atToday} onClick={() => onEnd(dayKey(addDays(endDate, span)))}><Icon name="chevronRight" size={14} /></button>
-          {!atToday && <button className="btn sm" onClick={() => onEnd(todayKey)}>Today</button>}
+          <button className="btn icon sm" aria-label="Earlier" onClick={() => onEnd(dayKey(addDays(endDate, -span)))}>
+            <Icon name="chevronLeft" size={14} />
+          </button>
+          <button className="btn icon sm" aria-label="Later" disabled={atToday} onClick={() => onEnd(dayKey(addDays(endDate, span)))}>
+            <Icon name="chevronRight" size={14} />
+          </button>
+          {!atToday && (
+            <button className="btn sm" onClick={() => onEnd(todayKey)}>
+              Today
+            </button>
+          )}
         </div>
-        <span className="muted small tabular">{fmtDate(days[0])} – {fmtDate(endDate, { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+        <span className="muted small tabular">
+          {fmtDate(days[0])} – {fmtDate(endDate, { month: 'short', day: 'numeric', year: 'numeric' })}
+        </span>
       </div>
 
       {habits.isPending || entries.isPending ? (
@@ -47,14 +71,18 @@ export function GridView({ range, end, onRange, onEnd }: { range: 'week' | 'mont
           <table className={'h-grid ' + range}>
             <thead>
               <tr>
-                <th scope="col" className="h-grid-name">Habit</th>
+                <th scope="col" className="h-grid-name">
+                  Habit
+                </th>
                 {days.map((d) => (
                   <th key={dayKey(d)} scope="col" className={'h-grid-day' + (isSameDay(d, new Date()) ? ' today' : '')}>
                     <span className="wd">{fmtDate(d, { weekday: 'narrow' })}</span>
                     <span className="dn tabular">{d.getDate()}</span>
                   </th>
                 ))}
-                <th scope="col" className="h-grid-sum">Done</th>
+                <th scope="col" className="h-grid-sum">
+                  Done
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -69,7 +97,18 @@ export function GridView({ range, end, onRange, onEnd }: { range: 'week' | 'mont
                     judged++
                     if (e ? dayMet(h, e.value) : h.goal === 'at_most') met++
                   }
-                  return <Cell key={k} habit={h} day={k} entry={e} scheduled={sched} future={k > todayKey} today={k === todayKey} onEdit={setEditing} />
+                  return (
+                    <Cell
+                      key={k}
+                      habit={h}
+                      day={k}
+                      entry={e}
+                      scheduled={sched}
+                      future={k > todayKey}
+                      today={k === todayKey}
+                      onEdit={setEditing}
+                    />
+                  )
                 })
                 return (
                   <tr key={h.id} style={hc(h)}>
@@ -89,12 +128,26 @@ export function GridView({ range, end, onRange, onEnd }: { range: 'week' | 'mont
         </div>
       )}
       <p className="help h-legend">
-        <span><i className="lg met" /> done</span>
-        <span><i className="lg part" /> partly</span>
-        {habits.data?.some((h) => h.goal === 'at_most') && <span><i className="lg kept" /> limit kept</span>}
-        <span><i className="lg skip" /> skipped</span>
-        <span><i className="lg off" /> not scheduled</span>
-        <span><i className="lg note" /> note</span>
+        <span>
+          <i className="lg met" /> done
+        </span>
+        <span>
+          <i className="lg part" /> partly
+        </span>
+        {habits.data?.some((h) => h.goal === 'at_most') && (
+          <span>
+            <i className="lg kept" /> limit kept
+          </span>
+        )}
+        <span>
+          <i className="lg skip" /> skipped
+        </span>
+        <span>
+          <i className="lg off" /> not scheduled
+        </span>
+        <span>
+          <i className="lg note" /> note
+        </span>
         <span className="muted">Click a day to log it; right-click or long-press to skip or add a note.</span>
       </p>
       <DayDialog target={editing} onClose={() => setEditing(null)} />
@@ -102,8 +155,22 @@ export function GridView({ range, end, onRange, onEnd }: { range: 'week' | 'mont
   )
 }
 
-function Cell({ habit: h, day, entry, scheduled, future, today, onEdit }: {
-  habit: Habit; day: string; entry?: Entry; scheduled: boolean; future: boolean; today: boolean; onEdit: (t: DayTarget) => void
+function Cell({
+  habit: h,
+  day,
+  entry,
+  scheduled,
+  future,
+  today,
+  onEdit,
+}: {
+  habit: Habit
+  day: string
+  entry?: Entry
+  scheduled: boolean
+  future: boolean
+  today: boolean
+  onEdit: (t: DayTarget) => void
 }) {
   const check = useCheck()
   const value = entry && !entry.skipped ? entry.value : 0
@@ -118,9 +185,22 @@ function Cell({ habit: h, day, entry, scheduled, future, today, onEdit }: {
   const kept = !met && !over && !entry?.skipped && scheduled && h.goal === 'at_most'
   const state = entry?.skipped ? 'skip' : over ? 'over' : met ? 'met' : part ? 'part' : kept ? 'kept' : scheduled ? 'empty' : 'off'
   const label = `${h.name}, ${fmtDate(parseDay(day), { weekday: 'long', month: 'short', day: 'numeric' })}: ${
-    entry?.skipped ? 'skipped' : value ? fmtNum(value) + (h.unit ? ' ' + h.unit : '') + (over ? ', over the limit' : '') : kept ? 'kept (nothing logged)' : scheduled ? 'not done' : 'not scheduled'
+    entry?.skipped
+      ? 'skipped'
+      : value
+        ? fmtNum(value) + (h.unit ? ' ' + h.unit : '') + (over ? ', over the limit' : '')
+        : kept
+          ? 'kept (nothing logged)'
+          : scheduled
+            ? 'not done'
+            : 'not scheduled'
   }${entry?.note ? ' · ' + entry.note : ''}`
-  if (future || before) return <td className="h-cell-td"><span className="h-cell disabled" aria-hidden="true" /></td>
+  if (future || before)
+    return (
+      <td className="h-cell-td">
+        <span className="h-cell disabled" aria-hidden="true" />
+      </td>
+    )
 
   const yesno = h.kind === 'yesno'
   return (
@@ -140,8 +220,22 @@ function Cell({ habit: h, day, entry, scheduled, future, today, onEdit }: {
         }}
       >
         {yesno
-          ? met && <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3.5} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="m5 12.5 4.5 4.5L19 7.5" /></svg>
-          : value > 0 && <span className="h-cell-num">{value >= 1000 ? Math.round(value / 100) / 10 + 'k' : fmtNum(Math.round(value * 10) / 10)}</span>}
+          ? met && (
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={3.5}
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <path d="m5 12.5 4.5 4.5L19 7.5" />
+              </svg>
+            )
+          : value > 0 && (
+              <span className="h-cell-num">{value >= 1000 ? Math.round(value / 100) / 10 + 'k' : fmtNum(Math.round(value * 10) / 10)}</span>
+            )}
         {entry?.note && <span className="h-cell-note" aria-hidden="true" />}
       </button>
     </td>

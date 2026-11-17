@@ -31,7 +31,8 @@ function spaFallback(): Plugin {
     name: 'nilaya-spa-fallback',
     configureServer(server) {
       server.middlewares.use((req, _res, next) => {
-        if (req.method === 'GET' && !own.test(req.url ?? '') && req.headers.accept?.includes('text/html')) req.url = '/static/app/index.html'
+        if (req.method === 'GET' && !own.test(req.url ?? '') && req.headers.accept?.includes('text/html'))
+          req.url = '/static/app/index.html'
         next()
       })
     },

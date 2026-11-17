@@ -10,7 +10,10 @@ const registry = new Set<(key: string) => boolean>()
 /** Scroll a windowed row into view even when it isn't rendered (keyboard navigation). */
 export function revealRow(key: string): void {
   const el = document.querySelector(`[data-task="${CSS.escape(key)}"]`)
-  if (el) return el.scrollIntoView({ block: 'nearest' })
+  if (el) {
+    el.scrollIntoView({ block: 'nearest' })
+    return
+  }
   for (const reveal of registry) if (reveal(key)) return
 }
 
@@ -43,11 +46,20 @@ export function useWindowed(keys: string[], container: RefObject<HTMLElement | n
     const from = -top - OVERSCAN
     const to = -top + sc.clientHeight + OVERSCAN
     const n = keys.length
-    let lo = 0, hi = n
-    while (lo < hi) { const m = (lo + hi) >> 1; if (offsets[m + 1] <= from) lo = m + 1; else hi = m }
+    let lo = 0,
+      hi = n
+    while (lo < hi) {
+      const m = (lo + hi) >> 1
+      if (offsets[m + 1] <= from) lo = m + 1
+      else hi = m
+    }
     const start = lo
     hi = n
-    while (lo < hi) { const m = (lo + hi) >> 1; if (offsets[m] < to) lo = m + 1; else hi = m }
+    while (lo < hi) {
+      const m = (lo + hi) >> 1
+      if (offsets[m] < to) lo = m + 1
+      else hi = m
+    }
     const end = Math.max(start, lo)
     setRange((r) => (r[0] === start && r[1] === end ? r : [start, end]))
   }, [keys, offsets, container])
@@ -57,11 +69,21 @@ export function useWindowed(keys: string[], container: RefObject<HTMLElement | n
     const sc = pageScroller()
     if (!sc) return
     let raf = 0
-    const on = () => { if (!raf) raf = requestAnimationFrame(() => { raf = 0; compute() }) }
+    const on = () => {
+      if (!raf)
+        raf = requestAnimationFrame(() => {
+          raf = 0
+          compute()
+        })
+    }
     sc.addEventListener('scroll', on, { passive: true })
     const ro = new ResizeObserver(on)
     ro.observe(sc)
-    return () => { sc.removeEventListener('scroll', on); ro.disconnect(); cancelAnimationFrame(raf) }
+    return () => {
+      sc.removeEventListener('scroll', on)
+      ro.disconnect()
+      cancelAnimationFrame(raf)
+    }
   }, [compute])
 
   // Measure rendered rows; one re-layout per batch of changed heights.
@@ -74,7 +96,10 @@ export function useWindowed(keys: string[], container: RefObject<HTMLElement | n
         const key = (e.target as HTMLElement).dataset.vkey
         if (!key) continue
         const h = Math.round((e.target as HTMLElement).offsetHeight)
-        if (h && heights.current.get(key) !== h) { heights.current.set(key, h); changed = true }
+        if (h && heights.current.get(key) !== h) {
+          heights.current.set(key, h)
+          changed = true
+        }
       }
       if (changed) bump()
     })
@@ -88,7 +113,11 @@ export function useWindowed(keys: string[], container: RefObject<HTMLElement | n
       fn = (el) => {
         const old = els.current.get(key)
         if (old && old !== el) ro.current?.unobserve(old)
-        if (el) { el.dataset.vkey = key; els.current.set(key, el); ro.current?.observe(el) } else els.current.delete(key)
+        if (el) {
+          el.dataset.vkey = key
+          els.current.set(key, el)
+          ro.current?.observe(el)
+        } else els.current.delete(key)
       }
       refs.current.set(key, fn)
     }
@@ -112,7 +141,9 @@ export function useWindowed(keys: string[], container: RefObject<HTMLElement | n
       return true
     }
     registry.add(reveal)
-    return () => { registry.delete(reveal) }
+    return () => {
+      registry.delete(reveal)
+    }
   }, [container])
 
   const [start, end] = [Math.min(range[0], keys.length), Math.min(range[1], keys.length)]
@@ -126,7 +157,10 @@ export function useLoadMore(ref: RefObject<HTMLElement | null>, active: boolean,
   useEffect(() => {
     const el = ref.current
     if (!el || !active) return
-    const io = new IntersectionObserver((es) => es.some((e) => e.isIntersecting) && fn.current(), { root: pageScroller(), rootMargin: '150% 0px' })
+    const io = new IntersectionObserver((es) => es.some((e) => e.isIntersecting) && fn.current(), {
+      root: pageScroller(),
+      rootMargin: '150% 0px',
+    })
     io.observe(el)
     return () => io.disconnect()
   }, [ref, active, ...deps]) // eslint-disable-line react-hooks/exhaustive-deps

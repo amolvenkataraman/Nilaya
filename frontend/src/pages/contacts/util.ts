@@ -1,9 +1,31 @@
 // Small pure helpers shared by the Contacts views.
 import { fmtDate } from '../../lib/dates'
 
-export const KIT = [[0, 'Off'], [7, 'Every week'], [14, 'Every 2 weeks'], [30, 'Every month'], [60, 'Every 2 months'], [90, 'Every 3 months'], [180, 'Every 6 months'], [365, 'Every year']] as const
+export const KIT = [
+  [0, 'Off'],
+  [7, 'Every week'],
+  [14, 'Every 2 weeks'],
+  [30, 'Every month'],
+  [60, 'Every 2 months'],
+  [90, 'Every 3 months'],
+  [180, 'Every 6 months'],
+  [365, 'Every year'],
+] as const
 export const kitLabel = (d: number) => KIT.find(([k]) => k === d)?.[1] ?? `Every ${d} days`
-export const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+export const MONTHS = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+]
 export const relLabel = (k: string) => (k[0]?.toUpperCase() ?? '') + k.slice(1).replace(/_/g, ' ')
 export const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1) : s)
 export const plural = (n: number, word: string, many = word + 's') => `${n.toLocaleString()} ${n === 1 ? word : many}`
@@ -40,9 +62,20 @@ export function fmtBirthday(b: string): string {
 // page shortcuts ignore the key that follows a "g".
 let gAt = 0
 if (typeof window !== 'undefined') {
-  window.addEventListener('keydown', (e) => {
-    const el = e.target as HTMLElement | null
-    if (e.key === 'g' && !e.metaKey && !e.ctrlKey && !e.altKey && !(el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)))) gAt = Date.now()
-  }, true)
+  window.addEventListener(
+    'keydown',
+    (e) => {
+      const el = e.target as HTMLElement | null
+      if (
+        e.key === 'g' &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !(el && (el.isContentEditable || ['INPUT', 'TEXTAREA', 'SELECT'].includes(el.tagName)))
+      )
+        gAt = Date.now()
+    },
+    true,
+  )
 }
 export const afterG = (e: KeyboardEvent) => e.key !== 'g' && Date.now() - gAt < 900
