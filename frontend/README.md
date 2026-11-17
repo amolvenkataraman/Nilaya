@@ -4,8 +4,9 @@ The interface of Nilaya, a self-hosted life management and logging platform (see
 
 The only interface: a React single-page app served at `/` (every page URL), built only on the typed V2
 JSON API (`/api/v2/`). Django serves just the API, admin, ICS feeds and files.
-Stack: React 19, React Router 7, TanStack Query 5, TypeScript, Vite 7 (Leaflet for Places). No UI kit,
-no chart library, no CDN at runtime: everything is bundled.
+Stack: React 19, React Router 7, TanStack Query 5, TypeScript, Vite 7, Tailwind 4 on the app's design tokens,
+Base UI for dialogs, menus and popovers (restyled, no stock look), Leaflet for maps. No chart library, no CDN at
+runtime: everything is bundled. **Conventions for changing the code: [AGENTS.md](AGENTS.md).**
 
 ## Layout
 
@@ -13,11 +14,12 @@ no chart library, no CDN at runtime: everything is bundled.
 src/
   main.tsx               routes (public pages; the signed-in apps inside <Shell>), React Query client
   lib/                   api client (CSRF, 401 -> login), types, query hooks, dates, URL state, layout maths
-  components/            AppShell (per-app chrome), command palette, bell, menus/dialogs, task row, charts
+  components/            AppShell (per-app chrome), command palette, bell, task row, charts
+  components/ui/         shared primitives: button, dialog/confirm/drawer, menu/popover, loading and error states
   pages/<app>/           one folder per app: dashboard, tasks, calendar, photos, places, habits, notifications, settings
   pages/public/          pages anyone may open: sign-in, request access, public calendar, countdown,
                          shared album (PublicFrame chrome, no signed-in requests)
-  styles/                base tokens (theme.css: colours, radii, fonts) + shared styles
+  styles/                theme.css (the design tokens), tailwind.css (Tailwind on those tokens), older shared CSS
 public/                  theme.js (pre-paint theme) and favicon.ico, copied next to the bundles
 ```
 
@@ -40,8 +42,8 @@ Needs Node 20.19+ (22 recommended) and the Django dev server on http://127.0.0.1
 cd frontend
 npm ci
 npm run dev            # http://127.0.0.1:5173/  (VITE_PORT=5174 to change the port)
-npm test               # vitest: pure logic (API client, dates, URL state, photo rows, quick-add preview)
-npm run typecheck
+npm run check          # typecheck + Biome (lint, format) + vitest
+npm run format         # Biome format
 ```
 
 The Vite dev server proxies `/api`, `/admin`, `/feeds`, `/media`, `/private` and `/photo_cdn` to Django
