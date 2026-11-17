@@ -1,136 +1,106 @@
 // Event categories (yours): name, colour, icon and order. GET/POST /calendar/categories,
 // PATCH/DELETE /calendar/categories/{id}. "Uncategorized" can be renamed but not deleted.
-import { useState } from 'react'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useState, type CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
-import { Confirm, Dialog, ErrorBox, SkeletonRows } from '../../components/ui'
-import { toast } from '../../components/toast'
-import { del, patch, post } from '../../lib/api'
-import { keys, useCategories } from '../../lib/queries'
+import { Button, Confirm, Dialog, Field, Input, QueryView, SkeletonRows } from '../../components/ui'
+import { useCategories } from '../../lib/queries'
 import type { Category } from '../../lib/types'
-import { CAL_COLOURS } from './calendarCommon'
-import { useCalendarIcons } from './api'
+import { useCalendarIcons, useCategoryMutations, type CategoryPatch } from './api'
+import { ColourChoice } from './ColourChoice'
+import { dot } from './chips'
+import { IconPicker } from './IconPicker'
 
-type Patch = Partial<Pick<Category, 'name' | 'colour' | 'icon' | 'position'>>
-
-export function CategoriesDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const qc = useQueryClient()
+export function CategoriesDialog({ onClose }: { onClose: () => void }) {
   const cats = useCategories()
-  const icons = useCalendarIcons(open).data ?? []
+  const icons = useCalendarIcons().data ?? []
   const [edit, setEdit] = useState<number | 'new' | null>(null)
   const [removing, setRemoving] = useState<Category | null>(null)
-  // Categories show on events too: refresh both after a change.
-  const refresh = () => (qc.invalidateQueries({ queryKey: keys.categories }), qc.invalidateQueries({ queryKey: ['calendar', 'events'] }))
-  const save = useMutation({
-    mutationFn: ({ id, body }: { id?: number; body: Patch }) =>
-      id ? patch<Category>(`calendar/categories/${id}`, body) : post<Category>('calendar/categories', body),
-    onSuccess: () => setEdit(null),
-    onSettled: refresh,
-  })
-  const remove = useMutation({
-    mutationFn: (c: Category) => del(`calendar/categories/${c.id}`),
-    onSuccess: (_r, c) => toast.show(`Deleted "${c.name}": its events are now Uncategorized`),
-    onSettled: refresh,
-  })
+  const { save, remove, swap } = useCategoryMutations()
   const list = (cats.data ?? []).slice().sort((a, b) => a.position - b.position || a.id - b.id)
-  // Swap positions with the neighbour (two PATCHes; positions may have gaps or ties, so renumber both).
   const move = (i: number, dir: -1 | 1) => {
     const a = list[i]
     const b = list[i + dir]
-    if (!a || !b) return
-    const pa = a.position === b.position ? b.position + dir : b.position
-    qc.setQueryData<Category[]>(keys.categories, (old) =>
-      old?.map((c) => (c.id === a.id ? { ...c, position: pa } : c.id === b.id ? { ...c, position: a.position } : c)),
-    )
-    Promise.all([patch(`calendar/categories/${a.id}`, { position: pa }), patch(`calendar/categories/${b.id}`, { position: a.position })])
-      .catch(toast.fail)
-      .finally(refresh)
+    if (a && b) swap.mutate({ a, b, pa: a.position === b.position ? b.position + dir : b.position })
   }
+  const saveAndClose = (body: CategoryPatch, id?: number) => save.mutate({ id, body }, { onSuccess: () => setEdit(null) })
+  const iconButton = (label: string, title: string, icon: string, onClick: () => void, disabled = false) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      icon
+      onClick={onClick}
+      disabled={disabled}
+      aria-label={label}
+      title={title}
+      className="disabled:opacity-30!"
+    >
+      <Icon name={icon} size={14} />
+    </Button>
+  )
   return (
     <Dialog
-      open={open}
+      open
       onClose={onClose}
       title="Event categories"
       width="32rem"
       footer={
         <>
-          <button className="btn sm" onClick={() => setEdit('new')} disabled={edit === 'new'}>
+          <Button size="sm" onClick={() => setEdit('new')} disabled={edit === 'new'}>
             <Icon name="plus" size={14} />
             New category
-          </button>
-          <span className="spacer" />
-          <button className="btn primary" onClick={onClose}>
+          </Button>
+          <span className="flex-1" />
+          <Button variant="primary" onClick={onClose}>
             Done
-          </button>
+          </Button>
         </>
       }
     >
-      <p className="help">
+      <p className="text-xs text-muted">
         Categories group events for insights and availability (meetings, work and study show as busy). Colour and icon are used when an
         event has none of its own.
       </p>
-      {cats.isPending ? (
-        <SkeletonRows rows={5} />
-      ) : cats.error && !cats.data ? (
-        <ErrorBox error={cats.error} retry={() => cats.refetch()} />
-      ) : (
-        <ul className="cat-list">
-          {edit === 'new' && (
-            <li>
-              <CategoryForm icons={icons} busy={save.isPending} onCancel={() => setEdit(null)} onSave={(body) => save.mutate({ body })} />
-            </li>
-          )}
-          {list.map((c, i) =>
-            edit === c.id ? (
-              <li key={c.id}>
-                <CategoryForm
-                  cat={c}
-                  icons={icons}
-                  busy={save.isPending}
-                  onCancel={() => setEdit(null)}
-                  onSave={(body) => save.mutate({ id: c.id, body })}
-                />
+      <QueryView query={cats} skeleton={<SkeletonRows rows={5} />}>
+        {() => (
+          <ul className="mt-2 grid gap-px">
+            {edit === 'new' && (
+              <li>
+                <CategoryForm icons={icons} busy={save.isPending} onCancel={() => setEdit(null)} onSave={(body) => saveAndClose(body)} />
               </li>
-            ) : (
-              <li key={c.id} className="cat-row">
-                <span className="cat-glyph" style={{ '--c': c.colour || 'var(--app-muted)' } as React.CSSProperties}>
-                  {c.icon ? <Icon name={c.icon} size={13} /> : <span className="dot" />}
-                </span>
-                <span className="grow truncate">
-                  {c.name}
-                  {c.legacy_id === 0 && <span className="muted xsmall"> · default</span>}
-                </span>
-                <button
-                  className="btn ghost icon sm"
-                  onClick={() => move(i, -1)}
-                  disabled={i === 0}
-                  aria-label={`Move ${c.name} up`}
-                  title="Move up"
-                >
-                  <Icon name="chevronUp" size={14} />
-                </button>
-                <button
-                  className="btn ghost icon sm"
-                  onClick={() => move(i, 1)}
-                  disabled={i === list.length - 1}
-                  aria-label={`Move ${c.name} down`}
-                  title="Move down"
-                >
-                  <Icon name="chevronDown" size={14} />
-                </button>
-                <button className="btn ghost icon sm" onClick={() => setEdit(c.id)} aria-label={`Edit ${c.name}`} title="Edit">
-                  <Icon name="edit" size={14} />
-                </button>
-                {c.legacy_id !== 0 && (
-                  <button className="btn ghost icon sm" onClick={() => setRemoving(c)} aria-label={`Delete ${c.name}`} title="Delete">
-                    <Icon name="trash" size={14} />
-                  </button>
-                )}
-              </li>
-            ),
-          )}
-        </ul>
-      )}
+            )}
+            {list.map((c, i) =>
+              edit === c.id ? (
+                <li key={c.id}>
+                  <CategoryForm
+                    cat={c}
+                    icons={icons}
+                    busy={save.isPending}
+                    onCancel={() => setEdit(null)}
+                    onSave={(body) => saveAndClose(body, c.id)}
+                  />
+                </li>
+              ) : (
+                <li key={c.id} className="flex min-h-9 items-center gap-1.5 rounded-sm px-1 text-sm hover:bg-hover">
+                  <span
+                    className="grid size-6 flex-none place-items-center rounded-[30%] bg-[color-mix(in_srgb,var(--c)_14%,var(--app-surface))] text-(--c)"
+                    style={{ '--c': c.colour || 'var(--app-muted)' } as CSSProperties}
+                  >
+                    {c.icon ? <Icon name={c.icon} size={13} /> : <span className={`${dot} bg-(--c)`} />}
+                  </span>
+                  <span className="min-w-0 flex-auto truncate">
+                    {c.name}
+                    {c.legacy_id === 0 && <span className="text-xs text-muted"> · default</span>}
+                  </span>
+                  {iconButton(`Move ${c.name} up`, 'Move up', 'chevronUp', () => move(i, -1), i === 0)}
+                  {iconButton(`Move ${c.name} down`, 'Move down', 'chevronDown', () => move(i, 1), i === list.length - 1)}
+                  {iconButton(`Edit ${c.name}`, 'Edit', 'edit', () => setEdit(c.id))}
+                  {c.legacy_id !== 0 && iconButton(`Delete ${c.name}`, 'Delete', 'trash', () => setRemoving(c))}
+                </li>
+              ),
+            )}
+          </ul>
+        )}
+      </QueryView>
       <Confirm
         open={!!removing}
         title={`Delete "${removing?.name}"?`}
@@ -152,7 +122,7 @@ function CategoryForm({
   cat?: Category
   icons: string[]
   busy: boolean
-  onSave: (b: Patch) => void
+  onSave: (b: CategoryPatch) => void
   onCancel: () => void
 }) {
   const [name, setName] = useState(cat?.name ?? '')
@@ -161,84 +131,35 @@ function CategoryForm({
   const submit = () => name.trim() && onSave({ name: name.trim(), colour, icon })
   return (
     <form
-      className="cat-form"
-      onSubmit={(e) => (e.preventDefault(), submit())}
-      onKeyDown={(e) => e.key === 'Escape' && (e.stopPropagation(), onCancel())}
+      className="my-1 grid gap-2.5 rounded-md border border-border bg-bg p-3"
+      onSubmit={(e) => {
+        e.preventDefault()
+        submit()
+      }}
+      onKeyDown={(e) => {
+        if (e.key !== 'Escape') return
+        e.stopPropagation()
+        onCancel()
+      }}
     >
-      <label className="field">
-        <span>Name</span>
-        <input className="input" value={name} onChange={(e) => setName(e.target.value)} maxLength={64} autoFocus required />
-      </label>
-      <div className="field">
-        <span>Colour</span>
-        <div className="cal-picker" role="radiogroup" aria-label="Colour">
-          <button
-            type="button"
-            role="radio"
-            aria-checked={!colour}
-            className="cal-pick"
-            title="Calendar colour"
-            onClick={() => setColour('')}
-          >
-            <Icon name="ban" size={13} />
-          </button>
-          {CAL_COLOURS.map((c) => (
-            <button
-              type="button"
-              key={c}
-              role="radio"
-              aria-checked={colour === c}
-              aria-label={c}
-              title={c}
-              className="cal-pick"
-              onClick={() => setColour(c)}
-            >
-              <span className="cal-swatch" style={{ background: c }}>
-                {colour === c && <Icon name="check" size={12} />}
-              </span>
-            </button>
-          ))}
-          <label className={'cal-pick cal-custom' + (colour && !CAL_COLOURS.includes(colour) ? ' on' : '')} title="Custom colour">
-            <span
-              className="cal-swatch"
-              style={{
-                background:
-                  colour && !CAL_COLOURS.includes(colour) ? colour : 'conic-gradient(#ef4444, #f59e0b, #10b981, #3b82f6, #8b5cf6, #ef4444)',
-              }}
-            />
-            <input type="color" aria-label="Custom colour" value={colour || '#888888'} onChange={(e) => setColour(e.target.value)} />
-          </label>
-        </div>
+      <Field label="Name">
+        <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={64} autoFocus required />
+      </Field>
+      <div className="grid gap-1.25">
+        <span className="text-xs font-medium text-muted">Colour</span>
+        <ColourChoice value={colour} onChange={setColour} none="Calendar colour" />
       </div>
-      <div className="field">
-        <span>Icon</span>
-        <div className="cal-picker" role="radiogroup" aria-label="Icon">
-          <button type="button" role="radio" aria-checked={!icon} className="cal-pick" title="None" onClick={() => setIcon('')}>
-            <Icon name="x" size={13} />
-          </button>
-          {icons.map((i) => (
-            <button
-              type="button"
-              key={i}
-              role="radio"
-              aria-checked={icon === i}
-              aria-label={i}
-              title={i}
-              className="cal-pick"
-              onClick={() => setIcon(i)}
-            >
-              <Icon name={i} size={15} />
-            </button>
-          ))}
-        </div>
+      <div className="grid gap-1.25">
+        <span className="text-xs font-medium text-muted">Icon</span>
+        <IconPicker value={icon} onChange={setIcon} icons={icons} none="None" size="sm" />
       </div>
-      <div className="row" style={{ justifyContent: 'flex-end', gap: '0.375rem' }}>
-        <button type="button" className="btn sm" onClick={onCancel}>
+      <div className="flex items-center justify-end gap-1.5">
+        <Button size="sm" onClick={onCancel}>
           Cancel
-        </button>
-        <button className="btn primary sm" disabled={!name.trim() || busy}>
+        </Button>
+        <Button type="submit" variant="primary" size="sm" disabled={!name.trim() || busy}>
           {cat ? 'Save' : 'Add category'}
-        </button>
+        </Button>
       </div>
     </form>
   )

@@ -1,17 +1,21 @@
+// The month grid. On desktop each day lists as many chips as fit (birthdays, events, tasks) and "N more" opens
+// the rest; on phones (compact) days show coloured dots and a tap selects the day for the list below.
 import { useLayoutEffect, useRef, useState } from 'react'
 import { Dialog } from '../../components/ui'
-import { Icon } from '../../components/Icon'
+import { cn } from '../../lib/cn'
 import { dayKey, fmtDate, isSameDay } from '../../lib/dates'
+import { plural } from '../../lib/format'
 import type { CalEvent, Task } from '../../lib/types'
-import { BirthdayChip, PhotoBadge, TaskChip, isAllDayTask, type Birthday } from './extras'
-import { eventDays } from './util'
-import { chipTime, fmtTimeIn, useCalPrefs } from './zone'
+import { BirthdayChip, EventChip, PhotoBadge, TaskChip } from './chips'
+import { isAllDayTask } from './layers'
+import type { Birthday, Layers } from './types'
 
 interface Props {
   days: Date[]
   month: number
   byDay: Map<string, CalEvent[]>
   colour: (e: CalEvent) => string
+  layers: Layers
   today: Date
   selected: Date
   compact: boolean // phones: dots instead of chips, tap selects a day
@@ -19,88 +23,25 @@ interface Props {
   onOpenDay: (d: Date) => void
   onCreate: (d: Date) => void
   onEvent: (e: CalEvent) => void
-  tasksByDay?: Map<string, Task[]>
-  photos?: Record<string, number>
-  onTask?: (t: Task) => void
-  birthdaysByDay?: Map<string, Birthday[]>
 }
 
 type Entry = { key: string; at: number; allDay: boolean; event?: CalEvent; task?: Task; bday?: Birthday }
 
-/** Events and tasks of one day in display order: all-day events, all-day tasks, then by time. */
+/** Events and tasks of one day in display order: birthdays, all-day events, all-day tasks, then by time. */
 export function dayEntries(events: CalEvent[], tasks: Task[] = [], bdays: Birthday[] = []): Entry[] {
   const out: Entry[] = [
-    ...bdays.map((b) => ({ key: 'b' + b.id, at: -3, allDay: true, bday: b })),
-    ...events.map((e) => ({ key: 'e' + e.id, at: e.all_day ? -2 : new Date(e.start).getTime(), allDay: e.all_day, event: e })),
-    ...tasks.map((t) => ({ key: 't' + t.id, at: isAllDayTask(t) ? -1 : new Date(t.due!).getTime(), allDay: isAllDayTask(t), task: t })),
+    ...bdays.map((b) => ({ key: `b${b.id}`, at: -3, allDay: true, bday: b })),
+    ...events.map((e) => ({ key: `e${e.id}`, at: e.all_day ? -2 : new Date(e.start).getTime(), allDay: e.all_day, event: e })),
+    ...tasks.map((t) => ({ key: `t${t.id}`, at: isAllDayTask(t) ? -1 : new Date(t.due!).getTime(), allDay: isAllDayTask(t), task: t })),
   ]
   return out.sort((a, b) => a.at - b.at)
 }
 
-export function EventChip({ e, colour, day, onClick }: { e: CalEvent; colour: string; day?: Date; onClick: () => void }) {
-  const { tz } = useCalPrefs()
-  const style = { '--c': colour } as React.CSSProperties
-  const label = `${e.name}${e.all_day ? ', all day' : `, ${fmtTimeIn(new Date(e.start), tz)}${e.end && e.kind === 'event' ? ` – ${fmtTimeIn(new Date(e.end), tz)}` : ''}`}${e.category && e.category.name !== 'Uncategorized' ? ` · ${e.category.name}` : ''}${e.location ? ` · ${e.location}` : ''}${e.recurrence_text ? ` · ${e.recurrence_text}` : ''}`
-  if (e.all_day) {
-    const { first, last } = eventDays(e)
-    const cont = day && !isSameDay(first, day)
-    const more = day && !isSameDay(last, day)
-    return (
-      <button
-        type="button"
-        data-ev={e.id}
-        className={'chip-ev allday' + (cont ? ' cont' : '') + (more ? ' more' : '') + (e.ghost ? ' ghost' : '')}
-        style={style}
-        onClick={(ev) => (ev.stopPropagation(), onClick())}
-        title={label}
-        aria-label={label}
-      >
-        {(e.icon || e.category?.icon) && <Icon name={(e.icon || e.category?.icon)!} size={11} />}
-        <span className="truncate">{e.name}</span>
-      </button>
-    )
-  }
-  return (
-    <button
-      type="button"
-      data-ev={e.id}
-      className={'chip-ev' + (e.completed ? ' done' : '') + (e.ghost ? ' ghost' : '')}
-      style={style}
-      onClick={(ev) => (ev.stopPropagation(), onClick())}
-      title={label}
-      aria-label={label}
-    >
-      {e.kind === 'deadline' ? (
-        <Icon name="flag" size={11} className="chip-flag" />
-      ) : e.icon || e.category?.icon ? (
-        <Icon name={(e.icon || e.category?.icon)!} size={11} className="chip-flag" />
-      ) : (
-        <span className="chip-dot" />
-      )}
-      {e.recurring && <Icon name="repeat" size={9} className="chip-rep" />}
-      <span className="chip-time tabular">{chipTime(new Date(e.start), tz)}</span>
-      <span className="truncate">{e.name}</span>
-    </button>
-  )
-}
+/** Chip heights in rem (1.25 rem + the 1/16 rem gap) and the day number's row, for "how many fit". */
+const CHIP_REM = 1.3125
+const HEAD_REM = 1.875
 
-export function MonthView({
-  days,
-  month,
-  byDay,
-  colour,
-  today,
-  selected,
-  compact,
-  onSelect,
-  onOpenDay,
-  onCreate,
-  onEvent,
-  tasksByDay,
-  photos,
-  onTask,
-  birthdaysByDay,
-}: Props) {
+export function MonthView({ days, month, byDay, colour, layers, today, selected, compact, onSelect, onOpenDay, onCreate, onEvent }: Props) {
   const [moreDay, setMoreDay] = useState<Date | null>(null)
   // As many chips as fit in a row's height (rows share the viewport; 4K scales with rem).
   const grid = useRef<HTMLDivElement>(null)
@@ -109,44 +50,70 @@ export function MonthView({
     const el = grid.current
     if (!el) return
     const ro = new ResizeObserver(() => {
-      const rem = parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
+      const rem = Number.parseFloat(getComputedStyle(document.documentElement).fontSize) || 16
       const rowH = el.clientHeight / 6
-      setMaxChips(Math.max(1, Math.floor((rowH - 1.875 * rem) / (1.3125 * rem))))
+      setMaxChips(Math.max(1, Math.floor((rowH - HEAD_REM * rem) / (CHIP_REM * rem))))
     })
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
+  const entries = (d: Date) => dayEntries(byDay.get(dayKey(d)) ?? [], layers.tasks.get(dayKey(d)), layers.birthdays.get(dayKey(d)))
   const head = days.slice(0, 7)
+  const weeks = Array.from({ length: 6 }, (_, w) => days.slice(w * 7, w * 7 + 7))
   return (
-    <div className={'month' + (compact ? ' compact' : '')}>
-      <div className="month-head" aria-hidden="true">
+    <div className={cn('flex flex-col', compact ? 'min-h-0 flex-none' : 'min-h-128 flex-1')}>
+      <div className="grid grid-cols-7 border-b border-border" aria-hidden="true">
         {head.map((d) => (
-          <div key={d.getDay()}>{fmtDate(d, { weekday: compact ? 'narrow' : 'short' })}</div>
+          <div
+            key={d.getDay()}
+            className={cn('py-1.5 text-xs font-medium tracking-[0.04em] text-muted uppercase', compact ? 'px-0 text-center' : 'px-2')}
+          >
+            {fmtDate(d, { weekday: compact ? 'narrow' : 'short' })}
+          </div>
         ))}
       </div>
-      <div ref={grid} className="month-grid" role="grid" aria-label={fmtDate(days[10], { month: 'long', year: 'numeric' })}>
-        {Array.from({ length: 6 }, (_, w) => (
-          <div className="month-row" role="row" key={w}>
-            {days.slice(w * 7, w * 7 + 7).map((d) => {
-              const events = byDay.get(dayKey(d)) ?? []
-              const list = dayEntries(events, tasksByDay?.get(dayKey(d)), birthdaysByDay?.get(dayKey(d)))
+      <div
+        ref={grid}
+        className={cn('grid min-h-0', compact ? 'grid-rows-[repeat(6,3rem)]' : 'flex-1 grid-rows-6')}
+        role="grid"
+        aria-label={fmtDate(days[10], { month: 'long', year: 'numeric' })}
+      >
+        {weeks.map((week) => (
+          <div className="grid min-h-0 grid-cols-7 border-b border-border last:border-b-0" role="row" key={week[0].getTime()}>
+            {week.map((d) => {
+              const list = entries(d)
               const out = d.getMonth() !== month
               const isToday = isSameDay(d, today)
               const isSel = compact && isSameDay(d, selected)
               const shown = list.slice(0, list.length > maxChips ? maxChips - 1 : maxChips)
               const hidden = list.length - shown.length
-              const label = `${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}, ${list.length ? `${list.length} item${list.length > 1 ? 's' : ''}` : 'nothing scheduled'}`
+              const label = `${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}, ${list.length ? plural(list.length, 'item') : 'nothing scheduled'}`
               return (
+                // biome-ignore lint/a11y/useKeyWithClickEvents: the day number inside is the keyboard target; N creates events
                 <div
                   key={d.getTime()}
                   role="gridcell"
-                  className={'month-cell' + (out ? ' out' : '') + (isToday ? ' today' : '') + (isSel ? ' selected' : '')}
+                  className={cn(
+                    'flex min-h-0 min-w-0 flex-col gap-px overflow-hidden',
+                    compact
+                      ? 'cursor-pointer items-center px-0 py-1'
+                      : 'cursor-default border-r border-border px-1 pt-1 pb-0.5 last:border-r-0',
+                    out && 'bg-[color-mix(in_srgb,var(--app-bg)_55%,var(--app-surface))]',
+                  )}
                   onClick={() => (compact ? onSelect(d) : onCreate(d))}
                 >
-                  <div className="month-cell-head">
+                  <div className="flex min-w-0 items-center gap-1">
                     <button
                       type="button"
-                      className="day-num tabular"
+                      className={cn(
+                        'mb-px flex-none rounded-full border-0 text-xs font-medium tabular-nums',
+                        compact ? 'size-7 self-center p-0' : 'h-6 min-w-6 self-start px-1.5',
+                        isToday
+                          ? 'bg-accent font-semibold text-accent-fg'
+                          : isSel
+                            ? 'bg-accent-soft font-semibold text-accent'
+                            : cn('bg-transparent hover:bg-hover', out ? 'text-muted' : 'text-fg'),
+                      )}
                       aria-label={label}
                       onClick={(e) => {
                         e.stopPropagation()
@@ -156,31 +123,32 @@ export function MonthView({
                     >
                       {d.getDate() === 1 && !compact ? fmtDate(d, { month: 'short', day: 'numeric' }) : d.getDate()}
                     </button>
-                    <PhotoBadge day={d} count={photos?.[dayKey(d)]} />
+                    {!compact && <PhotoBadge day={d} count={layers.photos?.[dayKey(d)]} />}
                   </div>
                   {compact ? (
-                    <div className="dots" aria-hidden="true">
+                    <div className="flex h-1.5 items-center gap-0.5" aria-hidden="true">
                       {list.slice(0, 4).map((x) => (
                         <span
                           key={x.key}
-                          className="dot"
+                          className="size-1.25 flex-none rounded-full"
                           style={{ background: x.event ? colour(x.event) : x.bday ? 'var(--app-warning)' : 'var(--app-accent)' }}
                         />
                       ))}
                     </div>
                   ) : (
-                    <div className="chips">
-                      {shown.map((x) =>
-                        x.event ? (
-                          <EventChip key={x.key} e={x.event} day={d} colour={colour(x.event)} onClick={() => onEvent(x.event!)} />
-                        ) : x.bday ? (
-                          <BirthdayChip key={x.key} b={x.bday} />
-                        ) : (
-                          <TaskChip key={x.key} task={x.task!} onOpen={(t) => onTask?.(t)} />
-                        ),
-                      )}
+                    <div className="grid min-w-0 gap-0.5">
+                      {shown.map((x) => (
+                        <EntryChip key={x.key} x={x} day={d} colour={colour} onEvent={onEvent} onTask={layers.onTask} />
+                      ))}
                       {hidden > 0 && (
-                        <button type="button" className="chip-more" onClick={(ev) => (ev.stopPropagation(), setMoreDay(d))}>
+                        <button
+                          type="button"
+                          className="h-4.5 rounded-xs border-0 bg-transparent px-1.25 text-left text-xs font-medium text-muted hover:bg-hover hover:text-fg"
+                          onClick={(ev) => {
+                            ev.stopPropagation()
+                            setMoreDay(d)
+                          }}
+                        >
                           {hidden} more
                         </button>
                       )}
@@ -199,23 +167,24 @@ export function MonthView({
           title={fmtDate(moreDay, { weekday: 'long', month: 'long', day: 'numeric' })}
           width="22rem"
         >
-          <div className="day-pop">
-            {dayEntries(byDay.get(dayKey(moreDay)) ?? [], tasksByDay?.get(dayKey(moreDay)), birthdaysByDay?.get(dayKey(moreDay))).map(
-              (x) =>
-                x.event ? (
-                  <EventChip
-                    key={x.key}
-                    e={x.event}
-                    day={moreDay}
-                    colour={colour(x.event)}
-                    onClick={() => (setMoreDay(null), onEvent(x.event!))}
-                  />
-                ) : x.bday ? (
-                  <BirthdayChip key={x.key} b={x.bday} big />
-                ) : (
-                  <TaskChip key={x.key} task={x.task!} big onOpen={(t) => (setMoreDay(null), onTask?.(t))} />
-                ),
-            )}
+          <div className="grid gap-0.5">
+            {entries(moreDay).map((x) => (
+              <EntryChip
+                key={x.key}
+                x={x}
+                day={moreDay}
+                big
+                colour={colour}
+                onEvent={(e) => {
+                  setMoreDay(null)
+                  onEvent(e)
+                }}
+                onTask={(t) => {
+                  setMoreDay(null)
+                  layers.onTask(t)
+                }}
+              />
+            ))}
           </div>
         </Dialog>
       )}
@@ -223,72 +192,22 @@ export function MonthView({
   )
 }
 
-/** Phone month view: the selected day's events under the grid. */
-export function DayList({
+function EntryChip({
+  x,
   day,
-  events,
+  big,
   colour,
   onEvent,
-  onCreate,
-  tasks = [],
   onTask,
-  photos,
-  birthdays = [],
 }: {
+  x: Entry
   day: Date
-  events: CalEvent[]
+  big?: boolean
   colour: (e: CalEvent) => string
   onEvent: (e: CalEvent) => void
-  onCreate: () => void
-  tasks?: Task[]
-  onTask?: (t: Task) => void
-  photos?: number
-  birthdays?: Birthday[]
+  onTask: (t: Task) => void
 }) {
-  const { tz } = useCalPrefs()
-  return (
-    <section className="day-list" aria-label={fmtDate(day, { weekday: 'long', month: 'long', day: 'numeric' })}>
-      <div className="day-list-head">
-        <h2>{fmtDate(day, { weekday: 'long', month: 'long', day: 'numeric' })}</h2>
-        <PhotoBadge day={day} count={photos} />
-        <button className="btn ghost sm" onClick={onCreate}>
-          <Icon name="plus" size={14} /> Add
-        </button>
-      </div>
-      {birthdays.length > 0 && (
-        <div className="day-list-tasks">
-          {birthdays.map((b) => (
-            <BirthdayChip key={b.id} b={b} big />
-          ))}
-        </div>
-      )}
-      {tasks.length > 0 && (
-        <div className="day-list-tasks">
-          {tasks.map((t) => (
-            <TaskChip key={t.id} task={t} big onOpen={(x) => onTask?.(x)} />
-          ))}
-        </div>
-      )}
-      {events.length === 0 && !tasks.length && !birthdays.length ? (
-        <p className="empty left">Nothing scheduled.</p>
-      ) : events.length === 0 ? null : (
-        <ul>
-          {events.map((e) => (
-            <li key={e.id}>
-              <button className="agenda-item" data-ev={e.id} onClick={() => onEvent(e)}>
-                <span className="agenda-bar" style={{ background: colour(e) }} />
-                <span className="agenda-time tabular">{e.all_day ? 'All day' : fmtTimeIn(new Date(e.start), tz)}</span>
-                <span className="grow">
-                  <span className={'agenda-title' + (e.completed ? ' done' : '')}>
-                    {e.kind === 'deadline' && <Icon name="flag" size={12} />} {e.name}
-                  </span>
-                  {e.location && <span className="agenda-sub truncate">{e.location}</span>}
-                </span>
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </section>
-  )
+  if (x.event) return <EventChip e={x.event} day={day} big={big} colour={colour(x.event)} onClick={() => onEvent(x.event!)} />
+  if (x.bday) return <BirthdayChip b={x.bday} big={big} />
+  return <TaskChip task={x.task!} big={big} onOpen={onTask} />
 }
