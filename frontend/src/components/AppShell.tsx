@@ -185,6 +185,8 @@ function GlobalItems() {
           'mr-1 flex h-8 w-52 items-center gap-2 rounded-sm border border-border bg-bg pr-1.5 pl-2.5 text-left text-sm text-muted',
           'hover:border-[color-mix(in_srgb,var(--app-muted)_45%,var(--app-border))] hover:text-fg',
           'max-[1100px]:m-0 max-[1100px]:w-auto max-[1100px]:border-transparent max-[1100px]:bg-transparent max-[1100px]:px-2',
+          // Phones: the page's own top-bar controls need the room (and pages with a search have their own).
+          'max-md:hidden',
         )}
         onClick={openPalette}
         aria-label="Search or jump to"
