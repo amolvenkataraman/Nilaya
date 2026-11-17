@@ -32,8 +32,8 @@ import { Viewer } from './Viewer'
 
 // Rarely opened screens load on demand, so the timeline doesn't pull in Leaflet (map, games) or the stats pages.
 const PhotoMapPage = lazy(() => import('./PhotoMap').then((m) => ({ default: m.PhotoMapPage })))
-const GeoguessrPage = lazy(() => import('./Games').then((m) => ({ default: m.GeoguessrPage })))
-const LocatePage = lazy(() => import('./Games').then((m) => ({ default: m.LocatePage })))
+const GeoguessrPage = lazy(() => import('./Geoguessr').then((m) => ({ default: m.GeoguessrPage })))
+const LocatePage = lazy(() => import('./LocatePage').then((m) => ({ default: m.LocatePage })))
 const BrowsePage = lazy(() => import('./BrowsePage').then((m) => ({ default: m.BrowsePage })))
 const StatsPage = lazy(() => import('./StatsPage').then((m) => ({ default: m.StatsPage })))
 const StoragePage = lazy(() => import('./StoragePage').then((m) => ({ default: m.StoragePage })))

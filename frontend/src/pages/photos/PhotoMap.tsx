@@ -1,82 +1,57 @@
-// Photos › Map: a heat map of where your photos were taken (GET /photos/points for the visible box,
-// debounced, cached per box/year) with count clusters on top (pixel grid, like Places; click to zoom
-// in), "photos near here" when you click the map, and GPX tracks read locally from files.
+// Photos › Map: a heat map of where your photos were taken (GET /photos/points for the visible box, debounced,
+// cached per box and filters) with count clusters on top (pixel grid; click one to zoom in), "photos near here"
+// when you click the map, and GPX tracks read locally from files. Built on lib/map.
+import { useQuery } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
-import L from 'leaflet'
-import 'leaflet/dist/leaflet.css'
-import { useQuery } from '@tanstack/react-query'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
+import { Button } from '../../components/ui'
 import { get, safeHref } from '../../lib/api'
 import { fmtDate } from '../../lib/dates'
+import { plural } from '../../lib/format'
+import { countMarker } from '../../lib/map/countMarker'
+import type { LatLng } from '../../lib/map/geo'
+import { gridCluster, shortCount } from '../../lib/map/gridCluster'
+import { useHeatLayer } from '../../lib/map/heat'
+import { HeatFilterControls, HeatRamp, heatParams, useHeatFilter } from '../../lib/map/HeatFilters'
+import L from '../../lib/map/leaflet'
+import { type HeatPoint, photoPointsQuery } from '../../lib/map/points'
+import { useLeafletMap } from '../../lib/map/useLeafletMap'
+import { useViewportBox } from '../../lib/map/useViewportBox'
+import { usePref } from '../../lib/storage'
 import type { Photo } from '../../lib/types'
-import { HeatLayer } from './heat'
-import { photoPointsQuery, snapBox, WORLD, type Box, type HeatPoint } from './points'
-import { HeatFilterControls, heatParams, useHeatFilter } from './HeatFilters'
 import { photosInArea } from './util'
 
 const CLUSTER_PX = 72
-const CLUSTER_KEY = 'app.photos.mapClusters'
-const short = (n: number) =>
-  n >= 10_000 ? `${Math.round(n / 1000)}k` : n >= 1000 ? `${(n / 1000).toFixed(1).replace(/\.0$/, '')}k` : String(n)
+const NO_POINTS: HeatPoint[] = []
 
-/** Text-only marker content (Leaflet treats strings as HTML). */
-function clusterNode(n: number): HTMLElement {
-  const s = document.createElement('span')
-  s.textContent = short(n)
-  return s
-}
-
-/** Group heat points into screen cells of CLUSTER_PX at the current zoom; one count marker per cell. */
+/** One count marker per screen cell of CLUSTER_PX at the current zoom; neighbours closer than a marker merge. */
 function drawClusters(m: L.Map, g: L.LayerGroup, pts: HeatPoint[]) {
   g.clearLayers()
   const zoom = m.getZoom()
   const bounds = m.getBounds().pad(0.1)
-  const cells = new Map<string, { n: number; lat: number; lng: number; s: number; w: number; nn: number; e: number }>()
-  for (const p of pts) {
-    if (!bounds.contains([p.lat, p.lng])) continue
-    const pt = m.project([p.lat, p.lng], zoom)
-    const key = `${Math.floor(pt.x / CLUSTER_PX)}:${Math.floor(pt.y / CLUSTER_PX)}`
-    const c = cells.get(key)
-    if (!c) cells.set(key, { n: p.count, lat: p.lat * p.count, lng: p.lng * p.count, s: p.lat, nn: p.lat, w: p.lng, e: p.lng })
-    else {
-      c.n += p.count
-      c.lat += p.lat * p.count
-      c.lng += p.lng * p.count
-      c.s = Math.min(c.s, p.lat)
-      c.nn = Math.max(c.nn, p.lat)
-      c.w = Math.min(c.w, p.lng)
-      c.e = Math.max(c.e, p.lng)
-    }
-  }
-  // Grid cells can put two markers side by side across a cell edge: merge neighbours closer than a marker.
-  type Cell = { n: number; lat: number; lng: number; s: number; w: number; nn: number; e: number; x: number; y: number }
-  const kept: Cell[] = []
-  for (const c of [...cells.values()].sort((a, b) => b.n - a.n)) {
-    const pt = m.project([c.lat / c.n, c.lng / c.n], zoom)
-    const near = kept.find((k) => Math.hypot(k.x - pt.x, k.y - pt.y) < CLUSTER_PX * 0.75)
-    if (!near) {
-      kept.push({ ...c, x: pt.x, y: pt.y })
-      continue
-    }
-    near.n += c.n
-    near.lat += c.lat
-    near.lng += c.lng
-    near.s = Math.min(near.s, c.s)
-    near.nn = Math.max(near.nn, c.nn)
-    near.w = Math.min(near.w, c.w)
-    near.e = Math.max(near.e, c.e)
-  }
-  for (const c of kept) {
-    const size = Math.round(26 + Math.min(18, Math.log10(c.n + 1) * 6))
-    const icon = L.divIcon({ className: 'ph-cluster', html: '', iconSize: [size, size] })
-    const mk = L.marker([c.lat / c.n, c.lng / c.n], { icon, keyboard: true, title: `${c.n.toLocaleString()} photos`, riseOnHover: true })
-    mk.on('add', () => mk.getElement()?.replaceChildren(clusterNode(c.n)))
+  const cells = gridCluster(
+    pts.filter((p) => bounds.contains([p.lat, p.lng])),
+    {
+      latLng: (p) => [p.lat, p.lng],
+      weight: (p) => p.count,
+      project: (lat, lng) => m.project([lat, lng], zoom),
+      cellPx: CLUSTER_PX,
+      mergePx: CLUSTER_PX * 0.75,
+    },
+  )
+  for (const c of cells) {
+    const size = Math.round(26 + Math.min(18, Math.log10(c.weight + 1) * 6))
+    const mk = countMarker([c.lat, c.lng], {
+      text: shortCount(c.weight),
+      size,
+      title: `${c.weight.toLocaleString()} photos`,
+      variant: 'heat',
+    })
     mk.on('click', () => {
-      const b = L.latLngBounds([c.s, c.w], [c.nn, c.e])
-      const target = Math.min(18, Math.max(zoom + 2, m.getBoundsZoom(b.pad(0.3))))
-      m.flyTo(b.getCenter(), target, { duration: 0.5 })
+      const b = L.latLngBounds([c.south, c.west], [c.north, c.east])
+      m.flyTo(b.getCenter(), Math.min(18, Math.max(zoom + 2, m.getBoundsZoom(b.pad(0.3)))), { duration: 0.5 })
     })
     mk.addTo(g)
   }
@@ -92,100 +67,63 @@ function parseGpx(text: string): [number, number][][] {
     for (const n of nodes) {
       const lat = Number(n.getAttribute('lat'))
       const lon = Number(n.getAttribute('lon'))
-      if (isFinite(lat) && isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) line.push([lat, lon])
+      if (Number.isFinite(lat) && Number.isFinite(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180) line.push([lat, lon])
     }
     if (line.length > 1) segs.push(line)
   }
-  doc.querySelectorAll('trkseg').forEach((seg) => read(seg.querySelectorAll('trkpt')))
-  doc.querySelectorAll('rte').forEach((r) => read(r.querySelectorAll('rtept')))
+  for (const seg of doc.querySelectorAll('trkseg')) read(seg.querySelectorAll('trkpt'))
+  for (const r of doc.querySelectorAll('rte')) read(r.querySelectorAll('rtept'))
   return segs
 }
 type Near = { count: number; visits: number; first_visit: string | null; last_visit: string | null; photos: Photo[] }
 
 export function PhotoMapPage() {
-  const el = useRef<HTMLDivElement>(null)
-  const map = useRef<L.Map | null>(null)
-  const layer = useRef<HeatLayer | null>(null)
+  const el = useRef<HTMLElement>(null)
   const pin = useRef<L.CircleMarker | null>(null)
   const clusterLayer = useRef<L.LayerGroup | null>(null)
   const tracks = useRef<L.LayerGroup | null>(null)
   const fileInput = useRef<HTMLInputElement>(null)
   const [trackCount, setTrackCount] = useState(0)
-  const [clusters, setClustersState] = useState(() => {
-    try {
-      return localStorage.getItem(CLUSTER_KEY) !== '0'
-    } catch {
-      return true
-    }
-  })
-  const setClusters = (v: boolean) => {
-    setClustersState(v)
-    try {
-      localStorage.setItem(CLUSTER_KEY, v ? '1' : '0')
-    } catch {
-      /* ignore */
-    }
-  }
-  const [box, setBox] = useState<Box | null>(null)
+  const [clusters, setClusters] = usePref<boolean>('app.photos.mapClusters', true)
   const [heatFilter, setHeatFilter] = useHeatFilter()
   const navigate = useNavigate()
-  const [at, setAt] = useState<{ lat: number; lng: number } | null>(null)
-
+  const [at, setAt] = useState<LatLng | null>(null)
+  const map = useLeafletMap(el, {
+    center: [30, 0],
+    zoom: 2,
+    onClick: (p) => {
+      setAt(p)
+      pin.current?.remove()
+      if (map.current)
+        pin.current = L.circleMarker([p.lat, p.lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#dc2626', fillOpacity: 1 }).addTo(
+          map.current,
+        )
+    },
+  })
+  // First query: the whole world, so the first fit shows every photo whatever the viewport's shape.
+  const box = useViewportBox(map, { start: 'world' })
+  const points = useQuery(photoPointsQuery(box, heatParams(heatFilter)))
+  useHeatLayer(map, points.data ?? NO_POINTS)
   useEffect(() => {
-    if (!el.current) return
-    const m = L.map(el.current, { zoomControl: false, worldCopyJump: true }).setView([30, 0], 2)
-    L.control.zoom({ position: 'bottomright' }).addTo(m)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    }).addTo(m)
-    layer.current = new HeatLayer([], 20).addTo(m) as HeatLayer
+    const m = map.current
+    if (!m) return
     clusterLayer.current = L.layerGroup().addTo(m)
     tracks.current = L.layerGroup().addTo(m)
-    let t: ReturnType<typeof setTimeout> | null = null
-    const report = () => {
-      if (t) clearTimeout(t)
-      t = setTimeout(() => {
-        const b = m.getBounds()
-        setBox(snapBox({ south: b.getSouth(), west: b.getWest(), north: b.getNorth(), east: b.getEast() }))
-      }, 350)
-    }
-    m.on('moveend', report)
-    m.on('click', (e: L.LeafletMouseEvent) => {
-      const { lat, lng } = e.latlng.wrap()
-      setAt({ lat, lng })
-      pin.current?.remove()
-      pin.current = L.circleMarker([lat, lng], { radius: 7, color: '#fff', weight: 2, fillColor: '#dc2626', fillOpacity: 1 }).addTo(m)
-    })
-    map.current = m
-    // First query: the whole world, so the first fit shows every photo whatever the viewport's shape.
-    const first = setTimeout(() => setBox(WORLD), 0)
-    const ro = new ResizeObserver(() => m.invalidateSize())
-    ro.observe(el.current)
     return () => {
-      clearTimeout(first)
-      if (t) clearTimeout(t)
-      ro.disconnect()
-      m.remove()
-      map.current = null
-      layer.current = null
       clusterLayer.current = null
       tracks.current = null
     }
-  }, [])
+  }, [map])
 
-  const points = useQuery(photoPointsQuery(box, heatParams(heatFilter)))
+  // First load: zoom to where the photos are.
   const fitted = useRef(false)
   useEffect(() => {
     const pts = points.data
-    if (!pts) return
-    layer.current?.setPoints(pts)
-    // First load: zoom to where the photos are.
-    if (!fitted.current && pts.length && map.current) {
+    if (!fitted.current && pts?.length && map.current) {
       fitted.current = true
       map.current.fitBounds(L.latLngBounds(pts.map((p) => [p.lat, p.lng] as [number, number])), { padding: [40, 40], maxZoom: 12 })
     }
-  }, [points.data])
+  }, [points.data, map])
   // Count clusters: redrawn when the points, the view or the toggle change.
   useEffect(() => {
     const m = map.current
@@ -195,7 +133,7 @@ export function PhotoMapPage() {
     draw()
     m.on('zoomend moveend', draw)
     return () => void m.off('zoomend moveend', draw)
-  }, [points.data, clusters])
+  }, [points.data, clusters, map])
 
   const addTracks = async (files: FileList | null) => {
     const m = map.current
@@ -205,8 +143,7 @@ export function PhotoMapPage() {
     let added = 0
     for (const f of Array.from(files).slice(0, 20)) {
       if (f.size > 50 * 1024 * 1024) continue
-      const segs = parseGpx(await f.text())
-      for (const seg of segs) {
+      for (const seg of parseGpx(await f.text())) {
         const line = L.polyline(seg, { color: /WALK/i.test(f.name) ? '#16a34a' : '#2563eb', weight: 3, opacity: 0.85 }).addTo(g)
         all = all ? all.extend(line.getBounds()) : line.getBounds()
         added++
@@ -222,8 +159,8 @@ export function PhotoMapPage() {
   }
 
   const near = useQuery({
-    queryKey: ['places', 'photos-near', at && at.lat.toFixed(4), at && at.lng.toFixed(4)],
-    queryFn: () => get<Near>('places/photos-near', { latitude: at!.lat, longitude: at!.lng, limit: 24 }),
+    queryKey: ['places', 'photos-near', at?.lat.toFixed(4), at?.lng.toFixed(4)],
+    queryFn: ({ signal }) => get<Near>('places/photos-near', { latitude: at?.lat, longitude: at?.lng, limit: 24 }, signal),
     enabled: !!at,
     staleTime: 30 * 60_000,
   })
@@ -231,75 +168,95 @@ export function PhotoMapPage() {
   const day = (iso: string | null) => (iso ? fmtDate(new Date(iso), { month: 'short', day: 'numeric', year: 'numeric' }) : '')
 
   return (
-    <div className="ph-map-page">
-      <div ref={el} className="ph-map" role="region" aria-label="Map of your photos" />
-      <div className="pl-heat-panel ph-map-panel" role="group" aria-label="Map options">
-        <strong className="xsmall">Where your photos were taken</strong>
-        {points.isFetching && <span className="spinner" aria-label="Loading" />}
+    <div className="relative isolate h-[calc(100dvh-var(--topbar-h))]">
+      <section ref={el} className="absolute inset-0 bg-surface-2" aria-label="Map of your photos" />
+      <fieldset
+        className="absolute top-3 left-3 z-500 m-0 grid max-w-72 min-w-52 gap-1.5 rounded-md border-0 bg-[color-mix(in_srgb,var(--app-surface)_94%,transparent)] px-3 py-2 shadow-pop max-md:right-3 max-md:max-w-none"
+        aria-label="Map options"
+      >
+        <strong className="text-xs">Where your photos were taken</strong>
+        {points.isFetching && <span className="spinner absolute top-2 right-2" role="status" aria-label="Loading" />}
         <HeatFilterControls f={heatFilter} set={setHeatFilter} />
-        <label className="row xsmall" style={{ gap: '0.375rem' }}>
+        <label className="flex items-center gap-1.5 text-xs">
           <input type="checkbox" checked={clusters} onChange={(e) => setClusters(e.target.checked)} />
           Show counts (click one to zoom in)
         </label>
-        <div className="row" style={{ gap: '0.375rem', flexWrap: 'wrap' }}>
-          <button
-            className="btn sm"
+        <div className="flex flex-wrap items-center gap-1.5">
+          <Button
+            size="sm"
             onClick={() => fileInput.current?.click()}
             title="Draw GPX tracks from files on this device (nothing is uploaded)"
           >
             <Icon name="run" size={14} />
             Add GPX track
-          </button>
+          </Button>
           {trackCount > 0 && (
-            <button className="btn ghost sm" onClick={() => (tracks.current?.clearLayers(), setTrackCount(0))}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                tracks.current?.clearLayers()
+                setTrackCount(0)
+              }}
+            >
               Clear tracks
-            </button>
+            </Button>
           )}
-          <button className="btn ghost sm" onClick={showArea} title="The timeline, filtered to the area in view">
+          <Button variant="ghost" size="sm" onClick={showArea} title="The timeline, filtered to the area in view">
             <Icon name="photo" size={14} />
             Photos in this area
-          </button>
+          </Button>
           <input
             ref={fileInput}
             type="file"
             accept=".gpx,application/gpx+xml"
             multiple
             hidden
-            onChange={(e) => (addTracks(e.target.files), (e.target.value = ''))}
+            onChange={(e) => {
+              addTracks(e.target.files)
+              e.target.value = ''
+            }}
           />
         </div>
-        <span className="muted xsmall tabular">
-          {total.toLocaleString()} {total === 1 ? 'photo' : 'photos'} in view · click the map for photos near a spot
+        <span className="text-xs text-muted tabular-nums">{plural(total, 'photo')} in view · click the map for photos near a spot</span>
+        <span className="flex items-center gap-1.5 text-xs text-muted">
+          Fewer <HeatRamp /> more
         </span>
-        <span className="row xsmall muted" style={{ gap: '0.375rem' }}>
-          Fewer <span className="pm-ramp" aria-hidden="true" /> more
-        </span>
-      </div>
+      </fieldset>
       {at && (
-        <div className="ph-near">
-          <div className="row">
-            <strong className="small grow">Photos near here</strong>
-            <button className="btn ghost icon sm" onClick={() => (setAt(null), pin.current?.remove())} aria-label="Close">
+        <div className="absolute right-3 bottom-3 z-500 grid w-[min(22rem,calc(100%-1.5rem))] gap-1.5 rounded-md bg-surface px-3 py-2.5 shadow-pop">
+          <div className="flex items-center gap-2">
+            <strong className="flex-1 text-sm">Photos near here</strong>
+            <Button
+              variant="ghost"
+              size="sm"
+              icon
+              onClick={() => {
+                setAt(null)
+                pin.current?.remove()
+              }}
+              aria-label="Close"
+            >
               <Icon name="x" size={14} />
-            </button>
+            </Button>
           </div>
           {near.isPending ? (
-            <p className="muted xsmall">Looking…</p>
+            <p className="text-xs text-muted">Looking…</p>
           ) : !near.data?.count ? (
-            <p className="muted xsmall">No photos within a short walk of this spot.</p>
+            <p className="text-xs text-muted">No photos within a short walk of this spot.</p>
           ) : (
             <>
-              <p className="xsmall">
+              <p className="text-xs">
                 <strong>{near.data.count.toLocaleString()}</strong> photos · {near.data.visits} visits
                 {near.data.last_visit && ` · last ${day(near.data.last_visit)}`}
                 {near.data.first_visit && ` · first ${day(near.data.first_visit)}`}
               </p>
-              <div className="pl-strip">
+              <div className="grid grid-cols-4 gap-[3px]">
                 {near.data.photos.slice(0, 12).map((p) => {
                   const src = safeHref(p.thumb_url)
                   return (
-                    <Link key={p.id} to={`/photos?photo=${p.id}`} className="pl-thumb">
-                      {src && <img src={src} alt="" loading="lazy" />}
+                    <Link key={p.id} to={`/photos?photo=${p.id}`} className="aspect-square overflow-hidden rounded-xs bg-surface-2">
+                      {src && <img src={src} alt="" loading="lazy" className="size-full object-cover" />}
                     </Link>
                   )
                 })}

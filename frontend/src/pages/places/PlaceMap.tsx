@@ -7,8 +7,8 @@ import 'leaflet/dist/leaflet.css'
 import { categoryIcon, STATUSES, type Pin as Place, type Suggestion } from './api'
 import { iconMarkup } from '../../lib/favicon'
 import { Icon } from '../../components/Icon'
-import { HeatLayer } from '../photos/heat'
-import type { HeatPoint } from '../photos/points'
+import { heatLayer } from '../../lib/map/heat'
+import type { HeatPoint } from '../../lib/map/points'
 
 interface Props {
   places: Place[]
@@ -122,7 +122,7 @@ export function PlaceMap({
   const cb = useRef({ onSelect, onEdit, onAddAt, categoryLabel, canEdit, onSuggestion, onBounds, addMode })
   cb.current = { onSelect, onEdit, onAddAt, categoryLabel, canEdit, onSuggestion, onBounds, addMode }
   const me = useRef<L.CircleMarker | null>(null)
-  const heatLayer = useRef<HeatLayer | null>(null)
+  const heat_ = useRef<ReturnType<typeof heatLayer> | null>(null)
   const ghosts = useRef<L.LayerGroup | null>(null)
   const [zoomTick, setZoomTick] = useState(0)
   // The selected place's popup waits for a fly to end: the fly's moveend redraws every pin (closing popups).
@@ -170,7 +170,7 @@ export function PlaceMap({
       clearTimeout(firstReport)
       ro.disconnect()
       m.remove()
-      heatLayer.current = null
+      heat_.current = null
       map.current = null
       markers.current.clear()
     }
@@ -350,12 +350,12 @@ export function PlaceMap({
     const m = map.current
     if (!m) return
     if (!heat) {
-      heatLayer.current?.remove()
-      heatLayer.current = null
+      heat_.current?.remove()
+      heat_.current = null
       return
     }
-    if (!heatLayer.current || !m.hasLayer(heatLayer.current.leaflet)) heatLayer.current = new HeatLayer(heat).addTo(m) as HeatLayer
-    else heatLayer.current.setPoints(heat)
+    if (!heat_.current || !m.hasLayer(heat_.current)) heat_.current = heatLayer(heat).addTo(m)
+    else heat_.current.setPoints(heat)
   }, [heat])
 
   // Photo-derived suggestions as dashed "ghost" pins.
