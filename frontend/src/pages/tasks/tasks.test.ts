@@ -31,7 +31,8 @@ describe('bulk helpers', () => {
 
 import { groupTasks, nestTasks } from './grouping'
 import { repeatText } from './recurrence'
-import { applyPatch, parseMinutes, rescheduleTo } from './task'
+import { applyPatch } from '../../lib/taskPatch'
+import { parseMinutes, rescheduleTo } from './task'
 import { treeDrop } from './Sidebar'
 import { withFilters } from './params'
 import type { Project, Task } from '../../lib/types'

@@ -30,20 +30,22 @@ export interface ChipOptions {
   removable?: boolean
   /** A link or button: hover shows it goes somewhere. */
   interactive?: boolean
+  className?: string
 }
 
-export function chipClass({ tone = 'neutral', size = 'md', removable = false, interactive = false }: ChipOptions = {}): string {
+export function chipClass({ tone = 'neutral', size = 'md', removable = false, interactive = false, className }: ChipOptions = {}): string {
   return cn(
     'inline-flex items-center rounded-full border py-0 font-medium whitespace-nowrap',
     sizes[size],
     removable ? 'gap-0.5 pr-0.5 pl-1.75' : size === 'xs' ? 'gap-1 px-1.5' : 'gap-1 px-1.75',
     tones[tone],
     interactive && 'cursor-pointer hover:border-accent hover:text-fg hover:no-underline',
+    className,
   )
 }
 
 export function Chip({ tone, size, removable, className, ...p }: ComponentPropsWithRef<'span'> & Omit<ChipOptions, 'interactive'>) {
-  return <span className={cn(chipClass({ tone, size, removable }), className)} {...p} />
+  return <span className={chipClass({ tone, size, removable, className })} {...p} />
 }
 
 export function Kbd({ children, className }: { children: ReactNode; className?: string }) {

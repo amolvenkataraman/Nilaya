@@ -307,10 +307,13 @@ function GlobalItems() {
 
 /** Sidebar row styles, for pages that build their own rows (a link, a calendar toggle). `side-item` and `side-count`
  *  stay on the elements as hooks: pages target them to make room for a row action or hide the count on hover. */
-export function sideItemClass(active = false, className?: string): string {
+/** active: the current page · muted: a secondary row in grey (an action under a list rather than an item of it). */
+export function sideItemClass(state: 'active' | 'muted' | false = false, className?: string): string {
   return cn(
     'side-item flex h-8 w-full min-w-0 items-center gap-2.5 rounded-sm border-0 px-2 text-left text-sm no-underline hover:no-underline [&>svg]:flex-none',
-    active ? 'bg-accent-soft font-medium text-accent [&>svg]:text-accent' : 'bg-transparent text-fg hover:bg-hover [&>svg]:text-muted',
+    state === 'active'
+      ? 'bg-accent-soft font-medium text-accent [&>svg]:text-accent'
+      : cn('bg-transparent hover:bg-hover [&>svg]:text-muted', state === 'muted' ? 'text-muted' : 'text-fg'),
     className,
   )
 }
@@ -348,12 +351,12 @@ export function SideItem({
   )
   if (to)
     return (
-      <Link to={to} className={sideItemClass(active)} aria-current={active ? 'page' : undefined} onClick={onClick}>
+      <Link to={to} className={sideItemClass(active && 'active')} aria-current={active ? 'page' : undefined} onClick={onClick}>
         {inner}
       </Link>
     )
   return (
-    <button type="button" className={sideItemClass(active)} aria-current={active ? 'page' : undefined} onClick={onClick}>
+    <button type="button" className={sideItemClass(active && 'active')} aria-current={active ? 'page' : undefined} onClick={onClick}>
       {inner}
     </button>
   )

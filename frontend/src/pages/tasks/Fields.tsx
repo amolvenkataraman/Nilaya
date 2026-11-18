@@ -12,7 +12,7 @@ import type { Label, TaskDetail, UserBrief } from '../../lib/types'
 import { type ProjectWithOwner, useMembers, useSaveLabel } from './api'
 import { labelStyle } from './Labels'
 import { ghostSelect, propBtn, type Save } from './propField'
-import { assigneesOf, canEditIn, parseMinutes } from './task'
+import { canEditIn, parseMinutes } from './task'
 
 // ---------------------------------------------------------------- status (board column)
 export function StatusField({ task }: { task: TaskDetail }) {
@@ -48,7 +48,7 @@ export function StatusField({ task }: { task: TaskDetail }) {
 
 // ---------------------------------------------------------------- assignees
 export function AssigneesField({ task, save }: { task: TaskDetail; save: Save }) {
-  const people = assigneesOf(task)
+  const people = task.assignees
   return (
     <Menu
       label="Assignees"

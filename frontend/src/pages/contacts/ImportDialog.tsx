@@ -9,7 +9,7 @@ import { cn } from '../../lib/cn'
 import { plural } from '../../lib/format'
 import { importPreview, useContactMeta, useImportCommit, type ImportOptions, type ImportPreview, type PreviewRow } from './api'
 import { FileDrop } from './FileDrop'
-import { useOpenCount } from './useOpenCount'
+import { useOpenCount } from '../../lib/useOpenCount'
 
 const STATUS: Record<PreviewRow['status'], [string, ChipTone]> = {
   new: ['New', 'success'],

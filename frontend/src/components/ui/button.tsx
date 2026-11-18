@@ -10,9 +10,14 @@ const base =
   'inline-flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-sm border text-sm font-medium transition-colors ' +
   'disabled:cursor-default disabled:opacity-55 [&_svg]:shrink-0'
 
+const surfaceHover =
+  'bg-surface hover:not-disabled:bg-[color-mix(in_srgb,var(--app-fg)_5%,var(--app-surface))] active:not-disabled:bg-[color-mix(in_srgb,var(--app-fg)_9%,var(--app-surface))]'
+
+/** A default button that is switched on (a filter in use, focus mode): accent frame and text. */
+const pressedClass = cn('border-accent text-accent', surfaceHover)
+
 const variants: Record<ButtonVariant, string> = {
-  default:
-    'border-border bg-surface text-fg hover:not-disabled:bg-[color-mix(in_srgb,var(--app-fg)_5%,var(--app-surface))] active:not-disabled:bg-[color-mix(in_srgb,var(--app-fg)_9%,var(--app-surface))]',
+  default: cn('border-border text-fg', surfaceHover),
   primary: 'border-accent bg-accent text-accent-fg hover:not-disabled:border-accent-hover hover:not-disabled:bg-accent-hover',
   danger:
     'border-border bg-surface text-danger hover:not-disabled:border-[color-mix(in_srgb,var(--app-danger)_35%,var(--app-border))] hover:not-disabled:bg-danger-soft',
@@ -29,14 +34,22 @@ export function buttonClass({
   variant = 'default',
   size = 'md',
   icon = false,
+  pressed = false,
   className,
 }: {
   variant?: ButtonVariant
   size?: ButtonSize
   icon?: boolean
+  /** Shows a toggle or filter as on (default variant). Pair it with aria-pressed on a toggle. */
+  pressed?: boolean
   className?: string
 } = {}): string {
-  return cn(base, variants[variant], icon ? sizes[size].icon : sizes[size].text, className)
+  return cn(
+    base,
+    pressed && variant === 'default' ? pressedClass : variants[variant],
+    icon ? sizes[size].icon : sizes[size].text,
+    className,
+  )
 }
 
 export interface ButtonProps extends ComponentPropsWithRef<'button'> {
@@ -44,8 +57,10 @@ export interface ButtonProps extends ComponentPropsWithRef<'button'> {
   size?: ButtonSize
   /** Square, icon-only: give it an aria-label. */
   icon?: boolean
+  /** Shown as switched on (see buttonClass). */
+  pressed?: boolean
 }
 
-export function Button({ variant, size, icon, className, type = 'button', ...props }: ButtonProps) {
-  return <button type={type} className={buttonClass({ variant, size, icon, className })} {...props} />
+export function Button({ variant, size, icon, pressed, className, type = 'button', ...props }: ButtonProps) {
+  return <button type={type} className={buttonClass({ variant, size, icon, pressed, className })} {...props} />
 }

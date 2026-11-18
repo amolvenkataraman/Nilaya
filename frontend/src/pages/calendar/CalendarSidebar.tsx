@@ -84,7 +84,7 @@ export function CalendarSidebar({ mini, calendars, peek, show, view, open, refre
       </div>
     ))
   const sideLink = (icon: string, text: string, onClick: () => void, muted = false) => (
-    <button type="button" className={sideItemClass(false, muted ? 'text-muted!' : undefined)} onClick={onClick}>
+    <button type="button" className={sideItemClass(muted && 'muted')} onClick={onClick}>
       <Icon name={icon} size={16} />
       <span className="min-w-0 flex-auto truncate">{text}</span>
     </button>

@@ -36,7 +36,7 @@ import { type FullPatch, ghostSelect } from './propField'
 import { Relations, sectionLabel } from './Relations'
 import { RemindersField } from './RemindersField'
 import { RepeatField } from './RepeatField'
-import { assigneesOf, canEditIn, canEditTask, isOverdue, isTempId, projectName } from './task'
+import { canEditIn, canEditTask, isOverdue, isTempId, projectName } from './task'
 
 export function TaskDrawer({ id, onClose, onOpen }: { id: string | null; onClose: () => void; onOpen: (id: string) => void }) {
   const task = useTask(id && !isTempId(id) ? id : null)
@@ -99,7 +99,7 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
 
   const canEdit = canEditTask(task, me, projects)
   // Assignees may comment and take themselves off a task even when it's view-only for them.
-  const assignedToMe = !!me && assigneesOf(task).some((a) => a.id === me.id || a.username === me.username)
+  const assignedToMe = !!me && task.assignees.some((a) => a.id === me.id || a.username === me.username)
   const unassign = useUnassignMe(task.id)
   const path = pathOf(projects, task.project_id)
   // The parent's title from whatever list already has it (no extra request).

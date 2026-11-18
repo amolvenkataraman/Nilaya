@@ -33,6 +33,7 @@ import type {
   Notification,
 } from './types'
 import { toast } from '../components/toast'
+import { applyPatch, meAsUser } from './taskPatch'
 import { isPages, patchTaskLists, settleTaskLists, type TaskList } from './taskLists'
 
 // Dashboard queries, shared with lib/prefetch.ts so the prefetch hits exactly the same cache keys.
@@ -257,7 +258,8 @@ export function useUpdateTask() {
     mutationFn: ({ id, body }: { id: string; body: TaskPatch }) => patch<Task>(`tasks/${id}`, body),
     onMutate: async ({ id, body }) => {
       await qc.cancelQueries({ queryKey: ['tasks'] })
-      return { rollback: patchTaskCaches(qc, id, (t) => ({ ...t, ...body }) as Task) }
+      const me = qc.getQueryData<Me>(keys.me)
+      return { rollback: patchTaskCaches(qc, id, (t) => applyPatch(t, body, me ? [meAsUser(me)] : [])) }
     },
     onError: (_e, _v, ctx) => {
       ctx?.rollback()

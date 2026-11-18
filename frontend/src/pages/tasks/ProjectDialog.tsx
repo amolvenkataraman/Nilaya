@@ -23,6 +23,7 @@ import type { Project, SavedView } from '../../lib/types'
 import { useDeleteProject, useSaveProject, useSaveView } from './api'
 import { FieldGroup, sideMore } from './Labels'
 import { isProjectAdmin } from './task'
+import { useOpenCount } from '../../lib/useOpenCount'
 
 /** The colours projects, labels and tasks pick from (candidate for lib/colour.ts). */
 export const PROJECT_COLOURS = [
@@ -268,27 +269,23 @@ export function ProjectMenu({
   )
 }
 
-/** Save the current list's filters as a new view, or rename `view`. */
-export function SaveViewDialog({
-  open,
-  params,
-  view,
-  position,
-  onClose,
-  onSaved,
-}: {
+interface SaveViewProps {
   open: boolean
   params: TaskQuery | null
   view?: SavedView | null
   position?: number
   onClose: () => void
   onSaved: (v: SavedView) => void
-}) {
+}
+
+/** Save the current list's filters as a new view, or rename `view`. Each opening starts from the view's name. */
+export function SaveViewDialog(props: SaveViewProps) {
+  return <SaveViewForm key={useOpenCount(props.open)} {...props} />
+}
+
+function SaveViewForm({ open, params, view, position, onClose, onSaved }: SaveViewProps) {
   const save = useSaveView()
-  const [name, setName] = useState('')
-  useEffect(() => {
-    if (open) setName(view?.name ?? '')
-  }, [open, view])
+  const [name, setName] = useState(view?.name ?? '')
   const filters = viewFilters(params)
   const submit = () => {
     const n = name.trim()

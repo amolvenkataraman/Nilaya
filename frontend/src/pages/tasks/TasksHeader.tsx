@@ -7,7 +7,7 @@ import { Ring } from '../../components/TaskRow'
 import { Button, chipClass } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import type { Project } from '../../lib/types'
-import { BtnLabel, toggledOn } from './TasksToolbar'
+import { BtnLabel } from './TasksToolbar'
 
 export function TasksHeader({
   title,
@@ -68,7 +68,7 @@ export function TasksHeader({
         {project?.description && <p className="truncate text-sm text-muted">{project.description}</p>}
       </div>
       {onFocus && (
-        <Button size="sm" className={cn(focus && toggledOn)} aria-pressed={focus} onClick={onFocus} title="Focus mode (f)">
+        <Button size="sm" pressed={focus} aria-pressed={focus} onClick={onFocus} title="Focus mode (f)">
           <Icon name="target" size={14} />
           <BtnLabel>Focus</BtnLabel>
         </Button>

@@ -9,7 +9,7 @@ import { FieldGroup, FormSection, RepeatRows, TextField, TokenInput } from './Fo
 import { LinkButton } from './LinkButton'
 import { KIT, MONTHS } from './personFields'
 import { blankAddress, formToPersonIn, initialForm, snapshot, type FormState } from './personFormState'
-import { useOpenCount } from './useOpenCount'
+import { useOpenCount } from '../../lib/useOpenCount'
 
 const EMAIL_LABELS = ['home', 'work', 'other']
 const PHONE_LABELS = ['mobile', 'home', 'work', 'main', 'fax', 'other']

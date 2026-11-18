@@ -45,7 +45,6 @@ function readPresets(key: string | null): Preset[] | null {
 
 const toolRow = 'flex flex-wrap items-center gap-1.5 px-3 pt-2'
 const rowLabel = 'w-13 text-xs text-muted max-md:w-full'
-const on = 'border-accent! bg-accent-soft! text-accent!'
 
 export function LocatePage() {
   const [params, setParam] = useParamSetter()
@@ -293,13 +292,7 @@ export function LocatePage() {
                     {f.label}
                   </Button>
                 ))}
-                <Button
-                  size="sm"
-                  className={heat ? on : undefined}
-                  aria-pressed={heat}
-                  onClick={() => setHeat(!heat)}
-                  title="Where your photos already are"
-                >
+                <Button size="sm" pressed={heat} aria-pressed={heat} onClick={() => setHeat(!heat)} title="Where your photos already are">
                   <Icon name="layers" size={14} />
                   {heat && points.isFetching ? 'Loading…' : heat ? 'Hide heatmap' : 'Heatmap'}
                 </Button>

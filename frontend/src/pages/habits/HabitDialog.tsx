@@ -19,6 +19,7 @@ import {
 } from './api'
 import { HABIT_COLOURS, HABIT_ICONS, HabitIcon } from './HabitBadge'
 import { WEEKDAY_LETTERS, WEEKDAY_NAMES } from './habitRules'
+import { useOpenCount } from '../../lib/useOpenCount'
 
 interface Form {
   name: string
@@ -153,10 +154,7 @@ interface Props {
 }
 
 export function HabitDialog(props: Props) {
-  // Count openings (adjusting state while rendering) and remount the form on each one.
-  const [opens, setOpens] = useState({ open: props.open, n: 0 })
-  if (opens.open !== props.open) setOpens({ open: props.open, n: opens.n + (props.open ? 1 : 0) })
-  return <HabitForm key={opens.n} {...props} />
+  return <HabitForm key={useOpenCount(props.open)} {...props} />
 }
 
 function HabitForm({ open, habit, onClose, onSaved }: Props) {

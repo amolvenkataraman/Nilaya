@@ -2,7 +2,7 @@
 // it, what's its project called, where does it land when moved to another day, and what it looks like
 // after an optimistic PATCH. Pure (no React), unit-tested.
 import { dayDiff, isEndOfDay } from '../../lib/dates'
-import type { Project, Task, TaskPatch, UserBrief } from '../../lib/types'
+import type { Project, Task } from '../../lib/types'
 
 /** Optimistically added tasks carry a temporary id until the server answers; they can't be opened or changed. */
 export const isTempId = (id: string): boolean => id.startsWith('temp-')
@@ -57,20 +57,3 @@ export function rescheduleTo(t: Pick<Task, 'due' | 'start'>, day: Date): { due: 
   if (t.start) out.start = new Date(new Date(t.start).getTime() + (nd.getTime() - old.getTime())).toISOString()
   return out
 }
-
-const placeholder = (username: string): UserBrief => ({ id: username, username, name: username })
-
-/** A task with a PATCH applied, shaped as the server returns it. Assignees go out as usernames but come back
- *  as people: people already on the task are kept, others get a placeholder until the server answers.
- *  (lib/queries useUpdateTask should patch caches with this; until it does, read assignees with assigneesOf.) */
-export function applyPatch<T extends Task>(t: T, body: TaskPatch, known: UserBrief[] = []): T {
-  const { assignees, ...rest } = body
-  const out = { ...t, ...rest }
-  if (assignees)
-    out.assignees = assignees.map((u) => t.assignees.find((a) => a.username === u) ?? known.find((a) => a.username === u) ?? placeholder(u))
-  return out
-}
-
-/** A task's assignees as people, also while lib's optimistic PATCH briefly holds plain usernames. */
-export const assigneesOf = (t: Pick<Task, 'assignees'>): UserBrief[] =>
-  (t.assignees as (UserBrief | string)[]).map((a) => (typeof a === 'string' ? placeholder(a) : a))

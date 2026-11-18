@@ -28,7 +28,7 @@ import { ShareDialog } from './ProjectShare'
 import { useSelection } from './selection'
 import { ShortcutsDialog } from './Shortcuts'
 import { TasksSidebar, VIEWS, ViewMenu } from './Sidebar'
-import { applyPatch, canEditIn, canEditTask, isTempId, projectName } from './task'
+import { canEditIn, canEditTask, isTempId, projectName } from './task'
 import { TaskDrawer } from './TaskDrawer'
 import { TaskSearch } from './TaskSearch'
 import { TasksHeader } from './TasksHeader'
@@ -39,6 +39,7 @@ import { useListDrop } from './useListDrop'
 import { useTaskCommands } from './useTaskCommands'
 import { useTasksUrl } from './useTasksUrl'
 import { useLoadMore } from './virtual'
+import { applyPatch, meAsUser } from '../../lib/taskPatch'
 
 // Layouts other than the list load on demand.
 const Board = lazy(() => import('./Board').then((m) => ({ default: m.Board })))
@@ -222,7 +223,7 @@ export default function TasksPage() {
     const extraLabels = url.labelIds.map(Number).filter((id) => !t.labels.includes(id))
     if (extraLabels.length) body.labels = [...t.labels, ...extraLabels]
     if (Object.keys(body).length) updateTask.mutate({ id: t.id, body })
-    const after = applyPatch(t, body, me ? [{ id: me.id, username: me.username, name: me.username }] : [])
+    const after = applyPatch(t, body, me ? [meAsUser(me)] : [])
     const fits = params && !isBoard && layout !== 'calendar' ? fitsList(after, params, me?.username) : true
     if (fits === false) {
       const p = t.project_id ? byId.get(t.project_id) : undefined

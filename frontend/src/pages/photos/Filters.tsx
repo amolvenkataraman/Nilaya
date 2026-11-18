@@ -24,12 +24,7 @@ export function FiltersButton() {
   const n = filterCount(params)
   return (
     <>
-      <button
-        type="button"
-        className={buttonClass({ size: 'sm', className: n ? 'border-accent! text-accent!' : undefined })}
-        onClick={() => setOpen(true)}
-        title="Filters"
-      >
+      <button type="button" className={buttonClass({ size: 'sm', pressed: n > 0 })} onClick={() => setOpen(true)} title="Filters">
         <Icon name="filter" size={14} />
         <span>Filters{n ? ` · ${n}` : ''}</span>
       </button>

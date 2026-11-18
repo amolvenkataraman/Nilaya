@@ -3,7 +3,6 @@
 import { useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { Button, Chip, Dot, fieldClass, Menu, MenuItem, MenuLabel, MenuSeparator, Segmented, type SegmentOption } from '../../components/ui'
-import { cn } from '../../lib/cn'
 import type { Sort } from '../../lib/qs'
 import { PRIORITIES, type Label } from '../../lib/types'
 import type { Grouping, LayoutName, TasksUrl } from './useTasksUrl'
@@ -32,7 +31,6 @@ const GROUPS: [Grouping, string, string][] = [
 ]
 
 /** A toolbar toggle that is on (a filter applied, Completed shown, focus mode). */
-export const toggledOn = 'border-accent! text-accent!'
 /** Button text that phones drop (the icon stays). */
 export const BtnLabel = ({ children }: { children: string }) => <span className="max-md:hidden">{children}</span>
 
@@ -126,7 +124,7 @@ export function TasksToolbar({
             label="Filter"
             width="16rem"
             trigger={(p) => (
-              <Button {...p} size="sm" className={cn((labelFilter || prioMin || assignee) && toggledOn)}>
+              <Button {...p} size="sm" pressed={!!(labelFilter || prioMin || assignee)}>
                 <Icon name="filter" size={14} />
                 <BtnLabel>Filter</BtnLabel>
                 {chips.length ? ` · ${chips.length}` : ''}
@@ -211,7 +209,7 @@ export function TasksToolbar({
         {rows && notDone && (
           <Button
             size="sm"
-            className={cn(showCompleted && toggledOn)}
+            pressed={showCompleted}
             aria-pressed={showCompleted}
             onClick={() => url.setKeys({ done: showCompleted ? null : '1' })}
             title="Show completed tasks"

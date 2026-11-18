@@ -11,7 +11,7 @@ import type { PlaceCategory } from '../../lib/types'
 import { categoryIcon, type Group, STATUSES, useSaveGroup, useShowOnlyGroup } from './api'
 import type { Counts } from './usePlaceFilters'
 
-const tag = cn(chipClass(), 'ml-1.5 h-4! text-3xs!')
+const tag = chipClass({ size: 'xs', className: 'ml-1.5' })
 
 /** ⋯ menu of a group: show only, edit, public/private, export, archive, delete (owner actions only for owners). */
 function GroupMenu({

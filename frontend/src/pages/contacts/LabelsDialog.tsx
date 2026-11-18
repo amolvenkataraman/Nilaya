@@ -7,7 +7,7 @@ import { Button, Dialog, Input, QueryView, SkeletonRows } from '../../components
 import { plural } from '../../lib/format'
 import { useContactTags, useDeleteTag, useRenameTag, type Tag } from './api'
 import { LinkButton } from './LinkButton'
-import { useOpenCount } from './useOpenCount'
+import { useOpenCount } from '../../lib/useOpenCount'
 
 const labelRow = 'flex min-h-9 flex-wrap items-center gap-1.5 rounded-sm px-1 py-0.5 hover:bg-hover'
 

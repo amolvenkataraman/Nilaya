@@ -10,7 +10,7 @@ import { dueLabel, fmtStamp } from '../../lib/dates'
 import type { Bucket, Label, Task } from '../../lib/types'
 import { labelChip, labelStyle } from './Labels'
 import { repeatText } from './recurrence'
-import { assigneesOf, isTempId } from './task'
+import { isTempId } from './task'
 
 const metaLine =
   'flex flex-wrap gap-x-3 gap-y-1 pl-6 text-xs text-muted [&>span]:inline-flex [&>span]:max-w-56 [&>span]:items-center [&>span]:gap-1 [&>span]:overflow-hidden [&>span]:text-ellipsis [&>span]:whitespace-nowrap'
@@ -45,7 +45,7 @@ export function Card({
   const taskLabels = labels?.filter((l) => task.labels.includes(l.id)) ?? []
   const future = task.start && !task.done && new Date(task.start) > new Date() ? task.start : null
   const rem = task.reminders.some((r) => !r.sent)
-  const who = assigneesOf(task)
+  const who = task.assignees
   const hasMeta =
     task.due ||
     task.done_at ||

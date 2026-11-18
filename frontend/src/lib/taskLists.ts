@@ -103,7 +103,7 @@ export function fitsList(t: Task, p: Params, me?: string, now = new Date()): boo
     overdue: () => !!due && due < now,
     nodate: () => !due,
     favorites: () => t.favorite,
-    assigned: () => !!me && t.assignees.some((a) => (typeof a === 'string' ? a === me : a.username === me)),
+    assigned: () => !!me && t.assignees.some((a) => a.username === me),
     done: () => t.done,
   }
   const view = (p.view as string | undefined) || ''
@@ -122,7 +122,7 @@ export function fitsList(t: Task, p: Params, me?: string, now = new Date()): boo
   )
     return false
   if (p.priority_min && t.priority < Number(p.priority_min)) return false
-  if (p.assignee && !t.assignees.some((a) => (typeof a === 'string' ? a === p.assignee : a.username === p.assignee))) return false
+  if (p.assignee && !t.assignees.some((a) => a.username === p.assignee)) return false
   if (p.q && !`${t.title} ${t.description}`.toLowerCase().includes(String(p.q).toLowerCase())) return false
   return true
 }
