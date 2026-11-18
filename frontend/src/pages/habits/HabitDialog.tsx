@@ -20,6 +20,7 @@ import {
 import { HABIT_COLOURS, HABIT_ICONS, HabitIcon } from './HabitBadge'
 import { WEEKDAY_LETTERS, WEEKDAY_NAMES } from './habitRules'
 import { useOpenCount } from '../../lib/useOpenCount'
+import { asIcon } from '../../components/Icon'
 
 interface Form {
   name: string
@@ -278,7 +279,7 @@ function HabitForm({ open, habit, onClose, onSaved }: Props) {
                       setError('')
                     }}
                   >
-                    <HabitIcon name={t.icon ?? ''} size={0.875} />
+                    <HabitIcon name={asIcon(t.icon)} size={0.875} />
                     {t.name}
                   </button>
                 )

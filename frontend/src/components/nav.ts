@@ -1,9 +1,10 @@
 // The apps: launcher grid, command palette and the G-then-letter hotkeys.
+import type { IconName } from './Icon'
 export interface AppDef {
   id: string
   to: string
   label: string
-  icon: string
+  icon: IconName
   key?: string
   hue: string
   external?: boolean

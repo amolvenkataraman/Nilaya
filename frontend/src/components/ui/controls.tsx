@@ -2,12 +2,12 @@
 // biome-ignore-all lint/a11y/useSemanticElements: styled toggle and swatch buttons with ARIA roles (group, radio); native fieldset and radio inputs can't take these looks without preflight
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 import { cn } from '../../lib/cn'
-import { Icon } from '../Icon'
+import { Icon, type IconName } from '../Icon'
 
 export interface SegmentOption<T extends string> {
   value: T
   label: ReactNode
-  icon?: string
+  icon?: IconName
   /** Tooltip, e.g. with the keyboard shortcut. */
   title?: string
 }

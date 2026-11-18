@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query'
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { Button, chipClass } from '../../components/ui'
 import { fmtDate, fmtTime } from '../../lib/dates'
 import { fmtBytes } from '../../lib/format'
@@ -72,7 +72,7 @@ export function InfoPanel({ photo, onClose }: { photo: Photo; onClose: () => voi
   ].filter(Boolean)
   const flash =
     d.flash !== undefined && d.flash !== null && d.flash !== '' ? (Number(d.flash) % 2 === 1 ? 'Flash fired' : 'No flash') : null
-  const row = (icon: string, children: ReactNode, key = icon) => (
+  const row = (icon: IconName, children: ReactNode, key: string = icon) => (
     <div key={key} className="flex gap-4">
       <dt className="pt-px text-muted">
         <Icon name={icon} />

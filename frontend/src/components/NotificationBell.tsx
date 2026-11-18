@@ -1,7 +1,7 @@
 // The bell in the top bar (unread badge, the latest notifications) and the notification row the inbox and Home use.
 import type { CSSProperties } from 'react'
 import { useNavigate } from 'react-router'
-import { Icon } from './Icon'
+import { Icon, type IconName } from './Icon'
 import { Button, Chip, EmptyState, Popover, QueryView, SkeletonRows, buttonClass } from './ui'
 import { cn } from '../lib/cn'
 import { useInbox, useMarkRead, useReadAll, useUnreadCount } from '../lib/queries'
@@ -23,7 +23,7 @@ export function useOpenNotification() {
   }
 }
 
-const SOURCES: Record<string, { icon: string; hue: string }> = {
+const SOURCES: Record<string, { icon: IconName; hue: string }> = {
   calendar: { icon: 'calendar', hue: '#0891b2' },
   agenda: { icon: 'calendar', hue: '#0891b2' },
   tasks: { icon: 'tasks', hue: '#2563eb' },

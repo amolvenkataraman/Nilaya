@@ -4,6 +4,7 @@ import { fmtDate, isSameDay } from '../../lib/dates'
 import type { CalEvent, CategoryRef } from '../../lib/types'
 import { eventDays } from './range'
 import { HOME_ZONE, fmtDateIn, fmtTimeIn, gmtLabel, zoneCity, zoneDayKey, type Zone } from './zone'
+import { asIcon, type IconName } from '../../components/Icon'
 
 /** The category every user has and events fall back to; it's never shown as a label. */
 export const UNCATEGORIZED = 'Uncategorized'
@@ -13,7 +14,11 @@ export const isUncategorized = (c?: Pick<CategoryRef, 'name'> | null) => !c || c
 export const categoryName = (e: Pick<CalEvent, 'category'>) => (isUncategorized(e.category) ? '' : e.category!.name)
 
 /** An event's own icon, else its category's (undefined for neither). */
-export const eventIcon = (e: Pick<CalEvent, 'icon' | 'category'>) => e.icon || e.category?.icon || undefined
+/** The event's own icon, else its category's (names come from the server, so unknown ones fall back to info). */
+export const eventIcon = (e: Pick<CalEvent, 'icon' | 'category'>): IconName | undefined => {
+  const name = e.icon || e.category?.icon
+  return name ? asIcon(name) : undefined
+}
 
 /** A reminder offset in minutes: "At the start", "10 min before", "2 days before". */
 export function minutesText(m: number): string {

@@ -2,7 +2,7 @@
 // Every action is one optimistic cache pass plus one POST /tasks/bulk (bulk.ts useBulkOps). When every
 // loaded row is picked and the list has more, it offers "Select all N": then actions go by the list's filter.
 import { useEffect, useState } from 'react'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { Button, Confirm, Dot, fieldClass, Menu, MenuItem, MenuLabel, MenuSeparator, Popover, type TriggerProps } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { addDays, parseDayKey, startOfDay } from '../../lib/dates'
@@ -20,7 +20,7 @@ const sep = <span className="mx-1 h-5 w-px flex-none bg-border" />
 const act = 'gap-1.5! text-fg! [&>svg]:text-muted max-md:w-8 max-md:justify-center max-md:px-0!'
 const choice = 'flex items-center gap-2'
 
-function Action({ icon, label, ...p }: TriggerProps & { icon: string; label: string }) {
+function Action({ icon, label, ...p }: TriggerProps & { icon: IconName; label: string }) {
   return (
     <Button variant="ghost" size="sm" className={act} {...p}>
       <Icon name={icon} size={14} />

@@ -14,7 +14,7 @@ import {
   type ReactNode,
 } from 'react'
 import { cn } from '../../lib/cn'
-import { Icon } from '../Icon'
+import { Icon, type IconName } from '../Icon'
 import { useLayer } from '../layers'
 
 /** Props a trigger element must spread (`<button {...p}>`): ref, click and keyboard handlers, ARIA state. */
@@ -72,7 +72,7 @@ export function MenuItem({
   active,
   disabled,
 }: {
-  icon?: string
+  icon?: IconName
   children: ReactNode
   onClick?: () => void
   danger?: boolean

@@ -6,7 +6,7 @@ import { useEffect, useRef, useState, type RefObject } from 'react'
 import { useSearchParams } from 'react-router'
 import { useQueryClient } from '@tanstack/react-query'
 import { AppShell, SIDE_EMPTY, SideItem, SideSection, sideItemClass } from '../../components/AppShell'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { layerOpen } from '../../components/layers'
 import { toast } from '../../components/toast'
 import { afterG, Button, Confirm, isTyping, SearchBox, useDebounced, useHotkey, useIsPhone } from '../../components/ui'
@@ -36,7 +36,7 @@ import { PersonPane } from './PersonPane'
 import { RemindersDialog } from './RemindersDialog'
 
 type Count = { [K in keyof ContactStats]-?: ContactStats[K] extends number ? K : never }[keyof ContactStats]
-const FILTERS: { id: Filter; label: string; icon: string; count: Count }[] = [
+const FILTERS: { id: Filter; label: string; icon: IconName; count: Count }[] = [
   { id: '', label: 'All contacts', icon: 'users', count: 'total' },
   { id: 'favorites', label: 'Favourites', icon: 'star', count: 'favorites' },
   { id: 'overdue', label: 'Reach out', icon: 'clock', count: 'overdue' },

@@ -2,7 +2,7 @@
 // sharing dialogs, a quick task field, what to show, week start and display zone, and the refresh line.
 import { useState, type CSSProperties } from 'react'
 import { SideSection, sideItemClass } from '../../components/AppShell'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { Button, buttonClass, Menu, MenuItem, MenuSeparator, Segmented, Switch } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { cn } from '../../lib/cn'
@@ -83,7 +83,7 @@ export function CalendarSidebar({ mini, calendars, peek, show, view, open, refre
         />
       </div>
     ))
-  const sideLink = (icon: string, text: string, onClick: () => void, muted = false) => (
+  const sideLink = (icon: IconName, text: string, onClick: () => void, muted = false) => (
     <button type="button" className={sideItemClass(muted && 'muted')} onClick={onClick}>
       <Icon name={icon} size={16} />
       <span className="min-w-0 flex-auto truncate">{text}</span>

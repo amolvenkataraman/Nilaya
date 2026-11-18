@@ -3,7 +3,7 @@
 // Contract: GET/PATCH /calendar/calendars/{id}, DELETE /calendar/calendars/{id}?confirm=<name>, GET /calendar/icons.
 import { useState, type CSSProperties } from 'react'
 import { Link } from 'react-router'
-import { Icon } from '../../components/Icon'
+import { asIcon, Icon } from '../../components/Icon'
 import {
   Button,
   buttonClass,
@@ -42,14 +42,14 @@ const ZONES: string[] = (() => {
 })()
 
 /** A calendar's icon on a soft tile of its colour. */
-export function CalendarIconGlyph({ icon, colour, size = 1 }: { icon?: string; colour: string; size?: number }) {
+export function CalendarIconGlyph({ icon, colour, size = 1 }: { icon?: string | null; colour: string; size?: number }) {
   return (
     <span
       className="inline-grid flex-none place-items-center rounded-[30%] bg-[color-mix(in_srgb,var(--c)_16%,var(--app-surface))] text-(--c)"
       style={{ '--c': colour, width: `${size * 1.25}rem`, height: `${size * 1.25}rem` } as CSSProperties}
       aria-hidden="true"
     >
-      <Icon name={icon || 'calendar'} size={size * 12} />
+      <Icon name={asIcon(icon, 'calendar')} size={size * 12} />
     </span>
   )
 }

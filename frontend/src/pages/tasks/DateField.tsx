@@ -8,6 +8,7 @@ import { addDays, dayKey, fmtDate, isEndOfDay, startOfDay } from '../../lib/date
 import type { TaskDetail } from '../../lib/types'
 import { fmtWhen, popForm, popInput, popRow, propBtn, type Save } from './propField'
 import { isOverdue } from './task'
+import type { IconName } from '../../components/Icon'
 
 const pad = (n: number) => String(n).padStart(2, '0')
 
@@ -36,7 +37,7 @@ export function DateField({ task, field, save }: { task: TaskDetail; field: 'due
     }
     save({ [field]: iso })
   }
-  const quick: [string, Date, string][] = [
+  const quick: [string, Date, IconName][] = [
     ['Today', today, 'sun'],
     ['Tomorrow', addDays(today, 1), 'arrowRight'],
     ['This weekend', sat, 'calendar'],

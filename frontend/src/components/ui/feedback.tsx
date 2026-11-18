@@ -2,7 +2,7 @@
 // and a quiet message (with an optional next step) when there's nothing to show.
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
-import { Icon } from '../Icon'
+import { Icon, type IconName } from '../Icon'
 import { Button } from './button'
 
 export function SkeletonRows({ rows = 4, avatar = false }: { rows?: number; avatar?: boolean }) {
@@ -40,7 +40,7 @@ export function EmptyState({
   action,
   className,
 }: {
-  icon?: string
+  icon?: IconName
   children: ReactNode
   action?: ReactNode
   className?: string

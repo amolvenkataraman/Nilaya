@@ -1,6 +1,6 @@
 // A row of icon choices (calendars, categories, events), the icon counterpart of the shared ColourPicker.
 // Built here first; meant for components/ui once Habits uses it too.
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName, asIcon } from '../../components/Icon'
 import { cn } from '../../lib/cn'
 
 export function IconPicker({
@@ -19,7 +19,7 @@ export function IconPicker({
   label?: string
   size?: 'sm' | 'md'
 }) {
-  const option = (icon: string, title: string, glyph: string, glyphSize: number) => (
+  const option = (icon: string, title: string, glyph: IconName, glyphSize: number) => (
     // biome-ignore lint/a11y/useSemanticElements: an icon radio, drawn like the shared ColourPicker's swatches
     <button
       key={icon || '-'}
@@ -41,7 +41,7 @@ export function IconPicker({
   return (
     <div role="radiogroup" aria-label={label} className="flex flex-wrap gap-1.5">
       {none && option('', none, 'x', 13)}
-      {icons.map((i) => option(i, i, i, 15))}
+      {icons.map((i) => option(i, i, asIcon(i), 15))}
     </div>
   )
 }

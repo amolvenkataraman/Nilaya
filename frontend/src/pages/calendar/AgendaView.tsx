@@ -2,7 +2,7 @@
 // display zone, overdue first. Its row look is shared with the phone month's day list.
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { EmptyState, QueryView, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { dayDiff, dayKey, fmtDate, groupByDay, isEndOfDay, placedStart } from '../../lib/dates'
@@ -28,7 +28,7 @@ export function AgendaLine({
 }: {
   colour: string
   time: string
-  icon?: string
+  icon?: IconName
   title: ReactNode
   done?: boolean
   sub?: ReactNode

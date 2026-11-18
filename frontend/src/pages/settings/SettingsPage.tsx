@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { AppShell, SideItem, SideSection, sideItemClass } from '../../components/AppShell'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { cardClass, ErrorBox, pageClass, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { useMe } from '../../lib/queries'
@@ -20,7 +20,7 @@ import { UsagePage } from './Usage'
 interface SectionDef {
   id: string
   label: string
-  icon: string
+  icon: IconName
 }
 const ACCOUNT: SectionDef[] = [
   { id: 'set-profile', label: 'Profile', icon: 'user' },

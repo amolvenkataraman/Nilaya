@@ -1,7 +1,7 @@
 // One contact (?person=<id>): photo, names and labels, every stored field as a definition list, keep-in-touch,
 // notes, relationships and interactions, and when the record was added, updated and imported.
 import { useRef, useState, type ReactNode } from 'react'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import {
   Avatar,
@@ -354,7 +354,7 @@ function Person({
 }
 
 /** One row of the definition list: icon and label on the left (above on phones), the value on the right. */
-function Info({ icon, label, className, children }: { icon: string; label: ReactNode; className?: string; children: ReactNode }) {
+function Info({ icon, label, className, children }: { icon: IconName; label: ReactNode; className?: string; children: ReactNode }) {
   return (
     <div className="grid grid-cols-[9rem_minmax(0,1fr)] gap-3 border-b border-border py-2 text-sm max-md:grid-cols-1 max-md:gap-0.5">
       <dt className="flex items-center gap-1.5 text-xs text-muted capitalize">

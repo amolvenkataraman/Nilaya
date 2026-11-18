@@ -1,7 +1,7 @@
 // Tags and groups: each with its count, rename in place, delete after an inline confirmation (the contacts stay),
 // and a click on the name shows that tag's contacts. Opening from a tag's menu starts with it in rename mode.
 import { useState } from 'react'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { Button, Dialog, Input, QueryView, SkeletonRows } from '../../components/ui'
 import { plural } from '../../lib/format'
@@ -28,7 +28,7 @@ function Labels({ open, onClose, startEditing, onRenamed, onDeleted, onOpen }: P
   const tags = useContactTags()
   const [editing, setEditing] = useState<number | null>(startEditing ?? null)
   const [deleting, setDeleting] = useState<number | null>(null)
-  const section = (list: Tag[], kind: 'group' | 'tag', title: string, icon: string) => {
+  const section = (list: Tag[], kind: 'group' | 'tag', title: string, icon: IconName) => {
     const items = list.filter((t) => t.kind === kind)
     return (
       <section aria-label={title}>

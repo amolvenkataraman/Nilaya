@@ -3,7 +3,7 @@ import { Dialog as BaseDialog } from '@base-ui/react/dialog'
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Icon } from './Icon'
+import { Icon, type IconName } from './Icon'
 import { Dot, EmptyState, useDebounced } from './ui'
 import { NAV } from './nav'
 import { get } from '../lib/api'
@@ -20,7 +20,7 @@ interface Item {
   group: string
   label: string
   hint?: string
-  icon: string
+  icon: IconName
   run: () => void
   colour?: string
 }

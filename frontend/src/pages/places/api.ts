@@ -3,6 +3,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/r
 import { toast } from '../../components/toast'
 import { api, del, get, patch, post, upload } from '../../lib/api'
 import type { Place as BasePlace, Photo, PlaceCategory, PlaceGroup } from '../../lib/types'
+import type { IconName } from '../../components/Icon'
 
 export type PlaceStatus = 'saved' | 'want_to_go' | 'visited'
 export interface Place extends BasePlace {
@@ -15,7 +16,7 @@ export type PlaceInput = Omit<Place, 'id' | 'updated_on'>
 type PinField = 'id' | 'group_id' | 'name' | 'latitude' | 'longitude' | 'category' | 'status' | 'rating' | 'address' | 'visited_on'
 export type Pin = Pick<Place, PinField> & Partial<Omit<Place, PinField>>
 
-export const STATUSES: { key: PlaceStatus; label: string; icon: string }[] = [
+export const STATUSES: { key: PlaceStatus; label: string; icon: IconName }[] = [
   { key: 'saved', label: 'Saved', icon: 'star' },
   { key: 'want_to_go', label: 'Want to go', icon: 'flag' },
   { key: 'visited', label: 'Visited', icon: 'check' },
@@ -26,7 +27,7 @@ export const statusOf = (p: { status?: string | null }): PlaceStatus =>
 
 /** Category glyphs (Icon names; GET /places/categories has no icon field). The classic map's set, redrawn
  *  in the app's icon style. Unlisted keys ("other", anything new) get a plain dot on the map. */
-const CATEGORY_ICON: Record<string, string> = {
+const CATEGORY_ICON: Record<string, IconName> = {
   house: 'home',
   business: 'briefcase',
   school: 'book',
@@ -41,7 +42,7 @@ const CATEGORY_ICON: Record<string, string> = {
   park: 'tree',
   nature: 'leaf',
 }
-export const categoryIcon = (key: string): string | undefined => CATEGORY_ICON[key]
+export const categoryIcon = (key: string): IconName | undefined => CATEGORY_ICON[key]
 
 /** "★★★☆☆" for a 1-5 rating ('' for none). */
 export const stars = (n: number | null | undefined) => (n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '')

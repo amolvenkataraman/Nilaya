@@ -2,7 +2,7 @@
 // --hc (the accent when it has none) and the rounded badge with the icon or the first letter.
 // The icon and colour lists are the ones the classic Habits page offered.
 import type { CSSProperties } from 'react'
-import { Icon } from '../../components/Icon'
+import { Icon, asIcon, type IconName } from '../../components/Icon'
 import type { Habit } from './api'
 
 export const HABIT_ICONS = [
@@ -20,7 +20,7 @@ export const HABIT_ICONS = [
   'ban',
   'music',
   'bed',
-]
+] as const satisfies readonly IconName[]
 
 /** '' is the default: the app's accent (teal). */
 export const HABIT_COLOURS: [string, string][] = [
@@ -39,7 +39,7 @@ export const HABIT_COLOURS: [string, string][] = [
 const KNOWN = new Set<string>([...HABIT_ICONS, 'flame', 'skip', 'minus', 'pause'])
 
 /** A habit icon, `size` in rem. */
-export function HabitIcon({ name, size = 1 }: { name: string; size?: number }) {
+export function HabitIcon({ name, size = 1 }: { name: IconName; size?: number }) {
   return <Icon name={name} size={`${size}rem`} />
 }
 
@@ -57,7 +57,11 @@ export function HabitBadge({ habit, size = 2 }: { habit: Habit; size?: number })
       style={{ ...hc(habit), width: `${size}rem`, height: `${size}rem` }}
       aria-hidden="true"
     >
-      {KNOWN.has(habit.icon) ? <HabitIcon name={habit.icon} size={size * 0.5} /> : <span>{habit.name.slice(0, 1).toUpperCase()}</span>}
+      {KNOWN.has(habit.icon) ? (
+        <HabitIcon name={asIcon(habit.icon)} size={size * 0.5} />
+      ) : (
+        <span>{habit.name.slice(0, 1).toUpperCase()}</span>
+      )}
     </span>
   )
 }

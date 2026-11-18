@@ -39,6 +39,8 @@ Rules for people and coding agents changing `frontend/`. [README.md](README.md) 
 ## Components and behaviour
 
 - Dialogs, menus, popovers and drawers come from `components/ui`. Never hand-roll a portal, scrim, outside-click or Escape handler.
+- Icon names are typed (`IconName`), so a misspelt icon fails the typecheck. A name that comes from data (a calendar's
+  icon, a place category) goes through `asIcon(name, fallback)`. Add new shapes to `components/Icon.tsx`.
 - Page shortcuts use `useHotkey` and bail out while `layerOpen()` is true. Never query the DOM for `.dialog`/`.menu`.
 - Loading, error and empty states go through `<QueryView>`. Data on screen wins over an error, so a failed refresh never blanks a
   page.

@@ -5,6 +5,7 @@ import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { cardClass, CardHead, SkeletonRows } from '../../components/ui'
 import { Boundary } from '../../components/resilience'
 import { cn } from '../../lib/cn'
+import type { IconName } from '../../components/Icon'
 
 export type DashArea = 'agenda' | 'tasks' | 'week' | 'habits' | 'inbox' | 'links'
 
@@ -81,7 +82,7 @@ export function DashCard({
   children,
 }: {
   title: ReactNode
-  icon?: string
+  icon?: IconName
   titleId?: string
   /** Right of the title: counts, links, buttons. */
   actions?: ReactNode

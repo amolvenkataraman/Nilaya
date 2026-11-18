@@ -2,7 +2,7 @@
 // webhooks). Each row shows the destination, the minimum priority, the last delivery or error, and a test.
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import {
   Button,
   cardClass,
@@ -25,7 +25,7 @@ import { ItemRow } from '../settings/ItemRow'
 import { channelsQuery, channelTypesQuery, MIN_PRIORITY, useChannelPatch, useDeleteChannel, useTestChannel } from './api'
 import { ChannelDialog } from './ChannelDialog'
 
-const KIND_ICON: Record<string, string> = { ntfy: 'send', gotify: 'send', email: 'mail', discord: 'comment', webhook: 'link' }
+const KIND_ICON: Record<string, IconName> = { ntfy: 'send', gotify: 'send', email: 'mail', discord: 'comment', webhook: 'link' }
 const priorityLabel = (p: number) => MIN_PRIORITY.find((x) => x.value === p)?.label ?? `Priority ${p}+`
 
 export function ChannelsTab() {

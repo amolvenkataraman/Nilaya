@@ -5,7 +5,7 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { photoSummaryQuery } from '../../lib/photoQueries'
 import type { PhotoSummary } from '../../lib/types'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { layerOpen } from '../../components/layers'
 import { buttonClass, isTyping, pageClass, PageHead } from '../../components/ui'
 import { cn } from '../../lib/cn'
@@ -104,7 +104,7 @@ export function SearchBox({ inline = false }: { inline?: boolean }) {
   )
 }
 
-const ICON: Record<SearchTerm['type'], string> = {
+const ICON: Record<SearchTerm['type'], IconName> = {
   place: 'pin',
   object: 'tag',
   camera: 'camera',

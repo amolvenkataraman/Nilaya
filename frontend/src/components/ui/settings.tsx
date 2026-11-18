@@ -8,7 +8,7 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { cn } from '../../lib/cn'
-import { Icon } from '../Icon'
+import { Icon, type IconName } from '../Icon'
 
 export function SettingsSection({
   id,
@@ -151,7 +151,7 @@ export function SavedMark() {
 }
 
 /** A row that goes somewhere: icon, label, a muted note on the right. External links get an arrow. */
-export function SettingLink({ icon, label, note, to, href }: { icon: string; label: string; note: string; to?: string; href?: string }) {
+export function SettingLink({ icon, label, note, to, href }: { icon: IconName; label: string; note: string; to?: string; href?: string }) {
   const className = cn(
     'flex items-center gap-2.5 px-4 py-3 text-sm text-fg first:rounded-t-md last:rounded-b-md hover:bg-hover hover:no-underline',
     '[&>svg]:shrink-0 [&>svg]:text-muted',

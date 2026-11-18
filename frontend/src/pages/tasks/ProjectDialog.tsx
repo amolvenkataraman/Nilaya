@@ -1,7 +1,7 @@
 // Project create/edit (name, description, colour, parent, default layout), the project options menu,
 // and the saved-view dialog (save the current filters as a view, or rename one).
 import { useEffect, useState } from 'react'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import {
   Button,
@@ -39,7 +39,7 @@ export const PROJECT_COLOURS = [
   '#64748b',
 ]
 type DefaultLayout = 'list' | 'board' | 'table' | 'calendar'
-const LAYOUTS: { value: DefaultLayout; label: string; icon: string }[] = [
+const LAYOUTS: { value: DefaultLayout; label: string; icon: IconName }[] = [
   { value: 'list', label: 'List', icon: 'list' },
   { value: 'board', label: 'Board', icon: 'board' },
   { value: 'table', label: 'Table', icon: 'layers' },

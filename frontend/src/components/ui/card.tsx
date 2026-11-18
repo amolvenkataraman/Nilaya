@@ -3,7 +3,7 @@
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 import { Link } from 'react-router'
 import { cn } from '../../lib/cn'
-import { Icon } from '../Icon'
+import { Icon, type IconName } from '../Icon'
 import { buttonClass } from './button'
 
 export const cardClass = 'min-w-0 rounded-md border border-border bg-surface shadow-card'
@@ -13,7 +13,17 @@ export function Card({ className, ...props }: ComponentPropsWithRef<'section'>) 
 }
 
 /** The head row: a title (with an optional icon), then whatever goes on the right (count, links, buttons). */
-export function CardHead({ title, icon, titleId, children }: { title: ReactNode; icon?: string; titleId?: string; children?: ReactNode }) {
+export function CardHead({
+  title,
+  icon,
+  titleId,
+  children,
+}: {
+  title: ReactNode
+  icon?: IconName
+  titleId?: string
+  children?: ReactNode
+}) {
   return (
     <div className="flex min-h-11 items-center gap-2 border-b border-border py-2 pr-2 pl-4">
       <h2 id={titleId} className="flex items-center gap-2 text-sm font-semibold">
@@ -60,7 +70,7 @@ export function TitledCard({
 }: {
   titleId: string
   title: ReactNode
-  icon?: string
+  icon?: IconName
   action?: ReactNode
   /** Replaces the body's padding. */
   bodyClass?: string

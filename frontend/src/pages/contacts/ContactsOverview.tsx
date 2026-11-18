@@ -1,7 +1,7 @@
 // What the detail side shows when nobody is open (desktop only): counts, upcoming birthdays, who's due a
 // catch-up, the shortcuts and where contacts came from. With no contacts at all, a way to import some.
 import type { ReactNode } from 'react'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { Button, SkeletonRows } from '../../components/ui'
 import { fmtDate, parseDayKey } from '../../lib/dates'
 import type { ContactStats } from './api'
@@ -112,7 +112,7 @@ function Stat({ n, label }: { n: number; label: string }) {
   )
 }
 
-function Block({ icon, title, children }: { icon: string; title: string; children: ReactNode }) {
+function Block({ icon, title, children }: { icon: IconName; title: string; children: ReactNode }) {
   return (
     <div className="grid gap-2">
       <SectionLabel>

@@ -1,7 +1,7 @@
 // Event categories (yours): name, colour, icon and order. GET/POST /calendar/categories,
 // PATCH/DELETE /calendar/categories/{id}. "Uncategorized" can be renamed but not deleted.
 import { useState, type CSSProperties } from 'react'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName, asIcon } from '../../components/Icon'
 import { Button, Confirm, Dialog, Field, Input, QueryView, SkeletonRows } from '../../components/ui'
 import { useCategories } from '../../lib/queries'
 import type { Category } from '../../lib/types'
@@ -23,7 +23,7 @@ export function CategoriesDialog({ onClose }: { onClose: () => void }) {
     if (a && b) swap.mutate({ a, b, pa: a.position === b.position ? b.position + dir : b.position })
   }
   const saveAndClose = (body: CategoryPatch, id?: number) => save.mutate({ id, body }, { onSuccess: () => setEdit(null) })
-  const iconButton = (label: string, title: string, icon: string, onClick: () => void, disabled = false) => (
+  const iconButton = (label: string, title: string, icon: IconName, onClick: () => void, disabled = false) => (
     <Button
       variant="ghost"
       size="sm"
@@ -85,7 +85,7 @@ export function CategoriesDialog({ onClose }: { onClose: () => void }) {
                     className="grid size-6 flex-none place-items-center rounded-[30%] bg-[color-mix(in_srgb,var(--c)_14%,var(--app-surface))] text-(--c)"
                     style={{ '--c': c.colour || 'var(--app-muted)' } as CSSProperties}
                   >
-                    {c.icon ? <Icon name={c.icon} size={13} /> : <span className={`${dot} bg-(--c)`} />}
+                    {c.icon ? <Icon name={asIcon(c.icon)} size={13} /> : <span className={`${dot} bg-(--c)`} />}
                   </span>
                   <span className="min-w-0 flex-auto truncate">
                     {c.name}

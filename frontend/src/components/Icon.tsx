@@ -1,7 +1,7 @@
 // A small inline SVG icon set (24px grid, 1.75 stroke, lucide-style geometry). No icon font, no CDN.
 import type { ReactElement } from 'react'
 
-const P: Record<string, ReactElement> = {
+const P = {
   home: (
     <>
       <path d="M3 10.5 12 3l9 7.5" />
@@ -522,13 +522,18 @@ const P: Record<string, ReactElement> = {
   ),
   heart: <path d="M12 20s-7.5-4.5-7.5-10a4.5 4.5 0 0 1 7.5-3.3A4.5 4.5 0 0 1 19.5 10c0 5.5-7.5 10-7.5 10Z" />,
   command: <path d="M9 6a3 3 0 1 0-3 3h12a3 3 0 1 0-3-3v12a3 3 0 1 0 3-3H6a3 3 0 1 0 3 3V6Z" />,
-}
+} satisfies Record<string, ReactElement>
 
 export type IconName = keyof typeof P
 
 /** The shapes of an icon (unknown names fall back to "info", as <Icon> does): lib/favicon.ts serialises them
  *  (favicons, Places map pins). */
-export const iconShapes = (name: string): ReactElement => P[name] ?? P.info
+export const iconShapes = (name: string): ReactElement => P[asIcon(name)]
+
+/** A name that comes from data (a calendar's or category's icon, a place category) as an IconName, or `fallback`
+ *  when the set has no such icon. Names written in code are checked by the IconName type instead. */
+export const asIcon = (name: string | null | undefined, fallback: IconName = 'info'): IconName =>
+  name && Object.hasOwn(P, name) ? (name as IconName) : fallback
 
 export function Icon({
   name,
@@ -536,7 +541,7 @@ export function Icon({
   className,
   title,
 }: {
-  name: IconName | string
+  name: IconName
   size?: number | string
   className?: string
   title?: string
@@ -558,7 +563,7 @@ export function Icon({
       focusable="false"
     >
       {title ? <title>{title}</title> : null}
-      {P[name] ?? P.info}
+      {P[name]}
     </svg>
   )
 }

@@ -3,7 +3,7 @@
 // (save, dismiss, the photos near it). CoordsRow and DirectionsLinks are shared by both.
 import { type ReactNode, useState } from 'react'
 import { Link } from 'react-router'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { Button, buttonClass, chipClass, Confirm, ErrorBox, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
@@ -33,7 +33,7 @@ const sheet = 'grid content-start gap-3 overflow-auto px-4 pt-2 pb-6'
 const title = 'text-lg font-semibold tracking-[-0.01em] [overflow-wrap:anywhere]'
 const linkBtn = buttonClass({ size: 'sm' })
 
-function Row({ icon, children }: { icon: string; children: ReactNode }) {
+function Row({ icon, children }: { icon: IconName; children: ReactNode }) {
   return (
     <div className="flex items-start gap-2.5 text-sm">
       <Icon name={icon} size={15} className="mt-0.5 flex-none text-muted" />

@@ -7,7 +7,7 @@ import { Popover as BasePopover } from '@base-ui/react/popover'
 import { useEffect, useRef, useState, type CSSProperties, type KeyboardEvent, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { useLayer } from '../../components/layers'
 import { Button, buttonClass, Menu, MenuItem, MenuSeparator, Popover, useIsPhone } from '../../components/ui'
 import { toast } from '../../components/toast'
@@ -202,7 +202,7 @@ function PeekBody({
   const icon = eventIcon(e)
   const link = buttonClass({ variant: 'ghost', size: 'sm' })
   const sub = 'mt-0.5 flex items-center gap-1 text-xs text-muted'
-  const row = (key: string, glyph: string, children: ReactNode) => (
+  const row = (key: string, glyph: IconName, children: ReactNode) => (
     <div className="flex items-start gap-3 text-sm" key={key}>
       <Icon name={glyph} size={15} className="mt-0.5 flex-none text-muted" />
       <div className="min-w-0 flex-auto">{children}</div>

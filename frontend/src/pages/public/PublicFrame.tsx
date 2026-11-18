@@ -3,7 +3,7 @@
 // signed-out visitor never hits an endpoint that needs a session.
 import { type ReactNode, useEffect } from 'react'
 import { Link, useLocation } from 'react-router'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { buttonClass, cardClass } from '../../components/ui'
 import { loginUrl } from '../../lib/api'
 import { cn } from '../../lib/cn'
@@ -20,7 +20,7 @@ export function usePublicTitle(title: string) {
 export const loginHere = loginUrl
 
 /** Nilaya's mark: the home icon on an accent tile (the app logo's look, in the accent colour). */
-export function BrandMark({ icon = 'home', size, iconSize }: { icon?: string; size: 'sm' | 'lg'; iconSize: number }) {
+export function BrandMark({ icon = 'home', size, iconSize }: { icon?: IconName; size: 'sm' | 'lg'; iconSize: number }) {
   return (
     <span
       className={cn(
@@ -76,7 +76,7 @@ export function PublicFrame({ children, wide, bare }: { children: ReactNode; wid
 }
 
 /** A friendly full-card message (not found, turned off, ...). */
-export function PublicNotice({ icon = 'info', title, children }: { icon?: string; title: string; children?: ReactNode }) {
+export function PublicNotice({ icon = 'info', title, children }: { icon?: IconName; title: string; children?: ReactNode }) {
   return (
     <section className={cn(cardClass, 'mx-auto mt-12 grid max-w-[28rem] justify-items-center gap-3 px-6 py-8 text-center')} role="status">
       <span className="inline-grid size-12 place-items-center rounded-full bg-accent-soft text-accent">

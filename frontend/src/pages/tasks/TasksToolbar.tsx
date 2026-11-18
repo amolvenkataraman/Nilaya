@@ -1,7 +1,7 @@
 // The row under the list title: the layout switch, Filter (priority, labels, assignee), Group, Sort,
 // Completed, Save / Update view, and the active filters as removable chips below it.
 import { useState } from 'react'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { Button, Chip, Dot, fieldClass, Menu, MenuItem, MenuLabel, MenuSeparator, Segmented, type SegmentOption } from '../../components/ui'
 import type { Sort } from '../../lib/qs'
 import { PRIORITIES, type Label } from '../../lib/types'
@@ -53,7 +53,7 @@ export function TimelineIcon({ size = 14 }: { size?: number }) {
   )
 }
 
-const layoutOption = (value: LayoutName, label: string, key: string, icon: string | null): SegmentOption<LayoutName> => ({
+const layoutOption = (value: LayoutName, label: string, key: string, icon: IconName | null): SegmentOption<LayoutName> => ({
   value,
   title: `${label} (v ${key})`,
   label: (

@@ -2,7 +2,7 @@
 // or nest, drop tasks onto a project to move them), labels and saved views (rename, update, reorder, delete).
 import { useState, type DragEvent, type ReactNode } from 'react'
 import { SideItem, SideSection } from '../../components/AppShell'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 import { Button, Confirm, Menu, MenuItem, MenuSeparator } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import type { SmartView } from '../../lib/qs'
@@ -15,7 +15,7 @@ import { between } from './order'
 import { ProjectMenu } from './ProjectDialog'
 import { isProjectAdmin } from './task'
 
-export const VIEWS: { id: SmartView; label: string; icon: string; count?: (o: Overview) => number; hint?: string }[] = [
+export const VIEWS: { id: SmartView; label: string; icon: IconName; count?: (o: Overview) => number; hint?: string }[] = [
   { id: 'inbox', label: 'Inbox', icon: 'inbox', count: (o) => o.inbox },
   { id: 'today', label: 'Today', icon: 'sun', count: (o) => o.today },
   { id: 'upcoming', label: 'Upcoming', icon: 'calendar', count: (o) => o.upcoming },

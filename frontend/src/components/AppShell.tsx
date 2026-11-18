@@ -5,7 +5,7 @@
 //   <AppShell app="calendar" topbar={<Toolbar/>} sidebar={<MiniMonth/>}>{content}</AppShell>
 import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { Icon } from './Icon'
+import { Icon, type IconName } from './Icon'
 import { Avatar, Dot, Menu, MenuItem, MenuLabel, MenuSeparator, useIsPhone } from './ui'
 import { NotificationBell } from './NotificationBell'
 import { APPS, STAFF_APPS, type AppDef } from './nav'
@@ -359,7 +359,7 @@ export function SideItem({
   colour,
   to,
 }: {
-  icon?: string
+  icon?: IconName
   label: ReactNode
   active?: boolean
   count?: ReactNode

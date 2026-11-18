@@ -4,7 +4,7 @@
 // Built here to replace the old `.item-*` and `.chan-*` families; a candidate for components/ui.
 import type { ReactNode } from 'react'
 import { cn } from '../../lib/cn'
-import { Icon } from '../../components/Icon'
+import { Icon, type IconName } from '../../components/Icon'
 
 export function ItemRow({
   icon,
@@ -16,7 +16,7 @@ export function ItemRow({
   off = false,
   variant = 'list',
 }: {
-  icon: string
+  icon: IconName
   /** The name, then chips. */
   title: ReactNode
   /** A line under the title (a channel's destination). */
