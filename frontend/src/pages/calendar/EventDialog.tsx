@@ -192,7 +192,7 @@ export function EventDialog({ draft, onClose }: { draft: EventDraft; onClose: ()
             className="m-0 grid min-w-0 gap-3 border-0 p-0 [&:disabled_:is(input,select,textarea)]:bg-bg [&:disabled_:is(input,select,textarea)]:opacity-100"
           >
             <Input
-              className="h-10! text-md! font-medium"
+              size="lg"
               value={f.name}
               onChange={(e) => set('name', e.target.value)}
               placeholder="Add title"

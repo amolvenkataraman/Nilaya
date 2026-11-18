@@ -275,7 +275,9 @@ function Person({
         <Info icon="repeat" label={<label htmlFor="c-kit">Keep in touch</label>}>
           <Select
             id="c-kit"
-            className="h-7.5! w-auto! max-w-full py-0"
+            size="sm"
+            width="content"
+            className="max-w-full"
             value={p.keep_in_touch_days ?? 0}
             disabled={save.isPending}
             onChange={(e) => save.mutate({ id: p.id, body: { keep_in_touch_days: Number(e.target.value) || null } })}

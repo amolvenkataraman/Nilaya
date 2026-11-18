@@ -111,7 +111,7 @@ export function BulkBar({
             >
               <input
                 type="date"
-                className={cn(fieldClass.input, 'h-7! min-w-0 flex-1 text-xs!')}
+                className={fieldClass.input({ size: 'sm', className: 'min-w-0 flex-1' })}
                 value={day}
                 onChange={(e) => setDay(e.target.value)}
                 aria-label="Due date"

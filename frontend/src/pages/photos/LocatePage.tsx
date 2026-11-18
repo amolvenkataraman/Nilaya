@@ -351,7 +351,7 @@ export function LocatePage() {
                     }}
                   >
                     <input
-                      className={cn(fieldClass.input, 'h-7.5! w-24! px-2!')}
+                      className={fieldClass.input({ size: 'sm', width: 'content', className: 'w-24' })}
                       value={naming}
                       onChange={(e) => setNaming(e.target.value)}
                       placeholder="Name"

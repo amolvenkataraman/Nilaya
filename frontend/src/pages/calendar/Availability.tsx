@@ -99,7 +99,7 @@ export default function AvailabilityPage({ bare = false }: { bare?: boolean }) {
         {rangeTitle('week', date, n)}
       </h1>
       <input
-        className={cn(fieldClass.input, 'h-8 w-auto!', (phone || bare) && 'ml-auto')}
+        className={fieldClass.input({ width: 'content', className: cn((phone || bare) && 'ml-auto') })}
         type="date"
         value={dayKey(date)}
         onChange={(e) => e.target.value && setDate(parseDayKey(e.target.value))}

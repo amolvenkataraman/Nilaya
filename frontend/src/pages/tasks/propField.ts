@@ -1,7 +1,6 @@
 // What the task drawer's property fields share: the save callback's shape, the quiet button that shows a
 // value until clicked, the small form inside their popovers, the ghost select, and how a date reads.
 import { fieldClass } from '../../components/ui'
-import { cn } from '../../lib/cn'
 import { fmtDate, fmtTime, isEndOfDay } from '../../lib/dates'
 import type { TaskPatch } from '../../lib/types'
 import type { ReminderIn } from './recurrence'
@@ -15,10 +14,10 @@ export const propBtn =
 /** The form at the bottom of a property popover (a custom date, repeat or reminder). */
 export const popForm = 'grid gap-1.5 px-2 pt-1.5 pb-2'
 export const popRow = 'flex items-center gap-1.5'
-export const popInput = cn(fieldClass.input, 'h-7.5! min-w-0 text-xs!')
-export const popSelect = cn(fieldClass.select, 'h-7.5! min-w-0 text-xs!')
+export const popInput = fieldClass.input({ size: 'sm', className: 'min-w-0' })
+export const popSelect = fieldClass.select({ size: 'sm', className: 'min-w-0' })
 /** A select that looks like text until hovered (a member's role, a task's project or status). */
-export const ghostSelect = cn(fieldClass.select, 'w-auto! max-w-full border-transparent! bg-transparent! hover:border-border!')
+export const ghostSelect = fieldClass.select({ variant: 'ghost', width: 'content', className: 'max-w-full' })
 
 /** "Fri, Nov 6, 5:00 PM"; all-day dates (23:59) without the time; the year only when it isn't this one. */
 export function fmtWhen(iso: string): string {

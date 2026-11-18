@@ -1,22 +1,50 @@
 // Form fields with one look and one way to show help and errors. `fieldClass` styles a bare input, select or
-// textarea where a wrapper doesn't fit (inside a table cell, a menu).
+// textarea where a wrapper doesn't fit (inside a table cell, a menu). Sizes and widths are options, so a caller never
+// overrides the height or width with `!`.
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 
-const control =
-  'w-full rounded-sm border border-border bg-surface text-sm text-fg transition-[border-color,box-shadow] ' +
-  'placeholder:text-[color-mix(in_srgb,var(--app-muted)_80%,transparent)] hover:border-[color-mix(in_srgb,var(--app-muted)_45%,var(--app-border))] ' +
+/** sm sits beside small buttons (h-7, text-xs); xs fits a dense cell; lg is a title (an event's name). */
+export type FieldSize = 'xs' | 'sm' | 'md' | 'lg'
+/** fill: the column's width · content: no width of its own (a select fits its options; className may set one) ·
+ *  fill-phone: full width on phones, content beside a label on desktop. */
+export type FieldWidth = 'fill' | 'content' | 'fill-phone'
+/** ghost: no frame until hovered, for a value that reads as text (a task's status in the drawer). */
+export type FieldVariant = 'default' | 'ghost'
+
+export interface FieldOptions {
+  size?: FieldSize
+  width?: FieldWidth
+  variant?: FieldVariant
+  className?: string
+}
+
+const base =
+  'rounded-sm border text-fg transition-[border-color,box-shadow] placeholder:text-[color-mix(in_srgb,var(--app-muted)_80%,transparent)] ' +
   'focus:border-accent focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--app-accent)_18%,transparent)] focus:outline-none disabled:opacity-60'
 
+const variants: Record<FieldVariant, string> = {
+  default: 'border-border bg-surface hover:border-[color-mix(in_srgb,var(--app-muted)_45%,var(--app-border))]',
+  ghost: 'border-transparent bg-transparent hover:border-border',
+}
+
+const heights: Record<FieldSize, string> = { xs: 'h-6 text-xs', sm: 'h-7 text-xs', md: 'h-8 text-sm', lg: 'h-10 text-md font-medium' }
+const widths: Record<FieldWidth, string> = { fill: 'w-full', content: '', 'fill-phone': 'max-md:w-full' }
+
+const control = ({ size = 'md', width = 'fill', variant = 'default' }: FieldOptions) =>
+  cn(base, variants[variant], heights[size], widths[width])
+
+const arrow =
+  'appearance-none bg-[length:0.3125rem_0.3125rem] bg-no-repeat ' +
+  'bg-[image:linear-gradient(45deg,transparent_50%,var(--app-muted)_50%),linear-gradient(135deg,var(--app-muted)_50%,transparent_50%)] ' +
+  'bg-[position:calc(100%-0.875rem)_52%,calc(100%-0.5625rem)_52%]'
+
 export const fieldClass = {
-  input: cn(control, 'h-8 px-2.5'),
-  textarea: cn(control, 'min-h-20 resize-y px-2.5 py-2 leading-normal'),
-  select: cn(
-    control,
-    'h-8 appearance-none bg-[length:0.3125rem_0.3125rem] bg-no-repeat pr-7 pl-2.5',
-    'bg-[image:linear-gradient(45deg,transparent_50%,var(--app-muted)_50%),linear-gradient(135deg,var(--app-muted)_50%,transparent_50%)]',
-    'bg-[position:calc(100%-0.875rem)_52%,calc(100%-0.5625rem)_52%]',
-  ),
+  input: (o: FieldOptions = {}) => cn(control(o), o.size === 'xs' ? 'px-1.25' : 'px-2.5', o.className),
+  select: (o: FieldOptions = {}) => cn(control(o), arrow, 'pr-7 pl-2.5', o.className),
+  /** sm: a short note (min 3.5rem) · md: a description (min 5rem). */
+  textarea: ({ size = 'md', className }: { size?: 'sm' | 'md'; className?: string } = {}) =>
+    cn(base, variants.default, 'w-full resize-y px-2.5 py-2 text-sm leading-normal', size === 'sm' ? 'min-h-14' : 'min-h-20', className),
 }
 
 /** A labelled field: the control goes in children; `hint` below it, replaced by `error` when there is one. */
@@ -49,12 +77,16 @@ export function Field({
   )
 }
 
-export const Input = ({ className, ...p }: ComponentPropsWithRef<'input'>) => <input className={cn(fieldClass.input, className)} {...p} />
-export const Textarea = ({ className, ...p }: ComponentPropsWithRef<'textarea'>) => (
-  <textarea className={cn(fieldClass.textarea, className)} {...p} />
+type FieldProps<E extends 'input' | 'select'> = Omit<ComponentPropsWithRef<E>, 'size' | 'width'> & Omit<FieldOptions, 'className'>
+
+export const Input = ({ size, width, variant, className, ...p }: FieldProps<'input'>) => (
+  <input className={fieldClass.input({ size, width, variant, className })} {...p} />
 )
-export const Select = ({ className, ...p }: ComponentPropsWithRef<'select'>) => (
-  <select className={cn(fieldClass.select, className)} {...p} />
+export const Select = ({ size, width, variant, className, ...p }: FieldProps<'select'>) => (
+  <select className={fieldClass.select({ size, width, variant, className })} {...p} />
+)
+export const Textarea = ({ size, className, ...p }: ComponentPropsWithRef<'textarea'> & { size?: 'sm' | 'md' }) => (
+  <textarea className={fieldClass.textarea({ size, className })} {...p} />
 )
 
 /** Two or three fields side by side; stacked on phones. */

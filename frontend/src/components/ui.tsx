@@ -51,6 +51,19 @@ export { Field, FieldRow, fieldClass, Input, Select, Textarea } from './ui/form'
 export { Menu, MenuItem, MenuLabel, MenuSeparator, Popover, type TriggerProps } from './ui/menu'
 export { PageHead, pageClass } from './ui/page'
 export { QueryView } from './ui/query-view'
+export {
+  PanelRow,
+  PanelSection,
+  SavedMark,
+  SaveStatus,
+  SectionHead,
+  SettingLink,
+  SettingRow,
+  SettingsFoot,
+  SettingsSection,
+  SettingValue,
+  settingControl,
+} from './ui/settings'
 
 // ---------------------------------------------------------------- misc
 
@@ -96,11 +109,14 @@ export function Switch({
   checked,
   onChange,
   label,
+  ariaLabel,
   disabled,
 }: {
   checked: boolean
   onChange: (v: boolean) => void
   label?: ReactNode
+  /** The name for screen readers when the visible label is elsewhere (a settings row). */
+  ariaLabel?: string
   disabled?: boolean
 }) {
   return (
@@ -110,6 +126,7 @@ export function Switch({
         role="switch"
         checked={checked}
         disabled={disabled}
+        aria-label={ariaLabel}
         onChange={(e) => onChange(e.target.checked)}
         className="peer absolute size-px opacity-0"
       />

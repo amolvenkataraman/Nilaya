@@ -1,8 +1,7 @@
 // Settings › Password (POST /me/password -> 204). This device stays signed in; problems show inline.
 import { useState } from 'react'
-import { Button, cardClass, Input } from '../../components/ui'
+import { Button, cardClass, Input, SaveStatus, SettingRow, SettingsFoot, SettingsSection } from '../../components/ui'
 import { useChangePassword } from './api'
-import { SaveStatus, SettingRow, SettingsFoot, SettingsSection } from './SettingsSection'
 
 const MIN = 8
 

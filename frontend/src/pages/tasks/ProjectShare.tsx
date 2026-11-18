@@ -3,11 +3,9 @@
 import { useEffect, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { Avatar, Button, Confirm, Dialog, fieldClass, Input, QueryView, SkeletonRows } from '../../components/ui'
-import { cn } from '../../lib/cn'
 import { useMe } from '../../lib/queries'
 import type { Member, UserBrief } from '../../lib/types'
 import { type ProjectWithOwner, useMembers, useRemoveMember, useSaveMember } from './api'
-import { ghostSelect } from './propField'
 import { isProjectAdmin } from './task'
 
 const ROLES = [
@@ -15,8 +13,6 @@ const ROLES = [
   [1, 'Can edit'],
   [2, 'Admin'],
 ] as const
-
-const roleSelect = 'h-7.5! w-auto! text-xs!'
 
 function Person({ user, you, children }: { user: UserBrief; you: boolean; children?: React.ReactNode }) {
   return (
@@ -79,7 +75,7 @@ export function ShareDialog({ project, onClose, onLeft }: { project: ProjectWith
               autoFocus
             />
             <select
-              className={cn(fieldClass.select, roleSelect, 'max-md:flex-1')}
+              className={fieldClass.select({ size: 'sm', width: 'content', className: 'max-md:flex-1' })}
               value={role}
               onChange={(e) => setRole(Number(e.target.value))}
               aria-label="Role"
@@ -118,7 +114,7 @@ export function ShareDialog({ project, onClose, onLeft }: { project: ProjectWith
                   <Person key={m.id} user={m.user} you={self}>
                     {admin ? (
                       <select
-                        className={cn(ghostSelect, roleSelect)}
+                        className={fieldClass.select({ variant: 'ghost', size: 'sm', width: 'content', className: 'max-w-full' })}
                         value={m.role}
                         aria-label={`Role for ${m.user.username}`}
                         onChange={(e) => save.mutate({ username: m.user.username, role: Number(e.target.value) })}

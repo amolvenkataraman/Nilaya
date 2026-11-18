@@ -318,7 +318,7 @@ export function Calendar({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <input
-                    className={cn(fieldClass.input, 'h-6! px-1.25! text-xs!')}
+                    className={fieldClass.input({ size: 'xs' })}
                     autoFocus
                     value={text}
                     onChange={(e) => setText(e.target.value)}

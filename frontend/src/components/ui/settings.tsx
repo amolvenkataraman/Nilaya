@@ -1,11 +1,14 @@
-// The settings layout shared by Settings and Notifications: a titled section (heading, one-line description,
-// actions on the right) over a card of hairline-separated rows, each a label with an optional hint and its
-// control. Rows separate with a top border only when they follow another row, so a header block or a hidden
-// input before the first row doesn't add a line.
+// Settings layouts in two densities.
+// Page (Settings, Notifications): a titled section (heading, one-line description, actions on the right) over a
+// card of hairline-separated rows, each a label with an optional hint and its control. Rows separate with a top
+// border only when they follow another row, so a header block or a hidden input before the first row doesn't add
+// a line.
+// Panel (a drawer or a dialog: calendar settings, contact reminders, habit settings): sections divided by a rule,
+// and rows of a label with a short explanation and a control at the right, usually a Switch.
 import type { ReactNode } from 'react'
 import { Link } from 'react-router'
 import { cn } from '../../lib/cn'
-import { Icon } from '../../components/Icon'
+import { Icon } from '../Icon'
 
 export function SettingsSection({
   id,
@@ -112,9 +115,9 @@ export function SettingValue({ children, className }: { children: ReactNode; cla
   return <span className={cn('text-right text-sm wrap-anywhere text-muted max-md:text-left', className)}>{children}</span>
 }
 
-/** A select or time input in a row: as wide as its content (at least 12rem) beside the label, full width on
- *  phones. `!` because fieldClass sets w-full. */
-export const settingControl = 'md:w-auto! md:min-w-48'
+/** Props for a select or time input in a row: as wide as its content (at least 12rem) beside the label, full
+ *  width on phones. Spread it: `<Select {...settingControl}>`. */
+export const settingControl = { width: 'fill-phone', className: 'md:min-w-48' } as const
 
 /** The card's foot: a status on the left, buttons on the right. */
 export function SettingsFoot({ children }: { children: ReactNode }) {
@@ -170,5 +173,50 @@ export function SettingLink({ icon, label, note, to, href }: { icon: string; lab
     <Link {...{ [ROW]: '' }} className={className} to={to ?? '/'}>
       {inner}
     </Link>
+  )
+}
+
+/** A section of a drawer or dialog; a rule separates it from the one before. */
+export function PanelSection({ id, title, danger, children }: { id: string; title: ReactNode; danger?: boolean; children: ReactNode }) {
+  return (
+    <section className="grid gap-2.5 [&+section]:border-t [&+section]:border-border [&+section]:pt-4" aria-labelledby={id}>
+      <h3 id={id} className={cn('flex gap-1.5 text-sm', danger && 'text-danger')}>
+        {title}
+      </h3>
+      {children}
+    </section>
+  )
+}
+
+/** A label, an optional explanation under it and the control on the right. With `htmlFor` the label names the
+ *  control; a Switch takes `ariaLabel` instead. */
+export function PanelRow({
+  label,
+  help,
+  htmlFor,
+  children,
+}: {
+  label: ReactNode
+  help?: ReactNode
+  htmlFor?: string
+  children: ReactNode
+}) {
+  const text = (
+    <>
+      <strong className="font-medium">{label}</strong>
+      {help && <span className="text-xs text-muted">{help}</span>}
+    </>
+  )
+  return (
+    <div className="flex items-center gap-4">
+      {htmlFor ? (
+        <label className="grid min-w-0 flex-1 gap-0.5 text-sm" htmlFor={htmlFor}>
+          {text}
+        </label>
+      ) : (
+        <div className="grid min-w-0 flex-1 gap-0.5 text-sm">{text}</div>
+      )}
+      {children}
+    </div>
   )
 }

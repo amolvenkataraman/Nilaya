@@ -16,13 +16,13 @@ import {
   SearchBox,
   Segmented,
   Select,
+  SettingsSection,
   SkeletonRows,
   useDebounced,
   useHotkey,
 } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { dayDiff, fmtDate, groupByDay } from '../../lib/dates'
-import { SettingsSection } from '../settings/SettingsSection'
 import { inboxPagesQuery, sourcesQuery, useClearRead, useDeleteNotification, useInboxReads } from './api'
 
 function dayLabel(d: Date | null, now = new Date()): string {
@@ -135,7 +135,7 @@ export function InboxTab({ unreadOnly }: { unreadOnly: boolean }) {
             { value: 'unread', label: `Unread${unread ? ` ${unread}` : ''}` },
           ]}
         />
-        <Select className="w-auto! min-w-36" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Source">
+        <Select width="content" className="min-w-36" value={source} onChange={(e) => setSource(e.target.value)} aria-label="Source">
           <option value="">All sources</option>
           {sources.map((s) => (
             <option key={s} value={s}>

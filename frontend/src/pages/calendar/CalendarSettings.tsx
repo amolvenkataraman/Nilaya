@@ -14,6 +14,8 @@ import {
   Field,
   FieldRow,
   Input,
+  PanelRow,
+  PanelSection,
   QueryView,
   Select,
   SkeletonRows,
@@ -28,7 +30,6 @@ import { publicUrl } from './CalendarMenu'
 import { ColourChoice } from './ColourChoice'
 import { FALLBACK_COLOUR } from './colours'
 import { IconPicker } from './IconPicker'
-import { SettingRow, SettingsSection, srOnly } from './SettingRow'
 import { SyncSection } from './SyncSection'
 import { type CalendarDetail, type CalendarPatchBody, personName } from './types'
 
@@ -95,7 +96,7 @@ function SettingsSections({ d, cal, onClose }: { d: CalendarDetail; cal: Calenda
         </p>
       )}
 
-      <SettingsSection id="cs-general" title="General">
+      <PanelSection id="cs-general" title="General">
         {manage ? (
           <General d={d} onSave={(b) => save.mutate(b)} />
         ) : (
@@ -148,15 +149,15 @@ function SettingsSections({ d, cal, onClose }: { d: CalendarDetail; cal: Calenda
             </div>
           </div>
         )}
-      </SettingsSection>
+      </PanelSection>
 
-      <SettingsSection id="cs-mine" title="Just for me">
-        <SettingRow label="Show in my calendar">
-          <Switch checked={d.visible} onChange={(v) => save.mutate({ visible: v })} label={srOnly('Visible')} />
-        </SettingRow>
-        <SettingRow label="Reminders" help="Send event reminders from this calendar.">
-          <Switch checked={!!d.notify} onChange={(v) => save.mutate({ notify: v })} label={srOnly('Notify')} />
-        </SettingRow>
+      <PanelSection id="cs-mine" title="Just for me">
+        <PanelRow label="Show in my calendar">
+          <Switch checked={d.visible} onChange={(v) => save.mutate({ visible: v })} ariaLabel="Visible" />
+        </PanelRow>
+        <PanelRow label="Reminders" help="Send event reminders from this calendar.">
+          <Switch checked={!!d.notify} onChange={(v) => save.mutate({ notify: v })} ariaLabel="Notify" />
+        </PanelRow>
         <div className="grid gap-1.25">
           <span className="text-xs font-medium text-muted">My colour (only you see it)</span>
           <ColourChoice value={d.my_colour ?? ''} onChange={(c) => save.mutate({ my_colour: c })} label="My colour" delay={400} />
@@ -170,7 +171,7 @@ function SettingsSections({ d, cal, onClose }: { d: CalendarDetail; cal: Calenda
             </Select>
           </Field>
         )}
-      </SettingsSection>
+      </PanelSection>
 
       {manage && <Subscribers cal={cal} />}
       {manage && <Invites cal={cal} />}
@@ -235,9 +236,9 @@ function General({ d, onSave }: { d: CalendarDetail; onSave: (b: CalendarPatchBo
         <span className="text-xs font-medium text-muted">Icon</span>
         <IconPicker value={d.icon ?? ''} onChange={(i) => onSave({ icon: i })} icons={icons} />
       </div>
-      <SettingRow label="Active" help="Disabled calendars and their events are hidden everywhere.">
-        <Switch checked={d.active} onChange={(v) => onSave({ active: v })} label={srOnly('Active')} />
-      </SettingRow>
+      <PanelRow label="Active" help="Disabled calendars and their events are hidden everywhere.">
+        <Switch checked={d.active} onChange={(v) => onSave({ active: v })} ariaLabel="Active" />
+      </PanelRow>
       <FieldRow>
         <Field label="Time zone">
           <Input
@@ -264,9 +265,9 @@ function General({ d, onSave }: { d: CalendarDetail; onSave: (b: CalendarPatchBo
           />
         </Field>
       </FieldRow>
-      <SettingRow label="Public" help="Anyone with the link can view it.">
-        <Switch checked={d.public} onChange={(v) => onSave({ public: v })} label={srOnly('Public')} />
-      </SettingRow>
+      <PanelRow label="Public" help="Anyone with the link can view it.">
+        <Switch checked={d.public} onChange={(v) => onSave({ public: v })} ariaLabel="Public" />
+      </PanelRow>
     </>
   )
 }
@@ -278,7 +279,7 @@ function Danger({ cal, onDone }: { cal: CalendarDetail; onDone: () => void }) {
   const remove = useDeleteCalendar()
   const leave = useLeaveCalendar()
   return (
-    <SettingsSection id="cs-danger" title={owner ? 'Delete calendar' : 'Leave calendar'} danger>
+    <PanelSection id="cs-danger" title={owner ? 'Delete calendar' : 'Leave calendar'} danger>
       <p className="text-xs text-muted">
         {owner
           ? 'Deletes the calendar and all of its events for everyone.'
@@ -317,6 +318,6 @@ function Danger({ cal, onDone }: { cal: CalendarDetail; onDone: () => void }) {
           </Field>
         )}
       </Confirm>
-    </SettingsSection>
+    </PanelSection>
   )
 }

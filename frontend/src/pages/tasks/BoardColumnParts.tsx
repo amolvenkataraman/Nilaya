@@ -61,7 +61,7 @@ export function ColumnHead({
       )}
       {editing ? (
         <input
-          className={cn(fieldClass.input, 'h-7!')}
+          className={fieldClass.input({ size: 'sm', className: 'text-sm' })}
           autoFocus
           value={name}
           maxLength={64}

@@ -2,11 +2,10 @@
 // change them), or, for a local calendar, a way to connect it to a source.
 import { useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { Button, Confirm, Field, FieldRow, Input, Switch } from '../../components/ui'
+import { Button, Confirm, Field, FieldRow, Input, PanelRow, PanelSection, Switch } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { shortStamp } from '../../lib/dates'
 import { useSaveCalendar, useSyncCalendar } from './api'
-import { SettingRow, SettingsSection, srOnly } from './SettingRow'
 import {
   clampMonths,
   MAX_SYNC_MONTHS,
@@ -43,7 +42,7 @@ export function SyncSection({ cal, canSync }: { cal: CalendarDetail; canSync: bo
     </Field>
   )
   return (
-    <SettingsSection id="cs-sync" title="Sync">
+    <PanelSection id="cs-sync" title="Sync">
       {canSync && (
         <div className="grid gap-1.25">
           <span className="text-xs font-medium text-muted">Source</span>
@@ -68,9 +67,9 @@ export function SyncSection({ cal, canSync }: { cal: CalendarDetail; canSync: bo
       {err && <p className="text-xs text-danger">{err}</p>}
       {canSync && s && (
         <>
-          <SettingRow label="Sync automatically">
-            <Switch checked={s.auto_sync} onChange={(v) => save.mutate({ sync: { auto_sync: v } })} label={srOnly('Auto sync')} />
-          </SettingRow>
+          <PanelRow label="Sync automatically">
+            <Switch checked={s.auto_sync} onChange={(v) => save.mutate({ sync: { auto_sync: v } })} ariaLabel="Auto sync" />
+          </PanelRow>
           {/* key: the fields restart from the saved values after each save */}
           <FieldRow key={`${s.past_months}-${s.future_months}`}>
             {months('Months back', s.past_months, 'past_months')}
@@ -105,7 +104,7 @@ export function SyncSection({ cal, canSync }: { cal: CalendarDetail; canSync: bo
         disabled={save.isPending}
         onConfirm={() => save.mutate({ calendar_type: 0 }, { onSuccess: () => toast.show(`"${cal.name}" is a local calendar now`) })}
       />
-    </SettingsSection>
+    </PanelSection>
   )
 }
 
@@ -120,20 +119,20 @@ function SetupSync({ cal }: { cal: CalendarDetail }) {
   const connect = () =>
     save.mutate({ calendar_type: type, calendar_url: url.trim(), auto_sync: auto }, { onSuccess: () => run.mutate(undefined) })
   return (
-    <SettingsSection id="cs-sync" title="Sync">
+    <PanelSection id="cs-sync" title="Sync">
       {!open ? (
-        <SettingRow label="Local calendar" help="Fill it from an iCalendar link, a public Google calendar or UWaterloo WCMS.">
+        <PanelRow label="Local calendar" help="Fill it from an iCalendar link, a public Google calendar or UWaterloo WCMS.">
           <Button size="sm" onClick={() => setOpen(true)}>
             <Icon name="refresh" size={14} />
             Set up sync
           </Button>
-        </SettingRow>
+        </PanelRow>
       ) : (
         <div className="grid gap-3">
           <SourceFields type={type} url={url} onType={setType} onUrl={setUrl} autoFocus />
-          <SettingRow label="Sync automatically">
-            <Switch checked={auto} onChange={setAuto} label={srOnly('Sync automatically')} />
-          </SettingRow>
+          <PanelRow label="Sync automatically">
+            <Switch checked={auto} onChange={setAuto} ariaLabel="Sync automatically" />
+          </PanelRow>
           <div className="flex items-center gap-1.5">
             <span className="flex-1" />
             <Button size="sm" onClick={() => setOpen(false)}>
@@ -145,7 +144,7 @@ function SetupSync({ cal }: { cal: CalendarDetail }) {
           </div>
         </div>
       )}
-    </SettingsSection>
+    </PanelSection>
   )
 }
 

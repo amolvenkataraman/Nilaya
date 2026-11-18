@@ -143,7 +143,9 @@ function ImportWizard({ open, onClose }: Props) {
               <div className="flex items-center gap-1.5 text-muted">
                 <Icon name="info" size={14} />
                 <Select
-                  className="h-7! w-auto! font-semibold"
+                  size="sm"
+                  width="content"
+                  className="font-semibold"
                   value={opts.format}
                   onChange={(e) => change({ format: e.target.value, mapping: null })}
                   aria-label="File format"

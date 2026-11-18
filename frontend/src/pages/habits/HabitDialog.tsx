@@ -353,7 +353,8 @@ function HabitForm({ open, habit, onClose, onSaved }: Props) {
                 Every{' '}
                 <Input
                   id="h-interval"
-                  className="w-18!"
+                  width="content"
+                  className="w-18"
                   type="number"
                   min={1}
                   max={365}
@@ -395,7 +396,8 @@ function HabitForm({ open, habit, onClose, onSaved }: Props) {
             {f.reminder && (
               <>
                 <Input
-                  className="w-28!"
+                  width="content"
+                  className="w-28"
                   type="time"
                   value={f.reminder_time}
                   onChange={(e) => set('reminder_time', e.target.value)}

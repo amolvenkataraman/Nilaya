@@ -12,7 +12,7 @@ export const cardGridClass = 'grid grid-cols-[repeat(auto-fill,minmax(min(100%,2
 /** Help line under a chart. */
 export const helpClass = 'text-xs text-muted'
 /** The compact select in card heads (the field look at 1.75rem, sized to its text). */
-export const smallSelectClass = cn(fieldClass.select, 'h-7! w-auto! max-w-full text-xs!')
+export const smallSelectClass = fieldClass.select({ size: 'sm', width: 'content', className: 'max-w-full' })
 
 const card = 'min-w-0 rounded-md border border-border bg-surface shadow-card'
 

@@ -1,6 +1,6 @@
 // Habit settings: the evening nudge ("2 habits left today") and when it's sent. Shared with
 // Notifications › Reminders through one cached copy; changes save straight away.
-import { Button, Dialog, Input, QueryView, Switch } from '../../components/ui'
+import { Button, Dialog, Input, PanelRow, QueryView, Switch } from '../../components/ui'
 import { useHabitSettings, useSaveHabitSettings } from './api'
 
 export function HabitSettingsDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -22,19 +22,16 @@ export function HabitSettingsDialog({ open, onClose }: { open: boolean; onClose:
       <QueryView query={settings} skeleton={<span className="my-2 block h-3 animate-pulse rounded-xs bg-surface-2" />}>
         {(s) => (
           <div className="grid gap-3">
-            <div className="flex items-center gap-2">
-              <div className="min-w-0 flex-auto">
-                <div className="text-sm font-medium">Evening nudge</div>
-                <div className="text-xs text-muted">A notification like "2 habits left today" if you haven't finished.</div>
-              </div>
-              <Switch checked={s.evening_nudge} onChange={(v) => save.mutate({ evening_nudge: v })} />
-            </div>
+            <PanelRow label="Evening nudge" help={'A notification like "2 habits left today" if you haven\'t finished.'}>
+              <Switch checked={s.evening_nudge} onChange={(v) => save.mutate({ evening_nudge: v })} ariaLabel="Evening nudge" />
+            </PanelRow>
             {s.evening_nudge && (
               <label className="flex items-center gap-2 text-sm" htmlFor="h-nudge-time">
                 <span className="min-w-0 flex-auto">Send at</span>
                 <Input
                   id="h-nudge-time"
-                  className="w-28!"
+                  width="content"
+                  className="w-28"
                   type="time"
                   defaultValue={s.nudge_time.slice(0, 5)}
                   onBlur={(e) => e.target.value && save.mutate({ nudge_time: e.target.value + ':00' })}

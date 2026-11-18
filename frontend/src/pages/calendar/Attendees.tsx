@@ -17,7 +17,7 @@ const RSVP: [Attendee['rsvp'], string][] = [
 ]
 const EMAIL = /^[^\s@<>"]+@[^\s@<>"]+\.[^\s@<>"]+$/
 /** The compact select in a row (RSVP, role). */
-export const smallSelect = cn(fieldClass.select, 'h-7! w-auto! text-xs!')
+export const smallSelect = fieldClass.select({ size: 'sm', width: 'content' })
 
 export function Attendees({
   eventId,
@@ -96,7 +96,7 @@ export function Attendees({
       </ul>
       <div className="relative">
         <input
-          className={fieldClass.input}
+          className={fieldClass.input()}
           value={text}
           onChange={(e) => setText(e.target.value)}
           placeholder="Add people: search contacts or type an email"

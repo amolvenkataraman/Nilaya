@@ -1,9 +1,8 @@
 // Settings › Keyboard shortcuts: every app's keys (shortcutList.ts), in a dense grid per app.
 import { Fragment } from 'react'
 import { cn } from '../../lib/cn'
-import { SettingsSection } from './SettingsSection'
 import { SHORTCUTS } from './shortcutList'
-import { cardClass, Kbd } from '../../components/ui'
+import { cardClass, Kbd, SettingsSection } from '../../components/ui'
 
 const mac = typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
 

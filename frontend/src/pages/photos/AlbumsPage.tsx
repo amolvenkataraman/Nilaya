@@ -70,7 +70,7 @@ export function AlbumsPage() {
         {!!q.data?.length && (
           <>
             <select
-              className={cn(fieldClass.select, 'w-auto! text-xs!')}
+              className={fieldClass.select({ width: 'content', className: 'text-xs' })}
               value={sort}
               onChange={(e) => setSort(e.target.value)}
               aria-label="Sort albums"

@@ -1,7 +1,6 @@
 // The last Settings sections: staff links (Usage, the Django admin) and "More" (your public profile).
 import { userPath } from '../users/UserLink'
-import { SettingLink, SettingsSection } from './SettingsSection'
-import { cardClass } from '../../components/ui'
+import { cardClass, SettingLink, SettingsSection } from '../../components/ui'
 
 export function AdminSection() {
   return (

@@ -322,7 +322,7 @@ function FilterMenu({
         }}
       >
         <input
-          className={cn(fieldClass.input, 'h-7.5! min-w-0 text-xs!')}
+          className={fieldClass.input({ size: 'sm', className: 'min-w-0' })}
           value={who}
           onChange={(e) => setWho(e.target.value)}
           placeholder="Username, then Enter"

@@ -4,7 +4,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { fieldClass } from '../../components/ui/form'
-import { cn } from '../cn'
 import { photoLibrariesQuery, photoSummaryQuery } from '../photoQueries'
 import type { Library } from '../types'
 
@@ -34,7 +33,7 @@ export function heatParams(f: HeatFilter) {
   }
 }
 
-const select = cn(fieldClass.select, 'h-7! w-auto! text-xs!')
+const select = fieldClass.select({ size: 'sm', width: 'content' })
 const checkRow = 'flex items-center gap-1.5 text-xs'
 
 export function HeatFilterControls({

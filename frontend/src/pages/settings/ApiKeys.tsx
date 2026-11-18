@@ -14,6 +14,7 @@ import {
   MenuItem,
   QueryView,
   Select,
+  SettingsSection,
   SkeletonRows,
 } from '../../components/ui'
 import { Icon } from '../../components/Icon'
@@ -22,7 +23,6 @@ import { fmtDate, shortStamp } from '../../lib/dates'
 import { type ApiKey, type KeyApp, useApiKeys, useKeyApps, useRevokeKey, useSaveKey } from './api'
 import { ItemRow } from './ItemRow'
 import { SecretBox } from './SecretBox'
-import { SettingsSection } from './SettingsSection'
 
 export const day = (iso: string) => fmtDate(new Date(iso), { year: 'numeric', month: 'short', day: 'numeric' })
 
@@ -248,7 +248,8 @@ function KeyDialog({ apiKey, apps, onClose }: { apiKey: ApiKey | null; apps: Key
               <label htmlFor={`scope-${a.app}`}>{a.label}</label>
               <Select
                 id={`scope-${a.app}`}
-                className="w-40! shrink-0 max-md:w-36!"
+                width="content"
+                className="w-40 shrink-0 max-md:w-36"
                 value={levels[a.app]}
                 onChange={(e) => setLevels((l) => ({ ...l, [a.app]: e.target.value as Level }))}
               >

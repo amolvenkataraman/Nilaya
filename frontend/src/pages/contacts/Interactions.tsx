@@ -145,7 +145,8 @@ function InteractionForm({
       </span>
       {showNotes ? (
         <Textarea
-          className="col-span-full min-h-14!"
+          size="sm"
+          className="col-span-full"
           value={notes}
           onChange={(e) => setNotes(e.target.value)}
           placeholder="Notes (optional)"

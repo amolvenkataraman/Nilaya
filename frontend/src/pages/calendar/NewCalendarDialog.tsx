@@ -1,13 +1,12 @@
 // New calendar: blank, or synced from a link (iCalendar, public Google, UWaterloo WCMS) with a preview first.
 // Mounted only while open, so every opening starts from the defaults. Loaded on demand.
 import { useState } from 'react'
-import { Button, Dialog, Field, FieldRow, Input, Segmented, Switch } from '../../components/ui'
+import { Button, Dialog, Field, FieldRow, Input, PanelRow, Segmented, Switch } from '../../components/ui'
 import type { Calendar } from '../../lib/types'
 import { useCalendarIcons, useCreateCalendar } from './api'
 import { ColourChoice } from './ColourChoice'
 import { CAL_COLOURS } from './colours'
 import { IconPicker } from './IconPicker'
-import { SettingRow, srOnly } from './SettingRow'
 import { clampMonths, MAX_SYNC_MONTHS, SourceFields, sourceProblem, type SourceType } from './SyncSetup'
 
 export default function NewCalendarDialog({ onClose, onCreated }: { onClose: () => void; onCreated: (c: Calendar) => void }) {
@@ -95,9 +94,9 @@ export default function NewCalendarDialog({ onClose, onCreated }: { onClose: () 
         </Field>
         {syncing && (
           <>
-            <SettingRow label="Sync automatically" help="Keeps it up to date in the background.">
-              <Switch checked={auto} onChange={setAuto} label={srOnly('Sync automatically')} />
-            </SettingRow>
+            <PanelRow label="Sync automatically" help="Keeps it up to date in the background.">
+              <Switch checked={auto} onChange={setAuto} ariaLabel="Sync automatically" />
+            </PanelRow>
             <FieldRow>
               {months('Months back', back, setBack)}
               {months('Months ahead', ahead, setAhead)}

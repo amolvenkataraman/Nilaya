@@ -10,6 +10,7 @@ import {
   CardHead,
   EmptyState,
   QueryView,
+  SectionHead,
   Segmented,
   SkeletonRows,
   useIsPhone,
@@ -17,7 +18,6 @@ import {
 import { cn } from '../../lib/cn'
 import { addDays, dayKey, fmtDate, parseDayKey, startOfDay } from '../../lib/dates'
 import { type UsageSummary, usageQuery } from './api'
-import { SectionHead } from './SettingsSection'
 
 const PERIODS = [
   { value: '7', label: '7 days' },

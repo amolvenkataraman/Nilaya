@@ -140,7 +140,7 @@ export function SuperlativesPage() {
     <div className={pageClass(true)}>
       <PageHead title="Superlatives" sub="Rankings across your visible libraries">
         <select
-          className={cn(fieldClass.select, 'w-auto! text-xs!')}
+          className={fieldClass.select({ width: 'content', className: 'text-xs' })}
           value={limit}
           onChange={(e) => setParam('limit', e.target.value)}
           aria-label="How many to show"

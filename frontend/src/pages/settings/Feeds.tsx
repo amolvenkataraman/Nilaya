@@ -1,6 +1,20 @@
 // Settings › Calendar feeds: private ICS addresses for phone calendar apps. A new address is shown once.
 import { useState } from 'react'
-import { Button, cardClass, Chip, Confirm, EmptyState, Menu, MenuItem, QueryView, Select, SkeletonRows } from '../../components/ui'
+import {
+  Button,
+  cardClass,
+  Chip,
+  Confirm,
+  EmptyState,
+  Menu,
+  MenuItem,
+  QueryView,
+  Select,
+  settingControl,
+  SettingRow,
+  SettingsSection,
+  SkeletonRows,
+} from '../../components/ui'
 import { Icon } from '../../components/Icon'
 import { shortStamp } from '../../lib/dates'
 import { plural } from '../../lib/format'
@@ -8,7 +22,6 @@ import { type Feed, useCreateFeed, useFeeds, useRevokeFeed } from './api'
 import { day } from './ApiKeys'
 import { ItemRow } from './ItemRow'
 import { SecretBox } from './SecretBox'
-import { SettingRow, SettingsSection, settingControl } from './SettingsSection'
 
 const FEED_KINDS = { calendar: 'Calendar events', tasks: 'Tasks with due dates' } as const
 
@@ -30,7 +43,7 @@ export function FeedsSection() {
     >
       <div className={cardClass}>
         <SettingRow label="New feed" htmlFor="feed-kind" inline>
-          <Select id="feed-kind" className={settingControl} value={kind} onChange={(e) => setKind(e.target.value as Feed['kind'])}>
+          <Select id="feed-kind" {...settingControl} value={kind} onChange={(e) => setKind(e.target.value as Feed['kind'])}>
             {Object.entries(FEED_KINDS).map(([k, l]) => (
               <option key={k} value={k}>
                 {l}

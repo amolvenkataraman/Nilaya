@@ -14,6 +14,7 @@ import {
   MenuSeparator,
   QueryView,
   Select,
+  SettingsSection,
   SkeletonRows,
   Switch,
 } from '../../components/ui'
@@ -21,7 +22,6 @@ import { cn } from '../../lib/cn'
 import { shortStamp } from '../../lib/dates'
 import type { Channel, ChannelType } from '../../lib/types'
 import { ItemRow } from '../settings/ItemRow'
-import { SettingsSection } from '../settings/SettingsSection'
 import { channelsQuery, channelTypesQuery, MIN_PRIORITY, useChannelPatch, useDeleteChannel, useTestChannel } from './api'
 import { ChannelDialog } from './ChannelDialog'
 
@@ -125,7 +125,9 @@ function ChannelRow({ c, types, kindLabel, onEdit }: { c: Channel; types?: Chann
       actions={
         <>
           <Select
-            className="h-7! w-auto! text-xs max-md:flex-1"
+            size="sm"
+            width="content"
+            className="max-md:flex-1"
             aria-label={`Minimum priority for ${c.name}`}
             value={c.min_priority}
             onChange={(e) => update.mutate({ id: c.id, body: { min_priority: Number(e.target.value) } })}
@@ -141,11 +143,7 @@ function ChannelRow({ c, types, kindLabel, onEdit }: { c: Channel; types?: Chann
             {test.isPending ? 'Sending…' : 'Test'}
           </Button>
           <span className="inline-flex" title={c.enabled ? 'Enabled' : 'Disabled'}>
-            <Switch
-              checked={c.enabled}
-              onChange={(v) => update.mutate({ id: c.id, body: { enabled: v } })}
-              label={<span className="sr-only">Enabled</span>}
-            />
+            <Switch checked={c.enabled} onChange={(v) => update.mutate({ id: c.id, body: { enabled: v } })} ariaLabel="Enabled" />
           </span>
           <Menu
             align="end"

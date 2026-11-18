@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
-import { Button, buttonClass, ErrorBox, Field, Input, QueryView, Select, SkeletonRows } from '../../components/ui'
+import { Button, buttonClass, ErrorBox, Field, Input, PanelSection, QueryView, Select, SkeletonRows } from '../../components/ui'
 import { toast } from '../../components/toast'
 import { cn } from '../../lib/cn'
 import { fmtDate, parseDayKey } from '../../lib/dates'
@@ -11,7 +11,6 @@ import type { Calendar } from '../../lib/types'
 import { useInviteMutations, useInvites, useSubscriberMutations, useSubscribers } from './api'
 import { smallSelect } from './Attendees'
 import { pill } from './chips'
-import { SettingsSection } from './SettingRow'
 import { personName } from './types'
 
 const list = 'grid gap-px'
@@ -23,7 +22,7 @@ export function Subscribers({ cal }: { cal: Calendar }) {
   const q = useSubscribers(cal.id)
   const { setRole, remove } = useSubscriberMutations(cal.id)
   return (
-    <SettingsSection id="cs-subs" title={<>People {q.data && <span className="text-muted">{q.data.length}</span>}</>}>
+    <PanelSection id="cs-subs" title={<>People {q.data && <span className="text-muted">{q.data.length}</span>}</>}>
       <QueryView
         query={q}
         skeleton={<SkeletonRows rows={2} />}
@@ -76,7 +75,7 @@ export function Subscribers({ cal }: { cal: Calendar }) {
           </ul>
         )}
       </QueryView>
-    </SettingsSection>
+    </PanelSection>
   )
 }
 
@@ -100,7 +99,7 @@ export function Invites({ cal }: { cal: Calendar }) {
       { onSuccess: () => setCode('') },
     )
   return (
-    <SettingsSection id="cs-inv" title="Invites">
+    <PanelSection id="cs-inv" title="Invites">
       <form
         className="grid grid-cols-[1fr_1fr_1fr_1fr_auto] items-end gap-2 max-md:grid-cols-2"
         onSubmit={(e) => {
@@ -177,7 +176,7 @@ export function Invites({ cal }: { cal: Calendar }) {
           ))}
         </ul>
       )}
-    </SettingsSection>
+    </PanelSection>
   )
 }
 

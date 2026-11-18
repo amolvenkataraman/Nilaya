@@ -1,13 +1,12 @@
 // Settings › Guides: one Markdown guide per app (concepts, endpoints, schemas) to open, copy into an AI agent or
 // download, plus links to the interactive API docs and the OpenAPI schema.
 import { useState } from 'react'
-import { Button, buttonClass, CardBody, cardClass, ErrorBox, SkeletonRows } from '../../components/ui'
+import { Button, buttonClass, CardBody, cardClass, ErrorBox, SettingsSection, SkeletonRows } from '../../components/ui'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { apiUrl } from '../../lib/api'
 import { copyText } from '../../lib/clipboard'
 import { fetchGuide, useKeyApps } from './api'
-import { SettingsSection } from './SettingsSection'
 
 const newTab = { target: '_blank', rel: 'noopener noreferrer' } as const
 

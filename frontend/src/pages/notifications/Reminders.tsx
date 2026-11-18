@@ -2,9 +2,20 @@
 // the nudges the Habits and Contacts apps send. Every change saves at once and says "Saved".
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { cardClass, ErrorBox, Input, Select, SkeletonRows, Switch } from '../../components/ui'
+import {
+  cardClass,
+  ErrorBox,
+  Input,
+  SavedMark,
+  SaveStatus,
+  Select,
+  settingControl,
+  SettingRow,
+  SettingsSection,
+  SkeletonRows,
+  Switch,
+} from '../../components/ui'
 import type { ReminderSettings } from '../../lib/types'
-import { SavedMark, SaveStatus, SettingRow, SettingsSection, settingControl } from '../settings/SettingsSection'
 import { remindersQuery, useAppSettings, useSaveReminders } from './api'
 
 // 0 minutes = off (see GET /notifications/reminders). Max 10080 (a week).
@@ -88,23 +99,19 @@ export function RemindersTab() {
             <SettingRow label="Morning agenda" hint="A summary of the day's events and tasks">
               <Input
                 type="time"
-                className={settingControl}
+                {...settingControl}
                 aria-label="Agenda time"
                 value={s.agenda_time.slice(0, 5)}
                 disabled={!s.daily_agenda}
                 onChange={(e) => e.target.value && set({ agenda_time: `${e.target.value}:00` })}
               />
-              <Switch
-                checked={s.daily_agenda}
-                onChange={(v) => set({ daily_agenda: v })}
-                label={<span className="sr-only">Send a morning agenda</span>}
-              />
+              <Switch checked={s.daily_agenda} onChange={(v) => set({ daily_agenda: v })} ariaLabel="Send a morning agenda" />
             </SettingRow>
             <SettingRow label="Deadlines become tasks" hint="Each new calendar deadline also gets a task in your Inbox" inline>
               <Switch
                 checked={s.deadlines_to_todos}
                 onChange={(v) => set({ deadlines_to_todos: v })}
-                label={<span className="sr-only">Turn deadlines into tasks</span>}
+                ariaLabel="Turn deadlines into tasks"
               />
             </SettingRow>
           </>
@@ -139,17 +146,13 @@ export function AppReminders() {
           <SettingRow label="Habits evening nudge" hint="A reminder about habits not done yet today">
             <Input
               type="time"
-              className={settingControl}
+              {...settingControl}
               aria-label="Nudge time"
               value={habits.q.data.nudge_time.slice(0, 5)}
               disabled={!habits.q.data.evening_nudge}
               onChange={(e) => e.target.value && habits.save({ nudge_time: `${e.target.value}:00` })}
             />
-            <Switch
-              checked={habits.q.data.evening_nudge}
-              onChange={(v) => habits.save({ evening_nudge: v })}
-              label={<span className="sr-only">Evening nudge</span>}
-            />
+            <Switch checked={habits.q.data.evening_nudge} onChange={(v) => habits.save({ evening_nudge: v })} ariaLabel="Evening nudge" />
           </SettingRow>
         )}
         {contacts.q.data && (
@@ -157,7 +160,7 @@ export function AppReminders() {
             <SettingRow label="Birthdays" hint="Reminders for your contacts' birthdays" htmlFor="rm-bday">
               <Select
                 id="rm-bday"
-                className={settingControl}
+                {...settingControl}
                 value={contacts.q.data.birthday_reminders}
                 onChange={(e) => contacts.save({ birthday_reminders: e.target.value as 'off' })}
               >
@@ -170,7 +173,7 @@ export function AppReminders() {
               <Switch
                 checked={contacts.q.data.keep_in_touch_reminders}
                 onChange={(v) => contacts.save({ keep_in_touch_reminders: v })}
-                label={<span className="sr-only">Keep in touch reminders</span>}
+                ariaLabel="Keep in touch reminders"
               />
             </SettingRow>
           </>
@@ -200,7 +203,7 @@ function MinutesRow({
   const options = presets.includes(value) ? presets : [...presets, value].sort((a, b) => a - b)
   return (
     <SettingRow label={label} hint={hint} htmlFor={id}>
-      <Select id={id} className={settingControl} value={value} onChange={(e) => onChange(Number(e.target.value))}>
+      <Select id={id} {...settingControl} value={value} onChange={(e) => onChange(Number(e.target.value))}>
         {options.map((m) => (
           <option key={m} value={m}>
             {minutesLabel(m)}
