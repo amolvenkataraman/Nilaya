@@ -160,7 +160,9 @@ export function LabelsField({ task, labels, save }: { task: TaskDetail; labels?:
           }}
         >
           <Input
-            className="h-6! w-32! text-xs!"
+            size="xs"
+            width="content"
+            className="w-32"
             autoFocus
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -207,7 +209,9 @@ export function TimeSpentField({ task, save }: { task: TaskDetail; save: Save })
   return (
     <>
       <Input
-        className="h-7.5! w-26! border-transparent! bg-transparent! hover:border-border!"
+        width="content"
+        variant="ghost"
+        className="w-26"
         value={v}
         placeholder="e.g. 1h 30m"
         aria-label="Time spent"

@@ -2,7 +2,7 @@
 // popover to add one relative to the due or start date, or at a date and time.
 import { useState } from 'react'
 import { Icon } from '../../components/Icon'
-import { Button, Chip, chipClass, MenuItem, MenuLabel, MenuSeparator, Popover } from '../../components/ui'
+import { Button, Chip, chipClass, fieldClass, MenuItem, MenuLabel, MenuSeparator, Popover } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { fmtStamp, shortStamp } from '../../lib/dates'
 import type { TaskDetail } from '../../lib/types'
@@ -108,7 +108,7 @@ export function RemindersField({ task, save }: { task: TaskDetail; save: Save })
                   <div className={popRow}>
                     <input
                       type="number"
-                      className={cn(popInput, 'w-16!')}
+                      className={fieldClass.input({ size: 'sm', width: 'content', className: 'w-16' })}
                       min={0}
                       max={999}
                       value={n}

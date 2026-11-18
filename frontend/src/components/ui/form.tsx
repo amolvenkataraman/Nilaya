@@ -39,12 +39,15 @@ const arrow =
   'bg-[image:linear-gradient(45deg,transparent_50%,var(--app-muted)_50%),linear-gradient(135deg,var(--app-muted)_50%,transparent_50%)] ' +
   'bg-[position:calc(100%-0.875rem)_52%,calc(100%-0.5625rem)_52%]'
 
+export type TextareaSize = 'xs' | 'sm' | 'md' | 'lg'
+const textareaHeights: Record<TextareaSize, string> = { xs: 'min-h-10', sm: 'min-h-14', md: 'min-h-20', lg: 'min-h-24' }
+
 export const fieldClass = {
   input: (o: FieldOptions = {}) => cn(control(o), o.size === 'xs' ? 'px-1.25' : 'px-2.5', o.className),
   select: (o: FieldOptions = {}) => cn(control(o), arrow, 'pr-7 pl-2.5', o.className),
-  /** sm: a short note (min 3.5rem) · md: a description (min 5rem). */
-  textarea: ({ size = 'md', className }: { size?: 'sm' | 'md'; className?: string } = {}) =>
-    cn(base, variants.default, 'w-full resize-y px-2.5 py-2 text-sm leading-normal', size === 'sm' ? 'min-h-14' : 'min-h-20', className),
+  /** xs: a comment box (min 2.5rem) · sm: a short note (3.5rem) · md: a description (5rem) · lg: a task's notes (6rem). */
+  textarea: ({ size = 'md', className }: { size?: TextareaSize; className?: string } = {}) =>
+    cn(base, variants.default, 'w-full resize-y px-2.5 py-2 text-sm leading-normal', textareaHeights[size], className),
 }
 
 /** A labelled field: the control goes in children; `hint` below it, replaced by `error` when there is one. */
@@ -85,7 +88,7 @@ export const Input = ({ size, width, variant, className, ...p }: FieldProps<'inp
 export const Select = ({ size, width, variant, className, ...p }: FieldProps<'select'>) => (
   <select className={fieldClass.select({ size, width, variant, className })} {...p} />
 )
-export const Textarea = ({ size, className, ...p }: ComponentPropsWithRef<'textarea'> & { size?: 'sm' | 'md' }) => (
+export const Textarea = ({ size, className, ...p }: ComponentPropsWithRef<'textarea'> & { size?: TextareaSize }) => (
   <textarea className={fieldClass.textarea({ size, className })} {...p} />
 )
 

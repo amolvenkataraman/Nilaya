@@ -214,7 +214,7 @@ export function RangeSyncDialog({ id, name, google, onClose }: { id: number; nam
             </option>
           ))}
         </Select>
-        <Select className="w-auto!" value={y} onChange={(e) => set(m, Number(e.target.value))} aria-label={`${label} year`}>
+        <Select width="content" value={y} onChange={(e) => set(m, Number(e.target.value))} aria-label={`${label} year`}>
           {years.map((yy) => (
             <option key={yy} value={yy}>
               {yy}

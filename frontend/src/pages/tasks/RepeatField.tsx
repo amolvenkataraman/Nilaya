@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
-import { Button, MenuItem, MenuLabel, MenuSeparator, Popover } from '../../components/ui'
+import { Button, fieldClass, MenuItem, MenuLabel, MenuSeparator, Popover } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import type { TaskDetail } from '../../lib/types'
-import { popForm, popInput, popRow, popSelect, propBtn, type Save } from './propField'
+import { popForm, popRow, popSelect, propBtn, type Save } from './propField'
 import { REPEAT_PRESETS, REPEAT_UNITS, repeatParts, repeatText } from './recurrence'
 
 export function RepeatField({ task, save }: { task: TaskDetail; save: Save }) {
@@ -79,7 +79,7 @@ export function RepeatField({ task, save }: { task: TaskDetail; save: Save }) {
               <span className="text-sm">Every</span>
               <input
                 type="number"
-                className={cn(popInput, 'w-18!')}
+                className={fieldClass.input({ size: 'sm', width: 'content', className: 'w-18' })}
                 min={1}
                 max={999}
                 value={n}

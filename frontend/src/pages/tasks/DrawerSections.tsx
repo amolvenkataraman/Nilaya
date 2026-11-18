@@ -109,7 +109,7 @@ export function Comments({ taskId, canComment }: { taskId: string; canComment: b
                 {editing?.id === c.id ? (
                   <div className="grid gap-1.5">
                     <Textarea
-                      className="min-h-10!"
+                      size="xs"
                       rows={3}
                       autoFocus
                       value={editing.body}
@@ -154,7 +154,7 @@ export function Comments({ taskId, canComment }: { taskId: string; canComment: b
             }}
           >
             <Textarea
-              className="min-h-10!"
+              size="xs"
               rows={2}
               value={body}
               maxLength={10000}

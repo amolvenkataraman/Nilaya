@@ -13,8 +13,12 @@ const base =
 const surfaceHover =
   'bg-surface hover:not-disabled:bg-[color-mix(in_srgb,var(--app-fg)_5%,var(--app-surface))] active:not-disabled:bg-[color-mix(in_srgb,var(--app-fg)_9%,var(--app-surface))]'
 
-/** A default button that is switched on (a filter in use, focus mode): accent frame and text. */
-const pressedClass = cn('border-accent text-accent', surfaceHover)
+/** Switched on (a filter in use, focus mode): a default button gets an accent frame and text, a ghost one an
+ *  accent wash. */
+const pressedClass: Partial<Record<ButtonVariant, string>> = {
+  default: cn('border-accent text-accent', surfaceHover),
+  ghost: 'border-transparent bg-accent-soft text-accent',
+}
 
 const variants: Record<ButtonVariant, string> = {
   default: cn('border-border text-fg', surfaceHover),
@@ -40,16 +44,11 @@ export function buttonClass({
   variant?: ButtonVariant
   size?: ButtonSize
   icon?: boolean
-  /** Shows a toggle or filter as on (default variant). Pair it with aria-pressed on a toggle. */
+  /** Shows a toggle or filter as on (default and ghost variants). Pair it with aria-pressed on a toggle. */
   pressed?: boolean
   className?: string
 } = {}): string {
-  return cn(
-    base,
-    pressed && variant === 'default' ? pressedClass : variants[variant],
-    icon ? sizes[size].icon : sizes[size].text,
-    className,
-  )
+  return cn(base, (pressed && pressedClass[variant]) || variants[variant], icon ? sizes[size].icon : sizes[size].text, className)
 }
 
 export interface ButtonProps extends ComponentPropsWithRef<'button'> {

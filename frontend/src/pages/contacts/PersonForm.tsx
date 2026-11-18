@@ -436,7 +436,7 @@ function PersonFormDialog({ open, person, onClose, onSaved }: Props) {
 
         <FormSection title="Notes">
           <Field label="How we met">
-            <Textarea className="min-h-14!" value={f.how_met} onChange={(e) => set('how_met', e.target.value)} maxLength={20000} />
+            <Textarea size="sm" value={f.how_met} onChange={(e) => set('how_met', e.target.value)} maxLength={20000} />
           </Field>
           <Field label="Notes">
             <Textarea value={f.notes} onChange={(e) => set('notes', e.target.value)} maxLength={20000} />

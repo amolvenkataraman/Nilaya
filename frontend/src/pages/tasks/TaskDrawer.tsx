@@ -473,7 +473,7 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
         </label>
         <Textarea
           id="task-desc"
-          className="min-h-24!"
+          size="lg"
           value={desc}
           readOnly={!canEdit}
           placeholder={canEdit ? 'Add details…' : 'No description'}

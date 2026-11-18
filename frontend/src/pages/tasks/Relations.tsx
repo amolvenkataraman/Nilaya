@@ -97,7 +97,8 @@ export function Relations({ task, onOpen, canEdit }: { task: TaskDetail; onOpen:
         >
           <div className="flex items-center gap-2">
             <Select
-              className="w-auto! max-w-38 flex-none"
+              width="content"
+              className="max-w-38 flex-none"
               value={kind}
               onChange={(e) => setKind(e.target.value as RelationKind)}
               aria-label="Relation kind"

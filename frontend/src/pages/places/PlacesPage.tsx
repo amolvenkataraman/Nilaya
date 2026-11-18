@@ -185,7 +185,8 @@ export default function PlacesPage() {
             }}
           />
           <Button
-            className={cn(iconOnPhone, addMode && 'border-accent! bg-accent! text-accent-fg!')}
+            variant={addMode ? 'primary' : 'default'}
+            className={iconOnPhone}
             aria-pressed={addMode}
             onClick={() => (mineGroups.length || addMode ? setAddMode((v) => !v) : newPlace())}
             title="Add place: click the map to drop it (Esc cancels)"
@@ -193,12 +194,7 @@ export default function PlacesPage() {
             <Icon name="pin" size={15} />
             <span className={label}>Add place</span>
           </Button>
-          <Button
-            className={heat.on ? 'border-transparent! bg-accent-soft! text-accent!' : undefined}
-            aria-pressed={heat.on}
-            onClick={heat.toggle}
-            title="Photo heat map"
-          >
+          <Button pressed={heat.on} aria-pressed={heat.on} onClick={heat.toggle} title="Photo heat map">
             <Icon name="photo" size={15} />
             <span className={label}>Heatmap</span>
           </Button>

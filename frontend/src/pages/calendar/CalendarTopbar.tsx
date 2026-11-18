@@ -63,7 +63,7 @@ function InsightsButton({ insights, onInsights }: Pick<TopbarProps, 'insights' |
   return (
     <button
       type="button"
-      className={buttonClass({ variant: 'ghost', icon: true, className: cn(insights && 'bg-accent-soft! text-accent!') })}
+      className={buttonClass({ variant: 'ghost', icon: true, pressed: insights })}
       aria-pressed={insights}
       onClick={onInsights}
       aria-label="Insights"
