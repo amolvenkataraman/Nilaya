@@ -21,7 +21,7 @@ function apply(pref: ThemePref) {
   const root = document.documentElement
   root.setAttribute('data-bs-theme', dark ? 'dark' : 'light')
   root.setAttribute('data-theme-pref', pref)
-  listeners.forEach((l) => l())
+  for (const l of listeners) l()
 }
 
 export function setTheme(pref: ThemePref) {
@@ -45,7 +45,10 @@ export function initTheme() {
   window.addEventListener('storage', (e) => e.key === KEY && apply(storedTheme()))
 }
 
-const subscribe = (l: () => void) => (listeners.add(l), () => listeners.delete(l))
+const subscribe = (l: () => void) => {
+  listeners.add(l)
+  return () => listeners.delete(l)
+}
 export function useTheme(): { pref: ThemePref; dark: boolean } {
   const pref = useSyncExternalStore(subscribe, storedTheme)
   const dark = useSyncExternalStore(subscribe, () => document.documentElement.getAttribute('data-bs-theme') === 'dark')

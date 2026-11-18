@@ -7,7 +7,7 @@ import { Button } from './button'
 
 export function SkeletonRows({ rows = 4, avatar = false }: { rows?: number; avatar?: boolean }) {
   return (
-    <div aria-busy="true" aria-label="Loading">
+    <div role="status" aria-busy="true" aria-label="Loading">
       {Array.from({ length: rows }, (_, i) => (
         // biome-ignore lint/suspicious/noArrayIndexKey: placeholders have no identity
         <div key={i} className="flex items-center gap-2 px-4 py-2">

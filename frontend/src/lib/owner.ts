@@ -41,7 +41,7 @@ export function wipePersisted() {
       const k = localStorage.key(i)
       if (k?.startsWith(CACHE_PREFIX)) drop.push(k)
     }
-    drop.forEach((k) => localStorage.removeItem(k))
+    for (const k of drop) localStorage.removeItem(k)
   } catch {
     /* ignore */
   }

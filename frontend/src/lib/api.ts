@@ -46,7 +46,7 @@ export function apiUrl(path: string, query?: Query): string {
   for (const [k, v] of Object.entries(query ?? {})) {
     if (v === undefined || v === null || v === '') continue
     if (Array.isArray(v))
-      v.forEach((x) => params.append(k, String(x))) // ?k=a&k=b
+      for (const x of v) params.append(k, String(x)) // ?k=a&k=b
     else params.set(k, String(v))
   }
   const qs = params.toString()
@@ -150,7 +150,7 @@ export function safeHref(url: string | null | undefined): string | null {
  *  mapping, Comptech/spa.py). Old notifications keep their stored URLs, so those must keep working. */
 export function appRoute(url: string): string | null {
   const href = safeHref(url)
-  if (!href || !href.startsWith('/')) return null
+  if (!href?.startsWith('/')) return null
   const [path, search = ''] = href.split('?')
   if (/^\/(?:api|admin|static|media|private|photo_cdn|feeds|\.well-known|dav)(?:\/|$)/.test(path)) return null
   if (

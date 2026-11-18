@@ -1,5 +1,9 @@
 // Small single-series charts in plain SVG/CSS (one hue, thin marks, rounded data ends, values in
 // text tokens, hover readouts). Larger chart sets live with their page.
+// biome-ignore-all lint/suspicious/noArrayIndexKey: columns and labels are positions in a fixed series, with no identity of their own
+// biome-ignore-all lint/a11y/noStaticElementInteractions: hover readouts are a mouse extra; the focusable chart steps through values with the arrow keys
+// biome-ignore-all lint/a11y/noNoninteractiveTabindex: the chart is focusable so the arrow keys can read its values
+// biome-ignore-all lint/a11y/useAriaPropsSupportedByRole: the focusable chart is named by its aria-label
 import { cn } from '../lib/cn'
 import { useLayoutEffect, useRef, useState, type KeyboardEvent } from 'react'
 
@@ -14,12 +18,11 @@ export function HBars({
 }) {
   const top = max ?? Math.max(1e-9, ...items.map((i) => i.value))
   return (
-    <div className="grid gap-1.5" role="list">
+    <ul className="grid gap-1.5">
       {items.map((i) => (
-        <div
+        <li
           key={i.key}
           className="grid grid-cols-[minmax(5rem,7.5rem)_1fr_auto] items-center gap-2.5 text-xs"
-          role="listitem"
           title={i.title ?? `${i.label}: ${format(i.value)}`}
         >
           <span className="truncate text-fg">{i.label}</span>
@@ -30,9 +33,9 @@ export function HBars({
             />
           </span>
           <span className="min-w-11 text-right text-muted tabular-nums">{format(i.value)}</span>
-        </div>
+        </li>
       ))}
-    </div>
+    </ul>
   )
 }
 

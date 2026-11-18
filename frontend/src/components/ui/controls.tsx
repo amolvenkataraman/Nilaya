@@ -1,4 +1,5 @@
 // Small controls every app uses: a segmented switch (views, layouts, ranges), a colour picker and a search box.
+// biome-ignore-all lint/a11y/useSemanticElements: styled toggle and swatch buttons with ARIA roles (group, radio); native fieldset and radio inputs can't take these looks without preflight
 import type { ComponentPropsWithRef, ReactNode } from 'react'
 import { cn } from '../../lib/cn'
 import { Icon } from '../Icon'

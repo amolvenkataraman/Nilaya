@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import { QueryClient } from '@tanstack/react-query'
 
 const calls: string[] = []
-vi.mock('./api', () => ({ get: async (path: string) => (calls.push(path), path === 'all' ? { a: 1, b: 2, c: 3 } : `only ${path}`) }))
+vi.mock('./api', () => ({
+  get: async (path: string) => {
+    calls.push(path)
+    return path === 'all' ? { a: 1, b: 2, c: 3 } : `only ${path}`
+  },
+}))
 const { queryGroup } = await import('./batch')
 
 describe('queryGroup', () => {

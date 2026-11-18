@@ -124,6 +124,7 @@ export function Switch({
       <input
         type="checkbox"
         role="switch"
+        aria-checked={checked}
         checked={checked}
         disabled={disabled}
         aria-label={ariaLabel}

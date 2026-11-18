@@ -244,7 +244,9 @@ export function settleTaskLists(qc: QueryClient, { tasks = [], gone = [], keep =
     }
   }
   for (const k of stale) qc.invalidateQueries({ queryKey: k, exact: true })
-  return () => snaps.reverse().forEach(([k, d]) => qc.setQueryData(k, d))
+  return () => {
+    for (const [k, d] of snaps.reverse()) qc.setQueryData(k, d)
+  }
 }
 
 /** Apply `fn` to tasks in place (no moves between lists): for optimistic edits. Returns a rollback. */
@@ -267,7 +269,9 @@ export function patchTaskLists(qc: QueryClient, ids: Iterable<string>, fn: (t: T
       qc.setQueryData<TaskDetail>(['tasks', 'detail', id], { ...old, ...fn(old) } as TaskDetail)
     }
   }
-  return () => snaps.reverse().forEach(([k, d]) => qc.setQueryData(k, d))
+  return () => {
+    for (const [k, d] of snaps.reverse()) qc.setQueryData(k, d)
+  }
 }
 
 /** A task from any cached list or detail (no request). */

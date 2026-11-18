@@ -110,7 +110,9 @@ export function NotificationRow({
         {n.body && <span className="line-clamp-2 text-xs whitespace-pre-line text-muted [overflow-wrap:anywhere]">{n.body}</span>}
         {n.source && <span className="text-2xs text-muted opacity-85">{n.source}</span>}
       </button>
-      <span className={cn('mt-1.5 size-2 flex-none rounded-full', !n.read && 'bg-accent')} aria-label={n.read ? undefined : 'Unread'} />
+      <span className={cn('mt-1.5 size-2 flex-none rounded-full', !n.read && 'bg-accent')}>
+        {!n.read && <span className="sr-only">Unread</span>}
+      </span>
       <span
         className={cn(
           'absolute top-1.5 right-1.5 hidden gap-px rounded-sm bg-surface p-0.5 shadow-[0_0_0_1px_var(--app-border),0_2px_6px_rgba(16,24,40,0.08)]',
@@ -169,7 +171,18 @@ export function NotificationBell() {
         </button>
       )}
     >
-      {(close) => <BellPanel onOpen={(n) => (close(), open(n))} onAll={() => (close(), navigate('/notifications'))} />}
+      {(close) => (
+        <BellPanel
+          onOpen={(n) => {
+            close()
+            open(n)
+          }}
+          onAll={() => {
+            close()
+            navigate('/notifications')
+          }}
+        />
+      )}
     </Popover>
   )
 }

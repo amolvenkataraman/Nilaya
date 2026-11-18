@@ -60,7 +60,10 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
   // Rebuilt each render (a few dozen entries): memoising it kept stale handlers (onClose, navigate, createTask).
   const items = ((): Item[] => {
     const ql = q.trim().toLowerCase()
-    const go = (to: string) => () => (onClose(), navigate(to))
+    const go = (to: string) => () => {
+      onClose()
+      navigate(to)
+    }
     const pages: Item[] = NAV.map((n) => ({
       id: 'p' + n.to,
       group: 'Pages',
@@ -124,9 +127,6 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
   }
 
   useEffect(() => {
-    setActive(0)
-  }, [q])
-  useEffect(() => {
     list.current?.querySelector<HTMLElement>(`[data-i="${active}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [active])
 
@@ -149,7 +149,10 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
             <input
               ref={input}
               value={q}
-              onChange={(e) => setQ(e.target.value)}
+              onChange={(e) => {
+                setQ(e.target.value)
+                setActive(0)
+              }}
               placeholder="Search pages, projects and tasks…"
               role="combobox"
               aria-expanded="true"
@@ -169,7 +172,7 @@ export function CommandPalette({ open, onClose, onQuickAdd }: { open: boolean; o
                 }
               }}
             />
-            {tasks.isFetching && <span className="spinner" aria-label="Searching" />}
+            {tasks.isFetching && <span className="spinner" role="status" aria-label="Searching" />}
             <span className="kbd">Esc</span>
           </div>
           <div className="overflow-auto p-1.5" id="palette-list" role="listbox" ref={list}>

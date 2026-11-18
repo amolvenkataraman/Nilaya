@@ -8,6 +8,7 @@ import type { Label, Project, Task } from '../lib/types'
 
 export function TaskCheck({ task, onToggle, size }: { task: Task; onToggle: () => void; size?: 'lg' }) {
   return (
+    // biome-ignore lint/a11y/useSemanticElements: a round styled toggle; a native checkbox can't take this look without preflight tricks
     <button
       type="button"
       role="checkbox"
@@ -228,6 +229,8 @@ export const TaskRow = memo(function TaskRow({
     )
 
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: a click anywhere on the row opens it; the title button and j/k + Enter are the keyboard path
+    // biome-ignore lint/a11y/useKeyWithClickEvents: as above
     <div
       style={task.colour ? ({ '--task-colour': task.colour } as CSSProperties) : undefined}
       className={cn(
@@ -252,7 +255,10 @@ export const TaskRow = memo(function TaskRow({
               'task-title cursor-pointer border-0 bg-transparent p-0 text-left text-sm leading-[1.35rem] [overflow-wrap:anywhere]',
               task.done ? 'text-muted line-through decoration-[color-mix(in_srgb,var(--app-muted)_60%,transparent)]' : 'text-fg',
             )}
-            onClick={(e) => (e.stopPropagation(), onOpen())}
+            onClick={(e) => {
+              e.stopPropagation()
+              onOpen()
+            }}
             // The hover text is built when the pointer arrives, not for every row on every render.
             onPointerEnter={(e) => {
               e.currentTarget.title = hoverText(task, taskLabels, projectPath ?? project?.name)

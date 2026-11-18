@@ -71,7 +71,10 @@ if (authed) {
   prefetchShell(queryClient)
 }
 // A loader starts the page's main requests while its chunk downloads (it returns at once; hooks pick them up).
-const warm = (fn: (qc: QueryClient) => void) => () => (fn(queryClient), null)
+const warm = (fn: (qc: QueryClient) => void) => () => {
+  fn(queryClient)
+  return null
+}
 const never = () => false // only on entering the page; the queries keep themselves fresh
 const Tasks = page(() => import('./pages/tasks/TasksPage'))
 const Calendar = page(() => import('./pages/calendar/CalendarPage'))

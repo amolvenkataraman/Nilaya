@@ -17,7 +17,12 @@ export function queryGroup<K extends string>(
   const flush = async () => {
     const { client, want } = pending!
     pending = null
-    const settle = (k: K, ok: boolean, v: unknown) => want.get(k)!.forEach((w) => (ok ? w.resolve(v) : w.reject(v)))
+    const settle = (k: K, ok: boolean, v: unknown) => {
+      for (const w of want.get(k)!) {
+        if (ok) w.resolve(v)
+        else w.reject(v)
+      }
+    }
     const asked = [...want.keys()]
     if (asked.length === 1) {
       const k = asked[0]

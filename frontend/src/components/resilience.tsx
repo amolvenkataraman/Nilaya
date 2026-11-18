@@ -77,7 +77,11 @@ export function NetworkBanner() {
       const un = qc.getQueryCache().subscribe(cb)
       window.addEventListener('online', cb)
       window.addEventListener('offline', cb)
-      return () => (un(), window.removeEventListener('online', cb), window.removeEventListener('offline', cb))
+      return () => {
+        un()
+        window.removeEventListener('online', cb)
+        window.removeEventListener('offline', cb)
+      }
     },
     () => snapshot(qc),
   )

@@ -44,7 +44,10 @@ const cache = new Map<string, string>()
 export function faviconUrl(icon: string, hue: string): string {
   const key = icon + hue
   let url = cache.get(key)
-  if (!url) cache.set(key, (url = 'data:image/svg+xml,' + encodeURIComponent(faviconSvg(icon, hue))))
+  if (!url) {
+    url = 'data:image/svg+xml,' + encodeURIComponent(faviconSvg(icon, hue))
+    cache.set(key, url)
+  }
   return url
 }
 

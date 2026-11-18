@@ -62,6 +62,7 @@ export function AppShell({ app: appId, title, pageTitle, topbar, sidebar, sideba
   useLayer('drawer', drawer)
   const location = useLocation()
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: closes the phone drawer on every navigation
   useEffect(() => setDrawer(false), [location.pathname, location.search])
   useEffect(() => {
     if (!drawer) return
@@ -121,6 +122,7 @@ export function AppShell({ app: appId, title, pageTitle, topbar, sidebar, sideba
           <>
             {phone && drawer && (
               // biome-ignore lint/a11y/noStaticElementInteractions: the backdrop; Escape and the close button also close it
+              // biome-ignore lint/a11y/useKeyWithClickEvents: as above
               <div className="fixed inset-0 z-65 animate-[fade-in_0.15s_ease] bg-scrim" onClick={() => setDrawer(false)} />
             )}
             <aside
@@ -221,6 +223,7 @@ function GlobalItems() {
             {['', 'Planning', 'People & places', 'Media', 'System'].map((g) => {
               const apps = [...APPS, ...(me?.is_staff ? STAFF_APPS : [])].filter((a) => (a.group ?? '') === g)
               return (
+                // biome-ignore lint/a11y/useSemanticElements: a labelled group of links, not form controls (fieldset)
                 <div
                   key={g || 'home'}
                   className="not-first:border-t not-first:border-border not-first:pt-1"
@@ -271,18 +274,42 @@ function GlobalItems() {
             </MenuLabel>
             <MenuSeparator />
             {me && (
-              <MenuItem icon="user" onClick={() => (close(), navigate(`/users/${encodeURIComponent(me.username)}`))}>
+              <MenuItem
+                icon="user"
+                onClick={() => {
+                  close()
+                  navigate(`/users/${encodeURIComponent(me.username)}`)
+                }}
+              >
                 Your profile
               </MenuItem>
             )}
-            <MenuItem icon="settings" onClick={() => (close(), navigate('/settings'))}>
+            <MenuItem
+              icon="settings"
+              onClick={() => {
+                close()
+                navigate('/settings')
+              }}
+            >
               Settings
             </MenuItem>
-            <MenuItem icon="code" onClick={() => (close(), navigate('/settings#set-guides'))}>
+            <MenuItem
+              icon="code"
+              onClick={() => {
+                close()
+                navigate('/settings#set-guides')
+              }}
+            >
               Developers &amp; API
             </MenuItem>
             {me?.is_staff && (
-              <MenuItem icon="chart" onClick={() => (close(), navigate('/settings/usage'))}>
+              <MenuItem
+                icon="chart"
+                onClick={() => {
+                  close()
+                  navigate('/settings/usage')
+                }}
+              >
                 Usage
               </MenuItem>
             )}

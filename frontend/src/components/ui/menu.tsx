@@ -116,7 +116,7 @@ export function MenuItem({
 }
 
 export function MenuSeparator() {
-  return <div role="separator" className="-mx-1 my-1 h-px bg-border" />
+  return <hr className="-mx-1 my-1 h-px border-0 bg-border" />
 }
 
 /** A heading or note inside a menu (not an item). */

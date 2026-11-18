@@ -63,7 +63,10 @@ const fmtCache = new Map<string, Intl.DateTimeFormat>()
 export function dateFormatter(opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
   const key = JSON.stringify(opts)
   let f = fmtCache.get(key)
-  if (!f) fmtCache.set(key, (f = new Intl.DateTimeFormat(undefined, opts)))
+  if (!f) {
+    f = new Intl.DateTimeFormat(undefined, opts)
+    fmtCache.set(key, f)
+  }
   return f
 }
 export function fmtDate(d: Date, opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }): string {
@@ -151,7 +154,7 @@ export function toLocalInput(iso: string | null | undefined): string {
 export function fromLocalInput(value: string): string | null {
   if (!value) return null
   const d = new Date(value) // "YYYY-MM-DDTHH:mm" is parsed as local time
-  return isNaN(d.getTime()) ? null : d.toISOString()
+  return Number.isNaN(d.getTime()) ? null : d.toISOString()
 }
 export function toDateInput(iso: string | null | undefined): string {
   return iso ? dayKey(new Date(iso)) : ''
@@ -195,7 +198,10 @@ export function groupByDue<T>(items: T[], due: (t: T) => string | null, now: Dat
       else key = 'later'
     }
     let g = groups.get(key)
-    if (!g) groups.set(key, (g = { key, label: labels[key], items: [] }))
+    if (!g) {
+      g = { key, label: labels[key], items: [] }
+      groups.set(key, g)
+    }
     g.items.push(item)
   }
   return order.filter((k) => groups.has(k)).map((k) => groups.get(k)!)

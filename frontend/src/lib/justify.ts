@@ -45,7 +45,7 @@ export function justify(aspects: number[], width: number, target: number, gap: n
 }
 
 function clampAspect(a: number): number {
-  if (!isFinite(a) || a <= 0) return 1
+  if (!Number.isFinite(a) || a <= 0) return 1
   return Math.min(Math.max(a, 0.25), 5)
 }
 

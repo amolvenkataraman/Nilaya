@@ -11,7 +11,9 @@ interface ToastItem {
 let items: ToastItem[] = []
 let seq = 0
 const listeners = new Set<() => void>()
-const emit = () => listeners.forEach((l) => l())
+const emit = () => {
+  for (const l of listeners) l()
+}
 
 function dismiss(id: number) {
   items = items.filter((t) => t.id !== id)
@@ -36,7 +38,10 @@ export const toast = {
 
 export function Toaster() {
   const list = useSyncExternalStore(
-    (l) => (listeners.add(l), () => listeners.delete(l)),
+    (l) => {
+      listeners.add(l)
+      return () => listeners.delete(l)
+    },
     () => items,
   )
   return (
@@ -57,6 +62,7 @@ export function Toaster() {
           <span>{t.text}</span>
           {t.action && (
             <button
+              type="button"
               onClick={() => {
                 t.action!.run()
                 dismiss(t.id)
@@ -65,7 +71,7 @@ export function Toaster() {
               {t.action.label}
             </button>
           )}
-          <button aria-label="Dismiss" onClick={() => dismiss(t.id)}>
+          <button type="button" aria-label="Dismiss" onClick={() => dismiss(t.id)}>
             ✕
           </button>
         </div>
