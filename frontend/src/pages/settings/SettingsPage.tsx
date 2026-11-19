@@ -1,4 +1,4 @@
-// Settings: one scrolling page of sections (profile, password, appearance, shortcuts, developer tools, staff
+// Settings: one scrolling page of sections (profile, password, appearance, devices, shortcuts, developer tools, staff
 // links) with a sidebar that follows the scroll, plus the staff Usage page at /settings/usage.
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
@@ -9,6 +9,7 @@ import { cn } from '../../lib/cn'
 import { useMe } from '../../lib/queries'
 import { ApiKeysSection } from './ApiKeys'
 import { AppearanceSection } from './Appearance'
+import { DevicesSection } from './Devices'
 import { FeedsSection } from './Feeds'
 import { GuidesSection } from './Guides'
 import { AdminSection, MoreSection } from './MoreLinks'
@@ -26,6 +27,7 @@ const ACCOUNT: SectionDef[] = [
   { id: 'set-profile', label: 'Profile', icon: 'user' },
   { id: 'set-password', label: 'Password', icon: 'shield' },
   { id: 'set-appearance', label: 'Appearance', icon: 'sun' },
+  { id: 'set-devices', label: 'Devices', icon: 'smartphone' },
   { id: 'set-keys', label: 'Keyboard shortcuts', icon: 'command' },
 ]
 const DEVELOPER: SectionDef[] = [
@@ -137,6 +139,7 @@ export default function SettingsPage() {
             )}
             <PasswordSection />
             <AppearanceSection />
+            <DevicesSection />
             <ShortcutsSection />
             <ApiKeysSection />
             <FeedsSection />

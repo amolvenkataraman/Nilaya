@@ -57,7 +57,7 @@ def apps(request):
 
 @router.get("/", response=list[KeyOut])
 def list_keys(request):
-    return list(ApiKey.objects.filter(user=request.user))
+    return list(ApiKey.objects.filter(user=request.user, device=None))  # phone keys are listed under their device
 
 
 @router.post("/", response={201: KeyCreated})

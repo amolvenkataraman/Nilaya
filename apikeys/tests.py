@@ -123,6 +123,7 @@ class DeviceTests(TestCase):
         self.client.force_login(user)
         listed = self.client.get("/api/v2/devices/").json()
         self.assertEqual([(d["name"], d["apps"]) for d in listed], [("Pixel 8", ["photos", "tasks"])])
+        self.assertEqual(self.client.get("/api/v2/keys/").json(), [])  # its keys are listed under the device only
         self.assertEqual(self.client.delete(f"/api/v2/devices/{listed[0]['id']}").status_code, 204)
         self.client.logout()
         self.assertEqual(self.client.get("/api/v2/photos/summary", **photos).status_code, 401)

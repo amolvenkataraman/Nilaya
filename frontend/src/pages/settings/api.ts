@@ -1,4 +1,4 @@
-// Settings' server data: API keys (/keys/), private ICS feeds (/feeds/), the per-app guides and the staff usage
+// Settings' server data: API keys (/keys/), signed-in phones (/devices/), private ICS feeds (/feeds/), the per-app guides and the staff usage
 // summary. Profile and password go through lib/queries (useMe, useUpdateMe) and their own forms.
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from '../../components/toast'
@@ -45,6 +45,7 @@ export const settingsKeys = {
   keys: ['settings', 'keys'] as const,
   keyApps: ['settings', 'key-apps'] as const,
   feeds: ['settings', 'feeds'] as const,
+  devices: ['settings', 'devices'] as const,
   usage: (days: number) => ['settings', 'usage', days] as const,
 }
 
@@ -155,5 +156,28 @@ export function useChangePassword(onDone: () => void, onError: (message: string)
     },
     meta: { errorMessage: () => null }, // shown in the form
     onError: (e) => onError((e as Error).message),
+  })
+}
+
+/** A phone signed in to Nilaya's phone apps, and which apps on it have a key. */
+export interface Device {
+  id: string
+  name: string
+  created_on: string
+  last_used_on: string | null
+  apps: string[]
+}
+
+export const devicesQuery = () =>
+  queryOptions({ queryKey: settingsKeys.devices, queryFn: ({ signal }) => get<Device[]>('devices/', undefined, signal) })
+export const useDevices = () => useQuery(devicesQuery())
+
+/** Sign a phone out: its device token and every app key on it stop working. */
+export function useSignOutDevice(d: Device) {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: () => del(`devices/${d.id}`),
+    onSuccess: () => toast.show(`Signed out ${d.name}`),
+    onSettled: () => qc.invalidateQueries({ queryKey: settingsKeys.devices }),
   })
 }
