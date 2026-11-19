@@ -1,17 +1,21 @@
+<!-- header:start -->
 <div align="center">
 
-# Nilaya
+<img alt="Nilaya: A self-hosted life management and logging platform for a family." src="https://raw.githubusercontent.com/amolvenkataraman/Nilaya/master/.github/assets/banner.svg" width="100%">
 
-**A self-hosted life management and logging platform.**<br>
-Calendar, tasks, habits, contacts, photos, places and notifications for a family, on a server you own, with ideas (and a lot of functionality) borrowed from Google Workspace apps.
+![Django: 5.1](https://img.shields.io/badge/Django-5.1-0f6f68?labelColor=15181c&color=0f6f68)
+[![licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-0f6f68?labelColor=15181c&color=0f6f68)](https://github.com/amolvenkataraman/Nilaya/blob/master/LICENSE)
 
-[![Licence: AGPL v3](https://img.shields.io/badge/licence-AGPL--3.0-blue)](LICENSE)
-![Python](https://img.shields.io/badge/Django-5.1-0c4b33)
-![React](https://img.shields.io/badge/React-19-149eca)
-
-<img alt="Nilaya home dashboard: today's agenda, tasks, a weekly time chart, habits and quick links" src="docs/screenshots/home-light-desktop.png" width="900">
+[What it is](#what-it-is) · [Apps](#apps) · [Architecture](#architecture) · [Try it locally](#try-it-locally) · [Self-hosting](#self-hosting)
 
 </div>
+
+<a href="https://haiscale.amolven.com/M1/"><img alt="HAI Scale M1, Mixed, human-leaning. Hand-written from 2020 to early 2025. Since then, AI coding tools have helped restore lost work and build new features, and I reviewed, tested and ran every change in production. The full history is in “How AI was (and wasn't) used” below. Provided as is, with no warranty." src="https://raw.githubusercontent.com/amolvenkataraman/Nilaya/master/.github/assets/hai.svg" width="100%"></a>
+<!-- header:end -->
+
+Calendar, tasks, habits, contacts, photos, places and notifications for a family, on a server you own, with ideas (and a lot of functionality) borrowed from Google Workspace apps.
+
+<p align="center"><img alt="Nilaya home dashboard: today's agenda, tasks, a weekly time chart, habits and quick links" src="docs/screenshots/home-light-desktop.png" width="900"></p>
 
 > **Nilaya** (निलय, *ni-LAI-yuh*) is Sanskrit for "home" or "abode": the place a family lives and keeps its things. Inside the code it's still called **Comptech**, the name I picked at 12, because it runs through the Django project, the database schema and every module. [Why "Nilaya"?](#why-nilaya) · [Why "Comptech"?](#why-comptech)
 
@@ -97,7 +101,7 @@ Also worth knowing:
 
 ## Origins
 
-Parts of this code go back to **2020**, written in high school, long before AI coding tools existed. When COVID moved school online, my classes ended up split across two platforms that didn't talk to each other, Google Classroom and Brightspace. So I built **Docket**: one calendar where students could find all their deadlines, assignments and exam dates in one place. Docket's `calendar.js` became Comptech's first calendar, and Docket slowly grew into today's Calendar app.
+Parts of this code go back to **2020**, written in high school, long before AI coding tools existed. When COVID moved school online, my classes ended up split across two platforms that didn't talk to each other, Google Classroom and Brightspace. So I built **[Docket](https://github.com/amolvenkataraman/Docket)**: one calendar where students could find all their deadlines, assignments and exam dates in one place. Docket's `calendar.js` became Comptech's first calendar, and Docket slowly grew into today's Calendar app.
 
 Comptech's first commit landed in February 2021, and it has **run in production in some form for over five years**, through four calendar rewrites, an SSD failure and a backup restore.
 
