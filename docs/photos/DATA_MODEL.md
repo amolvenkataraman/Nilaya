@@ -70,8 +70,8 @@ The central model. Represents a single photo or video file with full EXIF and GP
 | `filepath` | CharField(128) | Path relative to `album.location` |
 | `raw_filepath` | CharField(128) | Path to RAW file if present (nullable) |
 | `orig_filepath` | CharField(128) | Path to original before any processing (nullable) |
-| `photo_hash` | CharField(32) | MD5 of `filepath + SALT` — used as a stable cache-busting token |
-| `thumbnail_hash` | CharField(32) | MD5 of thumbnail path + SALT |
+| `photo_hash` | CharField(32) | MD5 of `filepath + SALT` (legacy; the API signs URLs per request, `photos/signed.py`) |
+| `thumbnail_hash` | CharField(32) | MD5 of thumbnail path + SALT (legacy, as above) |
 
 #### Image Dimensions & Appearance
 
@@ -81,6 +81,7 @@ The central model. Represents a single photo or video file with full EXIF and GP
 | `height` | IntegerField | Original image height in pixels |
 | `thumbnail_width` | IntegerField | Thumbnail width after resizing |
 | `thumbnail_height` | IntegerField | Thumbnail height after resizing |
+| `thumb_version` | PositiveIntegerField | Bumped when an existing thumbnail is made again; `thumb_url` carries it as `?v=` so thumbnails can be cached forever (0: never remade, no `?v=`) |
 | `main_color` | CharField(7) | Dominant color as hex (e.g. `#a3c4f5`), computed from 1×1 pixel resize |
 | `orientation` | CharField(32) | EXIF orientation value |
 
@@ -292,10 +293,10 @@ One row per library album and local day, used for timeline day badges, Stats and
 
 Thumbnails are stored outside the Django media root:
 
-- **Path:** `/www/private/photo_cache/thumbnail/{photo_id}.jpg`
+- **Path:** `/www/private/photo_cache/thumbnail/{photo_id}.webp`
 - **Dimensions:** Max 500×200 px (aspect ratio preserved)
-- **Videos:** First frame is extracted, play-button overlay and duration label are added
-- **Access:** Served through the `/photos/photo/{photo_id}/thumbnail/` view (auth required)
+- **Videos:** First frame is extracted
+- **Access:** the `thumb_url` of a photo in the API: `/private/<signature>/photo_cache/thumbnail/{photo_id}.webp`, plus `?v=<thumb_version>` once remade. Library files are `url`: `/photo_cdn/<signature>/<path>`. Paths are percent-encoded and the signature is MD5 of everything after it as sent (query included) + SALT, which is what nginx's `secure_link_secret` checks; nginx then serves the decoded path with `Cache-Control: public, max-age=31536000, immutable` (`nginx.conf`; `Comptech/localfiles.py` does the same locally)
 
 ---
 

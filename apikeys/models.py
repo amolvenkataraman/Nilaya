@@ -41,6 +41,7 @@ class Device(models.Model):
 
     TOKEN_PREFIX = "nld_"
     PHONE_APPS = tuple(a for a in APPS if a != "me")  # apps a phone can ask a key for
+    READ_ONLY_APPS = {"photos"}  # the phone app shows the library and never changes it
 
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="devices")
@@ -74,14 +75,16 @@ class Device(models.Model):
         return device
 
     def app_key(self, app):
-        """A new key for one app on this device: write access to that app, plus reading the profile.
-        It replaces the key that app had here, so reinstalling an app doesn't leave a stale one."""
+        """A new key for one app on this device: access to that app (read-only for READ_ONLY_APPS, else
+        write), plus reading the profile. It replaces the key that app had here, so reinstalling an app
+        doesn't leave a stale one."""
         for key in self.keys.all():
-            if f"{app}:write" in key.scopes:
+            if {f"{app}:read", f"{app}:write"} & set(key.scopes):
                 key.delete()
         self.last_used_on = timezone.now()
         self.save(update_fields=["last_used_on"])
-        return ApiKey.issue(self.user, f"{self.name} · {APPS[app]}"[:64], [f"{app}:write", "me:read"], device=self)
+        level = "read" if app in self.READ_ONLY_APPS else "write"
+        return ApiKey.issue(self.user, f"{self.name} · {APPS[app]}"[:64], [f"{app}:{level}", "me:read"], device=self)
 
 
 class ApiKey(models.Model):

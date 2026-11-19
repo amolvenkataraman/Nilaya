@@ -1,7 +1,9 @@
 import datetime
+import os
+import tempfile
 from unittest import mock
 
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.utils import timezone
 
 from users.models import ComptechUser
@@ -183,3 +185,29 @@ class GeoGamesTests(TestCase):
         self.assertEqual(bad.status_code, 422)
         r = self.client.post(f"/api/v2/photos/{self.untagged.id}/location", {"lat": None, "lng": None}, content_type="application/json")
         self.assertEqual((r.status_code, r.json()["lat"]), (200, None))  # cleared
+
+
+class SignedMediaUrlTests(TestCase):
+    def test_encoded_urls_verify_for_awkward_names_and_carry_the_thumbnail_version(self):
+        """The signature covers the percent-encoded path and ?v= as sent, like nginx's secure_link_secret."""
+        user = ComptechUser.objects.create_user("lee", password="pw")
+        with tempfile.TemporaryDirectory() as root, override_settings(PHOTOS_ROOT=root + "/", PRIVATE_ROOT=root + "/"):
+            name = "Trip 2024/a #1?b%c ü.jpg"
+            files = {name: b"photo", "photo_cache/thumbnail/{id}.webp": b"thumb"}
+            album = Album.objects.create(name="Phone", owner=user, location=root + "/")
+            Album_Subscriber.objects.create(album=album, user=user, subscribe_type=0)
+            photo = Photo.objects.create(owner=user, album=album, filepath=name, orientation="", thumb_version=2,
+                                         date_taken=timezone.now())
+            for path, body in files.items():
+                path = os.path.join(root, path.format(id=photo.id))
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "wb") as f:
+                    f.write(body)
+            self.client.force_login(user)
+            item = self.client.get("/api/v2/photos/timeline").json()["items"][0]
+            self.assertTrue(item["thumb_url"].endswith(".webp?v=2"))
+            self.assertNotIn(" ", item["url"])
+            for url, body in ((item["url"], b"photo"), (item["thumb_url"], b"thumb")):
+                r = self.client.get(url)
+                self.assertEqual((r.status_code, b"".join(r.streaming_content)), (200, body), url)
+            self.assertEqual(self.client.get(item["thumb_url"].replace("v=2", "v=3")).status_code, 404)

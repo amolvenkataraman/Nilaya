@@ -15,7 +15,7 @@ from django.utils import timezone
 from ninja import Router, Schema
 from ninja.errors import HttpError
 
-from . import browse
+from . import browse, signed
 from . import cache as photo_cache
 from .api_common import PhotoOut, daily, library
 from .models import Album_Subscriber
@@ -95,7 +95,7 @@ def _items(qs, category, limit):
     }[category]()
     rows = list(qs.select_related("album", "owner")[:limit])
     items = [{
-        "id": str(p.id), "thumb_url": f"/private/{p.thumbnail_hash}/photo_cache/thumbnail/{p.id}.webp",
+        "id": str(p.id), "thumb_url": signed.thumb_url(p),
         "filename": p.filepath.rsplit("/", 1)[-1], "library": p.album.name, "owner": p.owner.username,
         "video": p.video, "date_taken": p.date_taken, "size_kb": p.size or p.size_total or 0,
         "size_total_kb": p.size_total or p.size or 0, "length_s": p.length, "megapixels": p.megapixels,

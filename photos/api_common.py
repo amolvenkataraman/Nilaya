@@ -1,6 +1,6 @@
 """Shared parts of /api/v2/photos/: the photo, page, library and album schemas, the library a user can see
 (hidden photos left out), the per-day rollup and keyset paging. Media URLs are the signed nginx paths
-(/private/... thumbnails, /photo_cdn/... originals); hashes are precomputed per photo at ingest."""
+(/private/... thumbnails, /photo_cdn/... originals), percent-encoded and signed per request (signed.py)."""
 
 import datetime
 import uuid
@@ -10,6 +10,7 @@ from django.db.models import Q
 from ninja import Field, Schema
 
 from . import hidden as hidden_mode
+from . import signed
 from .models import Album_Subscriber, Photo
 
 
@@ -38,11 +39,11 @@ class PhotoOut(Schema):
 
     @staticmethod
     def resolve_thumb_url(obj):
-        return f"/private/{obj.thumbnail_hash}/photo_cache/thumbnail/{obj.id}.webp"
+        return signed.thumb_url(obj)
 
     @staticmethod
     def resolve_url(obj):
-        return f"/photo_cdn/{obj.photo_hash}/{obj.get_path()}"
+        return signed.file_url(obj)
 
     @staticmethod
     def resolve_aspect(obj):
