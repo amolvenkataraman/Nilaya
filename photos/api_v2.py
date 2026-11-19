@@ -1,7 +1,7 @@
 """/api/v2/photos/: read-only library access (timeline, albums, on this day, summary).
 
-Media URLs are signed nginx paths (/private/... thumbnails, /photo_cdn/... originals),
-percent-encoded and signed per request (signed.py).
+Media URLs are the signed nginx paths the old UI uses (/private/... thumbnails,
+/photo_cdn/... originals); hashes are precomputed per photo at ingest.
 """
 
 import datetime
@@ -229,7 +229,7 @@ class Md5In(Schema):
 
 @router.post("/have", response=dict[str, uuid.UUID],
              summary="Which of these files are already in your libraries: {md5: photo id} for the ones that are "
-                     "(MD5 of the file bytes, hex; up to 1000). A lookup sent as POST for the body size: photos:read is enough")
+                     "(MD5 of the file bytes, hex; up to 1000). A lookup, but POST for the body size, so an API key needs photos:write")
 def have(request, payload: Md5In):
     """For the phone app: which of the phone's files the server already holds, and as which photo, so the two
     show as one. Hidden photos and libraries switched off in Sources count too: the question is whether the

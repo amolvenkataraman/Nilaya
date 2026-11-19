@@ -14,7 +14,6 @@ from ninja import Router, Schema
 from ninja.errors import HttpError
 
 from . import hidden as hidden_mode
-from . import signed
 from .api_common import PageOut, _page
 from .models import Photo, ShareAlbum
 
@@ -64,7 +63,7 @@ def public_album(request, album_id: uuid.UUID):
             "owner": owner.get_full_name() or owner.username, "public": album.public,
             "photos": agg["photos"], "videos": agg["videos"], "size_kb": agg["size"] or 0,
             "first": agg["first"], "last": agg["last"],
-            "cover_url": signed.thumb_url(cover) if cover else None,
+            "cover_url": f"/private/{cover.thumbnail_hash}/photo_cache/thumbnail/{cover.id}.webp" if cover else None,
             "member": member}
 
 

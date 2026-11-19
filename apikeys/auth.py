@@ -1,8 +1,7 @@
 """Ninja auth: an API key in `Authorization: Bearer nly_...` or `X-API-Key: nly_...`.
 
 The app is taken from the URL (/api/v2/<app>/...) and the access level from the method
-(GET/HEAD/OPTIONS = read), except for the lookups in READ_POSTS, which are POST only for their
-body size. Keys never work for /api/v2/keys/ (no key can mint keys)."""
+(GET/HEAD/OPTIONS = read). Keys never work for /api/v2/keys/ (no key can mint keys)."""
 
 import datetime
 
@@ -13,7 +12,6 @@ from ninja.security import APIKeyHeader, HttpBearer
 from .models import APPS, ApiKey
 
 SAFE = {"GET", "HEAD", "OPTIONS"}
-READ_POSTS = {"photos/have"}  # POST lookups that change nothing (the body is too big for a query string)
 
 
 def _authenticate(request, token):
@@ -24,7 +22,7 @@ def _authenticate(request, token):
     app = parts[0] if parts and parts[0] in APPS else None
     if app is None:
         return None  # key management, docs, or unknown: session only
-    write = request.method not in SAFE and not (request.method == "POST" and "/".join(parts) in READ_POSTS)
+    write = request.method not in SAFE
     if not key.allows(app, write):
         raise HttpError(403, f"This API key doesn't have {app}:{'write' if write else 'read'} access")
     request.user = key.user
