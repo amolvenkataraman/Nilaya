@@ -75,7 +75,11 @@ function Services({ d }: { d: Maintenance }) {
             <>
               <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-muted">
                 {pw.uptime_s != null && <span>Up {uptime(pw.uptime_s)}</span>}
-                {pw.cache && <span>{plural(pw.cache.size, 'answer')} cached</span>}
+                {pw.cache && (
+                  <span title="placewise keeps no request log (lookups are coordinates); these counts show it answering">
+                    {plural(pw.cache.hits + pw.cache.misses, 'lookup')} answered · {plural(pw.cache.size, 'answer')} cached
+                  </span>
+                )}
               </div>
               <div className="flex flex-wrap gap-1">
                 {packs.map((p) => (
@@ -155,6 +159,8 @@ function JobRow({ job }: { job: MaintenanceJob }) {
   )
 }
 
+const QUEUED_TOO_LONG_MS = 30_000
+
 const TONE = { queued: 'neutral', running: 'accent', done: 'success', failed: 'danger' } as const
 const STATUS = { queued: 'Queued', running: 'Running', done: 'Done', failed: 'Failed' } as const
 
@@ -176,6 +182,12 @@ function RunLine({ run }: { run: MaintenanceRun }) {
           {shortStamp(run.created_on)}
         </span>
       </div>
+      {run.status === 'queued' && Date.now() - Date.parse(run.created_on) > QUEUED_TOO_LONG_MS && (
+        <p className="text-warning">
+          Still waiting for the background worker. Is the Celery worker running (Comptech.sh window 2) with the current code? Its log shows
+          each run as it starts.
+        </p>
+      )}
       {runIsBusy(run) && pct !== null && (
         <div
           className="h-1.5 overflow-hidden rounded-full bg-border"
