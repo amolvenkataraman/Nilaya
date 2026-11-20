@@ -50,7 +50,7 @@ class PhotosApiTests(TestCase):
     def test_details_browse_and_filters(self):
         p = self.photos[0]
         p.camera_make, p.camera_model, p.location_city, p.location_country = "Google", "Pixel 9", "Toronto", "Canada"
-        p.fnumber, p.isospeed, p.size, p.size_total, p.ai_index_info = "f/1.7", "100", 2048, 4096, {"objects": [0, 5]}
+        p.photo_exif_tags, p.size, p.size_total, p.ai_index_info = {"FNumber": "f/1.7", "ISOSpeedRatings": "100"}, 2048, 4096, {"objects": [0, 5]}
         p.save()
         self.client.force_login(self.user)
         d = self.client.get(f"/api/v2/photos/{p.id}/details").json()

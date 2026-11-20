@@ -13,7 +13,29 @@ import exiftool
 
 
 
-# Create your models here.
+# The camera details the API and the classic pages show, by their field name, and the EXIF tag each is read from.
+EXIF_FIELDS = {
+    "exposure": "ExposureTime", "fnumber": "FNumber", "isospeed": "ISOSpeedRatings", "shutterspeed": "ShutterSpeedValue",
+    "aperture": "ApertureValue", "flash": "Flash", "focallength": "FocalLength",
+}
+# Tags not kept in photo_exif_tags: columns of their own (make, model, GPS), offsets into the file, binary blobs.
+EXIF_SKIP = frozenset({"Make", "Model", "GPSInfo", "ExifOffset", "InteropOffset", "MakerNote", "UserComment",
+                       "PrintImageMatching", "JPEGInterchangeFormat", "JPEGInterchangeFormatLength"})
+EXIF_MAX_TEXT = 256  # longer values are file data, not details
+
+
+def exif_tags(exif, clean):
+    """{tag name: text} of a photo's plain EXIF values (Pillow's tag names); binary and nested values left out."""
+    tags = {}
+    for name, value in exif.items():
+        if not isinstance(name, str) or name in EXIF_SKIP or isinstance(value, (bytes, dict)):
+            continue
+        text = clean(value)
+        if text and len(text) <= EXIF_MAX_TEXT:
+            tags[name] = text
+    return tags
+
+
 def parse_album_path(instance, filename):
     return f"photos/album/{instance.id}/{filename}"
 
@@ -110,13 +132,9 @@ class Photo(models.Model):
 
     camera_make = models.CharField(max_length=32, null=True, blank=True)
     camera_model = models.CharField(max_length=32, null=True, blank=True)
-    exposure = models.CharField(max_length=32, null=True, blank=True)
-    fnumber = models.CharField(max_length=32, null=True, blank=True)
-    isospeed = models.CharField(max_length=32, null=True, blank=True)
-    shutterspeed = models.CharField(max_length=32, null=True, blank=True)
-    aperture = models.CharField(max_length=32, null=True, blank=True)
-    flash = models.CharField(max_length=32, null=True, blank=True)
-    focallength = models.CharField(max_length=32, null=True, blank=True)
+    # Every plain EXIF tag the photo carries, by tag name ({"ExposureTime": "0.05", "FNumber": "1.8", ...}), as
+    # text. The camera details the API shows (exposure, f-number, ISO...) are read from it (EXIF_FIELDS).
+    photo_exif_tags = models.JSONField(default=dict, blank=True)
 
     # last_ai_processed = models.DateTimeField(auto_now=False, null=True, blank=True)
     metadata = models.JSONField(default=dict, null=True, blank=True)
@@ -210,13 +228,7 @@ class Photo(models.Model):
 
             "camera_make": self.camera_make,
             "camera_model": self.camera_model,
-            "exposure": self.exposure,
-            "fnumber": self.fnumber,
-            "isospeed": self.isospeed,
-            "shutterspeed": self.shutterspeed,
-            "aperture": self.aperture,
-            "flash": self.flash,
-            "focallength": self.focallength,
+            **{field: self.exif(field) for field in EXIF_FIELDS},
 
             "framerate": self.framerate,
             "mimetype": self.mimetype,
@@ -279,6 +291,10 @@ class Photo(models.Model):
             "raw_blur": round(raw_blur, 1) if raw_blur is not None else None,
             "normalized_blur": round(normalized_blur, 1) if normalized_blur is not None else None,
         }
+
+    def exif(self, field):
+        """A camera detail by its API name ("fnumber"), from photo_exif_tags; None when the photo has none."""
+        return (self.photo_exif_tags or {}).get(EXIF_FIELDS[field])
 
     def calculate_megapixels(self):
         if not self.video and self.width and self.height:
@@ -444,20 +460,7 @@ class Photo(models.Model):
                         self.camera_make = _clean_str(exif['Make'])
                     if 'Model' in exif:
                         self.camera_model = _clean_str(exif['Model'])
-                    if 'ExposureTime' in exif:
-                        self.exposure = _clean_str(exif['ExposureTime'])
-                    if 'FNumber' in exif:
-                        self.fnumber = _clean_str(exif['FNumber'])
-                    if 'ISOSpeedRatings' in exif:
-                        self.isospeed = _clean_str(exif['ISOSpeedRatings'])
-                    if 'ShutterSpeedValue' in exif:
-                        self.shutterspeed = _clean_str(exif['ShutterSpeedValue'])
-                    if 'ApertureValue' in exif:
-                        self.aperture = _clean_str(exif['ApertureValue'])
-                    if 'Flash' in exif:
-                        self.flash = _clean_str(exif['Flash'])
-                    if 'FocalLength' in exif:
-                        self.focallength = _clean_str(exif['FocalLength'])
+                    self.photo_exif_tags = exif_tags(exif, _clean_str)
                     if 'Orientation' in exif:
                         self.orientation = _clean_str(exif['Orientation'])
             except (AttributeError, TypeError, KeyError): pass

@@ -362,6 +362,21 @@ class PhotoDetailOut(PhotoOut):
     hidden: bool
     mine: bool
 
+    # Camera details come from photo_exif_tags (Photo.EXIF_FIELDS); the names here stay as they were.
+    @staticmethod
+    def resolve_exposure(o): return o.exif("exposure")
+    @staticmethod
+    def resolve_fnumber(o): return o.exif("fnumber")
+    @staticmethod
+    def resolve_isospeed(o): return o.exif("isospeed")
+    @staticmethod
+    def resolve_shutterspeed(o): return o.exif("shutterspeed")
+    @staticmethod
+    def resolve_aperture(o): return o.exif("aperture")
+    @staticmethod
+    def resolve_flash(o): return o.exif("flash")
+    @staticmethod
+    def resolve_focallength(o): return o.exif("focallength")
     @staticmethod
     def resolve_filename(o): return o.filepath.rsplit("/", 1)[-1]
     @staticmethod
