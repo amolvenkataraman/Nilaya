@@ -193,8 +193,8 @@ export interface MaintenanceRun {
   done: number
   total: number | null
   summary: string
-  /** Job-specific: "Name photo places" lists [old, new, photos] changes. */
-  result: { changes?: [string, string, number][] }
+  /** Job-specific: "Name photo places" keeps its 25 most common [old, new, photos] changes and how many more kinds. */
+  result: { changes?: [string, string, number][]; more_kinds?: number }
   log: string
   started_by: string | null
   created_on: string

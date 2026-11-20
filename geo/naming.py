@@ -11,6 +11,7 @@ from . import service
 
 CITY_MAX, ADMIN1_MAX, COUNTRY_MAX = 128, 128, 32  # the photo columns' lengths
 FIELDS = ("location_city", "location_admin1", "location_country")
+CHANGES_KEPT = 25  # kinds of change a rename run keeps for the Maintenance page
 
 
 def _name(field, limit):
@@ -54,8 +55,10 @@ def name_photos(photos, *, dry_run=False, progress=None, chunk=2000):
 
     Points are looked up once per ~1 m (5 decimals), so bursts at one spot cost one lookup. Only photos
     whose names change are written. dry_run: count and sample the changes without writing.
-    progress(done, total) is called after each chunk. Returns {total, changed, unchanged, changes} where
-    changes is [(old "city, country", new "city, state, country", photos)] most common first (up to 50).
+    progress(done, total) is called after each chunk. Returns {total, changed, unchanged, changes, more_kinds}:
+    changes is [(old "city, country", new "city, state, country", photos)], the CHANGES_KEPT most common, and
+    more_kinds how many other kinds of change there were (kept off the run record: it stays small however big
+    the library is).
     Raises service.Unavailable if placewise stops answering."""
     from collections import Counter
 
@@ -87,4 +90,5 @@ def name_photos(photos, *, dry_run=False, progress=None, chunk=2000):
         if progress:
             progress(done, total)
     return {"total": total, "changed": changed, "unchanged": total - changed,
-            "changes": [(old, new, n) for (old, new), n in changes.most_common(50)]}
+            "changes": [(old, new, n) for (old, new), n in changes.most_common(CHANGES_KEPT)],
+            "more_kinds": max(0, len(changes) - CHANGES_KEPT)}

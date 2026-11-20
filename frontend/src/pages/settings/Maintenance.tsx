@@ -190,7 +190,7 @@ function RunLine({ run }: { run: MaintenanceRun }) {
       {changes.length > 0 && (
         <details>
           <summary className="cursor-pointer select-none text-muted">
-            {run.options.preview ? 'What would change' : 'What changed'} ({plural(changes.length, 'kind')} of change, most common first)
+            {run.options.preview ? 'What would change' : 'What changed'} (most common first)
           </summary>
           <table className="mt-1.5 w-full border-collapse">
             <tbody>
@@ -203,6 +203,7 @@ function RunLine({ run }: { run: MaintenanceRun }) {
               ))}
             </tbody>
           </table>
+          {!!run.result.more_kinds && <p className="mt-1 text-muted">and {plural(run.result.more_kinds, 'more kind')} of change</p>}
         </details>
       )}
       {run.log && (
