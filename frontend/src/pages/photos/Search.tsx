@@ -11,6 +11,7 @@ import { buttonClass, isTyping, pageClass, PageHead } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { PhotoStream, type Zoom } from './PhotoStream'
 import { countLabel, dropSpan, type SearchPage, type SearchTerm } from './searchTerms'
+import { placeText } from '../../lib/format'
 
 const MAX = 200
 const href = (q: string) => (q ? `/photos?q=${encodeURIComponent(q)}` : '/photos')
@@ -211,8 +212,10 @@ function Interpretation({ q, page }: { q: string; page: SearchPage | null }) {
                     >
                       <Icon name={t.type === 'media' && t.value === 'video' ? 'video' : ICON[t.type]} size={12} />
                       <span className="font-medium text-muted after:content-[':']">{kindOf(t)}</span>
-                      <span className="overflow-hidden font-semibold text-ellipsis">{t.label}</span>
-                      {t.detail && <span className="text-muted">{t.detail.split(', ').length} models</span>}
+                      <span className="overflow-hidden font-semibold text-ellipsis">{placeText(t.label)}</span>
+                      {t.detail && (
+                        <span className="text-muted">{t.type === 'camera' ? `${t.detail.split(', ').length} models` : t.detail}</span>
+                      )}
                       <button
                         type="button"
                         className="inline-grid size-5 flex-none cursor-pointer place-items-center rounded-full border-0 bg-transparent text-muted hover:bg-[color-mix(in_srgb,var(--tc)_18%,transparent)] hover:text-fg"

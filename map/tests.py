@@ -185,12 +185,16 @@ class ExportImportTests(PlacesTestCase):
 
 
 class GeocodeSearchTests(TestCase):
-    def test_v2_place_search_is_off_in_offline_mode(self):
+    def test_place_search_says_503_when_placewise_is_not_running(self):
+        from geo import service
         u = ComptechUser.objects.create_user("geo", password="pw")
         self.client.force_login(u)
-        with override_settings(ONLINE_MODE=False), mock.patch("urllib.request.urlopen") as urlopen:
-            self.assertEqual(self.client.get("/api/v2/places/geocode?q=Toronto").status_code, 503)
-        urlopen.assert_not_called()
+        service._client.cache_clear()
+        try:
+            with override_settings(PLACEWISE_URL="http://127.0.0.1:9"):  # nothing listens on the discard port
+                self.assertEqual(self.client.get("/api/v2/places/geocode?q=Toronto").status_code, 503)
+        finally:
+            service._client.cache_clear()
 
 
 

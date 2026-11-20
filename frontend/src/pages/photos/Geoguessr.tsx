@@ -14,6 +14,7 @@ import { usePref } from '../../lib/storage'
 import type { Photo } from '../../lib/types'
 import { closeness, score } from './game'
 import { PhotoShot, pinStyle, skipKey, takenAt, tool } from './ToolLayout'
+import { placeText } from '../../lib/format'
 
 const START: [number, number] = [43.57, -79.98] // starting view (southern Ontario)
 type Stats = { rounds: number; total: number; best: number }
@@ -177,7 +178,7 @@ export function GeoguessrPage() {
               </div>
               {photo && (
                 <p className="text-sm">
-                  {[photo.city, photo.country].filter(Boolean).join(', ') || 'Unknown place'}
+                  {placeText([photo.city, photo.country].filter(Boolean).join(', ')) || 'Unknown place'}
                   {t && (
                     <span className="text-muted">
                       {' '}

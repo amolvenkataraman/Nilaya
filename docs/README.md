@@ -62,6 +62,6 @@ Redis  ←→  Celery worker + beat
 | ASGI server | Daphne |
 | Image processing | Pillow, OpenCV |
 | EXIF reading | Pillow, exifread, PyExifTool |
-| GPS geocoding | reverse_geocode (offline) |
+| Place names, place search | placewise (offline, as a local service; `geo/`) |
 | AI object detection | YOLO (ultralytics), optional |
 | Calendar parsing | icalendar, python-dateutil |

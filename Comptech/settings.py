@@ -76,6 +76,10 @@ DEBUG = False # True in development, False in production
 
 ONLINE_MODE = True # Change to False to disable all external requests
 
+# placewise, the offline place-name and place-search service (geo/). Comptech.sh starts it with the rest of
+# the platform (`placewise serve`, loopback only, so other programs on this server can use it too).
+PLACEWISE_URL = os.environ.get("PLACEWISE_URL", "http://127.0.0.1:8770")
+
 
 INTERNAL_IPS = _site.get('internal_ips', ['127.0.0.1'])
 
@@ -108,6 +112,7 @@ INSTALLED_APPS = [
     'habits',
     'analytics',
     'feeds',
+    'maintenance',
 
     # Main functionality apps
     'scheduler',

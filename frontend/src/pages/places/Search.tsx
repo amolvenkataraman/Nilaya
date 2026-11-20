@@ -1,5 +1,5 @@
 // Top search of Places: filters your places (the list below) and, from 3 characters, also searches the map
-// (useGeocode: the server's geocoder, debounced; "Map search is off" in offline mode). A combobox: arrow keys
+// (useGeocode: placewise on the server, debounced; "Map search isn't available" when it isn't running). A combobox: arrow keys
 // move the active option (announced through aria-activedescendant), Enter picks it, Escape closes; the results
 // close when focus leaves the box.
 import { useEffect, useId, useState } from 'react'
@@ -184,7 +184,7 @@ export function PlaceSearch({
                 id={optId(i)}
                 role="option"
                 tabIndex={-1}
-                key={`${h.address}${h.lat}`}
+                key={h.id}
                 aria-selected={active === i}
                 className={cn(option, active === i && 'bg-hover')}
                 onMouseMove={() => setActive(i)}
@@ -193,7 +193,7 @@ export function PlaceSearch({
                 <Icon name="pin" size={13} />
                 <span className="min-w-0 flex-1">
                   <span className="block truncate">{h.name}</span>
-                  <span className="block truncate text-xs text-muted">{h.address}</span>
+                  <span className="block truncate text-xs text-muted">{[h.kind, h.address].filter(Boolean).join(' · ')}</span>
                 </span>
               </button>
             )
@@ -201,10 +201,10 @@ export function PlaceSearch({
           {geo.off ? (
             <div className={note}>
               <Icon name="info" size={13} />
-              Map search is off on this server (offline mode).
+              Map search isn't available: the place service isn't running on the server.
             </div>
-          ) : needle.length < 3 ? (
-            !local.length && <div className={note}>Type 3 letters to search the map.</div>
+          ) : needle.length < 2 ? (
+            !local.length && <div className={note}>Type 2 letters to search the map.</div>
           ) : geo.waiting ? (
             <div className={note}>
               <span className="spinner" />

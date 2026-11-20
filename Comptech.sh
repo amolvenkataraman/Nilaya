@@ -30,3 +30,10 @@ tmux send-keys -t "$SESSION:3" "cd $WORKDIR" C-m
 tmux send-keys -t "$SESSION:3" "export DJANGO_SETTINGS_MODULE=$SESSION.settings" C-m
 tmux send-keys -t "$SESSION:3" "source $VENV" C-m
 tmux send-keys -t "$SESSION:3" "$WORKDIR/CT_env/bin/celery -A $SESSION beat --loglevel=info" C-m
+
+# Window 4: placewise, the offline place-name and place-search service (geo/). Loopback only and keyless, so
+# other programs on this server can use it too (http://127.0.0.1:8770). --offline: never downloads; packs
+# are installed once with `placewise data install ...` (docs/UPGRADE-placewise.md).
+tmux new-window -t "$SESSION:4" -n placewise
+tmux send-keys -t "$SESSION:4" "cd $WORKDIR" C-m
+tmux send-keys -t "$SESSION:4" "$WORKDIR/CT_env/bin/placewise --offline serve --host 127.0.0.1 --port 8770" C-m

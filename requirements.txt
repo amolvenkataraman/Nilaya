@@ -16,7 +16,7 @@ psycopg[pool]
 django_celery_beat
 django-ninja>=1.3,<2  # V2 API (/api/v2/); 1.x API (throttling, Schema resolvers)
 requests
-reverse_geocode
+placewise==0.1.0a2  # geo/: offline place names, place search, geo helpers; runs as a service (Comptech.sh)
 PyExifTool
 
 tzdata           # zoneinfo data incl. legacy aliases like Canada/Eastern (TIME_ZONE), even without the OS tzdata-legacy package

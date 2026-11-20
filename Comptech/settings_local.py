@@ -14,7 +14,9 @@ from .settings import *  # noqa: E402,F401,F403
 
 LOCAL = True
 DEBUG = True
-ONLINE_MODE = False  # no calendar sync / Nominatim calls from a test instance
+ONLINE_MODE = False  # no calendar sync or other outbound calls from a test instance
+# localdev/run.sh starts placewise here (8770 is often taken on a dev machine)
+PLACEWISE_URL = os.environ.get("PLACEWISE_URL", "http://127.0.0.1:8771")
 ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
 CSRF_TRUSTED_ORIGINS = ["http://localhost:8000", "http://127.0.0.1:8000"]
 INTERNAL_IPS = ["127.0.0.1"]

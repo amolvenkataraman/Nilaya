@@ -2,6 +2,7 @@
 // whether the view is the plain timeline, and the timeline turns the params into its API filter, its heading
 // ("Camera: Pixel 7 · In this map area") and where the stream starts.
 import { addDays, parseDayKey } from '../../lib/dates'
+import { placeText } from '../../lib/format'
 
 /** Params the filters drawer owns (it rewrites all of them on Apply). */
 export const FILTER_KEYS = [
@@ -100,7 +101,7 @@ export function parseTimelineState(params: URLSearchParams): TimelineState {
       ? ''
       : `Sharpness ${minBlur !== undefined && maxBlur !== undefined ? `${minBlur}–${maxBlur}` : minBlur !== undefined ? `over ${minBlur}` : `under ${maxBlur}`}`
   const place = [
-    city || country,
+    placeText(city || country || ''),
     camera && `Camera: ${camera}`,
     make && `Make: ${make}`,
     objects?.split(',').join(', '),

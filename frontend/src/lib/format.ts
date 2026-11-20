@@ -13,3 +13,7 @@ export function fmtBytes(kb: number, precise = false): string {
   if (kb >= 1024) return kb < 100 * 1024 ? `${(kb / 1024).toFixed(1)} MB` : `${Math.round(kb / 1024)} MB`
   return `${kb} KB`
 }
+
+/** A place name as shown: "Golden Gate National Recreation Area" -> "Golden Gate NRA". Stored, linked and searched
+ *  in full; only the text people read is shortened. */
+export const placeText = (name: string) => name.replace(/\bNational Recreation Area\b/g, 'NRA')

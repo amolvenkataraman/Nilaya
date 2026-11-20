@@ -162,11 +162,14 @@ flowchart LR
     C --> L
     S["Syncthing<br/>(phones, cameras)"] -->|Ingest folder| L
     O["OwnTracks<br/>(planned)"] -.-> D
-    C -->|ONLINE_MODE| X["ICS / Google, Nominatim,<br/>ntfy, Gotify, email, Discord, webhooks"]
+    C -->|ONLINE_MODE| X["ICS / Google,<br/>ntfy, Gotify, email, Discord, webhooks"]
+    D --> G["placewise<br/>(place names and search,<br/>offline, local service)"]
+    C --> G
 ```
 
 - **One React app at `/`**, built on the V2 API only. nginx serves its hashed bundles and checks signed `secure_link` URLs for photos and private files, so image bytes never pass through Python.
 - **Django** (under Daphne) serves the API, login, ICS feeds and admin. Each app (`scheduler`, `tasks`, `habits`, `contacts`, `photos`, `map`, `notifications`, …) is a Django app with its own models and API router.
+- **placewise** (a local service started with the platform) names photos' places and answers place search offline, from data packs on the server; other programs on the server can use it too (`docs/UPGRADE-placewise.md`).
 - **Celery** handles everything slow or scheduled: photo ingest and AI indexing, calendar auto-sync every 30 minutes, reminders, clean-ups and matview refreshes. Beat registers its own schedules.
 
 ### Tech stack

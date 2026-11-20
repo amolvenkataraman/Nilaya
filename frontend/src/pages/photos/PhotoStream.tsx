@@ -11,7 +11,7 @@ import { ErrorBox, useIsPhone } from '../../components/ui'
 import { get, safeHref } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { dayKey, fmtDate, groupByDay } from '../../lib/dates'
-import { fmtBytes } from '../../lib/format'
+import { fmtBytes, placeText } from '../../lib/format'
 import { type Box, justify } from '../../lib/justify'
 import type { Photo, PhotoPage } from '../../lib/types'
 import { JustifiedDays } from './JustifiedDays'
@@ -76,7 +76,7 @@ export const Thumb = memo(function Thumb({
   const label = tileLabel.use()
   const press = useLongPress(() => selection.toggle(photo, order()))
   const when = photo.date_taken ? new Date(photo.date_taken) : null
-  const aria = `${photo.video ? 'Video' : 'Photo'}${when ? ` from ${fmtDate(when, { dateStyle: 'medium', timeStyle: 'short' })}` : ''}${photo.city ? `, ${photo.city}` : ''}`
+  const aria = `${photo.video ? 'Video' : 'Photo'}${when ? ` from ${fmtDate(when, { dateStyle: 'medium', timeStyle: 'short' })}` : ''}${photo.city ? `, ${placeText(photo.city)}` : ''}`
   const text = labelText(photo, label)
   return (
     <button
@@ -163,7 +163,7 @@ function DayHeader({ day, info, link }: { day: Day; info?: DayInfo; link: boolea
   const places = useMemo(() => {
     const counts = new Map<string, number>()
     for (const p of items) {
-      const k = [p.city, p.country].filter(Boolean).join(', ')
+      const k = placeText([p.city, p.country].filter(Boolean).join(', '))
       if (k) counts.set(k, (counts.get(k) ?? 0) + 1)
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1])

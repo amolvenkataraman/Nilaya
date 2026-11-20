@@ -7,7 +7,7 @@
 //   points.ts          photoPointsQuery: photo locations per box and filters (no Leaflet).
 //   HeatFilters.tsx    the heat map's filters (year, library, altitude, planes) and HeatRamp (its legend).
 //   gridCluster.ts     pixel-grid clustering for count markers (pure); countMarker() draws one.
-//   useGeocode.ts      place search through the server's geocoder (Nominatim), with the offline-mode switch.
+//   useGeocode.ts      place search through placewise on the server.
 //   geo.ts             distances, coordinate text, links out, boxes (no Leaflet).
 //
 // Leaflet weighs ~150 kB with the heat plugin, so only pages that draw a map import the Leaflet modules; geo.ts

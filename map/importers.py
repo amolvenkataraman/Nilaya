@@ -37,7 +37,14 @@ def _first(*values):
     return next((v.strip() for v in values if isinstance(v, str) and v.strip()), "")
 
 
-_URL_COORDS = re.compile(r"[?&](?:q|query|ll)=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)|@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)")
+def _url_coords(url):
+    """(lat, lon) from a Google, Apple or OpenStreetMap link (placewise.geo.parse), or None."""
+    from placewise import geo
+
+    try:
+        return geo.parse(url)
+    except ValueError:
+        return None
 
 
 def _item(name, lat, lon, alt=None, props=None):
@@ -83,9 +90,9 @@ def _feature_item(feature):
         geo = loc.get("Geo Coordinates") if isinstance(loc.get("Geo Coordinates"), dict) else {}
         lat, lon = _num(geo.get("Latitude")), _num(geo.get("Longitude"))
         url = _first(props.get("google_maps_url"), props.get("Google Maps URL"))
-        m = _URL_COORDS.search(url) if not (lat or lon) and url else None
-        if m:
-            lat, lon = (float(m.group(1)), float(m.group(2))) if m.group(1) else (float(m.group(3)), float(m.group(4)))
+        found = _url_coords(url) if not (lat or lon) and url else None
+        if found:
+            lat, lon = found
         if not lat and not lon:
             return None
     address = _first(props.get("address"), loc.get("address"), loc.get("Address"))

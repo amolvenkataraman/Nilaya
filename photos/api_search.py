@@ -100,7 +100,8 @@ def search_photos(request, q: str = "", before: Optional[datetime.datetime] = No
     from .api_v2 import _page
     tz = _tz(request.user)
     v = vocab(request)
-    terms, unmatched = search.parse(q[:200], v, timezone.localtime(timezone.now(), tz), names(request))
+    from geo.places import resolve as place
+    terms, unmatched = search.parse(q[:200], v, timezone.localtime(timezone.now(), tz), names(request), places=place)
     if q.strip() and not terms:  # nothing understood: say so rather than showing everything
         return {"items": [], "next_before": None, "interpreted": [], "unmatched": unmatched, "count": 0}
     qs = base_queryset(request, terms).filter(search.filters(terms, v["city_countries"]))

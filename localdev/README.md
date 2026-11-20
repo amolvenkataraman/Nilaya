@@ -28,6 +28,7 @@ Reseed from scratch: `DJANGO_SETTINGS_MODULE=Comptech.settings_local .venv/bin/p
 | Secrets in `Comptech/*.txt` | Generated in `localdev/data/secrets/` (`COMPTECH_SECRETS_DIR`) |
 | Ingest copies files | Ingest **hardlinks** (`PHOTOS_INGEST_HARDLINK`): no extra disk, and the originals are never modified (no app code writes library files in place). |
 | AI indexing (ultralytics/torch) | Off, and not installed |
-| `ONLINE_MODE = True` | `False` (no calendar sync or Nominatim calls) |
+| `ONLINE_MODE = True` | `False` (no calendar sync) |
+| placewise on 8770 (`Comptech.sh`) | placewise on 8771, started by `localdev/run.sh`; packs from `~/.placewise` |
 
 `localdev/data/` and `.venv/` are gitignored.

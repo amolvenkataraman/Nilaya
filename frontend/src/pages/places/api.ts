@@ -265,3 +265,31 @@ export async function importPlaces(file: File, groupId: number, dryRun: boolean)
   fd.append('dry_run', dryRun ? 'true' : 'false')
   return upload<ImportResult>('places/import', fd)
 }
+
+/** A place placewise knows (GET /places/here, /places/outline). */
+export interface GeoPlace {
+  id: string
+  name: string
+  kind: string
+  /** within, near, on, at… (null: the point is inside it) */
+  relation: string | null
+  km: number | null
+  tier?: number | null
+}
+/** Everything placewise knows about a point: what the map's click popup shows. */
+export interface Here {
+  label: string
+  /** The place's name as photos store it: the city, or the national park. */
+  place: string | null
+  where: (GeoPlace & { level: string })[]
+  regions: GeoPlace[]
+  tz: string | null
+  parks: GeoPlace[]
+  water: GeoPlace | null
+  airport: GeoPlace | null
+  nearby: GeoPlace[]
+}
+export const fetchHere = (lat: number, lon: number, signal?: AbortSignal) =>
+  get<Here>('places/here', { latitude: lat, longitude: lon }, signal)
+/** A place's outline (empty when it has none), for drawing on the map. */
+export const fetchOutline = (id: string, signal?: AbortSignal) => get<import('geojson').FeatureCollection>('places/outline', { id }, signal)

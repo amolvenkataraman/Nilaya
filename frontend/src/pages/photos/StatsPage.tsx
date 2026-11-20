@@ -12,6 +12,7 @@ import { fmtDate } from '../../lib/dates'
 import { StatCard, StatTile, Unit, cardGridClass, helpClass, smallSelectClass, tilesClass } from './StatCards'
 import { type MonthCount, type Series, monthKey, n, pct, statsOf, statsQuery } from './statsData'
 import { fmtHms } from './util'
+import { placeText } from '../../lib/format'
 
 /** Change vs the previous period of the same length, as the classic page shows it (+100% from nothing). */
 function Delta({ cur, prev }: { cur: number; prev: number }) {
@@ -324,14 +325,14 @@ function StatsBody({ s, failed, retry }: { s: ReturnType<typeof statsOf>; failed
         </StatCard>
         <StatCard title="Countries">
           {s.countries.length ? (
-            <HBars items={s.countries.map((c) => ({ key: c.name, label: c.name, value: c.count }))} format={n} />
+            <HBars items={s.countries.map((c) => ({ key: c.name, label: placeText(c.name), value: c.count }))} format={n} />
           ) : (
             <p className={helpClass}>No places yet.</p>
           )}
         </StatCard>
         <StatCard title="Cities">
           {s.cities.length ? (
-            <HBars items={s.cities.map((c) => ({ key: c.name, label: c.name, value: c.count }))} format={n} />
+            <HBars items={s.cities.map((c) => ({ key: c.name, label: placeText(c.name), value: c.count }))} format={n} />
           ) : (
             <p className={helpClass}>No places yet.</p>
           )}

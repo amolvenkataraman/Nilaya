@@ -1,4 +1,5 @@
-// The last Settings sections: staff links (Usage, the Django admin) and "More" (your public profile).
+// The last Settings sections: staff links (Usage, Maintenance, the Django admin) and "More" (your public profile,
+// where place data comes from).
 import { userPath } from '../users/UserLink'
 import { cardClass, SettingLink, SettingsSection } from '../../components/ui'
 
@@ -7,6 +8,12 @@ export function AdminSection() {
     <SettingsSection id="set-admin" title="Admin" description="Staff only.">
       <div className={cardClass}>
         <SettingLink icon="chart" label="Usage" note="Page views and API calls per person and app" to="/settings/usage" />
+        <SettingLink
+          icon="wrench"
+          label="Maintenance"
+          note="Rename photo places, refresh caches, ingest, the place service"
+          to="/settings/maintenance"
+        />
         <SettingLink icon="wrench" label="Admin site" note="Users, groups and all data" href="/admin/" />
       </div>
     </SettingsSection>
@@ -18,6 +25,7 @@ export function MoreSection({ username }: { username?: string }) {
     <SettingsSection id="set-links" title="More">
       <div className={cardClass}>
         {username && <SettingLink icon="user" label="Your profile" note="As others see it" to={userPath(username)} />}
+        <SettingLink icon="pin" label="Place data sources" note="Where place names and outlines come from" to="/settings/place-sources" />
       </div>
     </SettingsSection>
   )

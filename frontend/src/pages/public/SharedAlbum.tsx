@@ -14,7 +14,7 @@ import { buttonClass, ErrorBox, SkeletonRows, useMediaQuery } from '../../compon
 import { cn } from '../../lib/cn'
 import { JustifiedDays } from '../photos/JustifiedDays'
 import { fmtDuration } from '../photos/util'
-import { fmtBytes, plural } from '../../lib/format'
+import { fmtBytes, plural, placeText } from '../../lib/format'
 import { PublicFrame, PublicNotice, loginHere, usePublicTitle } from './PublicFrame'
 import { useLayer } from '../../components/layers'
 
@@ -277,7 +277,7 @@ function Lightbox({ items, index, onGo, onClose }: { items: Photo[]; index: numb
   }, [])
   const full = safeHref(p.url)
   const thumb = safeHref(p.thumb_url)
-  const place = [p.city, p.country].filter(Boolean).join(', ')
+  const place = placeText([p.city, p.country].filter(Boolean).join(', '))
   return (
     <div
       ref={ref}

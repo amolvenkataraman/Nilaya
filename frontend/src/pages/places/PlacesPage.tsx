@@ -181,7 +181,7 @@ export default function PlacesPage() {
             }}
             onHit={(h) => {
               setAddMode(false)
-              setFocus({ key: ++focusSeq, lat: h.lat, lon: h.lng, bbox: h.bbox, label: h.name, address: h.address })
+              setFocus({ key: ++focusSeq, lat: h.lat, lon: h.lng, bbox: h.bbox, label: h.name, address: h.address, id: h.id })
             }}
           />
           <Button

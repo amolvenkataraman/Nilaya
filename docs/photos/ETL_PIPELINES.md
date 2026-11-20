@@ -17,7 +17,7 @@ photo_ingest_for_album()          [photos/indeximg.py]
         ├── Photo record creation (Photo model)
         ├── EXIF metadata extraction (PIL + GPSPhoto)
         ├── Video metadata extraction (ExifTool + OpenCV)
-        ├── GPS reverse geocoding (reverse_geocode)
+        ├── place names from GPS (placewise service)
         ├── Thumbnail generation (PIL / OpenCV)
         ├── Hash computation (MD5)
         └── Materialized view refresh (PhotoLocationCache)
@@ -157,13 +157,10 @@ p.date_taken = dt
 
 If `latitude` and `longitude` are set (and non-zero):
 
-```python
-results = rg.get((p.latitude, p.longitude))
-p.location_city = results['city']
-p.location_country = results['country']
-```
-
-Uses the `reverse_geocode` library (offline, no API calls required).
+`p.refresh_city_data()` asks the placewise service (`geo.naming`, offline) for the photo's place
+(`location_city`: the city, or the national park with the city it's in), state (`location_admin1`) and
+country. When the service isn't running the photo keeps no names; Settings › Maintenance › Name photo
+places fills them in later.
 
 #### Step 9 — Thumbnail Generation
 

@@ -403,7 +403,10 @@ export interface Photo {
   date_taken: ISODateTime | null
   video: boolean
   length: number | null
+  /** The place: the city, or the national park (with the city it's in). */
   city: string | null
+  /** State or province. */
+  state?: string | null
   country: string | null
   lat: number | null
   lon: number | null

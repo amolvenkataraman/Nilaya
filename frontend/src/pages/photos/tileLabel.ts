@@ -1,6 +1,6 @@
 // The small label on thumbnails (time, city, camera, …; chosen per device) and the full tooltip of a tile.
 import { fmtStamp, fmtTime } from '../../lib/dates'
-import { fmtBytes } from '../../lib/format'
+import { fmtBytes, placeText } from '../../lib/format'
 import { readPref, writePref } from '../../lib/storage'
 import type { Photo } from '../../lib/types'
 import { createStore } from './store'
@@ -34,7 +34,7 @@ export function labelText(p: Photo, l: TileLabel): string {
     case 'time':
       return p.date_taken ? fmtTime(new Date(p.date_taken)) : ''
     case 'city':
-      return p.city ?? ''
+      return placeText(p.city ?? '')
     case 'camera':
       return p.camera ?? ''
     case 'mp':
@@ -52,7 +52,7 @@ export function labelText(p: Photo, l: TileLabel): string {
 export function tileTitle(p: Photo): string {
   const lines: string[] = []
   if (p.date_taken) lines.push(fmtStamp(p.date_taken))
-  if (p.city || p.country) lines.push([p.city, p.country].filter(Boolean).join(', '))
+  if (p.city || p.country) lines.push(placeText([p.city, p.country].filter(Boolean).join(', ')))
   if (p.camera) lines.push(p.camera)
   const tech = [
     p.width && p.height ? `${p.width}×${p.height}` : '',

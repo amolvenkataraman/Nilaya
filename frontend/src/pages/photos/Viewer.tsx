@@ -20,7 +20,7 @@ import { Confirm, isTyping, Menu, MenuItem, MenuSeparator, PHONE_QUERY } from '.
 import { safeHref } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { fmtDate, fmtTime } from '../../lib/dates'
-import { fmtBytes } from '../../lib/format'
+import { fmtBytes, placeText } from '../../lib/format'
 import { usePref } from '../../lib/storage'
 import type { Photo } from '../../lib/types'
 import { copyLinks, deleteOriginal, downloadFiles, setAlbumCover, setPhotosHidden, undoHide, useHiddenMode, useLibraries } from './actions'
@@ -209,7 +209,7 @@ export function Viewer({
             {when && (
               <span className={cn('text-xs font-normal', dim)}>
                 {fmtTime(when)}
-                {photo?.city ? ` · ${photo.city}` : ''}
+                {photo?.city ? ` · ${placeText(photo.city)}` : ''}
               </span>
             )}
           </div>
@@ -501,7 +501,7 @@ function Media({
               className={cn(layer, 'group-data-dragging/stage:will-change-transform', !loaded && 'opacity-0')}
               data-zoom-layer="img"
               src={full}
-              alt={photo.city ? `Photo in ${photo.city}` : 'Photo'}
+              alt={photo.city ? `Photo in ${placeText(photo.city)}` : 'Photo'}
               draggable={false}
               decoding="async"
               style={{ width: fit.W, height: fit.H, transform: layerTransform('img', fit, view) }}

@@ -9,6 +9,7 @@ import { cn } from '../../lib/cn'
 import { fmtDate } from '../../lib/dates'
 import { browseQuery } from './queries'
 import { BOUNDS, FILTER_KEYS, type FilterKey, filterCount } from './timelineState'
+import { placeText } from '../../lib/format'
 
 /** Blur score presets (higher is sharper; the viewer shows the same score). */
 const SHARPNESS: [string, string, string][] = [
@@ -89,7 +90,7 @@ function FiltersDrawer({ onClose }: { onClose: () => void }) {
               <option value="">Any camera</option>
               {cameras.map((c) => (
                 <option key={c.value} value={c.value}>
-                  {c.display} · {c.count}
+                  {placeText(c.display)} · {c.count}
                 </option>
               ))}
             </Select>
@@ -104,7 +105,7 @@ function FiltersDrawer({ onClose }: { onClose: () => void }) {
               <option value="">Any country</option>
               {countries.map((c) => (
                 <option key={c.value} value={c.value}>
-                  {c.display} · {c.count}
+                  {placeText(c.display)} · {c.count}
                 </option>
               ))}
             </Select>
@@ -135,7 +136,7 @@ function FiltersDrawer({ onClose }: { onClose: () => void }) {
                     aria-pressed={on}
                     onClick={() => set('objects', (on ? picked.filter((x) => x !== o.value) : [...picked, o.value]).join(','))}
                   >
-                    {o.display} <span className="text-muted">{o.count}</span>
+                    {placeText(o.display)} <span className="text-muted">{o.count}</span>
                   </button>
                 )
               })}

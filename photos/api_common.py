@@ -24,7 +24,8 @@ class PhotoOut(Schema):
     date_taken: Optional[datetime.datetime]
     video: bool
     length: Optional[int]
-    city: Optional[str]
+    city: Optional[str]  # the place: the city, or the national park (geo.naming)
+    state: Optional[str]
     country: Optional[str]
     lat: Optional[float]
     lon: Optional[float]
@@ -52,6 +53,10 @@ class PhotoOut(Schema):
     @staticmethod
     def resolve_city(obj):
         return obj.location_city
+
+    @staticmethod
+    def resolve_state(obj):
+        return obj.location_admin1
 
     @staticmethod
     def resolve_country(obj):

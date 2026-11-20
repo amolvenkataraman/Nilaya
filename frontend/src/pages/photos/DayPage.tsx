@@ -8,7 +8,7 @@ import { Icon } from '../../components/Icon'
 import { PhotoStream, type Zoom } from './PhotoStream'
 import { buttonClass, chipClass, pageClass, PageHead } from '../../components/ui'
 import { dayInfoQuery } from './queries'
-import { fmtBytes, plural } from '../../lib/format'
+import { fmtBytes, plural, placeText } from '../../lib/format'
 
 const dayLink =
   'inline-grid h-6 place-items-center rounded-[calc(var(--app-radius-sm)-2px)] px-2 text-muted hover:bg-surface hover:text-fg hover:no-underline'
@@ -72,9 +72,9 @@ export function DayPage({ zoom }: { zoom: Zoom }) {
               key={`${p.city}|${p.country}`}
               className={chipClass({ interactive: true })}
               to={p.city ? `/photos?city=${encodeURIComponent(p.city)}` : `/photos?country=${encodeURIComponent(p.country!)}`}
-              title={`${[p.city, p.country].filter(Boolean).join(', ')}: ${plural(p.n, 'item')}`}
+              title={`${placeText([p.city, p.country].filter(Boolean).join(', '))}: ${plural(p.n, 'item')}`}
             >
-              {[p.city, p.country].filter(Boolean).join(', ')} <span className="text-muted">{p.n}</span>
+              {placeText([p.city, p.country].filter(Boolean).join(', '))} <span className="text-muted">{p.n}</span>
             </Link>
           ))}
           {places.length > 12 && <span className="text-xs text-muted">+{places.length - 12} more</span>}

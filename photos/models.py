@@ -13,46 +13,6 @@ import exiftool
 
 
 
-def _reverse_geocode_city(lat, lon):
-    """Return (city, country) using a population/distance score.
-
-    All GeoNames entries within ~50 km (0.5° Euclidean) are scored as
-    population / (dist_km + 1). This means a city (high population, slightly
-    farther) naturally beats a neighbourhood (low population, very close), while
-    two same-sized adjacent cities are decided by proximity rather than raw
-    population. Falls back to the nearest point when nothing is found in range.
-    """
-    import math
-    from reverse_geocode import GeocodeData
-
-    def _haversine_km(lat1, lon1, lat2, lon2):
-        R = 6371
-        dlat = math.radians(lat2 - lat1)
-        dlon = math.radians(lon2 - lon1)
-        a = math.sin(dlat / 2) ** 2 + math.cos(math.radians(lat1)) * math.cos(math.radians(lat2)) * math.sin(dlon / 2) ** 2
-        return R * 2 * math.asin(math.sqrt(a))
-
-    data = GeocodeData()
-    nearby = data._tree.query_ball_point([(lat, lon)], r=0.5)[0]
-
-    best = None
-    best_score = -1
-    for idx in nearby:
-        loc = data._locations[idx]
-        dist_km = _haversine_km(lat, lon, loc['latitude'], loc['longitude'])
-        score = math.log10(max(loc.get('population', 0), 1)) - (dist_km / 5)
-        if score > best_score:
-            best_score = score
-            best = loc
-
-    if best is None:
-        _, indices = data._tree.query([(lat, lon)], k=1)
-        best = data._locations[indices[0]]
-
-    country = data._countries.get(best['country_code'], '')
-    return best['city'], country
-
-
 # Create your models here.
 def parse_album_path(instance, filename):
     return f"photos/album/{instance.id}/{filename}"
@@ -130,7 +90,10 @@ class Photo(models.Model):
     latitude = models.FloatField(null=True, blank=True)
     longitude = models.FloatField(null=True, blank=True)
     altitude = models.FloatField(null=True, blank=True)
+    # Named by placewise from latitude/longitude (geo.naming): the city people would say, its state or
+    # province, and the country. Filled on ingest and location edits; Settings › Maintenance renames them all.
     location_city = models.CharField(max_length=128, null=True, blank=True)
+    location_admin1 = models.CharField(max_length=128, null=True, blank=True)
     location_country = models.CharField(max_length=32, null=True, blank=True)
     
     orientation = models.CharField(max_length=32)
@@ -239,6 +202,7 @@ class Photo(models.Model):
             "lat": self.latitude,
             "lon": self.longitude,
             "location_city": self.location_city,
+            "location_admin1": self.location_admin1,
             "location_country": self.location_country,
             "date_taken": str(self.date_taken),
             "thumbnail_hash": self.thumbnail_hash,
@@ -322,25 +286,31 @@ class Photo(models.Model):
         return self.megapixels
 
     def refresh_city_data(self, print_=False):
+        """Name the photo's place (city, state, country) from its coordinates with placewise. Left as it was
+        when placewise isn't running; Settings › Maintenance can name the photos it missed later."""
+        from geo import naming, service
+        if not self.latitude or not self.longitude:
+            return
         try:
-            if self.latitude != 0 and self.longitude != 0 and self.latitude != None and self.longitude != None:
-                self.location_city, self.location_country = _reverse_geocode_city(self.latitude, self.longitude)
-                if print_:
-                    print(self.location_city, self.location_country)
-
-                self.save()
-        except: pass
+            names = naming.name_point(self.latitude, self.longitude)
+        except service.Unavailable:
+            return
+        for field, value in names.items():
+            setattr(self, field, value)
+        if print_:
+            print(self.location_city, self.location_admin1, self.location_country)
+        self.save(update_fields=None if self._state.adding else list(names))
 
     def set_location(self, lat, lng):
         """Entered coordinates (None clears them), with the city/country that go with them. A 0
         coordinate is broken GPS (BROKEN_GPS), not a place: the city/country are cleared too."""
         self.latitude, self.longitude = lat, lng
         if not lat or not lng:
-            self.location_city = self.location_country = None
-            self.save(update_fields=["latitude", "longitude", "location_city", "location_country"])
+            self.location_city = self.location_admin1 = self.location_country = None
+            self.save(update_fields=["latitude", "longitude", "location_city", "location_admin1", "location_country"])
         else:
             self.save(update_fields=["latitude", "longitude"])
-            self.refresh_city_data()  # offline reverse geocoding: city/country
+            self.refresh_city_data()  # placewise: city, state, country
 
     def refresh_gps_data(self):
         try:

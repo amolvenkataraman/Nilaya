@@ -6,7 +6,7 @@ import { Link } from 'react-router'
 import { Icon, type IconName } from '../../components/Icon'
 import { Button, chipClass } from '../../components/ui'
 import { fmtDate, fmtTime } from '../../lib/dates'
-import { fmtBytes } from '../../lib/format'
+import { fmtBytes, placeText } from '../../lib/format'
 import { osmUrl } from '../../lib/map/geo'
 import type { Photo } from '../../lib/types'
 import { type PhotoDetails, photoDetailsQuery } from './queries'
@@ -164,7 +164,7 @@ export function InfoPanel({ photo, onClose }: { photo: Photo; onClose: () => voi
           row(
             'pin',
             <>
-              {(d.city || d.country) && <div>{[d.city, d.country].filter(Boolean).join(', ')}</div>}
+              {(d.city || d.country) && <div>{placeText([d.city, d.state, d.country].filter(Boolean).join(', '))}</div>}
               {lat !== null && lon !== null && (
                 <>
                   <div className="text-muted tabular-nums">

@@ -1,7 +1,9 @@
 // Leaflet map of places (on lib/map). Places are teardrop pins (status colour, category glyph, visited badge)
 // drawn as divIcons whose HTML is built only from constants; popups and tooltips are built from DOM text nodes,
 // never HTML strings, so place names and notes are always plain text. Nearby pins merge into count markers
-// (gridCluster) until zoomed in; big sets are culled to the view.
+// (gridCluster) until zoomed in; big sets are culled to the view. A click on the map asks placewise what's there
+// (GET /places/here: the place, state and country, parks, water, airport, time zone, nearby) and outlines the
+// smallest area the point is in; a search result is outlined the same way.
 import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { buttonClass } from '../../components/ui'
@@ -16,7 +18,8 @@ import L from '../../lib/map/leaflet'
 import type { HeatPoint } from '../../lib/map/points'
 import { useLeafletMap } from '../../lib/map/useLeafletMap'
 import { useViewportBox } from '../../lib/map/useViewportBox'
-import { categoryIcon, type Pin as Place, STATUSES, type Suggestion, stars, statusOf } from './api'
+import { categoryIcon, fetchHere, fetchOutline, type Here, type Pin as Place, STATUSES, type Suggestion, stars, statusOf } from './api'
+import { placeText } from '../../lib/format'
 
 interface Props {
   places: Place[]
@@ -50,6 +53,8 @@ export interface MapFocus {
   bbox?: [number, number, number, number]
   label?: string
   address?: string
+  /** placewise id of a searched place: its outline is drawn. */
+  id?: string
 }
 
 /** The accent colour for vector layers (suggestion rings), read from the tokens. */
@@ -108,6 +113,22 @@ const pop = {
   primary: buttonClass({ size: 'sm', variant: 'primary', className: 'text-accent-fg!' }),
 }
 
+/** What a map click learned, as short lines: parks, water, airport, local time, nearby. */
+function hereLines(h: Here): string[] {
+  const out: string[] = []
+  const extraParks = h.parks.map((p) => p.name).filter((n) => n && !(h.place ?? '').includes(n))
+  if (extraParks.length) out.push(`In ${extraParks.map(placeText).join(', ')}`)
+  if (h.water) out.push(`${h.water.relation === 'near' ? 'Near' : 'On'} ${h.water.name}`)
+  if (h.airport) out.push(`At ${h.airport.name}`)
+  if (h.tz) {
+    const time = new Intl.DateTimeFormat(undefined, { timeStyle: 'short', timeZone: h.tz }).format(new Date())
+    out.push(`${time} local time · ${h.tz.replace(/_/g, ' ')}`)
+  }
+  const near = h.nearby.filter((n) => n.kind !== 'locality').slice(0, 3)
+  if (near.length) out.push(`Nearby: ${near.map((n) => n.name).join(', ')}`)
+  return out
+}
+
 export function PlaceMap({
   places,
   selected,
@@ -138,6 +159,8 @@ export function PlaceMap({
   // The selected place's popup waits for a fly to end: the fly's moveend redraws every pin (closing popups).
   const pendingPopup = useRef<string | null>(null)
   const flying = useRef(false)
+  const outline = useRef<L.GeoJSON | null>(null)
+  const lookup = useRef<AbortController | null>(null)
 
   // Canvas renderer for the vector layers (suggestions, your location); pins are cheap divIcons, and big sets
   // are culled to the view and clustered below, so the DOM stays small.
@@ -273,23 +296,75 @@ export function PlaceMap({
     }
   }, [places, zoomTick, selected, map])
 
-  /** Popup with the coordinates (and a found name) and "Add a place here". Text nodes only. */
+  /** Draw a place's outline (replacing the last one); nothing when it has none. */
+  function showOutline(m: L.Map, id: string | undefined, signal?: AbortSignal) {
+    outline.current?.remove()
+    outline.current = null
+    if (!id) return
+    fetchOutline(id, signal)
+      .then((fc) => {
+        if (signal?.aborted || !fc.features.length) return
+        outline.current = L.geoJSON(fc, {
+          interactive: false,
+          style: { color: accentColour(), weight: 2, opacity: 0.9, fillOpacity: 0.06 },
+        }).addTo(m)
+      })
+      .catch(() => {})
+  }
+
+  /** Popup with the coordinates (and a found name) and "Add a place here". Without a name (a click on the map)
+   * it asks placewise what's there and fills in. Text nodes only. */
   function addPopup(m: L.Map, at: L.LatLngExpression, lat: number, lng: number, label?: string, address?: string) {
+    lookup.current?.abort()
+    const ctl = new AbortController()
+    lookup.current = ctl
     const wrap = el('div', pop.wrap)
-    if (label) wrap.append(el('div', pop.title, label))
-    if (address && address !== label) wrap.append(el('div', pop.text, address))
-    wrap.append(el('div', pop.meta, fmtCoords(lat, lng)))
-    const add = el('button', pop.primary, 'Add a place here')
-    add.type = 'button'
-    add.addEventListener('click', () => {
-      m.closePopup()
-      cb.current.onAddAt(lat, lng, label, address)
-    })
-    wrap.append(add)
-    L.popup({ closeButton: !!label, autoPanPadding: [24, 24] })
+    let name = label
+    let where = address
+    const draw = (here?: Here, note?: string) => {
+      wrap.replaceChildren()
+      if (name) wrap.append(el('div', pop.title, placeText(name)))
+      if (where && where !== name) wrap.append(el('div', pop.text, where))
+      if (here) for (const line of hereLines(here)) wrap.append(el('div', pop.text, line))
+      if (note) wrap.append(el('div', pop.meta, note))
+      wrap.append(el('div', pop.meta, fmtCoords(lat, lng)))
+      const add = el('button', pop.primary, 'Add a place here')
+      add.type = 'button'
+      add.addEventListener('click', () => {
+        m.closePopup()
+        cb.current.onAddAt(lat, lng, name, where)
+      })
+      wrap.append(add)
+    }
+    draw(undefined, label ? undefined : 'Finding the place…')
+    const popup = L.popup({ closeButton: true, autoPanPadding: [24, 24], maxWidth: 320 })
       .setLatLng(at)
       .setContent(wrap)
-      .openOn(m)
+    popup.on('remove', () => {
+      ctl.abort()
+      if (!label) showOutline(m, undefined)
+    })
+    popup.openOn(m)
+    if (label) return
+    fetchHere(lat, lng, ctl.signal)
+      .then((here) => {
+        if (ctl.signal.aborted) return
+        name = here.place ?? here.label
+        const state = here.where.find((w) => w.level === 'State')?.name
+        const country = here.where.find((w) => w.level === 'Country')?.name
+        where = [state, country].filter(Boolean).join(', ') || undefined
+        draw(here)
+        popup.update()
+        const park = here.parks[0]
+        const city = here.where.find((w) => w.level === 'City' && w.relation === 'within')
+        showOutline(m, park?.id ?? city?.id, ctl.signal)
+      })
+      .catch(() => {
+        if (!ctl.signal.aborted) {
+          draw(undefined, "Place details aren't available right now.")
+          popup.update()
+        }
+      })
   }
 
   // Crosshair while adding. A class on the element Leaflet owns (React re-rendering className would drop Leaflet's).
@@ -313,6 +388,7 @@ export function PlaceMap({
         { maxZoom: focus.zoom ?? 17, duration: 0.8 },
       )
     else m.flyTo([focus.lat, focus.lon], Math.max(m.getZoom(), focus.zoom ?? 16), { duration: 0.8 })
+    showOutline(m, focus.id)
     if (focus.label !== undefined) {
       const t = setTimeout(() => addPopup(m, [focus.lat, focus.lon], focus.lat, focus.lon, focus.label, focus.address), 850)
       return () => clearTimeout(t)

@@ -25,6 +25,7 @@ import { MapSearch } from './MapSearch'
 import { smallSelectClass } from './StatCards'
 import { PhotoShot, pinStyle, skipKey, takenAt, tool } from './ToolLayout'
 import { useParamSetter } from './useParamSetter'
+import { placeText } from '../../lib/format'
 
 type Preset = { label: string; lat: number; lng: number }
 type Spots = { presets: Preset[]; focus: (Preset & { zoom: number })[] }
@@ -122,7 +123,7 @@ export function LocatePage() {
     try {
       const p = await post<Photo>(`photos/${photo.id}/location`, { lat: at.lat, lng: at.lng })
       setDone((x) => x + 1)
-      toast.show(`Saved${p.city ? `: ${[p.city, p.country].filter(Boolean).join(', ')}` : ''}`)
+      toast.show(`Saved${p.city ? `: ${placeText([p.city, p.country].filter(Boolean).join(', '))}` : ''}`)
       refreshPhoto(photo.id)
       advance()
     } catch (e) {

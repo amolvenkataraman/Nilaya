@@ -6,7 +6,9 @@ parse(q, vocab, now) reads the query left to right, longest phrase first (up to 
   week/month/year, "last 3 months";
 - media: video(s), photo(s)/picture(s), raw, screenshot(s);
 - places: the cities and countries in the user's library (from the cached browse lists, plane photos left out),
-  plus aliases (usa/america/"US" -> United States, uk/england -> United Kingdom, nyc, sf...);
+  plus aliases (usa/america/"US" -> United States, uk/england -> United Kingdom, nyc, sf...); words nothing
+  else understands go to placewise (`places` resolver): a state ("Ontario") matches the photos' state, and an
+  airport, landmark, park, lake, postcode or town ("YYZ airport", "golden gate bridge") the photos near it;
 - cameras: makes, models, model prefixes ("pixel 7", "iphone", "canon eos"), Galaxy names for Samsung codes;
 - objects: the Objects365 classes the indexer detects, with plurals and synonyms (puppies -> dog, kids -> person,
   food, animals...);
@@ -256,6 +258,10 @@ def build_vocab(cities, countries, cameras):
         city_countries.setdefault(city, set()).add(country)
         p = norm(city)
         _add(e, p, "place", "cities", {city}, city)
+        if ", " in city:  # "Golden Gate National Recreation Area, San Francisco": by the park or by the city
+            park, town = city.rsplit(", ", 1)
+            _add(e, norm(park), "place", "cities", {city}, park)
+            _add(e, norm(town), "place", "cities", {city}, town)
         if p.endswith(" city") and len(p) > 8:  # "new york city" -> "new york", "quebec city" -> "quebec"
             _add(e, p[:-5], "place", "cities", {city}, city)
     for canonical, aliases in CITY_ALIASES.items():
@@ -498,8 +504,9 @@ def _lookup(layers, phrase, only=None):
     return None
 
 
-def parse(q, vocab, now, names=None, fallback=True):
-    """-> (terms, unmatched original words). vocab: build_vocab() output; names: names_vocab() output."""
+def parse(q, vocab, now, names=None, fallback=True, places=None):
+    """-> (terms, unmatched original words). vocab: build_vocab() output; names: names_vocab() output;
+    places(phrase) -> (payload, label) or None: placewise for words nothing else understood."""
     words = tokenize(q[:200])
     raw = q.split()
     layers = [vocab["entries"], STATIC, names or {}]
@@ -592,6 +599,10 @@ def parse(q, vocab, now, names=None, fallback=True):
                     k += 1
             j += len(run)
 
+    # Places nothing else knows (placewise): runs of leftover words, longest phrase first.
+    if places and still:
+        still = _places(still, plain, raw, words, places, span, terms)
+
     # Dedupe (same type and value), keep query order.
     seen, out = set(), []
     for t in sorted(terms, key=lambda t: t.span):
@@ -612,6 +623,38 @@ def parse(q, vocab, now, names=None, fallback=True):
     return out, words_left
 
 
+MAX_PLACE_LOOKUPS = 6
+
+
+def _places(still, plain, raw, words, places, span, terms):
+    """Resolve runs of consecutive leftover word indexes with places(); returns the indexes still left."""
+    runs, left, lookups = [], [], 0
+    for x in still:
+        if runs and runs[-1][-1] == x - 1:
+            runs[-1].append(x)
+        else:
+            runs.append([x])
+    for run in runs:
+        k = 0
+        while k < len(run):
+            for n in range(min(MAX_WORDS, len(run) - k), 0, -1):
+                idxs = run[k:k + n]
+                phrase = " ".join(raw[words[x][1]] for x in idxs).strip("\"'.,;:!?()")
+                if lookups >= MAX_PLACE_LOOKUPS or len(phrase) < 2 or phrase.isdigit():
+                    continue
+                lookups += 1
+                found = places(phrase)
+                if found:
+                    payload, label = found
+                    terms.append(_term("place", payload, label, span(idxs[0], idxs[-1] + 1)))
+                    k += n
+                    break
+            else:
+                left.append(run[k])
+                k += 1
+    return left
+
+
 def _term(t, payload, label, span):
     if t == "camera":
         models = sorted(payload.get("models", ()))
@@ -620,6 +663,10 @@ def _term(t, payload, label, span):
         value = "|".join(makes + models)
         return Term(t, value, label, span, payload, detail=detail)
     if t == "place":
+        if "id" in payload:  # placewise (geo.places)
+            near = payload.get("near")
+            detail = near["kind"] if near else "state" if "admin1" in payload else ""
+            return Term(t, payload["id"], label, span, payload, detail=detail)
         vals = sorted(payload.get("cities", ())) + sorted(payload.get("countries", ()))
         return Term(t, "|".join(vals), label, span, payload)
     if t == "object":
@@ -667,6 +714,14 @@ def filters(terms, city_countries):
                         used.add(id(o))
         pq = Q()
         for t in places:
+            if "admin1" in t.data:
+                pq |= Q(location_admin1=t.data["admin1"])
+            if "named" in t.data:  # a park alone, or with the city it's in ("Park, City")
+                n = t.data["named"]
+                pq |= Q(location_city=n) | Q(location_city__startswith=n + ", ") | Q(location_city__endswith=", " + n)
+            if "near" in t.data:
+                b = t.data["near"]["box"]
+                pq |= Q(latitude__range=(b[0], b[2]), longitude__range=(b[1], b[3]))
             for c in t.data.get("cities", ()):
                 pq |= Q(location_city=c, location_country__in=sorted(qualifiers[c])) if c in qualifiers else Q(location_city=c)
             if id(t) not in used:

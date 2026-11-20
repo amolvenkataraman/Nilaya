@@ -11,7 +11,7 @@ import { buttonClass, pageClass, PageHead, useHotkey } from '../../components/ui
 import { safeHref } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { fmtDate, fmtTime, isSameDay, parseDayKey } from '../../lib/dates'
-import { fmtBytes } from '../../lib/format'
+import { fmtBytes, placeText } from '../../lib/format'
 import { photoSummaryQuery } from '../../lib/photoQueries'
 import { usePref } from '../../lib/storage'
 import type { Photo, PhotoSummary } from '../../lib/types'
@@ -204,7 +204,7 @@ function Sidebar() {
             <SideItem
               key={`c${c.name}`}
               icon="pin"
-              label={c.name}
+              label={placeText(c.name)}
               to={`/photos?city=${encodeURIComponent(c.name)}`}
               active={onTimeline && city === c.name}
               count={c.count.toLocaleString()}

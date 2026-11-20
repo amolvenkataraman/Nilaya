@@ -10,6 +10,7 @@ import { cn } from '../../lib/cn'
 import { browseQuery } from './queries'
 import { n } from './statsData'
 import { useParamSetter } from './useParamSetter'
+import { placeText } from '../../lib/format'
 
 const TABS = [
   { id: 'cities', label: 'Cities', icon: 'pin', param: 'city' },
@@ -82,7 +83,7 @@ export function BrowsePage() {
                     className="flex h-[2.375rem] items-center gap-3 rounded-sm px-3 text-sm text-fg hover:bg-hover hover:no-underline [&>svg]:shrink-0 [&>svg]:text-muted"
                   >
                     <Icon name={tab.icon} size={15} />
-                    <span className="min-w-0 flex-1 truncate">{i.display}</span>
+                    <span className="min-w-0 flex-1 truncate">{placeText(i.display)}</span>
                     <span className="h-1.5 w-32 flex-none overflow-hidden rounded-[3px] bg-surface-2 max-md:hidden" aria-hidden="true">
                       <span className="block h-full rounded-[3px] bg-accent" style={{ width: `${(i.count / max) * 100}%` }} />
                     </span>

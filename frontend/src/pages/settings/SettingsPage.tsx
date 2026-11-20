@@ -1,6 +1,6 @@
 // Settings: one scrolling page of sections (profile, password, appearance, devices, shortcuts, developer tools, staff
 // links) with a sidebar that follows the scroll, plus the staff Usage page at /settings/usage.
-import { useEffect, useRef, useState } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router'
 import { AppShell, SideItem, SideSection, sideItemClass } from '../../components/AppShell'
 import { Icon, type IconName } from '../../components/Icon'
@@ -12,8 +12,10 @@ import { AppearanceSection } from './Appearance'
 import { DevicesSection } from './Devices'
 import { FeedsSection } from './Feeds'
 import { GuidesSection } from './Guides'
+import { MaintenancePage } from './Maintenance'
 import { AdminSection, MoreSection } from './MoreLinks'
 import { PasswordSection } from './Password'
+import { PlaceSourcesPage } from './PlaceSources'
 import { ProfileSection } from './Profile'
 import { ShortcutsSection } from './Shortcuts'
 import { UsagePage } from './Usage'
@@ -36,6 +38,11 @@ const DEVELOPER: SectionDef[] = [
   { id: 'set-guides', label: 'Guides', icon: 'book' },
 ]
 const ADMIN: SectionDef = { id: 'set-admin', label: 'Admin', icon: 'wrench' }
+const SUBPAGES: Record<string, { title: string; staff: boolean; render: () => ReactNode }> = {
+  usage: { title: 'Usage', staff: true, render: () => <UsagePage /> },
+  maintenance: { title: 'Maintenance', staff: true, render: () => <MaintenancePage /> },
+  'place-sources': { title: 'Place data sources', staff: false, render: () => <PlaceSourcesPage /> },
+}
 const MORE: SectionDef = { id: 'set-links', label: 'More', icon: 'external' }
 
 /** Highlight the section nearest the top of the viewport; `#set-…` in the URL scrolls to that section. */
@@ -86,7 +93,9 @@ export default function SettingsPage() {
   const sub = useParams()['*'] ?? ''
   const navigate = useNavigate()
   const staff = !!me.data?.is_staff
-  const usage = sub === 'usage'
+  // Pages of their own under /settings/: staff Usage and Maintenance, and where place data comes from.
+  const page = SUBPAGES[sub] ? sub : null
+  const usage = page !== null
   const ids = [...ACCOUNT, ...DEVELOPER, ...(staff ? [ADMIN] : []), MORE].map((s) => s.id)
   const [active, go] = useActiveSection(ids, !usage)
   const open = (id: string) => (usage ? navigate(`/settings#${id}`) : go(id))
@@ -99,7 +108,8 @@ export default function SettingsPage() {
       <SideSection title="Developer">{DEVELOPER.map(item)}</SideSection>
       {staff && (
         <SideSection title="Admin">
-          <SideItem icon="chart" label="Usage" active={usage} to="/settings/usage" />
+          <SideItem icon="chart" label="Usage" active={page === 'usage'} to="/settings/usage" />
+          <SideItem icon="wrench" label="Maintenance" active={page === 'maintenance'} to="/settings/maintenance" />
           <a className={sideItemClass()} href="/admin/">
             <Icon name="wrench" size={16} />
             <span className="min-w-0 flex-1 truncate">Admin site</span>
@@ -116,15 +126,17 @@ export default function SettingsPage() {
     </div>
   )
   return (
-    <AppShell app="settings" sidebar={sidebar} pageTitle={usage ? 'Usage' : 'Settings'}>
-      <div className={cn(pageClass(true), usage ? 'max-w-[72rem]' : 'max-w-[52rem]')}>
-        {usage ? (
-          me.isPending ? (
+    <AppShell app="settings" sidebar={sidebar} pageTitle={page ? SUBPAGES[page].title : 'Settings'}>
+      <div className={cn(pageClass(true), page === 'usage' ? 'max-w-[72rem]' : 'max-w-[52rem]')}>
+        {page ? (
+          !SUBPAGES[page].staff ? (
+            SUBPAGES[page].render()
+          ) : me.isPending ? (
             loading
           ) : staff ? (
-            <UsagePage />
+            SUBPAGES[page].render()
           ) : (
-            <ErrorBox error={me.error ?? new Error('Usage is visible to staff only.')} />
+            <ErrorBox error={me.error ?? new Error(`${SUBPAGES[page].title} is visible to staff only.`)} />
           )
         ) : (
           <>

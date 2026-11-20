@@ -1,4 +1,4 @@
-// Place search floating over a tool's map (Add missing locations): the server's geocoder via useGeocode; a hit
+// Place search floating over a tool's map (Add missing locations): placewise on the server via useGeocode; a hit
 // flies the map there and drops the pin. Results are a list of buttons (Tab to them; Enter takes the first).
 import { useState } from 'react'
 import { Icon } from '../../components/Icon'
@@ -52,7 +52,7 @@ export function MapSearch({ onPick }: { onPick: (h: GeoHit) => void }) {
       {show && (
         <ul className="mt-1 grid rounded-md border border-border bg-surface p-1 shadow-pop" aria-label="Places">
           {off ? (
-            <li className={note}>Search is off (the server is in offline mode).</li>
+            <li className={note}>Search isn't available: the place service isn't running on the server.</li>
           ) : waiting ? (
             <li className={note}>Searching…</li>
           ) : error ? (
@@ -68,7 +68,7 @@ export function MapSearch({ onPick }: { onPick: (h: GeoHit) => void }) {
                   onClick={() => pick(h)}
                 >
                   <strong className="truncate">{h.name}</strong>
-                  <span className="truncate text-xs text-muted">{h.address}</span>
+                  <span className="truncate text-xs text-muted">{[h.kind, h.address].filter(Boolean).join(' · ')}</span>
                 </button>
               </li>
             ))

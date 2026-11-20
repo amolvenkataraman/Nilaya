@@ -23,6 +23,7 @@ from django.utils.text import slugify
 from ninja import Field, File, Form, Query, Router, Schema
 from ninja.errors import HttpError
 from ninja.files import UploadedFile
+from placewise.geo import distance as _distance
 
 from apikeys.auth import require_also
 from photos.api_v2 import PhotoOut, library
@@ -193,10 +194,8 @@ def _clean(data):
 
 
 def _dist_m(lat1, lon1, lat2, lon2):
-    """Great-circle distance in metres."""
-    p1, p2 = math.radians(lat1), math.radians(lat2)
-    a = math.sin((p2 - p1) / 2) ** 2 + math.cos(p1) * math.cos(p2) * math.sin(math.radians(lon2 - lon1) / 2) ** 2
-    return 12_742_000 * math.asin(math.sqrt(min(1.0, a)))
+    """Great-circle distance in metres (placewise.geo, haversine)."""
+    return _distance(lat1, lon1, lat2, lon2, units="m")
 
 
 def _cell(lat, lon):
@@ -460,30 +459,92 @@ def photos_near(request, latitude: float = Query(..., ge=-90, le=90), longitude:
 
 # ---------- places ----------
 
-@router.get("/geocode", summary="Search addresses and places on OpenStreetMap (Nominatim); off when ONLINE_MODE is off")
-def geocode(request, q: str):
-    import json
-    import urllib.parse
-    import urllib.request
+def _geo_unavailable():
+    return HttpError(503, "Place search isn't available: the placewise service isn't running")
 
-    from django.conf import settings
-    from django.http import JsonResponse
+
+@router.get("/geocode", summary="Search places by name, code or postcode (placewise, offline)")
+def geocode(request, q: str, near_lat: Optional[float] = Query(None, ge=-90, le=90),
+            near_lon: Optional[float] = Query(None, ge=-180, le=180)):
+    """Up to 6 places: towns, states, parks, lakes, airports (IATA codes), landmarks, postcodes; typos and
+    old names work. near_lat/near_lon (the map's centre) rank nearby places first."""
+    from geo import service
 
     query = q.strip()[:200]
     if not query:
         raise HttpError(400, "Type something to search for")
-    if not getattr(settings, "ONLINE_MODE", True):  # same switch as scheduler/notifications
-        raise HttpError(503, "Place search is off on this server (offline mode)")
-    req = urllib.request.Request(
-        "https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({"format": "json", "q": query}),
-        # Nominatim's policy: an identifying User-Agent and Referer (this site's own address).
-        headers={"User-Agent": f"Nilaya/1.0 (+{settings.SITE_URL})", "Referer": settings.SITE_URL})
+    near = (near_lat, near_lon) if near_lat is not None and near_lon is not None else None
     try:
-        with urllib.request.urlopen(req, timeout=10) as response:  # noqa: S310 - fixed https URL
-            data = json.loads(response.read().decode("utf-8"))
-    except Exception as exc:
-        raise HttpError(502, "Place search is unavailable right now") from exc
-    return JsonResponse(data, safe=False)
+        hits = service.find(query, limit=6, near=near)
+    except service.Unavailable as exc:
+        raise _geo_unavailable() from exc
+    out = []
+    for e in hits:
+        context = ", ".join(x for x in (e.region, e.country) if x)
+        bbox = [e.bbox.south, e.bbox.north, e.bbox.west, e.bbox.east] if e.bbox else None
+        out.append({"id": e.place.id, "name": e.place.name, "kind": e.place.kind.value.replace("_", " "),
+                    "lat": e.point.lat, "lng": e.point.lon, "address": context, "bbox": bbox})
+    return out
+
+
+def _place(p, relation=None, km=None):
+    return {"id": p.id, "name": p.name, "kind": p.kind.value.replace("_", " "),
+            "relation": relation, "km": round(km, 1) if km is not None else None}
+
+
+@router.get("/here", summary="Everything placewise knows about a point: its names, areas, parks, water, airport, nearby")
+def here(request, latitude: float = Query(..., ge=-90, le=90), longitude: float = Query(..., ge=-180, le=180)):
+    from geo import naming, service
+
+    try:
+        r = service.lookup(latitude, longitude)
+    except service.Unavailable as exc:
+        raise _geo_unavailable() from exc
+    levels = [("Neighbourhood", r.sublocality), ("City", r.city), ("County", r.admin2), ("State", r.admin1),
+              ("Country", r.country), ("Postcode", r.postal)]
+    return {
+        "label": r.label,
+        "place": naming.place_name(r),
+        "where": [{"level": k, **_place(p, "within" if r.matches.get(f) is None or r.matches[f].relation.value == "within"
+                                           else r.matches[f].relation.value,
+                                        r.matches[f].distance_km if r.matches.get(f) else None)}
+                  for (k, p), f in zip(levels, ("sublocality", "city", "admin2", "admin1", "country", "postal"))
+                  if p is not None],
+        "regions": [_place(p) for p in r.regions],
+        "tz": r.tz,
+        "parks": [{**_place(p), "tier": p.tier} for p in r.within],
+        "water": _place(r.water.place, r.water.relation.value, r.water.distance_km) if r.water else None,
+        "airport": _place(r.airport.place, r.airport.relation.value, r.airport.distance_km) if r.airport else None,
+        "nearby": [_place(n.place, n.relation.value, n.distance_km) for n in r.near][:8],
+    }
+
+
+@router.get("/outline", summary="A place's outline as GeoJSON (placewise), for drawing it on the map")
+def outline(request, id: str = Query(..., max_length=200)):
+    from django.http import JsonResponse
+
+    from geo import service
+
+    try:
+        found = service.outline(id)
+    except service.Unavailable as exc:
+        raise _geo_unavailable() from exc
+    if found is None:
+        raise HttpError(404, "No such place")
+    response = JsonResponse(found)
+    response["Cache-Control"] = "private, max-age=86400"
+    return response
+
+
+@router.get("/sources", summary="Where place names, outlines and search data come from, with their licences")
+def sources(request):
+    from geo import service
+
+    try:
+        found = service.attribution()
+    except service.Unavailable as exc:
+        raise _geo_unavailable() from exc
+    return found
 
 
 class PinOut(Schema):

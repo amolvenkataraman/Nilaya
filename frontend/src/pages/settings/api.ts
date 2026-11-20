@@ -47,6 +47,8 @@ export const settingsKeys = {
   feeds: ['settings', 'feeds'] as const,
   devices: ['settings', 'devices'] as const,
   usage: (days: number) => ['settings', 'usage', days] as const,
+  maintenance: ['settings', 'maintenance'] as const,
+  placeSources: ['settings', 'place-sources'] as const,
 }
 
 export const apiKeysQuery = () =>
@@ -181,3 +183,77 @@ export function useSignOutDevice(d: Device) {
     onSettled: () => qc.invalidateQueries({ queryKey: settingsKeys.devices }),
   })
 }
+
+/** One run of a maintenance job (staff, GET /maintenance/jobs). */
+export interface MaintenanceRun {
+  id: string
+  job: string
+  options: Record<string, boolean>
+  status: 'queued' | 'running' | 'done' | 'failed'
+  done: number
+  total: number | null
+  summary: string
+  /** Job-specific: "Name photo places" lists [old, new, photos] changes. */
+  result: { changes?: [string, string, number][] }
+  log: string
+  started_by: string | null
+  created_on: string
+  started_on: string | null
+  finished_on: string | null
+}
+export interface MaintenanceJob {
+  key: string
+  title: string
+  description: string
+  group: string
+  options: { key: string; label: string; default: boolean }[]
+  /** Newest first, up to 5. */
+  runs: MaintenanceRun[]
+}
+export interface Maintenance {
+  services: {
+    placewise: {
+      ok: boolean
+      error?: string
+      data_version?: string
+      uptime_s?: number
+      cache?: { hits: number; misses: number; size: number }
+    }
+  }
+  jobs: MaintenanceJob[]
+}
+const busy = (r?: MaintenanceRun) => !!r && (r.status === 'queued' || r.status === 'running')
+/** Polls every 1.5 s while a job runs. */
+export const maintenanceQuery = () =>
+  queryOptions({
+    queryKey: settingsKeys.maintenance,
+    queryFn: ({ signal }) => get<Maintenance>('maintenance/jobs', undefined, signal),
+    refetchInterval: (q) => (q.state.data?.jobs.some((j) => busy(j.runs[0])) ? 1500 : false),
+  })
+export const useMaintenance = () => useQuery(maintenanceQuery())
+export const runIsBusy = busy
+
+export function useStartJob() {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (v: { key: string; options: Record<string, boolean> }) =>
+      post<MaintenanceRun>(`maintenance/jobs/${encodeURIComponent(v.key)}/run`, { options: v.options }),
+    onSettled: () => qc.invalidateQueries({ queryKey: settingsKeys.maintenance }),
+  })
+}
+
+/** A data source behind place names, outlines and search (placewise's attribution registry). */
+export interface PlaceSource {
+  id: string
+  name: string
+  url: string
+  licence: string
+  credit: string
+  used_in: string[]
+}
+export const placeSourcesQuery = () =>
+  queryOptions({
+    queryKey: settingsKeys.placeSources,
+    queryFn: ({ signal }) => get<Record<string, PlaceSource>>('places/sources', undefined, signal),
+    staleTime: 60 * 60_000,
+  })
