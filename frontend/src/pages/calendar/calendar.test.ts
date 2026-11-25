@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { formBody, initialForm } from './eventForm'
 import { atWallMin, layoutDay } from './layout'
 import { eventsByDay, fetchRange, parseCalState, viewRange } from './range'
 import { rangeBody, termRange } from './SyncSetup'
@@ -128,5 +129,23 @@ describe('range sync presets (V1)', () => {
     expect(termRange(jun, false)).toEqual({ sm: 5, sy: 2026, em: 9, ey: 2026 })
     expect(termRange(jun, true)).toEqual({ sm: 4, sy: 2026, em: 9, ey: 2026 })
     expect(rangeBody({ sm: 8, sy: 2026, em: 0, ey: 2027 })).toEqual({ start: '2026-09-01', end: '2027-01-01' })
+  })
+})
+
+describe('editing a repeating event', () => {
+  const series = {
+    id: 's1',
+    name: 'Standup',
+    calendar_id: 1,
+    kind: 'event',
+    all_day: false,
+    start: '2026-12-01T14:00:00Z',
+    end: '2026-12-01T14:15:00Z',
+    rrule: 'FREQ=WEEKLY;COUNT=10',
+  } as unknown as CalEvent
+  it('keeps the series end when the repeat choice is unchanged, and drops it when it changes', () => {
+    const f = initialForm({ event: series }, 'UTC')
+    expect((formBody({ ...f, name: 'Daily standup' }, 1, 'UTC') as { rrule: string }).rrule).toBe('FREQ=WEEKLY;COUNT=10')
+    expect((formBody({ ...f, repeat: 'FREQ=DAILY' }, 1, 'UTC') as { rrule: string }).rrule).toBe('FREQ=DAILY')
   })
 })

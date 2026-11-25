@@ -34,6 +34,13 @@ function repeatPreset(rrule?: string | null): string {
   return hit ? hit[0] : 'custom'
 }
 
+/** The rule to send. An unchanged preset sends the event's own rule back, so its end (UNTIL/COUNT, which the form
+ *  has no control for) survives an edit; a bare preset would make the series repeat forever. */
+function repeatRule(f: { repeat: string; rrule: string }): string {
+  if (f.repeat === 'custom') return f.rrule.trim()
+  return f.repeat && f.rrule && repeatPreset(f.rrule) === f.repeat ? f.rrule : f.repeat
+}
+
 /** The calendar a new event goes in: the last one used, else the first local one, else any editable one. */
 export const LAST_CAL = 'app.cal.last'
 export function defaultCalendar(cals: Calendar[]): number | undefined {
@@ -144,7 +151,7 @@ export function formBody(f: EventForm, calendarId: number | undefined, tz: Zone)
       .split(',')
       .map((t) => t.trim())
       .filter(Boolean),
-    rrule: f.repeat === 'custom' ? f.rrule.trim() : f.repeat,
+    rrule: repeatRule(f),
     ...(f.reminders !== null ? { reminders: f.reminders } : {}),
     meeting_url: f.meeting.trim(),
     place_id: f.place || null,
