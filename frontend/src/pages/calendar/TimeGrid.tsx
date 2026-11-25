@@ -1,6 +1,8 @@
 // The 24-hour grid both the week/day view and someone's availability draw on: day headers, an optional all-day
 // row, and a scrolling body with the hour gutter and one column per day. Callers fill the columns; the grid
 // owns the geometry (--hour per hour, --gutter for the labels, --cols days) so both views line up the same.
+// An hour is 3rem, or a 24th of the body's height when that's taller (a tall or 4K screen), so the day fills the
+// screen instead of ending halfway down; the body is a size container and --hour is resolved inside it (cqh).
 import type { CSSProperties, ReactNode, Ref } from 'react'
 import { cn } from '../../lib/cn'
 import { fmtDate } from '../../lib/dates'
@@ -46,7 +48,7 @@ export function TimeGrid({
   return (
     <div
       className={cn(
-        'flex min-h-0 flex-1 flex-col [--hour:3rem] max-md:[--hour:2.75rem]',
+        'flex min-h-0 flex-1 flex-col [--hour:max(3rem,100cqh/24)] max-md:[--hour:2.75rem]',
         wide ? '[--gutter:6.5rem]' : '[--gutter:3.5rem] max-md:[--gutter:2.75rem]',
       )}
       style={{ '--cols': days.length } as CSSProperties}
@@ -67,7 +69,7 @@ export function TimeGrid({
           {days.map((d, i) => allDay(d, i))}
         </div>
       )}
-      <div className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable]" ref={scrollRef}>
+      <div className="min-h-0 flex-1 overflow-y-auto [container-type:size] [scrollbar-gutter:stable]" ref={scrollRef}>
         <div className={cn(row, 'relative h-[calc(var(--hour)*24)]', bodyClassName)} ref={bodyRef} {...bodyProps}>
           <div className="relative" aria-hidden="true">
             {HOURS.map(
