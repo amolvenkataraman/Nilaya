@@ -25,11 +25,13 @@
   --color-fg: var(--app-fg);
   --color-muted: var(--app-muted);
   --color-border: var(--app-border);
+  --color-border-strong: var(--app-border-strong);
   --color-accent: var(--app-accent);
   --color-accent-hover: var(--app-accent-hover);
   --color-accent-fg: var(--app-accent-fg);
   --color-accent-soft: var(--app-accent-soft);
   --color-danger: var(--app-danger);
+  --color-danger-fg: var(--app-danger-fg);
   --color-danger-soft: var(--app-danger-soft);
   --color-warning: var(--app-warning);
   --color-warning-soft: var(--app-warning-soft);

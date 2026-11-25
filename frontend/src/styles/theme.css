@@ -1,5 +1,6 @@
 /* Nilaya design tokens: one set for every page, light + dark. Every stylesheet and Tailwind utility uses
- * these --app-* variables instead of literal colours. mobile/tools/gen_tokens.py reads the three blocks
+ * these --app-* variables instead of literal colours. Text colours (fg, muted, accent, danger, warning, success)
+ * keep 4.5:1 on bg, surface, surface-2 and their own -soft tint (WCAG AA); *-fg is the text on a solid fill. mobile/tools/gen_tokens.py reads the three blocks
  * below (keep their selectors) to generate the phone apps' tokens. */
 
 :root,
@@ -10,13 +11,15 @@
     --app-fg: #1b222c;
     --app-muted: #5d6878;
     --app-border: #dbe0e7;
+    --app-border-strong: #838c99; /* form-control outlines: 3:1 on surface, bg and surface-2 */
     --app-accent: #0f6d77;
     --app-accent-hover: #0b5960;
     --app-accent-fg: #ffffff;
     --app-accent-soft: #e2f1f2;
-    --app-danger: #c0392b;
-    --app-warning: #b7791f;
-    --app-success: #2f855a;
+    --app-danger: #ae3427;
+    --app-danger-fg: #ffffff;
+    --app-warning: #855817;
+    --app-success: #276d4a;
     --app-shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 12px rgba(16, 24, 40, 0.06);
     --app-overlay: rgba(16, 24, 40, 0.08);
 }
@@ -28,11 +31,13 @@
     --app-fg: #e5eaf0;
     --app-muted: #97a3b4;
     --app-border: #2b3643;
+    --app-border-strong: #657180;
     --app-accent: #3cc3cf;
     --app-accent-hover: #6bd5de;
     --app-accent-fg: #0b1116;
     --app-accent-soft: #15333a;
-    --app-danger: #f2766b;
+    --app-danger: #f37c71;
+    --app-danger-fg: #0b1116;
     --app-warning: #f0c060;
     --app-success: #6fcf97;
     --app-shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 6px 16px rgba(0, 0, 0, 0.35);

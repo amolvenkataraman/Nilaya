@@ -55,7 +55,7 @@ export function Toaster() {
             'pointer-events-auto flex min-h-10 max-w-[calc(100vw-2rem)] animate-[toast-in_0.18s_var(--ease)] items-center gap-3 rounded-md py-2 pr-2 pl-3.5 text-sm shadow-[0_8px_24px_rgba(0,0,0,0.2)]',
             '[&_button]:rounded-xs [&_button]:border-0 [&_button]:bg-transparent [&_button]:px-2 [&_button]:py-1 [&_button]:font-semibold [&_button]:text-inherit [&_button]:opacity-90',
             'hover:[&_button]:opacity-100 [&_button:hover]:bg-white/14',
-            t.error ? 'bg-danger text-white' : 'bg-fg text-bg',
+            t.error ? 'bg-danger text-danger-fg' : 'bg-fg text-bg',
           )}
           role={t.error ? 'alert' : 'status'}
         >

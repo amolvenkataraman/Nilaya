@@ -25,7 +25,7 @@ const variants: Record<ButtonVariant, string> = {
   primary: 'border-accent bg-accent text-accent-fg hover:not-disabled:border-accent-hover hover:not-disabled:bg-accent-hover',
   danger:
     'border-border bg-surface text-danger hover:not-disabled:border-[color-mix(in_srgb,var(--app-danger)_35%,var(--app-border))] hover:not-disabled:bg-danger-soft',
-  'solid-danger': 'border-danger bg-danger text-white hover:not-disabled:brightness-95',
+  'solid-danger': 'border-danger bg-danger text-danger-fg hover:not-disabled:brightness-95',
   ghost: 'border-transparent bg-transparent text-muted hover:not-disabled:bg-hover hover:not-disabled:text-fg',
 }
 

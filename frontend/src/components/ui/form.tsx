@@ -24,7 +24,7 @@ const base =
   'focus:border-accent focus:shadow-[0_0_0_3px_color-mix(in_srgb,var(--app-accent)_18%,transparent)] focus:outline-none disabled:opacity-60'
 
 const variants: Record<FieldVariant, string> = {
-  default: 'border-border bg-surface hover:border-[color-mix(in_srgb,var(--app-muted)_45%,var(--app-border))]',
+  default: 'border-border-strong bg-surface hover:border-muted',
   ghost: 'border-transparent bg-transparent hover:border-border',
 }
 

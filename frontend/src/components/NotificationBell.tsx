@@ -164,7 +164,7 @@ export function NotificationBell() {
         >
           <Icon name="bell" size={18} />
           {unread > 0 && (
-            <span className="absolute top-0.5 right-px grid h-3.75 min-w-3.75 place-items-center rounded-full bg-danger px-0.75 text-[0.5625rem] font-bold text-white tabular-nums shadow-[0_0_0_2px_var(--app-surface)]">
+            <span className="absolute top-0.5 right-px grid h-3.75 min-w-3.75 place-items-center rounded-full bg-danger px-0.75 text-[0.5625rem] font-bold text-danger-fg tabular-nums shadow-[0_0_0_2px_var(--app-surface)]">
               {unread > 99 ? '99+' : unread}
             </span>
           )}
