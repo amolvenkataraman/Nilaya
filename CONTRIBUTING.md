@@ -8,6 +8,8 @@ Outside contributions are welcome, and a PR can be quite literally anything: a b
 
 Nilaya is dual-licensed: it's available under the [GNU AGPL-3.0](LICENSE), and a commercial licence can be bought by those who want to use it outside the AGPL's terms (see [Licence](README.md#licence)). The CLA is what makes this possible: it lets contributions be included in both the AGPL and the commercial versions.
 
+**Major contributors may get a share of commercial licence sales.** The CLA isn't a way to take your work for free. I've put blood, sweat and tears into Nilaya for about six years, and if you put serious work in too, you should get something back. The details are agreed with each contributor individually, and other laws (employment contracts, tax and payment rules, and so on) may limit what's possible in your case, so nothing here is a promise of a specific amount. The CLA itself doesn't give anyone a right to a share.
+
 To get the CLA, contact the owner: open an issue titled "Contributor agreement" in the [GitHub repository](https://github.com/amolvenkataraman/Nilaya/issues).
 
 <!-- TODO(owner): add a preferred contact method for getting and signing the CLA (GitHub Discussions is off for this repo). -->

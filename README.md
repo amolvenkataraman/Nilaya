@@ -284,7 +284,7 @@ AI coding tools (assistants, not contributors):
 
 Outside contributions are welcome, and a PR can be quite literally anything: a bug fix, a mobile app, a new photo ingest method, or a whole new app. What matters is that it follows the [build philosophy](https://amolven.com/build-philosophy) and the rules of this repo: the ground rules under [Self-hosting](#self-hosting) and the design notes in [Is it for you?](#is-it-for-you-read-this-first).
 
-- **Sign the CLA.** Every contributor must sign a Contributor License Agreement before their pull request can be merged. It lets contributions be included in both the AGPL and the commercial versions of Nilaya (see [Licence](#licence)). To get it, open an issue titled "Contributor agreement" in the [GitHub repository](https://github.com/amolvenkataraman/Nilaya/issues).
+- **Sign the CLA.** Every contributor must sign a Contributor License Agreement before their pull request can be merged. It lets contributions be included in both the AGPL and the commercial versions of Nilaya (see [Licence](#licence)). Major contributors may get a share of commercial licence sales, agreed individually (see [CONTRIBUTING.md](CONTRIBUTING.md#contributor-license-agreement-cla)). To get it, open an issue titled "Contributor agreement" in the [GitHub repository](https://github.com/amolvenkataraman/Nilaya/issues).
 - **AI-written code is fine** as long as a human has read, understood and tested every line before opening the PR. That's the same standard this repo holds itself to (see [Credits](#credits)).
 - **For anything big,** open an issue first so we can agree on the approach.
 - **Before a PR,** run the backend tests and `npm run check` in `frontend/`.
