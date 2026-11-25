@@ -5,7 +5,6 @@ from django.db import IntegrityError, models, transaction
 from django.db.models import Q
 from django.utils import timezone
 from users.models import *
-from Comptech.utils import get_model_attrs
 
 from . import recurrence as rec
 
@@ -63,17 +62,6 @@ class Invite(models.Model):
         self.uses += 1
         return True
 
-    def getinfo(self, full=False):
-        ans = get_model_attrs(self, ["id", "code", "uses", "active", "expires_on", "max_uses", "role"])
-        ans["usable"] = self.problem() is None
-
-        if full: ans["calendar"] = self.calendar.getinfo()
-        return ans
-
-    @classmethod
-    def get_user_objs(cls, user):
-        pass
-
 def user_brief(user):
     """The minimum other people need to recognise a user."""
     return {"id": str(user.id), "username": user.username,
@@ -111,22 +99,6 @@ class Calendar(models.Model):
     @property
     def tz(self):
         return rec.zone(self.time_zone)
-
-    def getinfo(self):
-        ans = get_model_attrs(self, ["id", "name", "colour", "public", "active", "calendar_type", "auto_sync",
-                                     "icon", "description", "time_zone", "tags"])
-        ans["owner"] = {"id": self.owner_id}
-
-        return ans
-
-    def get_subs(self, editor=False):
-        """Who's in the calendar. Only names are shared (no birthdays, groups or
-        admin flags); the subscriber list and invite codes are for owners/admins."""
-        ans = {"owner": user_brief(self.owner), "subscribers": [], "invites": []}
-        if editor:
-            ans["subscribers"] = [i.getinfo(user=True) for i in self.users_subscribed.select_related('user', 'calendar')]
-            ans["invites"] = [i.getinfo() for i in Invite.objects.filter(calendar=self)]
-        return ans
 
     def role_of(self, user, sub=None):
         """'owner' (from Calendar.owner), 'admin', 'subscriber', or None."""
@@ -169,18 +141,6 @@ class Subscriber(models.Model):
         if self.user_id == self.calendar.owner_id:
             return "owner"
         return "admin" if self.subscribe_type in (0, 1) else "subscriber"
-
-    def getinfo(self, cal=False, user=False):
-        ans = get_model_attrs(self, ["id", "subscribe_type", "display_busy", "colour", "visible", "notify"])
-        ans["user"] = self.user_id
-        ans["role"] = self.role
-
-        if cal: ans["calendar"] = self.calendar.getinfo()
-    
-        if user: ans["user"] = user_brief(self.user)
-
-        return ans
-
 
 class EventCategory(models.Model):
     """A user's own event categories. Events use their calendar owner's categories.
@@ -485,39 +445,6 @@ class Event(models.Model):
         cat = self.event_category if self.event_category_id else None
         return self.colour or (cat.colour if cat else "") or sub_colour or self.calendar.colour
 
-    def getinfo(self, full=False, sub_colour=None, masked=False):
-        ans = get_model_attrs(self, ["id", "name", "startdate", "enddate", "allday", "category", "location", "description", "completed", "public", "priority"])
-        ans["id"] = self.ident()
-        ans["calendar"] = self.calendar_id
-        cat = self.event_category if self.event_category_id else None
-        ans.update({
-            "kind": self.kind, "start_date": self.start_date.isoformat() if self.start_date else None,
-            "end_date": self.end_date.isoformat() if self.end_date else None,
-            "status": self.status, "transparency": self.transparency, "visibility": self.visibility,
-            "tags": self.tags or [], "colour": self.colour, "icon": self.icon,
-            "display_colour": self.display_colour(sub_colour),
-            "category_id": self.event_category_id, "category_name": cat.name if cat else None,
-            "category_colour": cat.colour if cat else None, "category_icon": cat.icon if cat else None,
-            "meeting_url": self.meeting_url, "place_id": str(self.place_id) if self.place_id else None,
-            "recurring": bool(self.series()), "series_id": str(self.series()) if self.series() else None,
-            "rrule": self.rrule or None,
-            "original_start": self.original_start if (self.recurrence_parent_id or getattr(self, "is_occurrence", False)) else None,
-            "created_on": self.created_on, "updated_on": self.updated_on,
-            "created_by": str(self.created_by_id) if self.created_by_id else None,
-        })
-        if masked:  # a private event on someone else's calendar: show only that you're busy
-            ans.update({"name": "Busy", "description": None, "location": None, "meeting_url": "",
-                        "place_id": None, "tags": []})
-
-        if full: ans = {**ans, **get_model_attrs(self, ["sync_id"])}
-
-        return ans
-
-    @classmethod
-    def get_user_objs(cls, user):
-        pass
-
-
 class EventReminder(models.Model):
     """Per-event reminder leads; when an event has any, they replace the global
     ReminderSettings lead for it (for every subscriber who hasn't muted the calendar)."""
@@ -610,9 +537,3 @@ class Todo(models.Model):
 
     def __str__(self):
         return f"{self.name} for {self.user.username}."
-
-    def getinfo(self):
-        ans = get_model_attrs(self, ["id", "name", "description", "priority", "completed", "complete_by", "completed_on", "percent_complete", "time_spent"])
-        ans["user"] = self.user.id
-
-        return ans

@@ -13,7 +13,7 @@ import exiftool
 
 
 
-# The camera details the API and the classic pages show, by their field name, and the EXIF tag each is read from.
+# The camera details the API shows, by their field name, and the EXIF tag each is read from.
 EXIF_FIELDS = {
     "exposure": "ExposureTime", "fnumber": "FNumber", "isospeed": "ISOSpeedRatings", "shutterspeed": "ShutterSpeedValue",
     "aperture": "ApertureValue", "flash": "Flash", "focallength": "FocalLength",
@@ -67,28 +67,6 @@ class Album_Subscriber(models.Model):
 
     def __str__(self):
         return f"{self.user.username} subscribed to {self.album.name}"
-
-    def getinfo(self):
-        ans = {
-            "id": self.album.id,
-            "subscribe_id": self.id,
-            "name": self.album.name,
-            "owner": self.album.owner.id,
-            "user": self.user.id,
-            "subscribe_type": self.subscribe_type,
-            "visible": str(self.visible),
-        }
-
-        return ans
-
-    def getinfo_zip(self):
-        ans = {
-            "id": self.id,
-            "user": self.user.getinfo_zip(),
-            "subscribe_type": self.subscribe_type,
-        }
-
-        return ans
 
 class Photo(models.Model):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
@@ -183,114 +161,6 @@ class Photo(models.Model):
 
     def get_filepath(self):
         return str(self.album.location + self.filepath)
-
-    def get_dimensions(self):
-        return {
-            "width": self.width,
-            "height": self.height
-        }
-
-    def getinfo(self):
-        raw_blur = None
-        normalized_blur = None
-        if self.ai_index_info and "blur_score" in self.ai_index_info:
-            raw_blur = self.ai_index_info["blur_score"]
-            if raw_blur is not None:
-                mpx = self.megapixels if self.megapixels is not None else self.calculate_megapixels()
-                if mpx and mpx > 0:
-                    normalized_blur = raw_blur * (12.0 / mpx)
-                else:
-                    normalized_blur = raw_blur
-
-        duration_text = ""
-        if self.video and self.length:
-            minutes, seconds = divmod(self.length, 60)
-            duration_text = f"{minutes:02}:{seconds:02}"
-
-        w = self.thumbnail_width or 200
-        h = self.thumbnail_height or 200
-        aspect_ratio = round(w / h, 4)
-
-        return {
-            "id": str(self.id),
-            "path": self.get_path(),
-            "filepath": str(self.filepath),
-            "width": self.width,
-            "height": self.height,
-            "lat": self.latitude,
-            "lon": self.longitude,
-            "location_city": self.location_city,
-            "location_admin1": self.location_admin1,
-            "location_country": self.location_country,
-            "date_taken": str(self.date_taken),
-            "thumbnail_hash": self.thumbnail_hash,
-            "photo_hash": self.photo_hash,
-
-            "camera_make": self.camera_make,
-            "camera_model": self.camera_model,
-            **{field: self.exif(field) for field in EXIF_FIELDS},
-
-            "framerate": self.framerate,
-            "mimetype": self.mimetype,
-            "megapixels": self.megapixels if self.megapixels is not None else self.calculate_megapixels(),
-            "bitrate": self.bitrate,
-            "size": self.size,
-            "size_total": self.size_total,
-
-            "video": self.video,
-            "length": self.length,
-            "duration_text": duration_text,
-            "has_raw": self.has_raw,
-            "has_orig": self.has_orig,
-            "aspect_ratio": aspect_ratio,
-            "raw_blur": round(raw_blur, 1) if raw_blur is not None else None,
-            "normalized_blur": round(normalized_blur, 1) if normalized_blur is not None else None,
-        }
-
-    def getinfo_zip(self):
-        raw_blur = None
-        normalized_blur = None
-        if self.ai_index_info and "blur_score" in self.ai_index_info:
-            raw_blur = self.ai_index_info["blur_score"]
-            if raw_blur is not None:
-                mpx = self.megapixels if self.megapixels is not None else self.calculate_megapixels()
-                if mpx and mpx > 0:
-                    normalized_blur = raw_blur * (12.0 / mpx)
-                else:
-                    normalized_blur = raw_blur
-
-        duration_text = ""
-        if self.video and self.length:
-            minutes, seconds = divmod(self.length, 60)
-            duration_text = f"{minutes:02}:{seconds:02}"
-
-        w = self.thumbnail_width or 200
-        h = self.thumbnail_height or 200
-        aspect_ratio = round(w / h, 4)
-
-        return {
-            "id": str(self.id),
-            "path": self.get_path(),
-            "filepath": str(self.filepath),
-            "date_taken": str(self.date_taken),
-            "video": self.video,
-            "length": self.length,
-            "duration_text": duration_text,
-            "thumbnail_width": self.thumbnail_width,
-            "thumbnail_height": self.thumbnail_height,
-            "main_color": self.main_color,
-            "thumbnail_hash": self.thumbnail_hash,
-            "photo_hash": self.photo_hash,
-            "has_raw": self.has_raw,
-            "has_orig": self.has_orig,
-            "aspect_ratio": aspect_ratio,
-            "location_city": self.location_city,
-            "camera_model": self.camera_model,
-            "megapixels": self.megapixels if self.megapixels is not None else self.calculate_megapixels(),
-            "size": self.size,
-            "raw_blur": round(raw_blur, 1) if raw_blur is not None else None,
-            "normalized_blur": round(normalized_blur, 1) if normalized_blur is not None else None,
-        }
 
     def exif(self, field):
         """A camera detail by its API name ("fnumber"), from photo_exif_tags; None when the photo has none."""
@@ -538,58 +408,6 @@ class ShareAlbum(models.Model):
 
     def __str__(self):
         return f"ShareAlbum {self.name} [{self.owner.username}]"
-
-    @property
-    def cover_photo_id_resolved(self):
-        if self.cover_photo_id:
-            return str(self.cover_photo_id)
-        # Fallback to the newest photo by date_taken
-        photos_qs = Photo.objects.filter(photo_in_sharealbum__sharealbum=self)
-        cover_photo = photos_qs.order_by('-date_taken').first()
-        return str(cover_photo.id) if cover_photo else ""
-
-    def getinfo(self):
-        photos_qs = Photo.objects.filter(photo_in_sharealbum__sharealbum=self)
-        total_photos = photos_qs.filter(video=False).count()
-        total_videos = photos_qs.filter(video=True).count()
-        total_kb = photos_qs.aggregate(total=models.Sum('size_total'))['total'] or 0
-        
-        if self.cover_photo:
-            cover_photo = self.cover_photo
-        else:
-            cover_photo = photos_qs.order_by('-date_taken').first()
-        cover_photo_id = str(cover_photo.id) if cover_photo else None
-        cover_photo_hash = cover_photo.thumbnail_hash if cover_photo else None
-
-        oldest_date = photos_qs.aggregate(oldest=models.Min('date_taken'))['oldest']
-        newest_date = photos_qs.aggregate(newest=models.Max('date_taken'))['newest']
-
-        def format_size(kb):
-            mb = kb / 1024.0
-            if mb >= 1024.0 * 1024.0:
-                return f"{mb / (1024.0 * 1024.0):.2f} TB"
-            elif mb >= 1024.0:
-                return f"{mb / 1024.0:.2f} GB"
-            else:
-                return f"{mb:.1f} MB"
-                
-        space_used = format_size(total_kb)
-
-        return {
-            "id": str(self.id),
-            "owner": self.owner.id,
-            "name": self.name,
-            "description": self.description,
-            "public": self.public,
-            "photo_count": total_photos,
-            "video_count": total_videos,
-            "space_used": space_used,
-            "space_used_kb": total_kb,
-            "cover_photo_id": cover_photo_id,
-            "cover_photo_hash": cover_photo_hash,
-            "oldest_date": oldest_date.isoformat() if oldest_date else "",
-            "newest_date": newest_date.isoformat() if newest_date else "",
-        }
 
 class ShareAlbum_Photo(models.Model):
     sharealbum = models.ForeignKey(ShareAlbum, on_delete=models.CASCADE, related_name='sharealbum_photos')

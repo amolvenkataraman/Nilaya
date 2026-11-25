@@ -232,7 +232,7 @@ def _stats(request):
     }
 
 
-# Storage breakdown, the classic Storage page's definitions: optimized = size, total = size_total (KB),
+# Storage breakdown: optimized = size, total = size_total (KB),
 # RAW = photos' total - optimized, originals = videos' total - optimized, duration = sum of video length (s).
 _P, _V = Q(video=False), Q(video=True)
 
@@ -268,7 +268,7 @@ def _storage(request):
     t = _breakdown(qs.aggregate(**_BREAKDOWN))
     bucket = lambda count, opt, total, length=0: {"count": count, "optimized_kb": opt, "total_kb": total,
                                                   "overhead_kb": total - opt, "length_s": length}
-    # By library: every visible library (empty ones too, like the classic page), biggest first.
+    # By library: every visible library (empty ones too), biggest first.
     libs = {r["album_id"]: r for r in qs.values("album_id").annotate(**_BREAKDOWN)}
     subs = Album_Subscriber.objects.filter(user=request.user, visible=True).values_list("album_id", "album__name")
     by_library = sorted(({"id": aid, "name": name, **_breakdown(libs.get(aid, {}))} for aid, name in subs),

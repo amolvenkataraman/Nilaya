@@ -1,4 +1,4 @@
-"""A photo's place from placewise, stored on the photo for browsing, stats, search and the classic pages:
+"""A photo's place from placewise, stored on the photo for browsing, stats and search:
 - location_city: the place's name. The city in towns and cities ("Las Vegas" on the Strip, not the census
   place Paradise; the nearest town out on a lake). In a national park or recreation area, the park
   ("Yosemite National Park"), with the city when the park is inside one ("Golden Gate National Recreation

@@ -13,20 +13,6 @@ class UserGroup(models.Model):
     def __str__(self):
         return f"{self.name}"
     
-    def getinfo(self):
-        ans = {
-            "id": self.id,
-            "name": self.name,
-            "description": self.description,
-        }
-
-        try:
-            ans["picture"] = self.picture.url
-        except ValueError:
-            pass
-
-        return ans
-
 class ComptechUser(AbstractUser):
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False, verbose_name='ID')
     description = models.CharField(max_length=512, default="No description")
@@ -42,45 +28,6 @@ class ComptechUser(AbstractUser):
     def __str__(self):
         return f"{self.username}"
 
-    def getinfo(self):
-        ans = {
-            "id": str(self.id),
-            "username": self.username,
-            "first_name": self.first_name,
-            "last_name": self.last_name,
-            "description": self.description,
-            "birthday": str(self.birthday),
-            "profile_picture": self.profile_picture.url,
-            "is_staff": self.is_staff,
-            "is_admin": self.is_superuser,
-            "groups": [i.getinfo() for i in self.user_groups.all()]
-        }
-
-        return ans
-
-    def getinfo_zip(self):
-        ans = {
-            "id": str(self.id),
-            "username": self.username,
-            "first_name": self.first_name,
-            "last_name": self.last_name,
-            "birthday": str(self.birthday),
-            "is_admin": self.is_superuser,
-            "profile_picture": self.profile_picture.url,
-        }
-
-        return ans
-
-    def getfriends(self):
-        return [i.getinfo() for i in self.friends.all()]
-
 class FriendRequest(models.Model):
     fromuser = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='friend_request_from')
     touser = models.ForeignKey(ComptechUser, on_delete=models.CASCADE, related_name='friend_request_to')
-
-    def getinfo(self):
-        return {
-            "id": self.id,
-            "from": self.fromuser.getinfo(),
-            "to": self.touser.getinfo(),
-        }

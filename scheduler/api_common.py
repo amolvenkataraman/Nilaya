@@ -108,7 +108,7 @@ class PreviewIn(Schema):
 
 
 class SyncIn(Schema):
-    """A one-off sync of a chosen range (the classic Sync dialog). Months: [start, end)."""
+    """A one-off sync of a chosen range. Months: [start, end)."""
     start: Optional[datetime.date] = None
     end: Optional[datetime.date] = None
     token: Optional[str] = Field(None, max_length=4096)  # Google OAuth access token for a private calendar

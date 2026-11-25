@@ -1,4 +1,4 @@
-"""Shared photo browsing helpers (used by the classic search pages and the V2 API).
+"""Shared photo browsing helpers for the V2 API (photos/api_insights.py, photos/api_search.py).
 
 - object_names(ids) / object_ids(names): YOLO class ids <-> names (photos/AI/objects.py).
 - with_objects(qs, ids): photos containing ALL the given objects, on Postgres and SQLite.

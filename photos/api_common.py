@@ -144,13 +144,13 @@ class SummaryOut(Schema):
 def library(user, request=None, listing=False):
     """Every photo the user can see through the library albums they subscribe to.
     Hidden photos are left out unless the owner has show-hidden mode on (pass the request).
-    listing=True also leaves out libraries switched off in Sources (like the classic timeline);
+    listing=True also leaves out libraries switched off in Sources (the timeline and other listings);
     direct access to a photo ignores that switch."""
     subs = Album_Subscriber.objects.filter(user=user)
     if listing:
         subs = subs.filter(visible=True)
     # file_not_available is a stale flag from old scripts; those files exist (owner, 2026-11-05), so they
-    # count and show like on the classic pages.
+    # count and show like any other photo.
     qs = Photo.objects.filter(album_id__in=subs.values("album_id"))
     return hidden_mode.visible(qs, request)
 

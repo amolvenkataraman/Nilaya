@@ -3,7 +3,6 @@ channels
 channels_redis
 gpsphoto
 piexif           # gpsphoto imports it but doesn't declare it (photos/models.py)
-exifread
 Pillow
 bleach
 icalendar        # scheduler/sync.py: ICS import with RRULE/EXDATE/RECURRENCE-ID (replaces ics 0.7, which ignored RRULE)

@@ -1,4 +1,4 @@
-"""V2 parity with the classic Photos actions: albums, sharing, covers, library visibility, ingest."""
+"""V2 Photos actions: albums, sharing, covers, library visibility, ingest."""
 
 import datetime
 from unittest import mock
