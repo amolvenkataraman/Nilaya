@@ -10,9 +10,8 @@ phrase that is an airport's IATA code is that airport ("yyz" is Pearson, not the
 When several places share a name (Union Square, Chinatown), the caller's `prefer` picks the one it has data at.
 
 What a place matches: a country or state, the stored country or state; a big park, the stored place name
-(geo.naming stores national parks); a lake, sea or river, the photos placewise
-says were taken on it or near it (water_photo_ids: near is 0.3-5 km by the water's size, so a lake's box
-full of shore towns doesn't count); anything else (a town or neighbourhood the vocabulary didn't know, an
+(geo.naming stores national parks); a lake, sea or river, the rows taken on it or within 200-500 m of it by
+its size (ids_on_or_near_water; the town behind the shore doesn't count); anything else (a town or neighbourhood the vocabulary didn't know, an
 airport, a landmark, a postcode, a small park) the photos within its box or a short way around its point."""
 
 import hashlib
@@ -29,7 +28,10 @@ PAD_KM_DEFAULT = 0.5  # landmarks, buildings, small parks: close by, not the who
 AREA_MIN_KM = 3.0  # places at least this big (by radius) are searched by their box instead
 TOWN_MIN_KM = 5.0  # localities smaller than this are neighbourhoods: searched within NEIGHBOURHOOD_KM of the centre
 NEIGHBOURHOOD_KM = 1.0
-WATER_NEAR_KM = 5.0  # placewise's widest "near water" (the Great Lakes, seas): the candidate box is padded by it
+# "Near" a lake or sea in search: from 200 m for a small lake up to 500 m for a big one (by its radius), so the shore
+# counts but the town behind it doesn't (placewise's own "near" reaches 5 km for the Great Lakes: most of Toronto).
+WATER_NEAR_MIN_KM, WATER_NEAR_MAX_KM = 0.2, 0.5
+WATER_NEAR_SCALE_KM = 20.0  # a lake this big (radius) or bigger gets the full 500 m
 WATER_MAX_POINTS = 50_000  # distinct spots looked up for one water search
 CACHE_S = 24 * 3600
 
@@ -140,11 +142,13 @@ def _payload(entity, hits=()):
             return ()
         south, north = min(e.bbox.south for e in waters), max(e.bbox.north for e in waters)
         west, east = min(e.bbox.west for e in waters), max(e.bbox.east for e in waters)
-        dlat = WATER_NEAR_KM / 111.32
-        dlon = WATER_NEAR_KM / (111.32 * max(math.cos(math.radians((south + north) / 2)), 0.01))
+        size = max((e.radius_km or 0) for e in waters)
+        near_km = min(WATER_NEAR_MAX_KM, WATER_NEAR_MIN_KM + (WATER_NEAR_MAX_KM - WATER_NEAR_MIN_KM) * size / WATER_NEAR_SCALE_KM)
+        dlat = near_km / 111.32
+        dlon = near_km / (111.32 * max(math.cos(math.radians((south + north) / 2)), 0.01))
         box = [south - dlat, west - dlon, north + dlat, east + dlon]
         ids = sorted({e.place.id for e in waters})
-        return {"id": entity.place.id, "water": {"box": box, "ids": ids}}, name
+        return {"id": entity.place.id, "water": {"box": box, "ids": ids, "near_km": round(near_km, 3)}}, name
     if kind == "park" and (entity.radius_km or 0) >= AREA_MIN_KM:
         return {"id": entity.place.id, "named": name}, name  # big parks are stored as the photos' place
     near = {"kind": kind.replace("_", " "), "box": _box(entity)}
@@ -154,8 +158,8 @@ def _payload(entity, hits=()):
 
 def ids_on_or_near_water(rows, data, *, lat="latitude", lon="longitude"):
     """Ids of the rows (any queryset with latitude/longitude fields) taken on or near the water body in `data`
-    (a water term): the rows in its padded box, looked up once per ~10 m spot, kept where placewise names that
-    water (`on` it, or `near` it within placewise's distance for its size). [] when placewise isn't running."""
+    (a water term): the rows in its padded box, looked up once per ~10 m spot, kept where placewise puts them on
+    that water or within the term's near_km of it (200-500 m by its size). [] when placewise isn't running."""
     south, west, north, east = data["water"]["box"]
     rows = (rows.filter(**{f"{lat}__range": (south, north), f"{lon}__range": (west, east)})
             .values_list("id", lat, lon))
@@ -175,9 +179,13 @@ def ids_on_or_near_water(rows, data, *, lat="latitude", lon="longitude"):
     except service.Unavailable:
         return []
     wanted, out = set(data["water"].get("ids") or [data["id"]]), []
+    near_km = data["water"].get("near_km", WATER_NEAR_MAX_KM)
     for key, r in zip(keys, results, strict=True):
-        found = {r.water.place.id} if r.water is not None else set()
-        found |= {n.place.id for n in r.near if n.place.kind.value == "water"}
+        found = set()
+        if r.water is not None and (r.water.relation.value in ("on", "over") or (r.water.distance_km or 0) <= near_km):
+            found.add(r.water.place.id)
+        found |= {n.place.id for n in r.near if n.place.kind.value == "water" and n.distance_km is not None
+                  and n.distance_km <= near_km}
         if wanted & found:
             out += spots[key]
     return out

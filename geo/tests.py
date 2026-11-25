@@ -32,8 +32,8 @@ class PlaceNameTests(SimpleTestCase):
 
     def test_on_the_water_is_the_water_but_the_shore_keeps_its_town(self):
         self.assertEqual(naming.place_name(_result("Toronto", water=_water("Lake Ontario"))), "Lake Ontario")
-        self.assertEqual(naming.place_name(_result("Toronto", near=[_water("Lake Ontario", "near", 0.03)])), "Lake Ontario")
-        self.assertEqual(naming.place_name(_result("Toronto", near=[_water("Lake Ontario", "near", 0.13)])), "Toronto")
+        self.assertEqual(naming.place_name(_result("Toronto", near=[_water("Lake Ontario", "near", 0.008)])), "Lake Ontario")
+        self.assertEqual(naming.place_name(_result("Toronto", near=[_water("Lake Ontario", "near", 0.03)])), "Toronto")
         self.assertEqual(naming.place_name(_result("London", near=[_water("Thames", "near", 0.01, "river")])), "London")
 
 

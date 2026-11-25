@@ -21,17 +21,18 @@ def _name(field, limit):
 
 
 NATIONAL = 1  # placewise park tier: national parks, preserves, seashores, NRAs, national urban parks
-AT_EDGE_KM = 0.05  # this close to a lake's or reservoir's edge (a pier, a beach) counts as on it
+AT_EDGE_KM = 0.01  # this close (10 m) to a water body's edge (a pier, a boat at the dock) counts as on it
 
 
 def water_name(result):
-    """The water the point is on (placewise `on`/`over`), or a lake or reservoir at whose edge it is."""
+    """The water the point is on (placewise `on`/`over`), or a lake, bay or sea at whose very edge it is (rivers
+    are centre lines, too rough to say)."""
     w = result.water
     if w is not None and w.place.name and w.relation.value in ("on", "over"):
         return w.place.name
     return next((n.place.name for n in result.near
-                 if n.place.kind.value == "water" and n.place.codes.get("type") in ("lake", "reservoir")
-                 and n.distance_km is not None and n.distance_km <= AT_EDGE_KM and n.place.name), None)
+                 if n.place.kind.value == "water" and n.place.codes.get("type") not in ("river", "canal")
+                 and getattr(n, "distance_km", None) is not None and n.distance_km <= AT_EDGE_KM and n.place.name), None)
 
 
 def place_name(result):

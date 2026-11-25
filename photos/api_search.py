@@ -115,6 +115,12 @@ def search_photos(request, q: str = "", before: Optional[datetime.datetime] = No
     terms, unmatched = search.parse(q[:200], v, timezone.localtime(timezone.now(), tz), names(request), places=place)
     if q.strip() and not terms:  # nothing understood: say so rather than showing everything
         return {"items": [], "next_before": None, "interpreted": [], "unmatched": unmatched, "count": 0}
+    for t in terms:  # a stored place that is a lake or sea ("San Francisco Bay"): search it as water, on or near it
+        if t.type == "place" and "id" not in t.data and len(t.data.get("cities", ())) == 1 and not t.data.get("countries"):
+            found = place(t.label)
+            if found and "water" in found[0] and found[1].casefold() == t.label.casefold():
+                t.data = found[0]
+                t.detail = "water"
     base = base_queryset(request, terms)
     for t in terms:  # a lake or sea: the photos taken on or near it, found with placewise (cached per library)
         if t.type == "place" and "water" in t.data:
