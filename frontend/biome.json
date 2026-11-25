@@ -4,7 +4,7 @@
     "enabled": false
   },
   "files": {
-    "includes": ["src/**", "*.ts", "biome.json", "tsconfig.json", "package.json"]
+    "includes": ["src/**", "!src/lib/api-schema.json", "!src/lib/api-schema.d.ts", "*.ts", "biome.json", "tsconfig.json", "package.json"]
   },
   "formatter": {
     "enabled": true,

@@ -132,7 +132,7 @@ export default function PlacesPage() {
   const pinSel = everything.find((p) => p.id === selected) ?? null
   const oneSel = usePlace(selected)
   const sel: Place | null =
-    oneSel.data?.id === selected ? oneSel.data : pinSel ? { description: '', notes: '', altitude: null, ...pinSel } : null
+    oneSel.data?.id === selected ? oneSel.data : pinSel ? { description: '', notes: '', altitude: null, updated_on: '', ...pinSel } : null
   /** Edit with every field: fetch the full place first (cached for a minute). */
   const editPlace = (p: Pin) => {
     if (p.description !== undefined && p.notes !== undefined) return setDraft({ ...p })

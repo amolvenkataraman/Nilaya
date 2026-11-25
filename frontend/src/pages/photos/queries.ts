@@ -3,34 +3,9 @@
 // day headers + the day page), browse lists (filters drawer + Browse), one photo by id (deep links).
 import { queryOptions } from '@tanstack/react-query'
 import { get } from '../../lib/api'
-import type { Photo, YearGroup } from '../../lib/types'
+import type { Photo, Schemas, YearGroup } from '../../lib/types'
 
-export interface PhotoDetails extends Photo {
-  filename: string
-  library: string
-  mimetype: string | null
-  size_kb: number | null
-  size_total_kb: number | null
-  megapixels: number | null
-  camera_make: string | null
-  camera_model: string | null
-  exposure: string | null
-  fnumber: string | null
-  isospeed: string | null
-  shutterspeed: string | null
-  aperture: string | null
-  flash: string | null
-  focallength: string | null
-  altitude: number | null
-  framerate: number | null
-  bitrate: number | null
-  has_raw: boolean
-  has_orig: boolean
-  blur: number | null
-  objects: ({ id: number; name: string } | string)[]
-  hidden?: boolean
-  mine?: boolean
-}
+export type PhotoDetails = Schemas['PhotoDetailOut']
 
 export const photoDetailsQuery = (id: string) =>
   queryOptions({

@@ -11,26 +11,11 @@ import { ApiError, get, loginUrl, post } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { addDays, addMonths, dateFormatter, dayKey, fmtTime, isSameDay, monthGrid, startOfDay } from '../../lib/dates'
 import { signedIn } from '../../lib/session'
+import type { Schemas } from '../../lib/types'
 import { PublicFrame, PublicNotice, usePublicTitle } from './PublicFrame'
 
-interface PublicCal {
-  id: number
-  name: string
-  colour: string
-  description: string
-  owner: string
-  time_zone: string
-  subscribed: boolean | null
-}
-interface PublicEvent {
-  id: string
-  name: string
-  start: string
-  end: string | null
-  all_day: boolean
-  location: string | null
-  busy: boolean
-}
+type PublicCal = Schemas['PublicCalendarOut']
+type PublicEvent = Schemas['PublicEventOut']
 interface Placed extends PublicEvent {
   s: Date
   e: Date

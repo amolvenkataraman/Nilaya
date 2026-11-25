@@ -18,7 +18,6 @@ import {
   STATUSES,
   type Suggestion,
   stars,
-  statusOf,
   useDeletePlace,
   usePhotosNear,
   usePlacePhotos,
@@ -110,7 +109,7 @@ export function PlaceDetail({
   const save = useSavePlace()
   const remove = useDeletePlace()
   const [confirm, setConfirm] = useState(false)
-  const status = statusOf(p)
+  const status = p.status
   const setStatus = (s: PlaceStatus) => s !== status && save.mutate({ id: p.id, body: { status: s } })
   const st = STATUSES.find((s) => s.key === p.status)
   const dist = pos ? fmtDistance(distanceM(pos, { lat: p.latitude, lon: p.longitude })) : null

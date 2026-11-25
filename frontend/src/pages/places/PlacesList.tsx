@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon'
 import { Button, ErrorBox, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { distanceM, fmtDistance } from '../../lib/map/geo'
-import { type Pin, STATUSES, type Suggestion, stars, statusOf } from './api'
+import { type Pin, STATUSES, type Suggestion, stars } from './api'
 import type { Pos } from './PlaceDetail'
 import { fmtDay } from './placeText'
 import { StatusDot } from './StatusDot'
@@ -36,7 +36,7 @@ function PlaceRow({
   return (
     <button type="button" className={main} onClick={onSelect} aria-current={active || undefined}>
       <span className={cn(itemTitle, active && 'text-accent')}>
-        <StatusDot status={statusOf(p)} />
+        <StatusDot status={p.status} />
         <span className="truncate">{p.name}</span>
         {p.rating ? (
           <span

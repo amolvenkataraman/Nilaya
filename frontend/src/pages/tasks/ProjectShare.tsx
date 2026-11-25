@@ -4,8 +4,8 @@ import { useEffect, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { Avatar, Button, Confirm, Dialog, fieldClass, Input, QueryView, SkeletonRows } from '../../components/ui'
 import { useMe } from '../../lib/queries'
-import type { Member, UserBrief } from '../../lib/types'
-import { type ProjectWithOwner, useMembers, useRemoveMember, useSaveMember } from './api'
+import type { Member, Project, UserBrief } from '../../lib/types'
+import { useMembers, useRemoveMember, useSaveMember } from './api'
 import { isProjectAdmin } from './task'
 
 const ROLES = [
@@ -30,7 +30,7 @@ function Person({ user, you, children }: { user: UserBrief; you: boolean; childr
   )
 }
 
-export function ShareDialog({ project, onClose, onLeft }: { project: ProjectWithOwner | null; onClose: () => void; onLeft?: () => void }) {
+export function ShareDialog({ project, onClose, onLeft }: { project: Project | null; onClose: () => void; onLeft?: () => void }) {
   const id = project?.id ?? null
   const members = useMembers(id)
   const me = useMe().data

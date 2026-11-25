@@ -11,7 +11,7 @@ import { get, safeHref } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { fmtDate } from '../../lib/dates'
 import { fmtBytes, plural } from '../../lib/format'
-import type { Photo } from '../../lib/types'
+import type { Photo, Schemas } from '../../lib/types'
 import { refreshAll } from './actions'
 import { DeleteDialog } from './DeleteDialog'
 import { photoQuery } from './queries'
@@ -65,46 +65,9 @@ const CATS = [
 ] as const
 type Cat = (typeof CATS)[number]
 
-interface RankedItem {
-  id: string
-  thumb_url: string
-  filename: string
-  library: string
-  owner: string
-  video: boolean
-  date_taken: string | null
-  size_kb: number
-  size_total_kb: number
-  length_s: number | null
-  megapixels: number | null
-  width: number | null
-  height: number | null
-  has_raw: boolean
-  has_orig: boolean
-}
-interface RankedDay {
-  date: string
-  photos: number
-  videos: number
-  size_kb: number
-  length_s: number
-}
-interface Summary {
-  count: number
-  photos: number
-  videos: number
-  size_kb: number
-  size_total_kb: number
-  length_s: number
-  max_megapixels: number | null
-}
-interface Out {
-  category: string
-  kind: 'item' | 'day'
-  items: RankedItem[]
-  days: RankedDay[]
-  summary: Summary | null
-}
+type RankedItem = Schemas['RankedItem']
+type RankedDay = Schemas['RankedDay']
+type Out = Schemas['SuperlativesOut']
 
 /** The picked items of the ranking on screen (one ranking at a time, so one store). */
 const picks = createSelection<RankedItem>((p) => p.id)
@@ -165,7 +128,7 @@ export function SuperlativesPage() {
           {cat.kind === 'item' ? (
             <Items data={q.data} metric={cat.metric as Metric} loading={q.isFetching} />
           ) : (
-            <Days days={q.data.days} metric={cat.metric} />
+            <Days days={q.data.days ?? []} metric={cat.metric} />
           )}
         </>
       ) : q.isError ? (
@@ -202,6 +165,7 @@ const asPhoto = (p: RankedItem): Photo => ({
   video: p.video,
   length: p.length_s,
   city: null,
+  state: null,
   country: null,
   lat: null,
   lon: null,
@@ -212,6 +176,7 @@ const asPhoto = (p: RankedItem): Photo => ({
   megapixels: p.megapixels,
   has_raw: p.has_raw,
   has_orig: p.has_orig,
+  blur: null,
 })
 
 /** The viewer over the ranking, in rank order: the open item is its full record (GET /photos/{id}). */
@@ -238,7 +203,7 @@ function Items({ data, metric, loading }: { data: Out; metric: Metric; loading: 
   const viewer = usePhotoParam()
   const qc = useQueryClient()
   const [confirm, setConfirm] = useState(false)
-  const items = data.items
+  const items = data.items ?? []
   const s = data.summary
   // A new ranking starts with nothing picked; leaving the page drops the selection.
   // biome-ignore lint/correctness/useExhaustiveDependencies: the category is the trigger

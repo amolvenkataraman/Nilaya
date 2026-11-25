@@ -7,8 +7,19 @@ import { toast } from '../../components/toast'
 import { ApiError, del, get, patch, post } from '../../lib/api'
 import { plural } from '../../lib/format'
 import { keys } from '../../lib/queries'
-import type { Attendee, Calendar, CalEvent, Category, EventDetail, EventIn, EventPatch, Task } from '../../lib/types'
-import { type CalendarDetail, type CalendarPatchBody, type Invite, type Person, personName, type Subscriber } from './types'
+import type {
+  Attendee,
+  Calendar,
+  CalEvent,
+  Category,
+  EventDetail,
+  EventIn,
+  EventOrDetail,
+  EventPatch,
+  Schemas,
+  Task,
+} from '../../lib/types'
+import { type CalendarDetail, type CalendarPatchBody, type Invite, personName, type Subscriber } from './types'
 
 /** Query keys. Everything sits under ['calendar'] except what other apps own (contacts, places, users). */
 export const ck = {
@@ -126,11 +137,7 @@ export const availabilityQuery = (username: string, day: string, enabled: boolea
     retry: (n: number, e: unknown) => !(e instanceof ApiError && e.status === 404) && n < 2,
   })
 
-export interface Profile extends Person {
-  name: string
-  profile_picture: string
-  description: string
-}
+export type Profile = Schemas['UsersPersonOut']
 /** Someone's public profile (shared with the Users app's page under the same key). Not retried: 404 is an answer. */
 export const userQuery = (username: string) =>
   queryOptions({
@@ -140,11 +147,7 @@ export const userQuery = (username: string) =>
     retry: false,
   })
 
-export interface PlaceOption {
-  id: string
-  name: string
-  address: string | null
-}
+export type PlaceOption = Pick<Schemas['MapPlaceOut'], 'id' | 'name' | 'address'>
 export const usePlaces = (enabled: boolean) =>
   useQuery({
     queryKey: ck.places,
@@ -153,11 +156,7 @@ export const usePlaces = (enabled: boolean) =>
     enabled,
   })
 
-export interface ContactHit {
-  id: string
-  name: string
-  email: string
-}
+export type ContactHit = Pick<Schemas['PersonBrief'], 'id' | 'name' | 'email'>
 export const useContactSearch = (q: string) =>
   useQuery({
     queryKey: ck.contactSearch(q),
@@ -189,7 +188,7 @@ const rollback = (_e: unknown, _v: unknown, ctx?: { rollback?: () => void }) => 
 
 /** The fields that recreate an event as it was (undo after a delete). A deleted occurrence of a repeating
  *  event comes back as a single event: copying the rule would start a new series. */
-export function eventToInput(e: EventDetail): EventIn {
+export function eventToInput(e: EventOrDetail): EventIn {
   const allDay = e.kind === 'all_day' && !!e.start_date
   return {
     calendar_id: e.calendar_id,
@@ -244,7 +243,7 @@ export function useUpdateEvent() {
 export function useDeleteEvent() {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: ({ id, scope }: { id: string; scope?: Scope; done: string; restore?: EventDetail }) =>
+    mutationFn: ({ id, scope }: { id: string; scope?: Scope; done: string; restore?: EventOrDetail }) =>
       del(eventPath(id), scope ? { scope } : undefined),
     onMutate: async ({ id, scope }) => {
       await qc.cancelQueries({ queryKey: ck.eventLists })
@@ -480,12 +479,7 @@ export function useSubscriberMutations(calId: number) {
   }
 }
 
-export interface InviteIn {
-  role: string
-  code: string | null
-  expires_in_days: number | null
-  max_uses: number | null
-}
+export type InviteIn = Schemas['InviteIn']
 export function useInviteMutations(calId: number) {
   const qc = useQueryClient()
   const onSettled = () => qc.invalidateQueries({ queryKey: ck.invites(calId) })

@@ -1,139 +1,25 @@
-// /api/v2/contacts/ types, queries and mutations (query keys under ['contacts']).
+// /api/v2/contacts/ types (aliases of the generated schemas where the server types them), queries and mutations
+// (query keys under ['contacts']).
 import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { api, apiUrl, del, get, patch, post, upload } from '../../lib/api'
 import { queryGroup } from '../../lib/batch'
+import type { Schemas } from '../../lib/types'
 
-export interface LabeledValue {
-  label: string
-  value: string
-}
-export interface Address {
-  label: string
-  street: string
-  city: string
-  region: string
-  postcode: string
-  country: string
-}
-export interface ProfileLink {
-  network: string
-  label: string
-  handle: string
-  url: string | null
-}
-export interface Link {
-  label: string
-  url: string
-}
-export interface CustomField {
-  key: string
-  value: string
-}
-export interface PersonBrief {
-  id: string
-  name: string
-  first_name: string
-  last_name: string
-  company: string
-  title: string
-  favorite: boolean
-  email: string
-  phone: string
-  has_avatar: boolean
-  profile_links: ProfileLink[]
-  tags: string[]
-  groups: string[]
-  birthday: string
-  last_contacted: string | null
-  keep_in_touch_days: number | null
-  next_due: string | null
-  overdue: boolean
-  created_on: string
-}
-export interface Interaction {
-  id: string
-  person_id: string
-  kind: string
-  date: string
-  summary: string
-  notes: string
-  created_on: string
-}
-export interface Relationship {
-  id: number
-  kind: string
-  other_id: string
-  other_name: string
-}
-/** PersonOut: the full record without history (also what GET duplicates returns per side). */
-export interface PersonFull extends PersonBrief {
-  prefix: string
-  middle_name: string
-  suffix: string
-  nickname: string
-  display_name: string
-  department: string
-  emails: LabeledValue[]
-  phones: LabeledValue[]
-  addresses: Address[]
-  profiles: Record<string, string>
-  links: Link[]
-  custom_fields: CustomField[]
-  anniversary: string | null
-  how_met: string
-  notes: string
-  sources: string[]
-  linked_user: { username: string; name: string } | null
-  updated_on: string
-}
-export interface PersonDetail extends PersonFull {
-  interactions: Interaction[]
-  relationships: Relationship[]
-}
-export interface PersonIn {
-  prefix?: string
-  first_name?: string
-  middle_name?: string
-  last_name?: string
-  suffix?: string
-  nickname?: string
-  display_name?: string
-  company?: string
-  title?: string
-  department?: string
-  emails?: LabeledValue[]
-  phones?: LabeledValue[]
-  addresses?: Address[]
-  profiles?: Record<string, string>
-  links?: Link[]
-  custom_fields?: CustomField[]
-  birthday?: string
-  anniversary?: string | null
-  how_met?: string
-  notes?: string
-  tags?: string[]
-  groups?: string[]
-  favorite?: boolean
-  keep_in_touch_days?: number | null
-  username?: string
-}
-export interface Tag {
-  id: number
-  kind: 'tag' | 'group' | string
-  name: string
-  count?: number
-}
-export interface ContactStats {
-  total: number
-  favorites: number
-  overdue: number
-  keep_in_touch: number
-  recent: number
-  birthdays_this_month: number
-  upcoming_birthdays?: { id: string; name: string; date: string; days: number; age: number | null }[]
-  overdue_people?: { id: string; name: string; next_due: string; days_overdue: number }[]
-  sources?: Record<string, number>
-}
+export type LabeledValue = Schemas['LabeledValue-Output']
+export type Address = Schemas['Address-Output']
+export type ProfileLink = Schemas['ProfileLink']
+export type Link = Schemas['Link-Output']
+export type CustomField = Schemas['CustomField-Output']
+export type PersonBrief = Schemas['PersonBrief']
+export type Interaction = Schemas['InteractionOut']
+export type Relationship = Schemas['RelationshipOut']
+/** The full record without history (also what GET duplicates returns per side). */
+export type PersonFull = Schemas['ContactsPersonOut']
+export type PersonDetail = Schemas['PersonDetail']
+export type PersonIn = Schemas['PersonIn']
+export type Tag = Schemas['TagOut']
+export type ContactStats = Schemas['ContactsStatsOut']
+// GET /contacts/meta: untyped on the server.
 export interface Network {
   key: string
   label: string
@@ -153,36 +39,10 @@ export interface ImportOptions {
   mapping: Record<string, string> | null
   mode: 'merge' | 'skip'
 }
-export interface PreviewRow {
-  name: string
-  detail: string
-  status: 'new' | 'update' | 'duplicate'
-  match: string
-}
-export interface ImportPreview {
-  format: string
-  format_label: string
-  total: number
-  new: number
-  updated: number
-  duplicates: number
-  columns: string[]
-  mapping: Record<string, string>
-  fields: Record<string, string>
-  sample: PreviewRow[]
-}
-export interface ImportResult {
-  format: string
-  total: number
-  created: number
-  updated: number
-  duplicates: number
-}
-export interface DuplicatePair {
-  a: PersonFull
-  b: PersonFull
-  reasons: string[]
-}
+export type PreviewRow = Schemas['PreviewRow']
+export type ImportPreview = Schemas['PreviewOut']
+export type ImportResult = Schemas['CommitOut']
+export type DuplicatePair = Schemas['DuplicateOut']
 export type Filter = '' | 'favorites' | 'overdue' | 'kit' | 'recent' | 'birthdays'
 
 export const AVATAR_MAX = 2_000_000
@@ -418,10 +278,7 @@ export function useMergeMany() {
 }
 
 // ---------------------------------------------------------------- reminder settings
-export interface ContactSettings {
-  birthday_reminders: 'off' | 'day_before' | 'on_day'
-  keep_in_touch_reminders: boolean
-}
+export type ContactSettings = Schemas['ContactsSettingsOut']
 // Same key as Notifications › Reminders, so both screens share one cached copy.
 const SETTINGS_KEY = ['settings', 'contacts/settings']
 export const useContactSettings = (enabled = true) =>

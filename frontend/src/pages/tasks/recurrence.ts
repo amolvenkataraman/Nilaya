@@ -1,6 +1,6 @@
 // How repeats and reminders are worded and edited: the repeat presets and custom units ("Every 3 days after
 // completion"), reminder wording ("1 hour before due") and the reminder shape the PATCH takes. Pure, unit-tested.
-import type { TaskReminder } from '../../lib/types'
+import type { Schemas, TaskReminder } from '../../lib/types'
 
 // ---------------------------------------------------------------- repeat
 export const REPEAT_PRESETS: { label: string; short: string; mode: number; every: number | null }[] = [
@@ -42,11 +42,7 @@ export function repeatParts(every: number | null): [number, number] {
 }
 
 // ---------------------------------------------------------------- reminders
-export interface ReminderIn {
-  at: string | null
-  relative_to: '' | 'due' | 'start'
-  offset: number
-}
+export type ReminderIn = Schemas['ReminderIn']
 
 export const durText = (secs: number) => {
   const a = Math.abs(secs)

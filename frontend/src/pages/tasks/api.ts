@@ -5,7 +5,7 @@ import { queryOptions, useMutation, useQuery, useQueryClient, type QueryClient }
 import { ApiError, del, get, patch, post } from '../../lib/api'
 import { keys } from '../../lib/queries'
 import { cachedTask, patchTaskLists, settleTaskLists } from '../../lib/taskLists'
-import type { Bucket, Comment, Label, Member, Project, Relation, SavedView, Task, TaskDetail, TaskPage, UserBrief } from '../../lib/types'
+import type { Bucket, Comment, Label, Member, Project, Relation, SavedView, Schemas, Task, TaskDetail, TaskPage } from '../../lib/types'
 
 // ---------------------------------------------------------------- keys and query factories
 /** Keys this app uses beyond lib/queries' `keys` (prefixes of those, for invalidating an area). */
@@ -36,15 +36,9 @@ export const columnParams = (projectId: string, bucketId: number, q: string) => 
   q: q || undefined,
 })
 
-export interface BoardColumn extends Bucket {
-  total: number
-  open: number
-  items?: Task[] | null
-  next?: string | null
-}
-export interface BoardOut {
-  columns: BoardColumn[]
-}
+/** A board column as cached: its first page of cards moves into the column's own task list. */
+export type BoardColumn = Omit<Schemas['BoardColumn'], 'items' | 'next'>
+export type BoardOut = { columns: BoardColumn[] }
 
 /** A board's columns and counts in one request (GET projects/{id}/board), its cards seeded into one paged
  *  list per column. Refetches (after a change) skip the cards when every column's list is cached. */
@@ -54,7 +48,7 @@ export const boardQuery = (qc: QueryClient, projectId: string, q: string) =>
     queryFn: async ({ signal }): Promise<BoardOut> => {
       const prev = qc.getQueryData<BoardOut>(keys.board(projectId, q))
       const cached = !!prev?.columns.length && prev.columns.every((c) => qc.getQueryData(keys.taskPages(columnParams(projectId, c.id, q))))
-      const r = await get<BoardOut>(
+      const r = await get<Schemas['BoardOut']>(
         `tasks/projects/${projectId}/board`,
         { q: q || undefined, per: BOARD_PAGE, items: cached ? false : undefined },
         signal,
@@ -132,8 +126,6 @@ export function useDeleteBucket() {
     onSuccess: () => qc.invalidateQueries({ queryKey: taskKeys.all }),
   })
 }
-
-export type ProjectWithOwner = Project & { owner?: UserBrief }
 
 // ---------------------------------------------------------------- tasks
 /** Take myself off a task's assignees (allowed even when the task is view-only for me). */

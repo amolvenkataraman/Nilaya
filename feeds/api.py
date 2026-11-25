@@ -16,7 +16,7 @@ router = Router(tags=["feeds"], auth=django_auth)
 
 class FeedOut(Schema):
     id: uuid.UUID
-    kind: str
+    kind: Literal["calendar", "tasks"]
     name: str
     created_on: datetime.datetime
     last_fetched_on: Optional[datetime.datetime]

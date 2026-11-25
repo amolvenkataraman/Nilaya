@@ -136,7 +136,7 @@ export function useReadAll() {
 // One request for the Tasks sidebar: counts + projects + labels + saved views
 // (GET /tasks/overview?include=…). It seeds the projects/labels/views caches, and those hooks read
 // through it, so concurrent mounts share a single request.
-type OverviewFull = Overview & { projects: Project[]; labels: Label[]; views: SavedView[] }
+type OverviewFull = Omit<Overview, 'projects' | 'labels' | 'views'> & { projects: Project[]; labels: Label[]; views: SavedView[] }
 export async function fetchOverview(qc: QueryClient): Promise<OverviewFull> {
   const o = await get<OverviewFull>('tasks/overview', { include: 'projects,labels,views' })
   if (o.projects) qc.setQueryData(keys.projects, o.projects)

@@ -13,7 +13,8 @@ runtime: everything is bundled. **Conventions for changing the code: [AGENTS.md]
 ```
 src/
   main.tsx               routes (public pages; the signed-in apps inside <Shell>), React Query client
-  lib/                   api client (CSRF, 401 -> login), types, query hooks, dates, URL state, layout maths
+  lib/                   api client (CSRF, 401 -> login), types, query hooks, dates, URL state, layout maths;
+                         api-schema.json/.d.ts: the server's OpenAPI schema and the types generated from it
   components/            AppShell (per-app chrome), command palette, bell, task row, charts
   components/ui/         shared primitives: button, dialog/confirm/drawer, menu/popover, loading and error states
   pages/<app>/           one folder per app: dashboard, tasks, calendar, photos, places, habits, notifications, settings
@@ -42,9 +43,20 @@ Needs Node 20.19+ (22 recommended) and the Django dev server on http://127.0.0.1
 cd frontend
 npm ci
 npm run dev            # http://127.0.0.1:5173/  (VITE_PORT=5174 to change the port)
-npm run check          # typecheck + Biome (lint, format) + vitest
+npm run check          # API types up to date + typecheck + Biome (lint, format) + vitest
 npm run format         # Biome format
 ```
+
+API types are generated from the server's schema, not written by hand. After changing an API schema, from the repo
+root (no server needed):
+
+```
+DJANGO_SETTINGS_MODULE=Comptech.settings_local make api-types PYTHON=.venv/bin/python
+```
+
+It writes `src/lib/api-schema.json` (`manage.py api_schema`) and `src/lib/api-schema.d.ts` (`npm run api:types`);
+commit both. `npm run check` fails while the `.d.ts` is out of date, and `manage.py test mainsite` while the JSON is.
+How to use the types: [AGENTS.md](AGENTS.md) › API types.
 
 The Vite dev server proxies `/api`, `/admin`, `/feeds`, `/media`, `/private` and `/photo_cdn` to Django
 (`DJANGO_URL` overrides the target) and answers every other page URL with the app. Cookies pass through,

@@ -16,6 +16,8 @@ Rules for people and coding agents changing `frontend/`. [README.md](README.md) 
 | `src/components/ui.tsx` | Re-exports the above plus hotkeys, Avatar, Switch, small hooks. Pages import from `components/ui` |
 | `src/components/layers.ts` | Which overlays are open. Page shortcuts check `layerOpen()`; custom overlays register with `useLayer()` |
 | `src/lib/api.ts` | The only way to call the server: `get`, `post`, `patch`, `del`, `upload`, `getText`, `apiUrl` |
+| `src/lib/api-schema.json`, `api-schema.d.ts` | **Generated**: the server's OpenAPI schema and the TypeScript made from it. Never edit by hand (see API types) |
+| `src/lib/types.ts` | The shared API types by the app's names, mostly aliases of the generated schemas |
 | `src/lib/cn.ts` | `cn()` for conditional class names |
 | `src/pages/<app>/` | One folder per app. `api.ts` holds its types, queries and mutations |
 
@@ -49,6 +51,26 @@ Rules for people and coding agents changing `frontend/`. [README.md](README.md) 
   factory from the app's `api.ts` and use it everywhere: hooks, `qc.fetchQuery`, loaders.
 - Pass `signal` to `get()` in query functions, so React Query can cancel requests.
 
+## API types
+
+- Types for what the server sends or accepts come from its schema: `Schemas['TaskOut']` (from `lib/types`). Shared ones get
+  a short name in `lib/types.ts`, an app's own in its `api.ts` (`export type Group = Schemas['MapGroupOut']`). Don't
+  hand-write an interface for a typed endpoint.
+- Hand-write only what the server leaves untyped (an endpoint returning a plain `dict`: say so in a comment) and client-only
+  state. To narrow a loose server field, override just that field: `Omit<Schemas['ViewOut'], 'filters'> & { filters: … }`.
+  Better still, tighten the server's schema (`status: Literal[...]` instead of `str`) and regenerate.
+- Response fields with a default are required (the server always sends them). A class that requests use too has two
+  shapes: `Address` (input, defaults optional) and `Address-Output` (what responses carry). Same-named classes from two
+  apps get the app as a prefix (`TasksUserBrief`, `ContactsUserBrief`).
+- After changing an API schema, regenerate from the repo root and commit both files:
+
+  ```
+  DJANGO_SETTINGS_MODULE=Comptech.settings_local make api-types PYTHON=.venv/bin/python
+  ```
+  That runs `manage.py api_schema` (writes `api-schema.json`, no server needed) then `npm run api:types`.
+  `npm run check` fails when the `.d.ts` doesn't match the JSON, and `manage.py test mainsite` when the JSON doesn't match
+  the API.
+
 ## Files
 
 - One component per concern. A file over ~400 lines, or one holding several unrelated components, should be split.
@@ -59,8 +81,9 @@ Rules for people and coding agents changing `frontend/`. [README.md](README.md) 
 ## Checks
 
 ```
-npm run check     # typecheck, Biome lint + format check, tests
+npm run check     # generated API types up to date, typecheck, Biome lint + format check, tests
 npm run format    # Biome format
+npm run api:types # regenerate src/lib/api-schema.d.ts from api-schema.json (see API types)
 ```
 - Tests cover pure logic only, and only cases nothing else covers.
 - For visual changes, compare screenshots before and after (`localdev/screens.py`, light/dark × desktop/phone).

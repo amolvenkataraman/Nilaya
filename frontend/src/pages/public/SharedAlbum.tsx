@@ -8,7 +8,7 @@ import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { ApiError, get, safeHref } from '../../lib/api'
 import type { Box } from '../../lib/justify'
 import { dateFormatter } from '../../lib/dates'
-import type { Photo, PhotoPage } from '../../lib/types'
+import type { Photo, PhotoPage, Schemas } from '../../lib/types'
 import { Icon } from '../../components/Icon'
 import { buttonClass, ErrorBox, SkeletonRows, useMediaQuery } from '../../components/ui'
 import { cn } from '../../lib/cn'
@@ -18,20 +18,7 @@ import { fmtBytes, plural, placeText } from '../../lib/format'
 import { PublicFrame, PublicNotice, loginHere, usePublicTitle } from './PublicFrame'
 import { useLayer } from '../../components/layers'
 
-interface PublicAlbum {
-  id: string
-  name: string
-  description: string
-  owner: string
-  public: boolean
-  photos: number
-  videos: number
-  size_kb: number
-  first: string | null
-  last: string | null
-  cover_url: string | null
-  member: boolean
-}
+type PublicAlbum = Schemas['PublicAlbumOut']
 type Cursor = { before?: string; before_id?: string }
 
 const PAGE = 120

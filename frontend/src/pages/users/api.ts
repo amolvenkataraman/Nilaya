@@ -2,17 +2,9 @@
 // you change your picture, by the same key.
 import { queryOptions } from '@tanstack/react-query'
 import { get } from '../../lib/api'
-import type { GroupBrief, UUID } from '../../lib/types'
+import type { Schemas } from '../../lib/types'
 
-export interface Person {
-  id: UUID
-  username: string
-  name: string
-  description: string
-  profile_picture: string
-  is_staff: boolean
-  groups: GroupBrief[]
-}
+export type Person = Schemas['UsersPersonOut']
 
 export const personQuery = (username: string) =>
   queryOptions({

@@ -7,7 +7,7 @@ import { Icon } from '../../components/Icon'
 import { Button, useDebounced } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { type GeoHit, useGeocode } from '../../lib/map/useGeocode'
-import { type Group, type Pin, statusOf, usePlaceSearch } from './api'
+import { type Group, type Pin, usePlaceSearch } from './api'
 import { StatusDot } from './StatusDot'
 
 const option =
@@ -146,7 +146,7 @@ export function PlaceSearch({
                   onMouseMove={() => setActive(i)}
                   onClick={() => pick(i)}
                 >
-                  <StatusDot status={statusOf(p)} />
+                  <StatusDot status={p.status} />
                   <span className="min-w-0 flex-1 truncate">
                     {p.name}
                     <span className="text-xs text-muted">

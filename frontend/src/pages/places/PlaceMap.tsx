@@ -18,7 +18,17 @@ import L from '../../lib/map/leaflet'
 import type { HeatPoint } from '../../lib/map/points'
 import { useLeafletMap } from '../../lib/map/useLeafletMap'
 import { useViewportBox } from '../../lib/map/useViewportBox'
-import { categoryIcon, fetchHere, fetchOutline, type Here, type Pin as Place, STATUSES, type Suggestion, stars, statusOf } from './api'
+import {
+  categoryIcon,
+  fetchHere,
+  fetchOutline,
+  type Here,
+  type Pin as Place,
+  type PlaceStatus,
+  STATUSES,
+  type Suggestion,
+  stars,
+} from './api'
 import { placeText } from '../../lib/format'
 
 interface Props {
@@ -69,13 +79,12 @@ export const PIN_PATH = 'M14 1C6.8 1 1 6.7 1 13.7 1 23.2 14 35 14 35s13-11.8 13-
 const glyph = (inner: string) =>
   `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${inner}</svg>`
 const DOT = '<circle cx="12" cy="12" r="3.5" fill="currentColor" stroke="none"/>'
-const statusLabel = (s?: string) => STATUSES.find((x) => x.key === statusOf({ status: s }))?.label ?? 'Saved'
+const statusLabel = (s: PlaceStatus) => STATUSES.find((x) => x.key === s)?.label ?? 'Saved'
 
 /** One divIcon per (category, status, selected), built once: the HTML is constants only (Icon path data and
  *  fixed class names from lib/map/map.css; unknown categories get a dot), so no place text reaches innerHTML. */
 const pinIcons = new Map<string, L.DivIcon>()
-function pinIcon(category: string, status: string | undefined, selected: boolean): L.DivIcon {
-  const st = statusOf({ status })
+function pinIcon(category: string, st: PlaceStatus, selected: boolean): L.DivIcon {
   const name = categoryIcon(category)
   const key = `${name ?? ''}|${st}|${selected ? 1 : 0}`
   let icon = pinIcons.get(key)

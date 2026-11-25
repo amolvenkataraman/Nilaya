@@ -5,14 +5,13 @@ import { useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { toast } from '../../components/toast'
 import { Button, Confirm, Dialog, Field, FieldRow, Input, Select, Switch, Textarea } from '../../components/ui'
-import type { PlaceCategory, PlaceGroup } from '../../lib/types'
 import {
   type Group,
   type ImportResult,
   importPlaces,
   type Place,
+  type PlaceCategory,
   type PlaceInput,
-  type PlaceStatus,
   STATUSES,
   stars,
   useDeleteGroup,
@@ -36,7 +35,7 @@ export function PlaceDialog({
   onDeleted,
 }: {
   draft: Draft
-  groups: PlaceGroup[]
+  groups: Group[]
   categories: PlaceCategory[]
   onClose: () => void
   onSaved: (p: Place) => void
@@ -52,7 +51,7 @@ export function PlaceDialog({
     description: draft.description ?? '',
     notes: draft.notes ?? '',
     rating: String(draft.rating ?? ''),
-    status: (draft.status ?? 'saved') as PlaceStatus,
+    status: draft.status ?? 'saved',
     visited_on: draft.visited_on ?? '',
   }))
   const [confirm, setConfirm] = useState(false)
@@ -235,7 +234,7 @@ export function GroupDialog({
   group: Partial<Group>
   onClose: () => void
   onDeleted: (id: number) => void
-  onCreated: (g: PlaceGroup) => void
+  onCreated: (g: Group) => void
 }) {
   const [name, setName] = useState(group.name ?? '')
   const [description, setDescription] = useState(group.description ?? '')
@@ -303,7 +302,7 @@ export function GroupDialog({
         body={`This also deletes the ${group.count ?? 0} ${group.count === 1 ? 'place' : 'places'} in it.`}
         onClose={() => setConfirm(false)}
         onConfirm={() =>
-          remove.mutate(group as PlaceGroup, {
+          remove.mutate(group as Group, {
             onSuccess: () => {
               if (group.id != null) onDeleted(group.id)
               onClose()
@@ -315,15 +314,7 @@ export function GroupDialog({
   )
 }
 
-export function ImportDialog({
-  groups,
-  onClose,
-  onDone,
-}: {
-  groups: PlaceGroup[]
-  onClose: () => void
-  onDone: (groupId: number) => void
-}) {
+export function ImportDialog({ groups, onClose, onDone }: { groups: Group[]; onClose: () => void; onDone: (groupId: number) => void }) {
   const qc = useQueryClient()
   const [file, setFile] = useState<File | null>(null)
   const [group, setGroup] = useState(groups[0]?.id ?? 0)

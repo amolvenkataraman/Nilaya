@@ -10,6 +10,7 @@ import { Button, buttonClass, chipClass, Confirm, Menu, MenuItem, pageClass, Pag
 import { get } from '../../lib/api'
 import { plural } from '../../lib/format'
 import { useMe } from '../../lib/queries'
+import type { Schemas } from '../../lib/types'
 import { copyLinks, deleteAlbum, useAlbums } from './actions'
 import { AlbumCover } from './AlbumCover'
 import { AlbumDialog } from './AlbumDialog'
@@ -18,15 +19,7 @@ import { PhotoStream, type Zoom } from './PhotoStream'
 import { albumContext } from './selection'
 import { ShareDialog } from './ShareDialog'
 
-type PublicAlbum = {
-  name: string
-  owner: string
-  description: string
-  photos: number
-  videos: number
-  first: string | null
-  last: string | null
-}
+type PublicAlbum = Schemas['PublicAlbumOut']
 
 /** Button labels give way to icons on phones. */
 const label = 'max-md:hidden'

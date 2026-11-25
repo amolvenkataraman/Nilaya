@@ -3,7 +3,7 @@ they depend on. Browser session only."""
 
 import datetime
 import uuid
-from typing import Optional
+from typing import Literal, Optional
 
 from django.shortcuts import get_object_or_404
 from ninja import Router, Schema
@@ -26,7 +26,7 @@ class RunOut(Schema):
     id: uuid.UUID
     job: str
     options: dict
-    status: str
+    status: Literal["queued", "running", "done", "failed"]
     done: int
     total: Optional[int]
     summary: str

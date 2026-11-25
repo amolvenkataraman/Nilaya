@@ -6,7 +6,7 @@ import { useMemo, useState } from 'react'
 import { useSearchParams } from 'react-router'
 import { useDebounced } from '../../components/ui'
 import { distanceM } from '../../lib/map/geo'
-import { type Pin, type PlaceStatus, STATUSES, statusOf, useVisibleTextMatches } from './api'
+import { type Pin, type PlaceStatus, STATUSES, useVisibleTextMatches } from './api'
 import type { Pos } from './PlaceDetail'
 
 export type Tab = 'places' | 'suggested' | 'stats'
@@ -22,7 +22,7 @@ export interface Counts {
 export function countPlaces(list: Pin[]): Counts {
   const c: Counts = { status: { saved: 0, want_to_go: 0, visited: 0 }, rating: { 3: 0, 4: 0, 5: 0 }, category: new Map() }
   for (const p of list) {
-    c.status[statusOf(p)]++
+    c.status[p.status]++
     const r = p.rating ?? 0
     if (r >= 3) c.rating[3]++
     if (r >= 4) c.rating[4]++
@@ -68,7 +68,7 @@ export function usePlaceFilters(everything: Pin[], anyVisible: boolean, pos: Pos
     const list = inGroup.filter(
       (p) =>
         (!category || p.category === category) &&
-        (!status || statusOf(p) === status) &&
+        (!status || p.status === status) &&
         (!minRating || (p.rating ?? 0) >= minRating) &&
         (!q || p.name.toLowerCase().includes(q) || textIds.has(p.id)),
     )

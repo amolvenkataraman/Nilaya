@@ -19,3 +19,11 @@ mi:
 	python3 manage.py migrate
 
 m: mm mi
+
+# The React app's API types: the V2 OpenAPI schema (frontend/src/lib/api-schema.json), then the TypeScript generated
+# from it (api-schema.d.ts). Run after changing any API schema; locally: make api-types PYTHON=.venv/bin/python
+# with DJANGO_SETTINGS_MODULE=Comptech.settings_local.
+PYTHON ?= python3
+api-types:
+	$(PYTHON) manage.py api_schema
+	cd frontend && npm run api:types

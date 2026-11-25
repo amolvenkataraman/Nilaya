@@ -7,8 +7,7 @@ import { toast } from '../../components/toast'
 import { Button, buttonClass, chipClass, ErrorBox, Menu, MenuItem, MenuSeparator, SkeletonRows, Switch } from '../../components/ui'
 import { apiUrl } from '../../lib/api'
 import { cn } from '../../lib/cn'
-import type { PlaceCategory } from '../../lib/types'
-import { categoryIcon, type Group, STATUSES, useSaveGroup, useShowOnlyGroup } from './api'
+import { categoryIcon, type Group, type PlaceCategory, STATUSES, useSaveGroup, useShowOnlyGroup } from './api'
 import type { Counts } from './usePlaceFilters'
 
 const tag = chipClass({ size: 'xs', className: 'ml-1.5' })

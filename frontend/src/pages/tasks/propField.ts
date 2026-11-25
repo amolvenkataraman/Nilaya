@@ -3,10 +3,8 @@
 import { fieldClass } from '../../components/ui'
 import { fmtDate, fmtTime, isEndOfDay } from '../../lib/dates'
 import type { TaskPatch } from '../../lib/types'
-import type { ReminderIn } from './recurrence'
 
-export type FullPatch = TaskPatch & { reminders?: ReminderIn[] }
-export type Save = (body: FullPatch) => void
+export type Save = (body: TaskPatch) => void
 
 /** A property's value as a button that looks like text until hovered. */
 export const propBtn =

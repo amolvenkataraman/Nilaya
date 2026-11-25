@@ -9,7 +9,7 @@ import { Avatar, Chip, chipClass, Dot, Input, Menu, MenuItem, MenuLabel } from '
 import { cn } from '../../lib/cn'
 import { useBuckets, useMe, useMoveTask, useProjects } from '../../lib/queries'
 import type { Label, TaskDetail, UserBrief } from '../../lib/types'
-import { type ProjectWithOwner, useMembers, useSaveLabel } from './api'
+import { useMembers, useSaveLabel } from './api'
 import { labelStyle } from './Labels'
 import { ghostSelect, propBtn, type Save } from './propField'
 import { canEditIn, parseMinutes } from './task'
@@ -73,7 +73,7 @@ export function AssigneesField({ task, save }: { task: TaskDetail; save: Save })
 
 function AssigneeList({ task, assigned, save }: { task: TaskDetail; assigned: UserBrief[]; save: Save }) {
   const me = useMe().data
-  const project = useProjects().data?.find((p) => p.id === task.project_id) as ProjectWithOwner | undefined
+  const project = useProjects().data?.find((p) => p.id === task.project_id)
   const members = useMembers(task.project_id && !project?.is_inbox ? task.project_id : null)
   // Who the server accepts (tasks.service.assignable_user_ids): the project's owner and members, just
   // the creator for a loose task; people already assigned can stay.

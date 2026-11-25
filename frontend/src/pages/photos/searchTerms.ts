@@ -1,6 +1,6 @@
 // Smart search helpers (pure): the server reads the query (photos/search.py) and says which words
 // became which term; removing a term just drops those words from the query.
-import type { Photo } from '../../lib/types'
+import type { Schemas } from '../../lib/types'
 
 export type SearchTerm = {
   type: 'place' | 'object' | 'camera' | 'date' | 'media' | 'album' | 'library' | 'text'
@@ -13,15 +13,8 @@ export type SearchTerm = {
   detail?: string | null
 }
 
-export type SearchPage = {
-  items: Photo[]
-  next_before: string | null
-  next_before_id?: string | null
-  interpreted: SearchTerm[]
-  unmatched: string[]
-  count?: number | null
-  count_capped?: boolean
-}
+/** GET /photos/search; the server types a term's type and span loosely (str, int[]). */
+export type SearchPage = Omit<Schemas['SearchOut'], 'interpreted'> & { interpreted: SearchTerm[] }
 
 const CONNECTORS = new Set(['in', 'at', 'from', 'of', 'on', 'with', 'during', 'near', 'by', 'and', 'or', 'the', 'between'])
 

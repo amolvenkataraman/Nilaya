@@ -1,29 +1,30 @@
-// Places API: types, query factories and mutations. The API also returns status/visited_on, newer than lib/types.
+// Places API: types (aliases of the generated schemas where the server types the response), query factories
+// and mutations.
 import { queryOptions, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from '../../components/toast'
 import { api, del, get, patch, post, upload } from '../../lib/api'
-import type { Place as BasePlace, Photo, PlaceCategory, PlaceGroup } from '../../lib/types'
+import type { Schemas } from '../../lib/types'
 import type { IconName } from '../../components/Icon'
 
-export type PlaceStatus = 'saved' | 'want_to_go' | 'visited'
-export interface Place extends BasePlace {
-  status?: PlaceStatus
-  visited_on?: string | null
-  updated_on?: string
+export type Place = Schemas['MapPlaceOut']
+export type PlaceStatus = Place['status']
+export type PlaceInput = Schemas['MapPlaceIn']
+/** A map pin (GET /places/pins): only what the map and list rows need; the full place loads when opened. Full
+ *  places (search, text matches) go where pins do. */
+export type Pin = Schemas['PinOut'] & Partial<Place>
+/** A group, with my per-person map visibility (hidden by default) and the owner's archive flag. */
+export type Group = Schemas['MapGroupOut']
+/** GET /places/categories: untyped on the server. */
+export interface PlaceCategory {
+  key: string
+  label: string
 }
-export type PlaceInput = Omit<Place, 'id' | 'updated_on'>
-/** A map pin (GET /places/pins): only what the map and list rows need; the full place loads when opened. */
-type PinField = 'id' | 'group_id' | 'name' | 'latitude' | 'longitude' | 'category' | 'status' | 'rating' | 'address' | 'visited_on'
-export type Pin = Pick<Place, PinField> & Partial<Omit<Place, PinField>>
 
 export const STATUSES: { key: PlaceStatus; label: string; icon: IconName }[] = [
   { key: 'saved', label: 'Saved', icon: 'star' },
   { key: 'want_to_go', label: 'Want to go', icon: 'flag' },
   { key: 'visited', label: 'Visited', icon: 'check' },
 ]
-/** Unknown or missing statuses count as saved. */
-export const statusOf = (p: { status?: string | null }): PlaceStatus =>
-  p.status === 'visited' || p.status === 'want_to_go' ? p.status : 'saved'
 
 /** Category glyphs (Icon names; GET /places/categories has no icon field). The classic map's set, redrawn
  *  in the app's icon style. Unlisted keys ("other", anything new) get a plain dot on the map. */
@@ -47,11 +48,6 @@ export const categoryIcon = (key: string): IconName | undefined => CATEGORY_ICON
 /** "★★★☆☆" for a 1-5 rating ('' for none). */
 export const stars = (n: number | null | undefined) => (n ? '★'.repeat(n) + '☆'.repeat(5 - n) : '')
 
-/** A group with my per-person map visibility (hidden by default) and the owner's archive flag. */
-export interface Group extends PlaceGroup {
-  visible: boolean
-  archived: boolean
-}
 export const usePlaceGroups = (includeArchived = false) =>
   useQuery({
     queryKey: ['places', 'groups', includeArchived],
@@ -176,7 +172,7 @@ export function useSaveGroup() {
   const done = useInvalidate()
   return useMutation({
     mutationFn: ({ id, body }: { id?: number; body: Partial<Pick<Group, 'name' | 'description' | 'is_public' | 'archived'>> }) =>
-      id ? patch<PlaceGroup>(`places/groups/${id}`, body) : post<PlaceGroup>('places/groups', body),
+      id ? patch<Group>(`places/groups/${id}`, body) : post<Group>('places/groups', body),
     onSettled: done,
   })
 }
@@ -184,7 +180,7 @@ export function useSaveGroup() {
 export function useDeleteGroup() {
   const done = useInvalidate()
   return useMutation({
-    mutationFn: (g: PlaceGroup) => del(`places/groups/${g.id}`),
+    mutationFn: (g: Group) => del(`places/groups/${g.id}`),
     onSuccess: (_r, g) => toast.show(`Deleted the group "${g.name}"`),
     onSettled: done,
   })
@@ -192,13 +188,7 @@ export function useDeleteGroup() {
 
 // ---------------------------------------------------------------- photos, suggestions, stats, import
 
-export interface PlacePhotos {
-  count: number
-  visits: number
-  first_visit: string | null
-  last_visit: string | null
-  photos: Photo[]
-}
+export type PlacePhotos = Schemas['PlacePhotosOut']
 export const usePlacePhotos = (id: string | null) =>
   useQuery({
     queryKey: ['places', 'photos', id],
@@ -214,18 +204,7 @@ export const usePhotosNear = (lat: number, lng: number, limit = 12) =>
     staleTime: 30 * 60_000,
   })
 
-export interface Suggestion {
-  latitude: number
-  longitude: number
-  photos: number
-  days: number
-  first_day: string
-  last_day: string
-  city: string | null
-  country: string | null
-  name: string
-  address: string
-}
+export type Suggestion = Schemas['SuggestionOut']
 export const useSuggestions = (enabled: boolean) =>
   useQuery({
     queryKey: ['places', 'suggestions'],
@@ -234,12 +213,7 @@ export const useSuggestions = (enabled: boolean) =>
     staleTime: 60 * 60_000,
   })
 
-export interface PlaceStats {
-  total: number
-  by_status: Record<PlaceStatus, number>
-  by_category: { key: string; label: string; count: number }[]
-  most_visited: { id: string; name: string; category: string; visits: number; last_visit: string | null }[]
-}
+export type PlaceStats = Schemas['MapStatsOut']
 export const usePlaceStats = (enabled: boolean) =>
   useQuery({
     queryKey: ['places', 'stats'],
@@ -248,15 +222,7 @@ export const usePlaceStats = (enabled: boolean) =>
     staleTime: 10 * 60_000,
   })
 
-export interface ImportResult {
-  format: string
-  found: number
-  new: number
-  duplicates: number
-  invalid: number
-  created: number
-  sample: string[]
-}
+export type ImportResult = Schemas['ImportOut']
 /** POST /places/import (multipart): dryRun previews what would be added. */
 export async function importPlaces(file: File, groupId: number, dryRun: boolean): Promise<ImportResult> {
   const fd = new FormData()

@@ -85,7 +85,7 @@ class PlaceOut(Schema):
     address: Optional[str]
     rating: Optional[int]
     notes: str
-    status: str
+    status: Status
     visited_on: Optional[datetime.date]
     updated_on: datetime.datetime
 
@@ -555,7 +555,7 @@ class PinOut(Schema):
     latitude: float
     longitude: float
     category: str
-    status: str
+    status: Status
     rating: Optional[int]
     address: Optional[str]  # list rows show it
     visited_on: Optional[datetime.date]

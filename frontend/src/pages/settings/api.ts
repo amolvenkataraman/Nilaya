@@ -4,31 +4,15 @@ import { keepPreviousData, queryOptions, useMutation, useQuery, useQueryClient }
 import { toast } from '../../components/toast'
 import { del, get, getText, patch, post } from '../../lib/api'
 import { keys as libKeys } from '../../lib/queries'
-import type { Me } from '../../lib/types'
+import type { Me, Schemas } from '../../lib/types'
 
 export interface KeyApp {
   app: string
   label: string
   scopes: string[]
 }
-export interface ApiKey {
-  id: string
-  name: string
-  prefix: string
-  scopes: string[]
-  created_on: string
-  expires_on: string | null
-  last_used_on: string | null
-  last_used_ip: string | null
-}
-export interface Feed {
-  id: string
-  kind: 'calendar' | 'tasks'
-  name: string
-  created_on: string
-  last_fetched_on: string | null
-  fetches: number
-}
+export type ApiKey = Schemas['KeyOut']
+export type Feed = Schemas['FeedOut']
 interface Totals {
   views: number | null
   calls: number | null
@@ -162,13 +146,7 @@ export function useChangePassword(onDone: () => void, onError: (message: string)
 }
 
 /** A phone signed in to Nilaya's phone apps, and which apps on it have a key. */
-export interface Device {
-  id: string
-  name: string
-  created_on: string
-  last_used_on: string | null
-  apps: string[]
-}
+export type Device = Schemas['DeviceOut']
 
 export const devicesQuery = () =>
   queryOptions({ queryKey: settingsKeys.devices, queryFn: ({ signal }) => get<Device[]>('devices/', undefined, signal) })
@@ -184,22 +162,11 @@ export function useSignOutDevice(d: Device) {
   })
 }
 
-/** One run of a maintenance job (staff, GET /maintenance/jobs). */
-export interface MaintenanceRun {
-  id: string
-  job: string
+/** One run of a maintenance job (staff, GET /maintenance/jobs). The server types options and result as plain dicts. */
+export type MaintenanceRun = Omit<Schemas['RunOut'], 'options' | 'result'> & {
   options: Record<string, boolean>
-  status: 'queued' | 'running' | 'done' | 'failed'
-  done: number
-  total: number | null
-  summary: string
   /** Job-specific: "Name photo places" keeps its 25 most common [old, new, photos] changes and how many more kinds. */
   result: { changes?: [string, string, number][]; more_kinds?: number }
-  log: string
-  started_by: string | null
-  created_on: string
-  started_on: string | null
-  finished_on: string | null
 }
 export interface MaintenanceJob {
   key: string

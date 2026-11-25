@@ -7,7 +7,7 @@ import { dayKey } from '../../lib/dates'
 import { plural } from '../../lib/format'
 import { refreshTaskCounts } from '../../lib/queries'
 import { cachedTask, patchTaskLists, settleTaskLists } from '../../lib/taskLists'
-import type { Project, Task } from '../../lib/types'
+import type { Project, Schemas, Task } from '../../lib/types'
 import { taskKeys } from './api'
 import { prioLabel } from './priority'
 import { projectName } from './task'
@@ -24,24 +24,9 @@ export type BulkTarget = string[] | { filter: Record<string, unknown>; total: nu
 export const targetCount = (t: BulkTarget) => (Array.isArray(t) ? t.length : t.total)
 export const BULK_IDS = 500
 
-export interface BulkBody {
-  action: 'done' | 'reopen' | 'update' | 'move' | 'delete'
-  priority?: number
-  favorite?: boolean
-  due?: string | null
-  due_day?: string
-  clear_due?: boolean
-  add_label?: number
-  remove_label?: number
-  project_id?: string
-}
-interface BulkOut {
-  count: number
-  failed: number
-  more: boolean
-  ids: string[]
-  tasks: Task[] | null
-}
+/** The action and its fields; which tasks it applies to (ids or filter) is added when sent. */
+export type BulkBody = Omit<Schemas['BulkIn'], 'ids' | 'filter'>
+type BulkOut = Schemas['BulkOut']
 
 /** The list filters a "select all matching" sends (GET / params without paging and sort). */
 export function bulkFilter(p: Record<string, unknown>): Record<string, unknown> {

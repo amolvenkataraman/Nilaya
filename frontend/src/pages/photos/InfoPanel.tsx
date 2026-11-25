@@ -195,19 +195,16 @@ export function InfoPanel({ photo, onClose }: { photo: Photo; onClose: () => voi
           row(
             'tag',
             <div className={badges}>
-              {d.objects.map((o) => {
-                const name = typeof o === 'string' ? o : o.name
-                return (
-                  <Link
-                    key={name}
-                    className={chipClass({ interactive: true })}
-                    to={`/photos?objects=${encodeURIComponent(name)}`}
-                    onClick={onClose}
-                  >
-                    {name}
-                  </Link>
-                )
-              })}
+              {d.objects.map(({ name }) => (
+                <Link
+                  key={name}
+                  className={chipClass({ interactive: true })}
+                  to={`/photos?objects=${encodeURIComponent(name)}`}
+                  onClick={onClose}
+                >
+                  {name}
+                </Link>
+              ))}
             </div>,
             'obj',
           )}

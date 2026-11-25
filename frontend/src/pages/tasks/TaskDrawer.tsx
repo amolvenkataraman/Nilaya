@@ -24,7 +24,7 @@ import { cn } from '../../lib/cn'
 import { fmtStamp, relTime, shortStamp } from '../../lib/dates'
 import { useLabels, useMe, useMoveTask, useProjects, useSetDone, useTask, useUpdateTask } from '../../lib/queries'
 import { cachedTask } from '../../lib/taskLists'
-import type { Project, TaskDetail } from '../../lib/types'
+import type { Project, TaskDetail, TaskPatch } from '../../lib/types'
 import { useDuplicateTask, useUnassignMe } from './api'
 import { DateField } from './DateField'
 import { Comments, Subtasks } from './DrawerSections'
@@ -32,7 +32,7 @@ import { useDeleteWithUndo } from './deleteUndo'
 import { AssigneesField, LabelsField, StatusField, TimeSpentField } from './Fields'
 import { PRIORITY_OPTIONS } from './priority'
 import { PROJECT_COLOURS } from './ProjectDialog'
-import { type FullPatch, ghostSelect } from './propField'
+import { ghostSelect } from './propField'
 import { Relations, sectionLabel } from './Relations'
 import { RemindersField } from './RemindersField'
 import { RepeatField } from './RepeatField'
@@ -104,7 +104,7 @@ function Detail({ task, onClose, onOpen }: { task: TaskDetail; onClose: () => vo
   const path = pathOf(projects, task.project_id)
   // The parent's title from whatever list already has it (no extra request).
   const parent = task.parent_id ? cachedTask(qc, task.parent_id) : undefined
-  const save = (body: FullPatch) => update.mutate({ id: task.id, body: body as Parameters<typeof update.mutate>[0]['body'] })
+  const save = (body: TaskPatch) => update.mutate({ id: task.id, body })
   const remove = () => {
     removeLater([task])
     onClose()

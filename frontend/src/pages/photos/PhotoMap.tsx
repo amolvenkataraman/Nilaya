@@ -20,7 +20,7 @@ import { type HeatPoint, photoPointsQuery } from '../../lib/map/points'
 import { useLeafletMap } from '../../lib/map/useLeafletMap'
 import { useViewportBox } from '../../lib/map/useViewportBox'
 import { usePref } from '../../lib/storage'
-import type { Photo } from '../../lib/types'
+import type { Schemas } from '../../lib/types'
 import { photosInArea } from './util'
 
 const CLUSTER_PX = 72
@@ -75,7 +75,7 @@ function parseGpx(text: string): [number, number][][] {
   for (const r of doc.querySelectorAll('rte')) read(r.querySelectorAll('rtept'))
   return segs
 }
-type Near = { count: number; visits: number; first_visit: string | null; last_visit: string | null; photos: Photo[] }
+type Near = Schemas['PlacePhotosOut']
 
 export function PhotoMapPage() {
   const el = useRef<HTMLElement>(null)

@@ -10,6 +10,15 @@ const item = (p: Partial<AgendaItem>): AgendaItem => ({
   end: null,
   colour: '#000',
   calendar: 'C',
+  done: false,
+  has_todo: false,
+  icon: null,
+  location: null,
+  priority: 0,
+  series_id: null,
+  start_date: null,
+  end_date: null,
+  status: null,
   ...p,
 })
 

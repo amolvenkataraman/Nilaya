@@ -11,7 +11,7 @@ import type { Calendar } from '../../lib/types'
 import { useInviteMutations, useInvites, useSubscriberMutations, useSubscribers } from './api'
 import { smallSelect } from './Attendees'
 import { pill } from './chips'
-import { personName } from './types'
+import { type Invite, personName } from './types'
 
 const list = 'grid gap-px'
 const listRow = 'flex min-h-9 items-center gap-2 rounded-sm px-1 text-sm hover:bg-hover'
@@ -84,7 +84,7 @@ export function Invites({ cal }: { cal: Calendar }) {
   const { create, setActive, remove } = useInviteMutations(cal.id)
   const [days, setDays] = useState('7')
   const [uses, setUses] = useState('')
-  const [role, setRole] = useState('subscriber')
+  const [role, setRole] = useState<Invite['role']>('subscriber')
   const [inviteCode, setCode] = useState('')
   const codeOk = !inviteCode || INVITE_CODE.test(inviteCode)
   const submit = () =>
@@ -124,7 +124,7 @@ export function Invites({ cal }: { cal: Calendar }) {
           <Input type="number" min={1} max={1000} value={uses} placeholder="No limit" onChange={(e) => setUses(e.target.value)} />
         </Field>
         <Field label="Role">
-          <Select value={role} onChange={(e) => setRole(e.target.value)}>
+          <Select value={role} onChange={(e) => setRole(e.target.value as Invite['role'])}>
             <option value="subscriber">Can view</option>
             <option value="admin">Can edit</option>
           </Select>

@@ -1,7 +1,7 @@
 {
   "name": "nilaya-frontend",
   "private": true,
-  "license": "AGPL-3.0-or-later",
+  "license": "(AGPL-3.0-or-later OR LicenseRef-Nilaya-Commercial)",
   "version": "0.1.0",
   "type": "module",
   "engines": {
@@ -14,7 +14,9 @@
     "test": "vitest run",
     "lint": "biome check",
     "format": "biome format --write",
-    "check": "tsc --noEmit -p tsconfig.json && biome check && vitest run"
+    "api:types": "openapi-typescript src/lib/api-schema.json -o src/lib/api-schema.d.ts --alphabetize --default-non-nullable false",
+    "check:api": "openapi-typescript src/lib/api-schema.json -o src/lib/api-schema.d.ts --alphabetize --default-non-nullable false --check",
+    "check": "npm run check:api && tsc --noEmit -p tsconfig.json && biome check && vitest run"
   },
   "dependencies": {
     "@base-ui/react": "1.9.0",

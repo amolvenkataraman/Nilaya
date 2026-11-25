@@ -14,7 +14,7 @@ import { toast } from '../../components/toast'
 import { safeHref } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { relTime } from '../../lib/dates'
-import type { CalEvent, Calendar, EventDetail } from '../../lib/types'
+import type { CalEvent, Calendar, EventOrDetail } from '../../lib/types'
 import { eventDetailQuery, useDeleteEvent, useDuplicateEvent, useTaskFromEvent, useUpdateEvent, type Scope } from './api'
 import { dot, pill } from './chips'
 import { FALLBACK_COLOUR } from './colours'
@@ -46,7 +46,7 @@ export function EventPeek({
   const phone = useIsPhone()
   const popup = useRef<HTMLDivElement>(null)
   const detail = useQuery(eventDetailQuery(event.id))
-  const e: EventDetail = { ...event, ...(detail.data ?? {}) }
+  const e: EventOrDetail = { ...event, ...(detail.data ?? {}) }
   const canEdit = !!calendar?.can_edit
   const recurring = !!(e.recurring || e.series_id)
   const remove = useDeleteEvent()
@@ -169,7 +169,7 @@ function PeekBody({
   onEdit,
   onDelete,
 }: {
-  e: EventDetail
+  e: EventOrDetail
   event: CalEvent
   calendar?: Calendar
   colour: string
@@ -184,7 +184,7 @@ function PeekBody({
   const update = useUpdateEvent()
   const recurring = !!(e.recurring || e.series_id)
   const meeting = safeHref(e.meeting_url || null) ?? (e.location?.match(MEETING_RE)?.[0] || e.description?.match(MEETING_RE)?.[0] || null)
-  const place = e.place ? [e.place.name, e.place.address].filter(Boolean).join(', ') : ''
+  const place = e.place?.name ?? ''
   const location = [e.location && e.location !== meeting ? e.location : '', place && place !== e.location ? place : '']
     .filter(Boolean)
     .join(' · ')

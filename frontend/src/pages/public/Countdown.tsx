@@ -7,16 +7,10 @@ import { dateFormatter } from '../../lib/dates'
 import { Icon } from '../../components/Icon'
 import { cardClass, Chip, ErrorBox, SkeletonRows, useNow } from '../../components/ui'
 import { cn } from '../../lib/cn'
+import type { Schemas } from '../../lib/types'
 import { PublicFrame, PublicNotice, usePublicTitle } from './PublicFrame'
 
-interface Countdown {
-  id: string
-  name: string
-  target: string
-  which: 'start' | 'end'
-  deadline: boolean
-  busy: boolean
-}
+type Countdown = Schemas['CountdownOut']
 
 const when = dateFormatter({
   weekday: 'long',
