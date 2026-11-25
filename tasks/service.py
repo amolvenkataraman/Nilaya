@@ -5,13 +5,12 @@ import datetime
 import math
 import re
 
-import pytz
-from django.conf import settings
 from django.db import IntegrityError, transaction
 from django.db.models import F, Max, Q
 from django.utils import timezone
 
 from scheduler.models import Todo
+from users.preferences import zone as user_tz  # the user's pytz zone: quick add and repeats localize with it
 
 from .models import Bucket, Label, Project, ProjectMember, Reminder
 
@@ -27,15 +26,6 @@ def priority_label(value):
 
 
 # ---------------------------------------------------------------- access
-
-def user_tz(user):
-    """The user's zone as a pytz zone (quick add and repeats localize with it); the server's zone
-    when theirs is unknown to pytz."""
-    name = getattr(user, "timezone", "") or ""
-    if name in pytz.all_timezones_set:
-        return pytz.timezone(name)
-    return pytz.timezone(settings.TIME_ZONE) if settings.TIME_ZONE in pytz.all_timezones_set else pytz.utc
-
 
 def _project_ids(user):
     """Ids of projects the user owns or is a member of, as a subquery (no join, no DISTINCT)."""

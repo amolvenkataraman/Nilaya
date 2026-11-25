@@ -9,7 +9,7 @@ import { toast } from '../../components/toast'
 import { Button, buttonClass, cardClass, ErrorBox, SkeletonRows, useMediaQuery } from '../../components/ui'
 import { ApiError, get, loginUrl, post } from '../../lib/api'
 import { cn } from '../../lib/cn'
-import { addDays, addMonths, dateFormatter, dayKey, fmtTime, isSameDay, monthGrid, startOfDay } from '../../lib/dates'
+import { addDays, addMonths, dayKey, fmtDate, fmtTime, isSameDay, monthGrid, startOfDay, weekdayName } from '../../lib/dates'
 import { signedIn } from '../../lib/session'
 import type { Schemas } from '../../lib/types'
 import { PublicFrame, PublicNotice, usePublicTitle } from './PublicFrame'
@@ -22,9 +22,8 @@ interface Placed extends PublicEvent {
 }
 
 const MAX_CHIPS = 3
-const monthTitle = dateFormatter({ month: 'long', year: 'numeric' })
-const weekday = dateFormatter({ weekday: 'short' })
-const agendaDay = dateFormatter({ weekday: 'short', month: 'short', day: 'numeric' })
+const monthTitle = (d: Date) => fmtDate(d, { month: 'long', year: 'numeric' })
+const agendaDay = (d: Date) => fmtDate(d, { weekday: 'short', month: 'short', day: 'numeric' })
 const parseMonth = (raw: string | null) => {
   const m = /^(\d{4})-(\d{2})$/.exec(raw ?? '')
   return m ? new Date(Number(m[1]), Number(m[2]) - 1, 1) : new Date(new Date().getFullYear(), new Date().getMonth(), 1)
@@ -193,7 +192,7 @@ export default function PublicCalendar() {
           </Button>
         </span>
         <h2 className="text-lg font-medium" aria-live="polite">
-          {monthTitle.format(month)}
+          {monthTitle(month)}
         </h2>
         {events.isFetching && <span className="spinner" role="status" aria-label="Loading" />}
       </div>
@@ -204,7 +203,7 @@ export default function PublicCalendar() {
       )}
 
       {phone ? (
-        <section className={cn(cardClass, 'py-1')} style={calVar} aria-label={`Events in ${monthTitle.format(month)}`}>
+        <section className={cn(cardClass, 'py-1')} style={calVar} aria-label={`Events in ${monthTitle(month)}`}>
           {monthDays.map((d, i) => {
             const isToday = isSameDay(d, today)
             return (
@@ -212,7 +211,7 @@ export default function PublicCalendar() {
                 key={dayKey(d)}
                 className={cn('grid grid-cols-[5.5rem_minmax(0,1fr)] gap-2 px-3.5 py-2', i > 0 && 'border-t border-border')}
               >
-                <span className={cn('pt-px text-sm tabular-nums', isToday && 'font-semibold text-accent')}>{agendaDay.format(d)}</span>
+                <span className={cn('pt-px text-sm tabular-nums', isToday && 'font-semibold text-accent')}>{agendaDay(d)}</span>
                 <ul className="grid gap-1.5">
                   {byDay.get(dayKey(d))?.map((ev) => (
                     <li key={ev.id + dayKey(d)} title={tip(ev)} className="flex min-w-0 items-start gap-2 text-sm">
@@ -234,14 +233,14 @@ export default function PublicCalendar() {
           {events.isPending && <SkeletonRows rows={4} />}
         </section>
       ) : (
-        <section className={cn(cardClass, 'overflow-hidden')} style={calVar} aria-label={monthTitle.format(month)}>
+        <section className={cn(cardClass, 'overflow-hidden')} style={calVar} aria-label={monthTitle(month)}>
           <div className="grid grid-cols-7" aria-hidden="true">
             {weeks[0].map((d) => (
               <span
                 key={d.getDay()}
                 className="border-b border-border px-2 py-1.5 text-xs font-medium tracking-[0.04em] text-muted uppercase"
               >
-                {weekday.format(d)}
+                {weekdayName(d, 'short')}
               </span>
             ))}
           </div>

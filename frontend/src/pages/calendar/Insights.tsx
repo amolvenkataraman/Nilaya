@@ -6,12 +6,11 @@ import { ChartTooltip, PlotColumns as Columns, useSize, type ChartTip } from '..
 import { Icon } from '../../components/Icon'
 import { Button, QueryView, Segmented } from '../../components/ui'
 import { cn } from '../../lib/cn'
-import { addDays, dayKey, fmtDate, parseDayKey } from '../../lib/dates'
+import { addDays, dayKey, fmtDate, fmtHour, parseDayKey } from '../../lib/dates'
 import { plural } from '../../lib/format'
 import { useInsights } from '../../lib/queries'
 import type { Insights as InsightsData } from '../../lib/types'
 import { pill } from './chips'
-import { hourFmt } from './format'
 import type { InsightsPeriod } from './range'
 
 /** Signed delta label: "+9.8 h", "−2 h" (dir 0: no change). */
@@ -97,7 +96,7 @@ function Heat({ heat, labels }: { heat: number[][]; labels: string[] }) {
               {WEEK.map((d) =>
                 DAY_HOURS.map((hr) => {
                   const v = heat[d]?.[hr] ?? 0
-                  const text = `${labels[d]} ${hourFmt.format(new Date(2000, 0, 1, hr))}: ${hours(v)}`
+                  const text = `${labels[d]} ${fmtHour(new Date(2000, 0, 1, hr))}: ${hours(v)}`
                   const x = hr * (cw + gap)
                   const y = d * (ch + gap)
                   return (
@@ -125,7 +124,7 @@ function Heat({ heat, labels }: { heat: number[][]; labels: string[] }) {
         <div className="relative h-3.5 text-3xs text-muted" aria-hidden="true">
           {[0, 6, 12, 18].map((h) => (
             <span key={h} className="absolute top-0" style={{ left: `${(h / 24) * 100}%` }}>
-              {hourFmt.format(new Date(2000, 0, 1, h))}
+              {fmtHour(new Date(2000, 0, 1, h))}
             </span>
           ))}
         </div>

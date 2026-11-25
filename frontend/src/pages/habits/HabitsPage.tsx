@@ -8,7 +8,7 @@ import { Icon } from '../../components/Icon'
 import { layerOpen } from '../../components/layers'
 import { afterG, Button, Dialog, SkeletonRows, useHotkey } from '../../components/ui'
 import { cn } from '../../lib/cn'
-import { dayKey } from '../../lib/dates'
+import { useDayStart, userDayKey } from '../../lib/preferences'
 import { useHabits, useToday, type Habit } from './api'
 import { GridView } from './GridView'
 import { HabitBadge } from './HabitBadge'
@@ -194,7 +194,8 @@ function ProgressView() {
   const [search, setSearch] = useSearchParams()
   const range = search.get('range') === 'month' ? 'month' : 'week'
   const endParam = search.get('end') ?? ''
-  const end = /^\d{4}-\d{2}-\d{2}$/.test(endParam) ? endParam : dayKey(new Date())
+  const today = userDayKey(new Date(), useDayStart())
+  const end = /^\d{4}-\d{2}-\d{2}$/.test(endParam) ? endParam : today
   const set = (k: string, v: string) => {
     const next = new URLSearchParams(search)
     next.set(k, v)

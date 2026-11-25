@@ -5,7 +5,9 @@
 
 The notification is saved (bell menu) and, after the surrounding transaction
 commits, delivered in the background (Celery) to the user's enabled channels whose
-minimum priority it meets. Delivery problems never break the caller.
+minimum priority it meets. Delivery problems never break the caller. During the
+user's quiet hours the channels wait until they end (urgent ones don't), and are
+skipped if the notification was read in the app by then (tasks.deliver_held_notifications).
 """
 
 import datetime
@@ -16,6 +18,7 @@ from django.db import transaction
 from django.utils import timezone
 
 from .models import Notification, NotificationChannel, Priority
+from .quiet import quiet_until
 
 log = logging.getLogger("comptech.notifications")
 
@@ -39,12 +42,13 @@ def safe_url(url):
 
 def notify(user, title, body="", *, source="Nilaya", priority=Priority.NORMAL, url="",
            expires_in=None, deliver_now=True):
+    held = quiet_until(user) if deliver_now and priority < Priority.URGENT else None
     n = Notification.objects.create(
         user=user, title=title[:128], description=body or None, source=source[:128],
-        priority=int(priority), url=safe_url(url),
+        priority=int(priority), url=safe_url(url), deliver_after=held,
         expires_on=timezone.now() + expires_in if isinstance(expires_in, datetime.timedelta) else None,
     )
-    if deliver_now:
+    if deliver_now and not held:
         from .tasks import deliver_notification
 
         transaction.on_commit(lambda: _enqueue(deliver_notification, n.id))

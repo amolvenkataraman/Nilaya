@@ -31,10 +31,9 @@ import math
 from collections import defaultdict
 from dataclasses import dataclass
 
-import pytz
-from django.conf import settings
 from django.db import IntegrityError, transaction
-from django.utils import timezone
+
+from users import preferences
 
 from .models import Entry, Habit
 
@@ -53,16 +52,13 @@ class RuleError(ValueError):
 
 # ------------------------------------------------------------------ days
 
-def user_tz(user):
-    name = getattr(user, "timezone", "") or ""
-    if name not in pytz.all_timezones_set:
-        name = settings.TIME_ZONE
-    return pytz.timezone(name) if name in pytz.all_timezones_set else timezone.get_current_timezone()
+user_tz = preferences.zone
 
 
 def local_today(user, now=None):
-    """The user's calendar date right now (habits never use the server's date)."""
-    return timezone.localtime(now or timezone.now(), user_tz(user)).date()
+    """The user's day right now (habits never use the server's date): their time zone, and their day start, so a
+    1 am check-in counts for the evening before."""
+    return preferences.today(user, user_tz(user), now)
 
 
 def period_start(period, day):

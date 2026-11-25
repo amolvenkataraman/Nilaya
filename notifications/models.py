@@ -28,10 +28,16 @@ class Notification(models.Model):
     expires_on = models.DateTimeField(auto_now=False, null=True, blank=True)
     read = models.BooleanField(default=False)
     read_at = models.DateTimeField(null=True, blank=True)
+    # Set while the pushes to channels wait for the user's quiet hours to end (notifications.quiet); null otherwise.
+    deliver_after = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         ordering = ["-created_on"]
-        indexes = [models.Index(fields=["user", "read", "-created_on"], name="notif_user_read_idx")]
+        indexes = [
+            models.Index(fields=["user", "read", "-created_on"], name="notif_user_read_idx"),
+            # Partial: almost every row is null, and the minutely flush only looks for the held ones.
+            models.Index(fields=["deliver_after"], condition=models.Q(deliver_after__isnull=False), name="notif_held_idx"),
+        ]
 
     def __str__(self):
         return f"{self.title} for {self.user.username}"

@@ -1,5 +1,6 @@
 // Date helpers in the browser's local time. Weeks start on Monday (same as /calendar/insights) unless
 // a caller passes another first day (the calendar's Sunday/Monday setting).
+import { displayPrefs, onDisplayChange } from './display'
 
 export const DAY_MS = 86_400_000
 
@@ -53,26 +54,84 @@ export function monthGrid(d: Date, weekStart = 1): Date[][] {
 }
 
 // ---------- formatting
-const timeFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' })
-export function fmtTime(d: Date): string {
-  return timeFmt.format(d)
+// Every date and time shown goes through dateFormatter, which follows the account's display preferences
+// (lib/display): date_format picks the locale (auto = the browser's, mdy = en-US, dmy = en-GB, ymd = year first, see
+// ymdFormatter), so month and weekday names are English unless it's auto; time_format picks the hour cycle (auto =
+// the browser's, kept when date_format swaps the locale, so "Dates" never changes the clock).
+export interface DateFmt {
+  format(d: Date | number): string
 }
-// Building an Intl.DateTimeFormat costs ~70 µs; formatting with a cached one ~1.5 µs.
-const fmtCache = new Map<string, Intl.DateTimeFormat>()
-/** A shared formatter for these options (default locale). */
-export function dateFormatter(opts: Intl.DateTimeFormatOptions): Intl.DateTimeFormat {
+const DATE_LOCALE = { auto: undefined, mdy: 'en-US', dmy: 'en-GB', ymd: 'en-US' } as const
+let browserCycle: Intl.DateTimeFormatOptions['hourCycle']
+const browserHourCycle = () => (browserCycle ??= new Intl.DateTimeFormat(undefined, { hour: 'numeric' }).resolvedOptions().hourCycle)
+/** Whether times read "3 PM" rather than "15:00". */
+const twelveHour = () => {
+  const { time_format } = displayPrefs()
+  if (time_format !== 'auto') return time_format === '12h'
+  const c = browserHourCycle()
+  return c === 'h11' || c === 'h12'
+}
+
+function buildFormatter(opts: Intl.DateTimeFormatOptions): DateFmt {
+  const { time_format, date_format } = displayPrefs()
+  const locale = DATE_LOCALE[date_format]
+  const timed = opts.hour !== undefined || opts.timeStyle !== undefined
+  // Left out for auto with the browser's locale: Intl's own default is exactly the browser's clock.
+  const hourCycle = timed && (time_format !== 'auto' || locale) ? (twelveHour() ? 'h12' : 'h23') : undefined
+  const o: Intl.DateTimeFormatOptions = hourCycle ? { ...opts, hourCycle } : opts
+  return date_format === 'ymd' && opts.month && (opts.year || opts.day) ? ymdFormatter(o) : new Intl.DateTimeFormat(locale, o)
+}
+
+/** Year first, as no English locale writes it: "2026-11-24" for numeric dates, "2026 Nov 24" with month names (no
+ *  year: "Nov 24"), a weekday ahead ("Tue, 2026 Nov 24") and a time after (", 3:05 PM"), punctuated as en-US does. */
+function ymdFormatter({ weekday, year, month, day, ...rest }: Intl.DateTimeFormatOptions): DateFmt {
+  const numeric = month === 'numeric' || month === '2-digit'
+  const date = new Intl.DateTimeFormat('en-US', {
+    timeZone: rest.timeZone,
+    weekday,
+    year,
+    month: numeric ? '2-digit' : month,
+    day: day && (numeric ? '2-digit' : day),
+  })
+  const clock = rest.hour !== undefined ? new Intl.DateTimeFormat('en-US', rest) : null
+  return {
+    format(d) {
+      const p: Partial<Record<Intl.DateTimeFormatPartTypes, string>> = {}
+      for (const { type, value } of date.formatToParts(d)) p[type] = value
+      const ymd = [p.year, p.month, p.day].filter(Boolean).join(numeric ? '-' : ' ')
+      const text = p.weekday ? `${p.weekday}, ${ymd}` : ymd
+      return clock ? `${text}, ${clock.format(d)}` : text
+    },
+  }
+}
+
+// Building an Intl.DateTimeFormat costs ~70 µs; formatting with a cached one ~1.5 µs. A preference change empties
+// the cache, so hold on to the result only for one render, never in a module constant.
+const fmtCache = new Map<string, DateFmt>()
+onDisplayChange(() => fmtCache.clear())
+/** A shared formatter for these options, in the account's date and time formats. */
+export function dateFormatter(opts: Intl.DateTimeFormatOptions): DateFmt {
   const key = JSON.stringify(opts)
   let f = fmtCache.get(key)
   if (!f) {
-    f = new Intl.DateTimeFormat(undefined, opts)
+    f = buildFormatter(opts)
     fmtCache.set(key, f)
   }
   return f
 }
-export function fmtDate(d: Date, opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }): string {
+export function fmtDate(d: Date | number, opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' }): string {
   return dateFormatter(opts).format(d)
 }
-/** Same text as Date#toLocaleString() / toLocaleDateString(), from cached formatters. */
+/** "3:05 PM" or "15:05", in `timeZone` (default: the browser's). */
+export function fmtTime(d: Date | number, timeZone?: string): string {
+  return dateFormatter({ hour: 'numeric', minute: '2-digit', timeZone }).format(d)
+}
+/** An hour on its own (time-grid gutters, charts): "3 PM", or "15:00" on a 24-hour clock, where a bare "15" reads
+ *  as a count. */
+export function fmtHour(d: Date | number, timeZone?: string): string {
+  return dateFormatter(twelveHour() ? { hour: 'numeric', timeZone } : { hour: '2-digit', minute: '2-digit', timeZone }).format(d)
+}
+/** Date#toLocaleString() / toLocaleDateString()-style text in the account's formats, from cached formatters. */
 const FULL: Intl.DateTimeFormatOptions = {
   year: 'numeric',
   month: 'numeric',

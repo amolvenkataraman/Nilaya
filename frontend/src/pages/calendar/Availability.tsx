@@ -1,6 +1,7 @@
 // Someone else's availability (/calendar/availability/:username?date=): a week of busy blocks from
 // GET /calendar/availability/{username}?date= (one request per day, cached). Only calendars that
-// person shares as busy count, and only times are shown, never event names.
+// person shares as busy count, and only times are shown, never event names. Time outside their working
+// hours and days (their Settings › Preferences) is shaded, as on their own calendar.
 import { useLayoutEffect, useRef } from 'react'
 import { Link, useParams, useSearchParams } from 'react-router'
 import { useQueries, useQuery, type UseQueryResult } from '@tanstack/react-query'
@@ -13,23 +14,30 @@ import { addDays, dayKey, fmtDate, fmtTime, isSameDay, parseDayKey, startOfDay }
 import { availabilityQuery, userQuery, type Availability, type Busy } from './api'
 import { DAY_MIN, pct } from './layout'
 import { rangeTitle, stepDate, viewRange } from './range'
-import { DayHeader, dayColumn, NowLine, TimeGrid } from './TimeGrid'
+import { DayHeader, dayColumn, NowLine, OffHours, TimeGrid } from './TimeGrid'
+import { offSpans } from './workHours'
 
 type Span = { s: number; e: number }
 
-/** Every day's busy times as one sorted list, overlaps merged (whichever event it was, they're busy). */
-function mergeBusy(results: UseQueryResult<Availability>[]) {
-  const seen = new Map<string, Busy>()
-  for (const r of results) for (const b of r.data?.busy ?? []) seen.set(b.start + b.end, b)
-  const list = [...seen.values()].map((b) => ({ s: new Date(b.start).getTime(), e: new Date(b.end).getTime() })).sort((a, b) => a.s - b.s)
+/** Spans as one sorted list, overlaps merged. */
+function merge(spans: Busy[]) {
+  const list = spans.map((b) => ({ s: new Date(b.start).getTime(), e: new Date(b.end).getTime() })).sort((a, b) => a.s - b.s)
   const merged: Span[] = []
   for (const b of list) {
     const last = merged.at(-1)
     if (last && b.s <= last.e) last.e = Math.max(last.e, b.e)
     else merged.push({ ...b })
   }
+  return merged
+}
+
+/** Every day's busy times (whichever event it was, they're busy) and working hours, each as one list; working is
+ *  null until a day says they publish their hours. */
+function mergeBusy(results: UseQueryResult<Availability>[]) {
+  const shared = results.some((r) => r.data?.working)
   return {
-    busy: merged,
+    busy: merge(results.flatMap((r) => r.data?.busy ?? [])),
+    working: shared ? merge(results.flatMap((r) => r.data?.working ?? [])) : null,
     name: results.find((r) => r.data?.name)?.data?.name,
     loading: results.some((r) => r.isFetching),
     failed: results.find((r) => r.error)?.error,
@@ -67,20 +75,28 @@ export default function AvailabilityPage({ bare = false }: { bare?: boolean }) {
     queries: days.map((d) => availabilityQuery(username, dayKey(d), bare || profile.isSuccess)),
     combine: mergeBusy,
   })
-  const perDay = days.map((d) => {
+  const inDay = (d: Date, spans: Span[]) => {
     const d0 = startOfDay(d).getTime()
     const d1 = addDays(startOfDay(d), 1).getTime()
-    return avail.busy
+    return spans
       .filter((b) => b.s < d1 && b.e > d0)
       .map((b) => ({ ...b, a: Math.max(0, (b.s - d0) / 60000), z: Math.min(DAY_MIN, (b.e - d0) / 60000) }))
-  })
+  }
+  const perDay = days.map((d) => inDay(d, avail.busy))
+  const workDay = avail.working ? days.map((d) => inDay(d, avail.working ?? [])) : null
+  const offDay = days.map((_, i) => (workDay ? offSpans(workDay[i].map((w) => [w.a, w.z] as const)) : []))
+  const workFrom = Math.min(...(workDay ?? []).flatMap((w) => w.map((x) => x.a)))
 
   const scroller = useRef<HTMLDivElement>(null)
-  // biome-ignore lint/correctness/useExhaustiveDependencies: scroll to the working day once per person, not per render
+  const scrolledFor = useRef<string | null>(null)
+  // Open at 7:30, then at the start of their working hours once those arrive: once per person, not per week.
   useLayoutEffect(() => {
     const el = scroller.current
-    if (el) el.scrollTop = (el.scrollHeight / 24) * 7.5
-  }, [username])
+    if (!el || scrolledFor.current === username) return
+    const ready = Number.isFinite(workFrom)
+    el.scrollTop = (el.scrollHeight / DAY_MIN) * (ready ? Math.max(0, workFrom - 30) : 450)
+    if (ready) scrolledFor.current = username
+  }, [username, workFrom])
 
   const name = profile.data?.name || avail.name || username
   const missing = bare ? avail.missing : profile.error
@@ -122,7 +138,8 @@ export default function AvailabilityPage({ bare = false }: { bare?: boolean }) {
             <span className="text-sm text-muted"> @{username}</span>
           </h2>
           <p className="text-xs text-muted">
-            Busy times only, from the calendars {profile.data ? `${name.split(' ')[0]} shares` : 'they share'} as busy. Free time is blank.
+            Busy times only, from the calendars {profile.data ? `${name.split(' ')[0]} shares` : 'they share'} as busy. Free time is blank
+            {avail.working ? '; shaded time is outside their working hours.' : '.'}
           </p>
         </div>
       </div>
@@ -158,6 +175,7 @@ export default function AvailabilityPage({ bare = false }: { bare?: boolean }) {
                 className={dayColumn(false)}
                 aria-label={`${fmtDate(d, { weekday: 'long', month: 'long', day: 'numeric' })}: ${perDay[i].length ? `${perDay[i].length} busy` : 'free'}`}
               >
+                <OffHours spans={offDay[i]} as="li" />
                 {perDay[i].map((b) => {
                   const label = `Busy ${fmtTime(new Date(b.s))} – ${fmtTime(new Date(b.e))}`
                   const short = b.z - b.a < 45

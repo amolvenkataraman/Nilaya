@@ -158,6 +158,16 @@ class ApiTests(TestCase):
         self.assertEqual(r.status_code, 200, r.content)
         self.assertEqual(list(h.entries.values_list("date", flat=True)), [D(2026, 11, 3)])
 
+    def test_a_check_before_the_day_start_counts_for_the_day_before(self):
+        h = mk(self.u, start_date=D(2026, 10, 1))
+        one_am = pytz.timezone("America/Los_Angeles").localize(dt.datetime(2026, 11, 4, 1, 0))
+        with mock.patch("django.utils.timezone.now", return_value=one_am):
+            self.call("post", f"{h.id}/check")
+            self.u.preferences = {"day_starts_at": "00:00:00"}  # midnight days: 1 am is already the 4th
+            self.u.save(update_fields=["preferences"])
+            self.call("post", f"{h.id}/check")
+        self.assertEqual(sorted(h.entries.values_list("date", flat=True)), [D(2026, 11, 3), D(2026, 11, 4)])
+
     def test_check_toggles_yesno_and_increments_measurable(self):
         h = mk(self.u)
         self.assertTrue(self.call("post", f"{h.id}/check").json()["done"])

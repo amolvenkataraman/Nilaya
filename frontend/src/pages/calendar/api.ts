@@ -117,16 +117,9 @@ export const useEventSearch = (q: string, start: string, end: string, enabled: b
     staleTime: 60_000,
   })
 
-export interface Busy {
-  start: string
-  end: string
-}
-export interface Availability {
-  username: string
-  name?: string
-  date: string
-  busy: Busy[]
-}
+export type Busy = Schemas['Span']
+/** Busy times and working hours (none on a day off; null when they share no calendar as busy) on one day. */
+export type Availability = Schemas['AvailabilityOut']
 /** Someone's busy times on one day (cut in their time zone). A 404 (no such user) isn't retried. */
 export const availabilityQuery = (username: string, day: string, enabled: boolean) =>
   queryOptions({

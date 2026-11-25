@@ -1,6 +1,8 @@
-// Coordinates and distances without Leaflet (cheap to import anywhere): great-circle distance, the two ways
-// the apps print a distance, coordinate text, links out to OpenStreetMap and Google Maps, and a box around a
-// point. Points are `{ lat, lng }`; Places' rows use `lon`, so the helpers take either.
+// Coordinates and distances without Leaflet (cheap to import anywhere): great-circle distance, the two ways the
+// apps print a distance and how they print an altitude (in the account's units), coordinate text, links out to
+// OpenStreetMap and Google Maps, and a box around a point. Points are `{ lat, lng }`; Places' rows use `lon`, so
+// the helpers take either.
+import { displayPrefs } from '../display'
 
 export type LatLng = { lat: number; lng: number }
 type AnyLatLng = { lat: number; lng: number } | { lat: number; lon: number }
@@ -17,17 +19,40 @@ export function distanceM(a: AnyLatLng, b: AnyLatLng): number {
   return 2 * R * Math.asin(Math.min(1, Math.sqrt(h)))
 }
 
-/**
- * A distance for people. `short` (lists): "350 m", "1.2 km", "12 km". `precise` (Geoguessr results, as the
- * classic page): "350 m", else km and miles to 2 decimals under 100 ("12.34 km · 7.67 mi").
- */
-export function fmtDistance(m: number, style: 'short' | 'precise' = 'short'): string {
+const M_PER_MI = 1609.344
+const FT_PER_M = 3.28084
+const grouped = (v: number) => Math.round(v).toLocaleString()
+/** 2 decimals under 100, whole (grouped) from there: the classic Geoguessr page's precision. */
+const twoPlaces = (v: number) => (v < 100 ? v.toFixed(2) : grouped(v))
+
+function metric(m: number, style: 'short' | 'precise'): string {
   if (m < 1000) return `${Math.round(m)} m`
   const km = m / 1000
-  if (style === 'short') return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`
-  const f = (v: number) => (v < 100 ? v.toFixed(2) : Math.round(v).toLocaleString())
-  return `${f(km)} km · ${f(km / 1.609344)} mi`
+  if (style === 'precise') return `${twoPlaces(km)} km`
+  return km < 10 ? `${km.toFixed(1)} km` : `${Math.round(km)} km`
 }
+/** Feet under a tenth of a mile (528 ft), as road signs count down. */
+function imperial(m: number, style: 'short' | 'precise'): string {
+  const mi = m / M_PER_MI
+  if (mi < 0.1) return `${grouped(m * FT_PER_M)} ft`
+  if (style === 'precise') return `${twoPlaces(mi)} mi`
+  return mi < 10 ? `${mi.toFixed(1)} mi` : `${Math.round(mi)} mi`
+}
+
+/**
+ * A distance for people, in the account's units (Settings › Preferences). `short` (lists): "350 m", "1.2 km",
+ * "12 km" / "980 ft", "1.2 mi". `precise` (Geoguessr results): 2 decimals under 100. Both units (the default) is
+ * metric in lists and both from a kilometre in precise text, as the classic page: "12.35 km · 7.67 mi".
+ */
+export function fmtDistance(m: number, style: 'short' | 'precise' = 'short'): string {
+  const { units } = displayPrefs()
+  if (units === 'mi') return imperial(m, style)
+  if (units === 'both' && style === 'precise' && m >= 1000) return `${metric(m, style)} · ${twoPlaces(m / M_PER_MI)} mi`
+  return metric(m, style)
+}
+
+/** A height above sea level: "350 m", or "1,148 ft" in miles. */
+export const fmtAltitude = (m: number) => (displayPrefs().units === 'mi' ? `${grouped(m * FT_PER_M)} ft` : `${grouped(m)} m`)
 
 /** "12.97160, 77.59456" (5 decimals ≈ 1 m, for display) or 6 for copying and links. */
 export const fmtCoords = (lat: number, lng: number, digits = 5) => `${lat.toFixed(digits)}, ${lng.toFixed(digits)}`

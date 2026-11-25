@@ -11,6 +11,7 @@ import { buttonClass, pageClass, PageHead, useHotkey } from '../../components/ui
 import { safeHref } from '../../lib/api'
 import { cn } from '../../lib/cn'
 import { fmtDate, fmtTime, isSameDay, parseDayKey } from '../../lib/dates'
+import { useDayStart } from '../../lib/preferences'
 import { fmtBytes, placeText } from '../../lib/format'
 import { photoSummaryQuery } from '../../lib/photoQueries'
 import { usePref } from '../../lib/storage'
@@ -344,7 +345,7 @@ function TimelinePage({ zoom }: { zoom: Zoom }) {
 }
 
 function Timeline({ zoom, params }: { zoom: Zoom; params: URLSearchParams }) {
-  const t = parseTimelineState(params)
+  const t = parseTimelineState(params, useDayStart())
   const { place, videos, oldest, after, before, eventTitle, fromKey, day } = t
   const ranged = !!(after || before)
   const fromLabel = fromKey ? `From ${fmtDate(parseDayKey(fromKey), { month: 'short', day: 'numeric', year: 'numeric' })}` : ''

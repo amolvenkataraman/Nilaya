@@ -1,4 +1,5 @@
-// Photos › one day (/photos/day/YYYY-MM-DD): every photo of that local day, the day's totals and places.
+// Photos › one day (/photos/day/YYYY-MM-DD): every photo of that day (from the user's day start to the next), the
+// day's totals and places.
 import { useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
@@ -9,6 +10,7 @@ import { PhotoStream, type Zoom } from './PhotoStream'
 import { buttonClass, chipClass, pageClass, PageHead } from '../../components/ui'
 import { dayInfoQuery } from './queries'
 import { fmtBytes, plural, placeText } from '../../lib/format'
+import { useDayStart, userDayStart } from '../../lib/preferences'
 
 const dayLink =
   'inline-grid h-6 place-items-center rounded-[calc(var(--app-radius-sm)-2px)] px-2 text-muted hover:bg-surface hover:text-fg hover:no-underline'
@@ -18,6 +20,7 @@ export function DayPage({ zoom }: { zoom: Zoom }) {
   const valid = /^\d{4}-\d{2}-\d{2}$/.test(date) && !Number.isNaN(parseDayKey(date).getTime())
   const day = valid ? parseDayKey(date) : null
   const [items, setItems] = useState<Photo[]>([])
+  const dayStart = useDayStart()
   const totals = useQuery({ ...dayInfoQuery(date, date), enabled: valid }).data?.[date]
   const places = useMemo(() => {
     const counts = new Map<string, { city: string | null; country: string | null; n: number }>()
@@ -83,8 +86,8 @@ export function DayPage({ zoom }: { zoom: Zoom }) {
       <PhotoStream
         queryKey={['photos', 'timeline']}
         path="photos/timeline"
-        params={{ after: day.toISOString() }}
-        startBefore={addDays(day, 1).toISOString()}
+        params={{ after: userDayStart(day, dayStart).toISOString() }}
+        startBefore={userDayStart(addDays(day, 1), dayStart).toISOString()}
         zoom={zoom}
         dayLinks={false}
         onItems={setItems}

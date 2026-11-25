@@ -16,9 +16,12 @@ from django.db.models import Q
 from django.utils import timezone
 from ninja import Router, Schema
 
+from users import preferences
+
 from . import cache as photo_cache
 from . import hidden as hidden_mode
 from . import search
+from .days import photo_day
 from .models import BROKEN_GPS, Album_Subscriber, Photo, ShareAlbum, ShareAlbum_Photo
 
 router = Router(tags=["photos"])
@@ -112,7 +115,10 @@ def search_photos(request, q: str = "", before: Optional[datetime.datetime] = No
         if found and " " not in phrase.strip() and (box := term_box(found[0])) and not has_photos(box):
             return None
         return found
-    terms, unmatched = search.parse(q[:200], v, timezone.localtime(timezone.now(), tz), names(request), places=place)
+    # Date words read the user's day: at 1:30 am with days starting at 5, "today" is still yesterday's date.
+    day_start = preferences.day_offset(request.user)
+    now = timezone.localtime(timezone.now(), tz) - day_start
+    terms, unmatched = search.parse(q[:200], v, now, names(request), places=place)
     if q.strip() and not terms:  # nothing understood: say so rather than showing everything
         return {"items": [], "next_before": None, "interpreted": [], "unmatched": unmatched, "count": 0}
     for t in terms:  # a stored place that is a lake or sea ("San Francisco Bay"): search it as water, on or near it
@@ -127,12 +133,11 @@ def search_photos(request, q: str = "", before: Optional[datetime.datetime] = No
             from geo.places import ids_on_or_near_water
             found = lambda t=t: ids_on_or_near_water(base.exclude(BROKEN_GPS), t.data)  # noqa: E731
             t.data["ids"] = photo_cache.cached(request, "water", found, t.data["id"])
-    qs = base.filter(search.filters(terms, v["city_countries"]))
-    with timezone.override(tz):  # month/day lookups ("june", "summer") in the user's time zone
-        page = _page(qs, before, limit, before_id)
-        count = None
-        if not before and not before_id:
-            count = qs.exclude(date_taken__isnull=True).order_by()[:COUNT_CAP + 1].count()
+    qs = base.filter(search.filters(terms, v["city_countries"], day_start, photo_day(request.user, tz)))
+    page = _page(qs, before, limit, before_id)
+    count = None
+    if not before and not before_id:
+        count = qs.exclude(date_taken__isnull=True).order_by()[:COUNT_CAP + 1].count()
     return {**page, "interpreted": [t.out() for t in terms], "unmatched": unmatched,
             "count": min(count, COUNT_CAP) if count is not None else None,
             "count_capped": bool(count and count > COUNT_CAP)}

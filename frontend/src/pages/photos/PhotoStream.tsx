@@ -10,8 +10,9 @@ import { layerOpen } from '../../components/layers'
 import { ErrorBox, useIsPhone } from '../../components/ui'
 import { get, safeHref } from '../../lib/api'
 import { cn } from '../../lib/cn'
-import { dayKey, fmtDate, groupByDay } from '../../lib/dates'
+import { fmtDate, groupByDay } from '../../lib/dates'
 import { fmtBytes, placeText } from '../../lib/format'
+import { useDayStart, userDay, userDayKey } from '../../lib/preferences'
 import { type Box, justify } from '../../lib/justify'
 import type { Photo, PhotoPage } from '../../lib/types'
 import { JustifiedDays } from './JustifiedDays'
@@ -259,6 +260,7 @@ export function PhotoStream({
     staleTime: 5 * 60_000,
   })
   const items = useMemo(() => q.data?.pages.flatMap((p) => p.items) ?? [], [q.data])
+  const dayStart = useDayStart() // a 1:30 am photo goes under the evening before, as /photos/days counts it
   const onItemsRef = useLatest(onItems)
   useEffect(() => onItemsRef.current?.(items), [items, onItemsRef])
   const onFirstRef = useLatest(onFirstPage)
@@ -273,12 +275,12 @@ export function PhotoStream({
         .map((pg) => {
           const ds = pg.items.map((p) => p.date_taken).filter(Boolean) as string[]
           if (!ds.length) return null
-          const a = dayKey(new Date(ds[0]))
-          const b = dayKey(new Date(ds[ds.length - 1])) // newest or oldest first
+          const a = userDayKey(ds[0], dayStart)
+          const b = userDayKey(ds[ds.length - 1], dayStart) // newest or oldest first
           return (a < b ? [a, b] : [b, a]) as readonly [string, string]
         })
         .filter(Boolean) as (readonly [string, string])[],
-    [q.data],
+    [q.data, dayStart],
   )
   const dayQs = useQueries({ queries: dayInfo ? pageRanges.map(([start, end]) => dayInfoQuery(start, end)) : [] })
   const dayMap = useMemo(() => Object.assign({}, ...dayQs.map((d) => d.data ?? {})) as Record<string, DayInfo>, [dayQs])
@@ -293,13 +295,14 @@ export function PhotoStream({
   // Reuse unchanged day groups (same photos), so a new page re-lays out only the days it touched.
   const prevDays = useRef(new Map<string, Day>())
   const days = useMemo(() => {
-    const out = groupByDay(items, (p) => p.date_taken).map((d) => {
+    // Grouped by the midnight of each photo's own day, so the sections' keys and dates are the user's days.
+    const out = groupByDay(items, (p) => p.date_taken && userDay(p.date_taken, dayStart).toISOString()).map((d) => {
       const old = prevDays.current.get(d.key)
       return old && old.items.length === d.items.length && old.items.every((p, i) => p === d.items[i]) ? old : d
     })
     prevDays.current = new Map(out.map((d) => [d.key, d]))
     return out
-  }, [items])
+  }, [items, dayStart])
   const itemsRef = useLatest(items)
   const getOrder = useCallback(() => itemsRef.current, [itemsRef])
   const [ref, width] = useWidth<HTMLDivElement>()

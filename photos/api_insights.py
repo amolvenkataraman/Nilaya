@@ -18,6 +18,7 @@ from ninja.errors import HttpError
 from . import browse, signed
 from . import cache as photo_cache
 from .api_common import PhotoOut, daily, library
+from .days import photo_day, user_tz
 from .models import Album_Subscriber
 
 router = Router()  # tags come from photos.api_v2.router
@@ -110,7 +111,8 @@ def _items(qs, category, limit):
     return {"items": items, "summary": summary}
 
 
-def _days(qs, category, limit):
+def _days(qs, category, limit, day):
+    """Busiest days; `day` is the expression for the user's day of a photo (days.photo_day)."""
     qs = qs.filter(date_taken__isnull=False)
     if category == "day-most-photos":
         qs, order = qs.filter(video=False), "photos"
@@ -120,7 +122,7 @@ def _days(qs, category, limit):
         qs, order = qs.filter(video=True, length__gt=0), "length_s"
     else:
         order = "size_kb"
-    rows = (qs.values(day=F("date_taken__date"))
+    rows = (qs.values(day=day)
             .annotate(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True)),
                       size_kb=Sum("size_total"), length_s=Sum("length", filter=Q(video=True)))
             .order_by(F(order).desc(nulls_last=True), "-day")[:limit])
@@ -135,7 +137,7 @@ def superlatives(request, category: Category, limit: int = 50):
 
     def compute():
         qs = _pool(request)
-        body = _items(qs, category, limit) if category in ITEM else _days(qs, category, limit)
+        body = _items(qs, category, limit) if category in ITEM else _days(qs, category, limit, photo_day(request.user))
         return {"category": category, "kind": "item" if category in ITEM else "day", **body}
     return photo_cache.cached(request, "superlatives", compute, category, limit)
 
@@ -148,8 +150,7 @@ def browse_category(request, category: str):
 
 
 def _local_now(request):
-    import pytz
-    tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
+    tz = user_tz(request.user)
     return tz, timezone.localtime(timezone.now(), tz)
 
 
@@ -207,9 +208,10 @@ def _stats(request):
         summed = dict(photos=Sum("photos"), videos=Sum("videos"), length_s=Sum("length_s"))
         by_day = lambda fn, k: rollup.annotate(**{k: fn("day")}).values(k).annotate(**summed)
         month_rows = rollup.annotate(m=TruncMonth("day")).values("m").annotate(**summed).order_by("m")
-    else:
-        by_day = lambda fn, k: dated.annotate(**{k: fn("date_taken", tzinfo=tz)}).values(k).annotate(**live)
-        month_rows = dated.annotate(m=TruncMonth("date_taken", tzinfo=tz)).values("m").annotate(**live).order_by("m")
+    else:  # the same user's days as the rollup's (a 1 am photo is the evening before's weekday)
+        dated = dated.annotate(day=photo_day(request.user, tz))
+        by_day = lambda fn, k: dated.annotate(**{k: fn("day")}).values(k).annotate(**live)
+        month_rows = dated.annotate(m=TruncMonth("day")).values("m").annotate(**live).order_by("m")
     months = [{"month": r["m"].strftime("%Y-%m"), "photos": r["photos"] or 0, "videos": r["videos"] or 0,
                "length_s": r["length_s"] or 0} for r in month_rows if r["m"] is not None]
     cams = (qs.exclude(camera_model__isnull=True).exclude(camera_model="").values("camera_make", "camera_model")

@@ -442,7 +442,7 @@ def delete_habit(request, habit_id: uuid.UUID):
 
 
 @router.post("/{uuid:habit_id}/check", response=TodayHabitOut,
-             summary="Tap: toggle yes/no or add to a measurable habit, for today (user's time zone)")
+             summary="Tap: toggle yes/no or add to a measurable habit, for the user's today (their time zone and day start)")
 def check(request, habit_id: uuid.UUID, payload: Optional[CheckIn] = Body(None)):
     h = _habit(request.user, habit_id)
     today = svc.local_today(request.user)

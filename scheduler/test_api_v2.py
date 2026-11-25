@@ -113,6 +113,16 @@ class AvailabilityTests(TestCase):
         self.assertEqual(len(busy), 1)
         self.assertNotIn("name", busy[0])  # only times, never what the event is
 
+    def test_availability_offers_only_the_owners_working_days_and_hours(self):
+        ComptechUser.objects.create_user("gwen", password="pw", timezone="America/Toronto",
+                                         preferences={"work_days": [2, 4], "work_start": "10:00:00", "work_end": "15:30:00"})
+        get = lambda d: self.client.get(f"/api/v2/calendar/availability/gwen?date={d}").json()["working"]
+        self.assertIsNone(get("2026-11-03"))  # shares no calendar as busy: hours stay private too
+        cal = Calendar.objects.create(name="Work", owner=ComptechUser.objects.get(username="gwen"))
+        Subscriber.objects.create(calendar=cal, user=cal.owner, subscribe_type=0, display_busy=2)
+        self.assertEqual(get("2026-11-03"), [{"start": "2026-11-03T10:00:00-05:00", "end": "2026-11-03T15:30:00-05:00"}])
+        self.assertEqual(get("2026-11-02"), [])  # Monday isn't one of their days
+
 
 class PrivateAndMovedSeriesTests(TestCase):
     def setUp(self):

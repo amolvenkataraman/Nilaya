@@ -8,6 +8,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Icon } from '../../components/Icon'
 import { buttonClass } from '../../components/ui'
 import { cn } from '../../lib/cn'
+import { fmtTime } from '../../lib/dates'
 import { iconMarkup } from '../../lib/favicon'
 import { countMarker } from '../../lib/map/countMarker'
 import { type Box, directionsUrl, fmtCoords } from '../../lib/map/geo'
@@ -130,8 +131,7 @@ function hereLines(h: Here): string[] {
   if (h.water) out.push(`${h.water.relation === 'near' ? 'Near' : 'On'} ${h.water.name}`)
   if (h.airport) out.push(`At ${h.airport.name}`)
   if (h.tz) {
-    const time = new Intl.DateTimeFormat(undefined, { timeStyle: 'short', timeZone: h.tz }).format(new Date())
-    out.push(`${time} local time · ${h.tz.replace(/_/g, ' ')}`)
+    out.push(`${fmtTime(new Date(), h.tz)} local time · ${h.tz.replace(/_/g, ' ')}`)
   }
   const near = h.nearby.filter((n) => n.kind !== 'locality').slice(0, 3)
   if (near.length) out.push(`Nearby: ${near.map((n) => n.name).join(', ')}`)

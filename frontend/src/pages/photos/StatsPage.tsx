@@ -8,7 +8,7 @@ import { HBars, PlotColumns } from '../../components/charts'
 import { InlineFail } from '../../components/resilience'
 import { pageClass, PageHead, QueryView, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
-import { fmtDate } from '../../lib/dates'
+import { fmtDate, fmtHour, weekdayName } from '../../lib/dates'
 import { StatCard, StatTile, Unit, cardGridClass, helpClass, smallSelectClass, tilesClass } from './StatCards'
 import { type MonthCount, type Series, monthKey, n, pct, statsOf, statsQuery } from './statsData'
 import { fmtHms } from './util'
@@ -198,16 +198,23 @@ function UploadHistory({ byMonth }: { byMonth: MonthCount[] }) {
   )
 }
 
-const hourName = (h: number) => (h === 0 ? '12 AM' : h < 12 ? `${h} AM` : h === 12 ? '12 PM' : `${h - 12} PM`)
-const HOUR_LABELS = Array.from({ length: 24 }, (_, h) => (h % 3 === 0 ? hourName(h).replace(' ', '').toLowerCase().replace('m', '') : ''))
-const HOUR_TIPS = Array.from({ length: 24 }, (_, h) => `${hourName(h)}–${hourName((h + 1) % 24)}`)
 const DAYS = Array.from({ length: 31 }, (_, i) => String(i + 1))
 const DAY_TIPS = Array.from({ length: 31 }, (_, i) => `Day ${i + 1} of the month`)
-const MONTHS = Array.from({ length: 12 }, (_, i) => fmtDate(new Date(2026, i, 15), { month: 'short' }))
-const MONTH_TIPS = Array.from({ length: 12 }, (_, i) => fmtDate(new Date(2026, i, 15), { month: 'long' }))
+const range = (k: number, fn: (i: number) => string) => Array.from({ length: k }, (_, i) => fn(i))
+const hour = (h: number) => fmtHour(new Date(2000, 0, 1, h))
+const month = (i: number, style: 'short' | 'long') => fmtDate(new Date(2026, i, 15), { month: style })
 // Monday first, as the server sends them.
-const WEEKDAYS = Array.from({ length: 7 }, (_, i) => fmtDate(new Date(2026, 10, 2 + i), { weekday: 'short' }))
-const WEEKDAY_TIPS = Array.from({ length: 7 }, (_, i) => fmtDate(new Date(2026, 10, 2 + i), { weekday: 'long' }))
+const weekday = (i: number, style: 'short' | 'long') => weekdayName(new Date(2026, 10, 2 + i), style)
+/** The activity charts' axis labels and tips in the account's formats: per mount, not module constants, as a
+ *  format change remounts the page. Hour ticks every 3 hours: "3p", or "15" on a 24-hour clock. */
+const activityLabels = () => ({
+  hours: range(24, (h) => (h % 3 ? '' : hour(h).replace(/:00$/, '').replace(/\s/g, '').toLowerCase().replace(/m$/, ''))),
+  hourTips: range(24, (h) => `${hour(h)}–${hour((h + 1) % 24)}`),
+  months: range(12, (i) => month(i, 'short')),
+  monthTips: range(12, (i) => month(i, 'long')),
+  weekdays: range(7, (i) => weekday(i, 'short')),
+  weekdayTips: range(7, (i) => weekday(i, 'long')),
+})
 const PERIODS = { week: 'Past 7 days', month: 'Past 30 days', ytd: 'Year to date', year: 'Past 365 days' } as const
 
 export function StatsPage() {
@@ -234,6 +241,7 @@ export function StatsPage() {
 
 function StatsBody({ s, failed, retry }: { s: ReturnType<typeof statsOf>; failed: boolean; retry: () => void }) {
   const t = s.totals
+  const labels = useMemo(activityLabels, [])
   return (
     <>
       {failed && <InlineFail what="the latest stats (showing saved ones)" retry={retry} />}
@@ -285,8 +293,8 @@ function StatsBody({ s, failed, retry }: { s: ReturnType<typeof statsOf>; failed
         <ActivityCard
           title="Hourly activity"
           series={s.by_hour}
-          labels={HOUR_LABELS}
-          tipLabels={HOUR_TIPS}
+          labels={labels.hours}
+          tipLabels={labels.hourTips}
           note={(p) => `Busiest hour: ${p}.`}
         />
         <ActivityCard
@@ -299,15 +307,15 @@ function StatsBody({ s, failed, retry }: { s: ReturnType<typeof statsOf>; failed
         <ActivityCard
           title="Monthly activity"
           series={s.by_month_of_year}
-          labels={MONTHS}
-          tipLabels={MONTH_TIPS}
+          labels={labels.months}
+          tipLabels={labels.monthTips}
           note={(p) => `Busiest month of the year: ${p}.`}
         />
         <ActivityCard
           title="Day of week"
           series={s.by_weekday}
-          labels={WEEKDAYS}
-          tipLabels={WEEKDAY_TIPS}
+          labels={labels.weekdays}
+          tipLabels={labels.weekdayTips}
           note={(p) => `Busiest day: ${p}.`}
         />
         <StatCard title="Top equipment">

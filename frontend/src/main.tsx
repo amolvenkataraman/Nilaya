@@ -11,6 +11,7 @@ import { Toaster, toast } from './components/toast'
 import { persistCache, restoreCache } from './components/resilience'
 import { checkOwnerAtBoot, claimOwner } from './lib/owner'
 import { signedIn } from './lib/session'
+import { followDisplayPrefs } from './lib/preferences'
 import type { Me } from './lib/types'
 import { NotFound, RouteError } from './pages/NotFound'
 import './styles/tailwind.css'
@@ -52,6 +53,8 @@ checkOwnerAtBoot()
 // A reload during a server restart still paints the last data (sessionStorage, this tab only).
 restoreCache(queryClient)
 persistCache(queryClient)
+// Times, dates and distances follow the account's formats (Settings › Preferences) from here on.
+followDisplayPrefs(queryClient)
 // Once /me answers: if the persisted data was someone else's, drop it and what was loaded from it.
 queryClient.getQueryCache().subscribe((e) => {
   if (e.type !== 'updated' || e.action.type !== 'success' || e.query.queryKey[0] !== 'me' || e.query.queryKey.length !== 1) return

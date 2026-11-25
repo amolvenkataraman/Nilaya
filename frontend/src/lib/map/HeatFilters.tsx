@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
 import { fieldClass } from '../../components/ui/form'
 import { photoLibrariesQuery, photoSummaryQuery } from '../photoQueries'
+import { fmtAltitude } from './geo'
 import type { Library } from '../types'
 
 export interface HeatFilter {
@@ -72,7 +73,7 @@ export function HeatFilterControls({
           <option value="">Any altitude</option>
           {ALTITUDES.map((m) => (
             <option key={m} value={m}>
-              Up to {m.toLocaleString()} m
+              Up to {fmtAltitude(m)}
             </option>
           ))}
         </select>

@@ -8,7 +8,7 @@ import { toast } from '../../components/toast'
 import { Button, buttonClass, chipClass, Confirm, ErrorBox, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { shortStamp } from '../../lib/dates'
-import { directionsUrl, distanceM, fmtCoords, fmtDistance, osmUrl } from '../../lib/map/geo'
+import { directionsUrl, distanceM, fmtAltitude, fmtCoords, fmtDistance, osmUrl } from '../../lib/map/geo'
 import { safeHref } from '../../lib/api'
 import {
   type Group,
@@ -48,7 +48,7 @@ export function CoordsRow({ lat, lng, altitude }: { lat: number; lng: number; al
     <Row icon="map">
       <span className="flex flex-wrap items-center gap-1.5">
         <code className="rounded-xs bg-surface-2 px-1.5 py-0.5 font-mono text-xs">{text}</code>
-        {altitude != null && <span className="text-xs text-muted">{Math.round(altitude)} m</span>}
+        {altitude != null && <span className="text-xs text-muted">{fmtAltitude(altitude)}</span>}
         <Button
           variant="ghost"
           size="sm"
@@ -256,7 +256,7 @@ function PhotosHere({
   return (
     <section className="grid gap-1.5 border-t border-border pt-3" aria-label="Photos here">
       <h3 className="text-sm">
-        Photos here <span className="text-xs text-muted">within {PHOTO_RADIUS_M} m</span>
+        Photos here <span className="text-xs text-muted">within {fmtDistance(PHOTO_RADIUS_M)}</span>
       </h3>
       {pending ? (
         <SkeletonRows rows={1} />

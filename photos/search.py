@@ -741,8 +741,12 @@ def objects_q(ids):
                            f"WHERE j.value IN ({marks})", ids))
 
 
-def filters(terms, city_countries):
-    """Q for every understood term except albums/libraries (those pick the base queryset)."""
+def filters(terms, city_countries, day_start, day):
+    """Q for every understood term except albums/libraries (those pick the base queryset).
+    Dates are the user's days: parse() read them from a clock moved back by `day_start`, so each range moves
+    forward by it ("yesterday" is 5 am to 5 am); `day` (days.photo_day) gives any-year months and days."""
+    from django.db.models.functions import ExtractDay, ExtractMonth
+    from django.db.models.lookups import Exact, In
     from .models import PLANE_ALTITUDE_M
     by = {}
     for t in terms:
@@ -789,9 +793,10 @@ def filters(terms, city_countries):
         dq = Q()
         for t in by["date"]:
             for a, b in t.data.get("ranges", ()):
-                dq |= Q(date_taken__gte=a, date_taken__lt=b)
+                dq |= Q(date_taken__gte=a + day_start, date_taken__lt=b + day_start)
             if "months" in t.data:
-                dq |= Q(date_taken__month__in=t.data["months"], **({"date_taken__day": t.data["day"]} if "day" in t.data else {}))
+                month = Q(In(ExtractMonth(day), t.data["months"]))
+                dq |= (month & Q(Exact(ExtractDay(day), t.data["day"]))) if "day" in t.data else month
         q &= dq
     media = {t.value for t in by.get("media", [])}
     if {"video", "photo"} <= media:

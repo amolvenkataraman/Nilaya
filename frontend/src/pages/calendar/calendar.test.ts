@@ -3,7 +3,10 @@ import { formBody, initialForm } from './eventForm'
 import { atWallMin, layoutDay } from './layout'
 import { eventsByDay, fetchRange, parseCalState, viewRange } from './range'
 import { rangeBody, termRange } from './SyncSetup'
-import { fromZoneInput, toZoneInput, zonedTime } from './zone'
+import { offSpans, openingMinute, workSpans } from './workHours'
+import { chipTime, fromZoneInput, toZoneInput, zonedTime } from './zone'
+import { DEFAULT_PREFS } from '../../lib/preferences'
+import { DEFAULT_DISPLAY, setDisplayPrefs } from '../../lib/display'
 import type { CalEvent } from '../../lib/types'
 
 const ev = (id: string, s: Date, e: Date | null, all_day = false): CalEvent => ({
@@ -130,6 +133,18 @@ describe('calendar layout', () => {
     }
   })
 
+  it('shortens chip times on a 12-hour clock only', () => {
+    const at = (iso: string) => chipTime(new Date(iso), 'Asia/Tokyo')
+    try {
+      setDisplayPrefs({ ...DEFAULT_DISPLAY, time_format: '12h' })
+      expect([at('2026-11-05T06:00:00Z'), at('2026-11-05T06:30:00Z')]).toEqual(['3pm', '3:30pm'])
+      setDisplayPrefs({ ...DEFAULT_DISPLAY, time_format: '24h' })
+      expect([at('2026-11-05T06:00:00Z'), at('2026-11-05T06:30:00Z')]).toEqual(['15:00', '15:30'])
+    } finally {
+      setDisplayPrefs(DEFAULT_DISPLAY)
+    }
+  })
+
   it('parses URL state and computes ranges', () => {
     const s = parseCalState(new URLSearchParams('view=week&date=2026-11-04&insights=month'))
     expect(s).toMatchObject({ view: 'week', insights: 'month', isNew: false })
@@ -174,5 +189,28 @@ describe('editing a repeating event', () => {
     const f = initialForm({ event: series }, 'UTC')
     expect((formBody({ ...f, name: 'Daily standup' }, 1, 'UTC') as { rrule: string }).rrule).toBe('FREQ=WEEKLY;COUNT=10')
     expect((formBody({ ...f, repeat: 'FREQ=DAILY' }, 1, 'UTC') as { rrule: string }).rrule).toBe('FREQ=DAILY')
+  })
+})
+
+describe('working hours', () => {
+  const p = { ...DEFAULT_PREFS, work_end: '17:30:00' } // Monday to Friday from 9
+  it('shades the rest of a working day and all of a day off', () => {
+    expect(offSpans(workSpans(new Date(2026, 10, 24), p))).toEqual([
+      [0, 540],
+      [1050, 1440],
+    ]) // a Tuesday
+    expect(offSpans(workSpans(new Date(2026, 10, 22), p))).toEqual([[0, 1440]]) // a Sunday
+    expect(
+      offSpans([
+        [1200, 1600],
+        [-60, 300],
+        [250, 400],
+      ]),
+    ).toEqual([[400, 1200]]) // clipped, overlapping, unsorted
+  })
+  it('opens near now during working hours, else at their start', () => {
+    expect(openingMinute(14 * 60 + 20, p)).toBe(12 * 60 + 30)
+    expect(openingMinute(20 * 60, p)).toBe(8 * 60 + 30)
+    expect(openingMinute(null, p)).toBe(8 * 60 + 30)
   })
 })

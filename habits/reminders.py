@@ -16,6 +16,7 @@ from django.utils import timezone
 
 from notifications.models import SentReminder
 from notifications.service import Priority, notify
+from users import preferences
 
 from . import service
 from .models import Habit, HabitSettings
@@ -30,11 +31,13 @@ def _local_moment(now, tz, local_date, at):
 
 
 def _in_window(now, user, at):
-    """(local date, True) when `now` is within WINDOW after `at` o'clock in the user's zone."""
+    """(the user's day, True) when `now` is within WINDOW after `at` o'clock in the user's zone. The reminder
+    keeps its clock time; the day it is about is the user's (a 1 am reminder, before a 5 am day start, is
+    about the day before)."""
     tz = service.user_tz(user)
     local = timezone.localtime(now, tz)
     start = _local_moment(now, tz, local.date(), at)
-    return local.date(), start <= now < start + WINDOW
+    return preferences.local_day(user, start, tz), start <= now < start + WINDOW
 
 
 def _once(user, key):

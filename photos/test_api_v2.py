@@ -2,10 +2,12 @@
 
 import datetime
 from unittest import mock
+from zoneinfo import ZoneInfo
 
 from django.test import TestCase
 from django.utils import timezone
 
+from users import preferences
 from users.models import ComptechUser
 
 from .models import Album, Album_Subscriber, Photo, ShareAlbum, ShareAlbum_Photo, ShareAlbum_Subscriber, refresh_photo_matviews
@@ -138,12 +140,22 @@ class PhotosApiTests(TestCase):
         a = self.client.get("/api/v2/photos/albums").json()[0]
         self.assertEqual((a["count"], a["size_kb"]), (3, 300))
 
-    def test_counts_per_day(self):
+    def test_a_photo_before_the_day_start_counts_on_the_day_before(self):
+        """1:30 am Saturday is Friday night, from the per-day view and from the live table (another time zone on
+        the same clock, or midnight days)."""
+        late = datetime.datetime(2019, 6, 15, 1, 30, tzinfo=ZoneInfo("America/Toronto"))
+        Photo.objects.create(owner=self.user, album=self.photos[0].album, filepath="late.jpg", orientation="1", date_taken=late)
         refresh_photo_matviews()
         self.client.force_login(self.user)
-        day = timezone.localdate().isoformat()
-        r = self.client.get("/api/v2/photos/counts", {"start": day, "end": day}).json()
-        self.assertEqual(sum(r.values()), sum(1 for p in self.photos if timezone.localdate(p.date_taken).isoformat() == day))
+        fri, sat = "2019-06-14", "2019-06-15"
+        for zone, prefs, day in (("Canada/Eastern", {}, fri), ("America/New_York", {}, fri),
+                                 ("Canada/Eastern", {"day_starts_at": "00:00:00"}, sat)):
+            self.user.timezone, self.user.preferences = zone, prefs
+            self.user.save(update_fields=["timezone", "preferences"])
+            with self.subTest(zone=zone, prefs=prefs):
+                self.assertEqual(self.client.get("/api/v2/photos/counts", {"start": fri, "end": sat}).json(), {day: 1})
+                days = self.client.get("/api/v2/photos/days", {"start": fri, "end": sat}).json()
+                self.assertEqual({d: v["photos"] for d, v in days.items()}, {day: 1})
 
     def test_points_days_and_album_size(self):
         p = self.photos[0]
@@ -153,7 +165,7 @@ class PhotosApiTests(TestCase):
         pts = self.client.get("/api/v2/photos/points", {"south": 43, "west": -81, "north": 44, "east": -80}).json()
         self.assertEqual([(round(x["lat"], 2), x["count"]) for x in pts], [(43.47, 1)])
         self.assertEqual(self.client.get("/api/v2/photos/points", {"south": 0, "west": 0, "north": 1, "east": 1}).json(), [])
-        day = timezone.localdate(p.date_taken).isoformat()
+        day = preferences.local_day(self.user, p.date_taken, timezone.get_current_timezone()).isoformat()
         days = self.client.get("/api/v2/photos/days", {"start": day, "end": day}).json()
         self.assertEqual(days[day]["size_kb"] >= 500, True)
         self.client.force_login(self.stranger)
@@ -173,7 +185,7 @@ class PhotosApiTests(TestCase):
     def test_cached_summary_follows_new_photos_and_on_this_day_uses_the_rollup(self):
         self.client.force_login(self.user)
         self.assertEqual(self.client.get("/api/v2/photos/summary").json()["photos"], 3)
-        today = timezone.localdate()
+        today = preferences.today(self.user, timezone.get_current_timezone())
         then = today.replace(year=today.year - (4 if (today.month, today.day) == (2, 29) else 1))
         old = Photo.objects.create(owner=self.user, album=self.photos[0].album, filepath="old.jpg", orientation="1",
                                    date_taken=timezone.make_aware(datetime.datetime.combine(then, datetime.time(12))))

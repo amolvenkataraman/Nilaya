@@ -1,4 +1,4 @@
-"""Notifications: delivery filtering, online-mode guard, secrets, inbox API, automatic reminders."""
+"""Notifications: delivery filtering, quiet hours, online-mode guard, secrets, inbox API, automatic reminders."""
 
 import datetime
 from unittest import mock
@@ -12,7 +12,9 @@ from users.models import ComptechUser
 
 from . import channels
 from .models import Notification, NotificationChannel, ReminderSettings
+from .quiet import quiet_until
 from .service import Priority, deliver, notify
+from .tasks import deliver_held_notifications
 
 
 class DeliveryTests(TestCase):
@@ -92,6 +94,51 @@ class DeliveryTests(TestCase):
         self.assertEqual(self.client.post(f"/api/v2/notifications/{theirs.id}/read").status_code, 404)
         self.client.post(f"/api/v2/notifications/{mine.id}/read")
         self.assertEqual(self.client.get("/api/v2/notifications/unread-count").json()["unread"], 0)
+
+
+class QuietHoursTests(TestCase):
+    def setUp(self):
+        # Toronto is UTC-5 in winter; quiet 22:00-07:00 local crosses midnight.
+        self.user = ComptechUser.objects.create_user("di", password="pw", timezone="America/Toronto",
+                                                     preferences={"quiet_hours": {"enabled": True, "start": "22:00:00",
+                                                                                  "end": "07:00:00"}})
+        NotificationChannel.objects.create(user=self.user, kind="webhook", name="Phone", config={"url": "http://x/"})
+
+    def test_window_crosses_midnight_in_the_users_zone(self):
+        utc = lambda d, h: datetime.datetime(2026, 11, d, h, 30, tzinfo=datetime.timezone.utc)
+        end = lambda d: datetime.datetime(2026, 11, d, 12, 0, tzinfo=datetime.timezone.utc)  # 07:00 Toronto
+        self.assertEqual(quiet_until(self.user, utc(25, 3)), end(25))  # 22:30 on the 24th: ends next morning
+        self.assertEqual(quiet_until(self.user, utc(25, 9)), end(25))  # 04:30 on the 25th: ends this morning
+        self.assertIsNone(quiet_until(self.user, utc(25, 12)))  # 07:30: awake
+        self.assertIsNone(quiet_until(self.user, utc(25, 2)))  # 21:30: not yet
+
+    def test_held_pushes_wait_for_the_end_and_skip_what_was_read(self):
+        at_night = datetime.datetime(2026, 11, 25, 4, 0, tzinfo=datetime.timezone.utc)  # 23:00 Toronto
+        with mock.patch.object(channels, "send") as send, mock.patch("django.utils.timezone.now", return_value=at_night):
+            with self.captureOnCommitCallbacks(execute=True):
+                kept = notify(self.user, "Backup done")
+                read = notify(self.user, "Seen in the app")
+                urgent = notify(self.user, "Server down", priority=Priority.URGENT)
+            self.assertEqual([c.args[1] for c in send.call_args_list], [urgent])  # urgent ignores quiet hours
+            self.assertEqual(deliver_held_notifications(), 0)  # still quiet
+        read.read = True
+        read.save()
+        morning = datetime.datetime(2026, 11, 25, 12, 1, tzinfo=datetime.timezone.utc)
+        with mock.patch.object(channels, "send") as send, mock.patch("django.utils.timezone.now", return_value=morning):
+            self.assertEqual(deliver_held_notifications(), 1)
+            self.assertEqual(deliver_held_notifications(), 0)  # once only
+        self.assertEqual([c.args[1].id for c in send.call_args_list], [kept.id])
+        self.assertFalse(Notification.objects.exclude(deliver_after=None).exists())
+
+    def test_switching_quiet_hours_off_releases_what_was_held(self):
+        with mock.patch.object(channels, "send"), self.captureOnCommitCallbacks(execute=True), \
+                mock.patch("notifications.service.quiet_until", return_value=timezone.now() + datetime.timedelta(hours=8)):
+            notify(self.user, "Backup done")
+        self.client.force_login(self.user)
+        self.client.patch("/api/v2/me/preferences", {"quiet_hours": {"enabled": False}}, content_type="application/json")
+        with mock.patch.object(channels, "send") as send:
+            self.assertEqual(deliver_held_notifications(), 1)
+        self.assertEqual(send.call_count, 1)
 
 
 class AutoReminderTests(TestCase):

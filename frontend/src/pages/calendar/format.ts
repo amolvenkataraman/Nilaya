@@ -61,6 +61,3 @@ export function homeWhen(e: CalEvent): string {
     : fmtTimeIn(s, undefined)
   return `${zoneCity(HOME_ZONE)} (${gmtLabel(s.getTime(), HOME_ZONE)}): ${day(s)}, ${span}`
 }
-
-/** Hour labels in the time grid's gutter ("9 AM"). */
-export const hourFmt = new Intl.DateTimeFormat(undefined, { hour: 'numeric' })

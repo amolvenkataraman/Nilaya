@@ -2,6 +2,7 @@
 // whether the view is the plain timeline, and the timeline turns the params into its API filter, its heading
 // ("Camera: Pixel 7 · In this map area") and where the stream starts.
 import { addDays, parseDayKey } from '../../lib/dates'
+import { userDayStart } from '../../lib/preferences'
 import { placeText } from '../../lib/format'
 
 /** Params the filters drawer owns (it rewrites all of them on Apply). */
@@ -49,7 +50,7 @@ export interface TimelineState {
   after: Date | null
   before: Date | null
   eventTitle: string
-  /** ?from=YYYY-MM-DD (filters). */
+  /** ?from=YYYY-MM-DD (filters): from that day's start. */
   fromKey: string
   /** ?date=YYYY-MM-DD: start the timeline at the end of that day. */
   day: Date | null
@@ -59,7 +60,8 @@ export interface TimelineState {
   startBefore: string | undefined
 }
 
-export function parseTimelineState(params: URLSearchParams): TimelineState {
+/** dayStartMin: when the user's day begins (photo days run from it to the next day's). */
+export function parseTimelineState(params: URLSearchParams, dayStartMin: number): TimelineState {
   const str = (k: string, max: number) => (params.get(k) ?? '').slice(0, max)
   const num = (k: string) => {
     const v = params.get(k)
@@ -93,7 +95,7 @@ export function parseTimelineState(params: URLSearchParams): TimelineState {
   if (minBlur !== undefined) filter.min_blur = minBlur
   if (maxBlur !== undefined) filter.max_blur = maxBlur
   if (oldest) filter.order = 'oldest'
-  const rangeStart = after ?? (fromKey ? parseDayKey(fromKey) : null)
+  const rangeStart = after ?? (fromKey ? userDayStart(parseDayKey(fromKey), dayStartMin) : null)
   if (rangeStart) filter.after = rangeStart.toISOString()
 
   const sharp =
@@ -111,7 +113,8 @@ export function parseTimelineState(params: URLSearchParams): TimelineState {
     .filter(Boolean)
     .join(' · ')
   // Oldest first pages forward in time from the start of the range (the cursor is the last item shown).
-  const startBefore = oldest ? undefined : before ? before.toISOString() : day ? addDays(day, 1).toISOString() : undefined
+  const dayEnd = day ? userDayStart(addDays(day, 1), dayStartMin) : null
+  const startBefore = oldest ? undefined : (before ?? dayEnd)?.toISOString()
   return {
     videos,
     place,

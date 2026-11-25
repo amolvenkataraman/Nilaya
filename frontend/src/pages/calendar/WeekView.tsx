@@ -1,17 +1,20 @@
 // The week (7 days, 3 on phones) and day views: all-day items on top, timed events placed by wall clock in the
-// display zone, tasks at their due time, the now line, and mouse drag to create, move and resize events.
+// display zone, tasks at their due time, the now line, and mouse drag to create, move and resize events. Time outside
+// the working hours and days (Settings › Preferences) is shaded, by wall clock in the display zone.
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { Icon } from '../../components/Icon'
 import { useIsPhone } from '../../components/ui'
 import { cn } from '../../lib/cn'
-import { dayKey, fmtTime, isSameDay } from '../../lib/dates'
+import { dayKey, fmtHour, fmtTime, isSameDay } from '../../lib/dates'
+import { usePreferences } from '../../lib/preferences'
 import type { CalEvent, Task } from '../../lib/types'
 import { BirthdayChip, EventChip, GHOST, PhotoBadge, TaskChip } from './chips'
-import { categoryName, eventIcon, hourFmt } from './format'
+import { categoryName, eventIcon } from './format'
 import { isAllDayTask } from './layers'
 import { atWallMin, clampDay, DAY_MIN, layoutDay, pct, snap, type Placed } from './layout'
-import { DayHeader, dayColumn, NowLine, TimeGrid } from './TimeGrid'
+import { DayHeader, dayColumn, NowLine, OffHours, TimeGrid } from './TimeGrid'
 import type { Layers } from './types'
+import { type MinSpan, offSpans, openingMinute, workSpans } from './workHours'
 import {
   HOME_ZONE,
   dayStartIn,
@@ -69,12 +72,13 @@ const DRAG_SLOP = 6
 function homeHours(day: Date, tz: Zone): string[] {
   return Array.from({ length: 24 }, (_, h) => {
     const t = atWallMin(day, h * 60, tz).getTime()
-    return wallParts(t, undefined).mi ? fmtTime(new Date(t)) : hourFmt.format(t)
+    return wallParts(t, undefined).mi ? fmtTime(new Date(t)) : fmtHour(t)
   })
 }
 
 export function WeekView({ days, byDay, colour, now, layers, onCreate, onEvent, onOpenDay, canEdit, onMove, onZone }: Props) {
   const { tz } = useCalPrefs()
+  const prefs = usePreferences()
   // A second gutter with the home zone's hours while another zone is shown (not on phones: too narrow).
   const phone = useIsPhone()
   const dual = !!tz && !phone
@@ -92,6 +96,7 @@ export function WeekView({ days, byDay, colour, now, layers, onCreate, onEvent, 
   const placed = useMemo(() => days.map((d) => layoutDay(byDay.get(dayKey(d)) ?? [], d, tz)), [days, byDay, tz])
   const dayTasks = useMemo(() => days.map((d) => layers.tasks.get(dayKey(d)) ?? []), [days, layers.tasks])
   const dayBdays = useMemo(() => days.map((d) => layers.birthdays.get(dayKey(d)) ?? []), [days, layers.birthdays])
+  const offHours = useMemo(() => days.map((d) => offSpans(workSpans(d, prefs))), [days, prefs])
 
   function locate(e: { clientX: number; clientY: number }) {
     const cols = Array.from(body.current?.querySelectorAll<HTMLElement>('[data-day-col]') ?? [])
@@ -196,14 +201,13 @@ export function WeekView({ days, byDay, colour, now, layers, onCreate, onEvent, 
   const showsToday = days.some((d) => isSameDay(d, nowDay))
   const nowMin = zoneMinutes(now.getTime(), tz)
 
-  // Scroll to the working day (or to just before now) when the range or zone changes, not as time passes.
-  // biome-ignore lint/correctness/useExhaustiveDependencies: rangeKey and tz are the triggers; now moves every minute
+  // Scroll to the working day (or to just before now, during it) when the range, zone or working hours change, not
+  // as time passes.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: those are the triggers; now moves every minute
   useLayoutEffect(() => {
     const el = scroller.current
-    if (!el) return
-    const hour = showsToday ? Math.max(0, Math.min(Math.floor(nowMin / 60) - 1.5, 16)) : 7.5
-    el.scrollTop = (el.scrollHeight / 24) * hour - 4
-  }, [rangeKey, tz])
+    if (el) el.scrollTop = (el.scrollHeight / DAY_MIN) * openingMinute(showsToday ? nowMin : null, prefs) - 4
+  }, [rangeKey, tz, prefs.work_start, prefs.work_end])
 
   const home = useMemo(() => (dual ? homeHours(days[0], tz) : null), [dual, days, tz])
   // The zone label: its offset now (or midday of the first day shown, if today isn't in view).
@@ -278,6 +282,7 @@ export function WeekView({ days, byDay, colour, now, layers, onCreate, onEvent, 
           day={d}
           tz={tz}
           items={placed[i]}
+          off={offHours[i]}
           colour={colour}
           onEvent={onEvent}
           onCreate={onCreate}
@@ -301,6 +306,7 @@ function DayColumn({
   day,
   tz,
   items,
+  off,
   colour,
   onEvent,
   onCreate,
@@ -314,6 +320,8 @@ function DayColumn({
   day: Date
   tz: Zone
   items: Placed[]
+  /** Outside working hours, shaded. */
+  off: readonly MinSpan[]
   colour: (e: CalEvent) => string
   onEvent: (e: CalEvent) => void
   onCreate: (start: Date, end?: Date) => void
@@ -338,6 +346,7 @@ function DayColumn({
         onCreate(atWallMin(day, min, tz), atWallMin(day, min + 60, tz))
       }}
     >
+      <OffHours spans={off} />
       {items.map((p) => (
         <TimedEvent
           key={p.event.id}

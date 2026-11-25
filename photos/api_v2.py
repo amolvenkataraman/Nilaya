@@ -14,6 +14,8 @@ from django.utils import timezone
 from ninja import Field, Query, Router, Schema
 from ninja.errors import HttpError
 
+from users import preferences as prefs
+
 from . import api_albums, api_insights, browse
 from . import cache as photo_cache
 from . import hidden as hidden_mode
@@ -32,6 +34,7 @@ from .api_common import (
     daily,
     library,
 )
+from .days import day_range, photo_day, user_tz
 from .models import BROKEN_GPS, Album_Subscriber, Photo, ShareAlbum
 
 router = Router(tags=["photos"])
@@ -96,34 +99,28 @@ def timeline(request, before: Optional[datetime.datetime] = None, limit: int = 1
 
 @router.get("/on-this-day", response=list[YearGroup], summary="Photos from today's date in earlier years")
 def on_this_day(request, per_year: int = 12):
-    import pytz
-    tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else None
-    today = timezone.localdate(timezone=tz)  # the user's date, not the server's
+    tz = user_tz(request.user)
+    today = prefs.today(request.user, tz)  # the user's day (their time zone and day start), not the server's
     per_year = max(1, min(per_year, 50))
     lib = library(request.user, request, listing=True).select_related("album")
     rollup = daily(request)
     if rollup is not None:
         # Month/day filters can't use an index (every call scanned the library): find the matching
         # days in the small per-day view, then read each day's photos by date range (indexed).
-        from zoneinfo import ZoneInfo
-
-        from django.conf import settings
-        server_tz = ZoneInfo(settings.TIME_ZONE)
         days = sorted(set(rollup.filter(day__month=today.month, day__day=today.day, day__year__lt=today.year)
                           .values_list("day", flat=True)), reverse=True)
-        at = lambda d: datetime.datetime.combine(d, datetime.time(), tzinfo=server_tz)
         out = []
         for d in days:
-            items = list(lib.filter(date_taken__gte=at(d), date_taken__lt=at(d + datetime.timedelta(days=1)))
-                         .order_by("-date_taken")[:per_year])
+            lo, hi = day_range(request.user, d, d, tz)
+            items = list(lib.filter(date_taken__gte=lo, date_taken__lt=hi).order_by("-date_taken")[:per_year])
             if items:
                 out.append({"year": d.year, "items": items})
         return out
-    qs = (lib.filter(date_taken__month=today.month, date_taken__day=today.day, date_taken__year__lt=today.year)
-          .order_by("-date_taken"))
+    qs = (lib.annotate(day=photo_day(request.user, tz))
+          .filter(day__month=today.month, day__day=today.day, day__year__lt=today.year).order_by("-date_taken"))
     groups = {}
     for p in qs[:600]:
-        bucket = groups.setdefault(p.date_taken.year, [])
+        bucket = groups.setdefault(p.day.year, [])
         if len(bucket) < per_year:
             bucket.append(p)
     return [{"year": y, "items": items} for y, items in sorted(groups.items(), reverse=True)]
@@ -149,22 +146,28 @@ def _summary(request):
             "cities": top("location_city"), "per_year": per_year}
 
 
-@router.get("/counts", response=dict[str, int], summary="Photos per local day in [start, end] (dates, max 400 days)")
-def counts(request, start: datetime.date, end: datetime.date):
-    import pytz
-    from django.db.models.functions import TruncDate
+def _check_range(start, end):
     if end < start or (end - start).days > 400:
         raise HttpError(400, "Pick a range of up to 400 days")
-    tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
-    lo = tz.localize(datetime.datetime.combine(start, datetime.time())) if hasattr(tz, "localize") else datetime.datetime.combine(start, datetime.time(), tzinfo=tz)
-    hi = lo + datetime.timedelta(days=(end - start).days + 1)
+
+
+def _day_rows(request, start, end):
+    """The user's days start..end from the live table, grouped by day (when the per-day view can't be used)."""
+    tz = user_tz(request.user)
+    lo, hi = day_range(request.user, start, end, tz)
+    return (library(request.user, request, listing=True).filter(date_taken__gte=lo, date_taken__lt=hi)
+            .annotate(day=photo_day(request.user, tz)).values("day"))
+
+
+@router.get("/counts", response=dict[str, int], summary="Photos per day in [start, end] (the user's days; max 400)")
+def counts(request, start: datetime.date, end: datetime.date):
+    _check_range(start, end)
     rollup = daily(request)
-    if rollup is not None:  # fast path: the materialized per-day view
+    if rollup is None:
+        rows = _day_rows(request, start, end).annotate(n=Count("id"))
+    else:  # fast path: the materialized per-day view
         rows = rollup.filter(day__gte=start, day__lte=end).values("day").annotate(n=Sum("photos") + Sum("videos"))
-        return {r["day"].isoformat(): r["n"] for r in rows if r["n"]}
-    rows = (library(request.user, request, listing=True).filter(date_taken__gte=lo, date_taken__lt=hi)
-            .annotate(day=TruncDate("date_taken", tzinfo=tz)).values("day").annotate(n=Count("id")))
-    return {r["day"].isoformat(): r["n"] for r in rows}
+    return {r["day"].isoformat(): r["n"] for r in rows if r["n"]}
 
 
 @router.get("/points", summary="Photo locations in a map box, pre-aggregated (for heatmaps); [{lat, lng, count}]")
@@ -203,23 +206,16 @@ def points(request, south: float, west: float, north: float, east: float, year: 
     return [{"lat": float(r["lat"]), "lng": float(r["lng"]), "count": int(r["n"])} for r in rows]
 
 
-@router.get("/days", summary="Per local day in [start, end]: photos, videos, size_kb (day headers)")
+@router.get("/days", summary="Per day in [start, end] (the user's days): photos, videos, size_kb (day headers)")
 def days(request, start: datetime.date, end: datetime.date):
-    if end < start or (end - start).days > 400:
-        raise HttpError(400, "Pick a range of up to 400 days")
+    _check_range(start, end)
     rollup = daily(request)
-    if rollup is not None:
+    if rollup is None:
+        rows = _day_rows(request, start, end).annotate(
+            photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True)), size_kb=Sum("size_total"))
+    else:
         rows = rollup.filter(day__gte=start, day__lte=end).values("day").annotate(
             photos=Sum("photos"), videos=Sum("videos"), size_kb=Sum("size_total_kb"))
-        return {r["day"].isoformat(): {"photos": r["photos"], "videos": r["videos"], "size_kb": r["size_kb"]} for r in rows}
-    import pytz
-    from django.db.models.functions import TruncDate
-    tz = pytz.timezone(request.user.timezone) if request.user.timezone in pytz.all_timezones_set else timezone.get_current_timezone()
-    lo = tz.localize(datetime.datetime.combine(start, datetime.time())) if hasattr(tz, "localize") else datetime.datetime.combine(start, datetime.time(), tzinfo=tz)
-    hi = lo + datetime.timedelta(days=(end - start).days + 1)
-    rows = (library(request.user, request, listing=True).filter(date_taken__gte=lo, date_taken__lt=hi)
-            .annotate(day=TruncDate("date_taken", tzinfo=tz)).values("day")
-            .annotate(photos=Count("id", filter=Q(video=False)), videos=Count("id", filter=Q(video=True)), size_kb=Sum("size_total")))
     return {r["day"].isoformat(): {"photos": r["photos"], "videos": r["videos"], "size_kb": r["size_kb"] or 0} for r in rows}
 
 

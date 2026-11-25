@@ -3,6 +3,7 @@
 import { HBars } from '../../components/charts'
 import { QueryView, SkeletonRows } from '../../components/ui'
 import { STATUSES, usePlaceStats } from './api'
+import { fmtDistance } from '../../lib/map/geo'
 import { fmtDay, PHOTO_RADIUS_M } from './placeText'
 import { STATUS_BG, StatusDot } from './StatusDot'
 
@@ -61,7 +62,7 @@ export function StatsTab({ onSelect, catLabel }: { onSelect: (id: string) => voi
             </section>
             <section>
               <h3 className={h3}>
-                Most visited <span className="text-xs text-muted">days with your photos within {PHOTO_RADIUS_M} m</span>
+                Most visited <span className="text-xs text-muted">days with your photos within {fmtDistance(PHOTO_RADIUS_M)}</span>
               </h3>
               {s.most_visited.length === 0 ? (
                 <p className="text-sm text-muted">No visits yet: they come from photos taken at your places.</p>

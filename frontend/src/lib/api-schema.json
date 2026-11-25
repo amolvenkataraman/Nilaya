@@ -555,6 +555,53 @@
         "title": "AttendeePatch",
         "type": "object"
       },
+      "AvailabilityOut": {
+        "properties": {
+          "busy": {
+            "items": {
+              "$ref": "#/components/schemas/Span"
+            },
+            "title": "Busy",
+            "type": "array"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "username": {
+            "title": "Username",
+            "type": "string"
+          },
+          "working": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/Span"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Working"
+          }
+        },
+        "required": [
+          "username",
+          "name",
+          "date",
+          "busy",
+          "working"
+        ],
+        "title": "AvailabilityOut",
+        "type": "object"
+      },
       "BirthdayOut": {
         "properties": {
           "age": {
@@ -6573,6 +6620,9 @@
             "title": "Last Name",
             "type": "string"
           },
+          "preferences": {
+            "$ref": "#/components/schemas/Preferences"
+          },
           "profile_picture": {
             "title": "Profile Picture",
             "type": "string"
@@ -6597,7 +6647,8 @@
           "timezone",
           "profile_picture",
           "is_staff",
-          "groups"
+          "groups",
+          "preferences"
         ],
         "title": "MeOut",
         "type": "object"
@@ -8609,6 +8660,244 @@
         "title": "PlacePhotosOut",
         "type": "object"
       },
+      "Preferences": {
+        "properties": {
+          "date_format": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "mdy",
+              "dmy",
+              "ymd"
+            ],
+            "title": "Date Format",
+            "type": "string"
+          },
+          "day_starts_at": {
+            "default": "05:00:00",
+            "format": "time",
+            "title": "Day Starts At",
+            "type": "string"
+          },
+          "quiet_hours": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/QuietHours-Output"
+              }
+            ]
+          },
+          "time_format": {
+            "default": "auto",
+            "enum": [
+              "auto",
+              "12h",
+              "24h"
+            ],
+            "title": "Time Format",
+            "type": "string"
+          },
+          "units": {
+            "default": "both",
+            "enum": [
+              "both",
+              "km",
+              "mi"
+            ],
+            "title": "Units",
+            "type": "string"
+          },
+          "week_start": {
+            "default": 0,
+            "enum": [
+              0,
+              1
+            ],
+            "title": "Week Start",
+            "type": "integer"
+          },
+          "work_days": {
+            "items": {
+              "enum": [
+                0,
+                1,
+                2,
+                3,
+                4,
+                5,
+                6
+              ],
+              "type": "integer"
+            },
+            "title": "Work Days",
+            "type": "array"
+          },
+          "work_end": {
+            "default": "17:00:00",
+            "format": "time",
+            "title": "Work End",
+            "type": "string"
+          },
+          "work_start": {
+            "default": "09:00:00",
+            "format": "time",
+            "title": "Work Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "week_start",
+          "day_starts_at",
+          "time_format",
+          "date_format",
+          "units",
+          "work_days",
+          "work_start",
+          "work_end",
+          "quiet_hours"
+        ],
+        "title": "Preferences",
+        "type": "object"
+      },
+      "PreferencesPatch": {
+        "description": "Only the settings sent change; null puts one back to its default.",
+        "properties": {
+          "date_format": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "mdy",
+                  "dmy",
+                  "ymd"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Date Format"
+          },
+          "day_starts_at": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Day Starts At"
+          },
+          "quiet_hours": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuietHours"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "time_format": {
+            "anyOf": [
+              {
+                "enum": [
+                  "auto",
+                  "12h",
+                  "24h"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Time Format"
+          },
+          "units": {
+            "anyOf": [
+              {
+                "enum": [
+                  "both",
+                  "km",
+                  "mi"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Units"
+          },
+          "week_start": {
+            "anyOf": [
+              {
+                "enum": [
+                  0,
+                  1
+                ],
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week Start"
+          },
+          "work_days": {
+            "anyOf": [
+              {
+                "items": {
+                  "enum": [
+                    0,
+                    1,
+                    2,
+                    3,
+                    4,
+                    5,
+                    6
+                  ],
+                  "type": "integer"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Days"
+          },
+          "work_end": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work End"
+          },
+          "work_start": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Work Start"
+          }
+        },
+        "title": "PreferencesPatch",
+        "type": "object"
+      },
       "PresetsOut": {
         "properties": {
           "focus": {
@@ -9381,6 +9670,59 @@
           "text"
         ],
         "title": "QuickIn",
+        "type": "object"
+      },
+      "QuietHours": {
+        "description": "Pushes to phone, web and other channels wait until `end`; the in-app list still gets them at once.",
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "end": {
+            "default": "07:00:00",
+            "format": "time",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "default": "22:00:00",
+            "format": "time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "title": "QuietHours",
+        "type": "object"
+      },
+      "QuietHours-Output": {
+        "description": "Pushes to phone, web and other channels wait until `end`; the in-app list still gets them at once.",
+        "properties": {
+          "enabled": {
+            "default": false,
+            "title": "Enabled",
+            "type": "boolean"
+          },
+          "end": {
+            "default": "07:00:00",
+            "format": "time",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "default": "22:00:00",
+            "format": "time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "enabled",
+          "start",
+          "end"
+        ],
+        "title": "QuietHours",
         "type": "object"
       },
       "RankedDay": {
@@ -10472,6 +10814,26 @@
           "device_token"
         ],
         "title": "SignedIn",
+        "type": "object"
+      },
+      "Span": {
+        "properties": {
+          "end": {
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end"
+        ],
+        "title": "Span",
         "type": "object"
       },
       "Spot": {
@@ -13069,10 +13431,17 @@
         ],
         "responses": {
           "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AvailabilityOut"
+                }
+              }
+            },
             "description": "OK"
           }
         },
-        "summary": "Someone's busy times on a day, only from calendars they share as busy (times only; no sign-in needed)",
+        "summary": "Someone's busy times and working hours on a day, only from calendars they share as busy (times only; no sign-in needed)",
         "tags": [
           "calendar"
         ]
@@ -17287,7 +17656,7 @@
             "SessionAuth": []
           }
         ],
-        "summary": "Tap: toggle yes/no or add to a measurable habit, for today (user's time zone)",
+        "summary": "Tap: toggle yes/no or add to a measurable habit, for the user's today (their time zone and day start)",
         "tags": [
           "habits"
         ]
@@ -17779,6 +18148,49 @@
           }
         ],
         "summary": "Set your profile picture from a data URL (re-encoded as JPEG)",
+        "tags": [
+          "me"
+        ]
+      }
+    },
+    "/api/v2/me/preferences": {
+      "patch": {
+        "operationId": "users_api_v2_update_preferences",
+        "parameters": [],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PreferencesPatch"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Preferences"
+                }
+              }
+            },
+            "description": "OK"
+          }
+        },
+        "security": [
+          {
+            "BearerKey": []
+          },
+          {
+            "HeaderKey": []
+          },
+          {
+            "SessionAuth": []
+          }
+        ],
+        "summary": "Change some preferences (null resets one to its default)",
         "tags": [
           "me"
         ]
@@ -19077,7 +19489,7 @@
             "SessionAuth": []
           }
         ],
-        "summary": "Photos per local day in [start, end] (dates, max 400 days)",
+        "summary": "Photos per day in [start, end] (the user's days; max 400)",
         "tags": [
           "photos"
         ]
@@ -19124,7 +19536,7 @@
             "SessionAuth": []
           }
         ],
-        "summary": "Per local day in [start, end]: photos, videos, size_kb (day headers)",
+        "summary": "Per day in [start, end] (the user's days): photos, videos, size_kb (day headers)",
         "tags": [
           "photos"
         ]

@@ -5,7 +5,7 @@ import { useState, type ReactNode } from 'react'
 import { useNavigate } from 'react-router'
 import { Button, ColourPicker, Confirm, Dialog, Field, FieldRow, Input, Segmented, Select, Switch, Textarea } from '../../components/ui'
 import { cn } from '../../lib/cn'
-import { dayKey } from '../../lib/dates'
+import { useDayStart, userDayKey } from '../../lib/preferences'
 import {
   useArchiveHabit,
   useDeleteHabit,
@@ -42,7 +42,7 @@ interface Form {
   reminder_days: number
 }
 
-const blank = (): Form => ({
+const blank = (startDate: string): Form => ({
   name: '',
   description: '',
   colour: '',
@@ -55,7 +55,7 @@ const blank = (): Form => ({
   schedule: 'daily',
   weekdays: 127,
   interval: '2',
-  start_date: dayKey(new Date()),
+  start_date: startDate,
   end_date: '',
   reminder: false,
   reminder_time: '20:00',
@@ -164,7 +164,8 @@ function HabitForm({ open, habit, onClose, onSaved }: Props) {
   const remove = useDeleteHabit()
   const navigate = useNavigate()
   const [confirmDelete, setConfirmDelete] = useState(false)
-  const [f, setF] = useState<Form>(() => (habit ? fromHabit(habit) : blank()))
+  const dayStart = useDayStart()
+  const [f, setF] = useState<Form>(() => (habit ? fromHabit(habit) : blank(userDayKey(new Date(), dayStart))))
   const [error, setError] = useState('')
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setF((x) => ({ ...x, [k]: v }))
 
@@ -275,7 +276,7 @@ function HabitForm({ open, habit, onClose, onSaved }: Props) {
                     style={{ ['--hc' as string]: t.colour }}
                     aria-pressed={on}
                     onClick={() => {
-                      setF((x) => ({ ...blank(), start_date: x.start_date, ...t, target: String(target ?? 1) }))
+                      setF((x) => ({ ...blank(x.start_date), ...t, target: String(target ?? 1) }))
                       setError('')
                     }}
                   >

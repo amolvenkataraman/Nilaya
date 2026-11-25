@@ -1,3 +1,4 @@
+import datetime
 import os
 import uuid
 import hashlib
@@ -529,7 +530,9 @@ class PhotoLocationCache(models.Model):
 
 class PhotoDaily(models.Model):
     """Per library album and local day: counts, sizes, video length (hidden photos left out).
-    A materialized view on Postgres (migration 0026), a plain view on SQLite."""
+    A materialized view on Postgres (migration 0026), a plain view on SQLite. Days are in settings.TIME_ZONE and
+    begin at DAY_OFFSET past midnight (migration 0036), the default day start in users.preferences."""
+    DAY_OFFSET = datetime.timedelta(hours=5)
     id = models.CharField(max_length=40, primary_key=True)
     album_id = models.IntegerField()
     day = models.DateField()

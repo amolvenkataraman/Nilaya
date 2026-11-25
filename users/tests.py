@@ -103,3 +103,41 @@ class SignInTests(TestCase):
         self.assertEqual(r.status_code, 429)
         self.assertGreater(int(r["Retry-After"]), 0)
         self.assertEqual(login("eve", "right-pass-1", other).status_code, 200)  # another address is unaffected
+
+
+class PreferencesTests(TestCase):
+    """Defaults until changed; only changes are stored; the day start moves late-night moments to the day before."""
+
+    def setUp(self):
+        self.user = ComptechUser.objects.create_user("pat", password="pw")
+        self.client.force_login(self.user)
+
+    def patch(self, **body):
+        return self.client.patch("/api/v2/me/preferences", body, content_type="application/json")
+
+    def test_defaults_changes_and_reset(self):
+        p = self.client.get("/api/v2/me").json()["preferences"]
+        self.assertEqual((p["week_start"], p["day_starts_at"], p["quiet_hours"]["enabled"]), (0, "05:00:00", False))
+        self.assertEqual(self.patch(week_start=1, quiet_hours={"enabled": True, "start": "23:00", "end": "07:00"}).status_code, 200)
+        self.user.refresh_from_db()
+        self.assertEqual(self.user.preferences, {"week_start": 1, "quiet_hours": {"enabled": True, "start": "23:00:00", "end": "07:00:00"}})
+        self.patch(week_start=None)  # back to the default: no longer stored
+        self.user.refresh_from_db()
+        self.assertNotIn("week_start", self.user.preferences)
+
+    def test_invalid_values_are_rejected(self):
+        self.assertEqual(self.patch(day_starts_at="13:00").status_code, 400)
+        self.assertEqual(self.patch(work_start="18:00", work_end="09:00").status_code, 400)
+        self.assertEqual(self.patch(units="furlongs").status_code, 422)
+
+    def test_day_start(self):
+        import datetime
+
+        import pytz
+
+        from . import preferences
+        tz = pytz.timezone("America/Toronto")
+        late = tz.localize(datetime.datetime(2026, 7, 5, 1, 30))
+        self.assertEqual(preferences.local_day(self.user, late, tz), datetime.date(2026, 7, 4))
+        start, end = preferences.day_bounds(self.user, datetime.date(2026, 7, 4), tz)
+        self.assertEqual((start.hour, end - start), (5, datetime.timedelta(days=1)))

@@ -7,7 +7,7 @@ import { Icon, type IconName } from '../../components/Icon'
 import { Button, chipClass } from '../../components/ui'
 import { fmtDate, fmtTime } from '../../lib/dates'
 import { fmtBytes, placeText } from '../../lib/format'
-import { osmUrl } from '../../lib/map/geo'
+import { fmtAltitude, osmUrl } from '../../lib/map/geo'
 import type { Photo } from '../../lib/types'
 import { type PhotoDetails, photoDetailsQuery } from './queries'
 import { fmtDuration } from './util'
@@ -169,7 +169,7 @@ export function InfoPanel({ photo, onClose }: { photo: Photo; onClose: () => voi
                 <>
                   <div className="text-muted tabular-nums">
                     {lat.toFixed(5)}, {lon.toFixed(5)}
-                    {d.altitude !== null && d.altitude !== undefined ? ` · ${Math.round(d.altitude)} m` : ''}
+                    {d.altitude !== null && d.altitude !== undefined ? ` · ${fmtAltitude(d.altitude)}` : ''}
                   </div>
                   <MiniMap lat={lat} lon={lon} />
                 </>

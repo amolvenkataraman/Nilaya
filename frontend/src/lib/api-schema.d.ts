@@ -79,7 +79,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Someone's busy times on a day, only from calendars they share as busy (times only; no sign-in needed) */
+        /** Someone's busy times and working hours on a day, only from calendars they share as busy (times only; no sign-in needed) */
         get: operations["scheduler_api_v2_availability"];
         put?: never;
         post?: never;
@@ -1079,7 +1079,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Tap: toggle yes/no or add to a measurable habit, for today (user's time zone) */
+        /** Tap: toggle yes/no or add to a measurable habit, for the user's today (their time zone and day start) */
         post: operations["habits_api_check"];
         delete?: never;
         options?: never;
@@ -1396,6 +1396,23 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/v2/me/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Change some preferences (null resets one to its default) */
+        patch: operations["users_api_v2_update_preferences"];
         trace?: never;
     };
     "/api/v2/notifications/": {
@@ -1822,7 +1839,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Photos per local day in [start, end] (dates, max 400 days) */
+        /** Photos per day in [start, end] (the user's days; max 400) */
         get: operations["photos_api_v2_counts"];
         put?: never;
         post?: never;
@@ -1839,7 +1856,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Per local day in [start, end]: photos, videos, size_kb (day headers) */
+        /** Per day in [start, end] (the user's days): photos, videos, size_kb (day headers) */
         get: operations["photos_api_v2_days"];
         put?: never;
         post?: never;
@@ -3312,6 +3329,22 @@ export interface components {
             name?: string | null;
             /** Rsvp */
             rsvp?: ("needs_action" | "accepted" | "declined" | "tentative") | null;
+        };
+        /** AvailabilityOut */
+        AvailabilityOut: {
+            /** Busy */
+            busy: components["schemas"]["Span"][];
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Name */
+            name: string;
+            /** Username */
+            username: string;
+            /** Working */
+            working: components["schemas"]["Span"][] | null;
         };
         /** BirthdayOut */
         BirthdayOut: {
@@ -5362,6 +5395,7 @@ export interface components {
             is_staff: boolean;
             /** Last Name */
             last_name: string;
+            preferences: components["schemas"]["Preferences"];
             /** Profile Picture */
             profile_picture: string;
             /** Timezone */
@@ -6004,6 +6038,77 @@ export interface components {
             /** Visits */
             visits: number;
         };
+        /** Preferences */
+        Preferences: {
+            /**
+             * Date Format
+             * @default auto
+             * @enum {string}
+             */
+            date_format: "auto" | "mdy" | "dmy" | "ymd";
+            /**
+             * Day Starts At
+             * Format: time
+             * @default 05:00:00
+             */
+            day_starts_at: string;
+            quiet_hours: components["schemas"]["QuietHours-Output"];
+            /**
+             * Time Format
+             * @default auto
+             * @enum {string}
+             */
+            time_format: "auto" | "12h" | "24h";
+            /**
+             * Units
+             * @default both
+             * @enum {string}
+             */
+            units: "both" | "km" | "mi";
+            /**
+             * Week Start
+             * @default 0
+             * @enum {integer}
+             */
+            week_start: 0 | 1;
+            /** Work Days */
+            work_days: (0 | 1 | 2 | 3 | 4 | 5 | 6)[];
+            /**
+             * Work End
+             * Format: time
+             * @default 17:00:00
+             */
+            work_end: string;
+            /**
+             * Work Start
+             * Format: time
+             * @default 09:00:00
+             */
+            work_start: string;
+        };
+        /**
+         * PreferencesPatch
+         * @description Only the settings sent change; null puts one back to its default.
+         */
+        PreferencesPatch: {
+            /** Date Format */
+            date_format?: ("auto" | "mdy" | "dmy" | "ymd") | null;
+            /** Day Starts At */
+            day_starts_at?: string | null;
+            quiet_hours?: components["schemas"]["QuietHours"] | null;
+            /** Time Format */
+            time_format?: ("auto" | "12h" | "24h") | null;
+            /** Units */
+            units?: ("both" | "km" | "mi") | null;
+            /** Week Start */
+            week_start?: (0 | 1) | null;
+            /** Work Days */
+            work_days?: (0 | 1 | 2 | 3 | 4 | 5 | 6)[] | null;
+            /** Work End */
+            work_end?: string | null;
+            /** Work Start */
+            work_start?: string | null;
+        };
         /** PresetsOut */
         PresetsOut: {
             /** Focus */
@@ -6275,6 +6380,52 @@ export interface components {
             project_id?: string | null;
             /** Text */
             text: string;
+        };
+        /**
+         * QuietHours
+         * @description Pushes to phone, web and other channels wait until `end`; the in-app list still gets them at once.
+         */
+        QuietHours: {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled?: boolean;
+            /**
+             * End
+             * Format: time
+             * @default 07:00:00
+             */
+            end?: string;
+            /**
+             * Start
+             * Format: time
+             * @default 22:00:00
+             */
+            start?: string;
+        };
+        /**
+         * QuietHours
+         * @description Pushes to phone, web and other channels wait until `end`; the in-app list still gets them at once.
+         */
+        "QuietHours-Output": {
+            /**
+             * Enabled
+             * @default false
+             */
+            enabled: boolean;
+            /**
+             * End
+             * Format: time
+             * @default 07:00:00
+             */
+            end: string;
+            /**
+             * Start
+             * Format: time
+             * @default 22:00:00
+             */
+            start: string;
         };
         /** RankedDay */
         RankedDay: {
@@ -6664,6 +6815,19 @@ export interface components {
         SignOutIn: {
             /** Device Token */
             device_token: string;
+        };
+        /** Span */
+        Span: {
+            /**
+             * End
+             * Format: date-time
+             */
+            end: string;
+            /**
+             * Start
+             * Format: date-time
+             */
+            start: string;
         };
         /** Spot */
         Spot: {
@@ -7629,7 +7793,9 @@ export interface operations {
                 headers: {
                     [name: string]: unknown;
                 };
-                content?: never;
+                content: {
+                    "application/json": components["schemas"]["AvailabilityOut"];
+                };
             };
         };
     };
@@ -10072,6 +10238,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MeOut"];
+                };
+            };
+        };
+    };
+    users_api_v2_update_preferences: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PreferencesPatch"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Preferences"];
                 };
             };
         };

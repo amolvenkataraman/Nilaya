@@ -1,6 +1,7 @@
 """Smart search: how free text is read (photos/search.py) and what /api/v2/photos/search may return."""
 
 import datetime
+from unittest import mock
 from zoneinfo import ZoneInfo
 
 from django.test import SimpleTestCase, TestCase
@@ -87,6 +88,21 @@ class SearchApiTests(TestCase):
         self.assertEqual({p["id"] for p in r["items"]}, {str(self.dog.id), str(self.cat.id)})
         self.assertEqual(r["count"], 2)
         self.assertEqual([t["kind"] for t in r["interpreted"]], ["Object", "Object", "Place", "Place", "Date"])
+
+    def test_dates_are_the_users_days(self):
+        """Days begin at 5 am: "yesterday" (and "6 november", any year) runs from 5 am to 5 am."""
+        at = lambda d, h, m=0: datetime.datetime(2026, 11, d, h, m, tzinfo=ZoneInfo("America/Toronto"))  # noqa: E731
+        album = self.dog.album
+        _early, noon, late = (Photo.objects.create(owner=self.user, album=album, filepath=f"{n}.jpg", orientation="1",
+                                                  date_taken=t) for n, t in (("early", at(6, 2)), ("noon", at(6, 12)),
+                                                                             ("late", at(7, 1, 30))))
+        self.user.timezone = "America/Toronto"
+        self.user.save(update_fields=["timezone"])
+        with mock.patch("django.utils.timezone.now", return_value=at(7, 12)):
+            for q in ("yesterday", "6 november"):
+                with self.subTest(q=q):
+                    r = self.client.get("/api/v2/photos/search", {"q": q}).json()
+                    self.assertEqual({p["id"] for p in r["items"]}, {str(noon.id), str(late.id)})  # 2 am is the 5th
 
     def test_places_leave_out_photos_taken_from_a_plane(self):
         places = {c["name"] for c in self.client.get("/api/v2/photos/sidebar").json()["summary"]["cities"]}

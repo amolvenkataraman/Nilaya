@@ -35,8 +35,10 @@ def bump():
 
 
 def cached(request, name, compute, *params):
-    """compute() cached per user, their visible libraries, time zone and params.
+    """compute() cached per user, their visible libraries, time zone, day start and params.
     Show-hidden mode is never cached (it's rare and the owner expects to see changes at once)."""
+    from users.preferences import day_offset
+
     from . import hidden as hidden_mode
     from .models import Album_Subscriber
     if hidden_mode.show_hidden(request):
@@ -46,7 +48,7 @@ def cached(request, name, compute, *params):
     except Exception:
         return compute()
     libs = sorted(Album_Subscriber.objects.filter(user=request.user, visible=True).values_list("album_id", flat=True))
-    scope = hashlib.blake2s(repr((libs, request.user.timezone, params)).encode(), digest_size=8).hexdigest()
+    scope = hashlib.blake2s(repr((libs, request.user.timezone, day_offset(request.user), params)).encode(), digest_size=8).hexdigest()
     key = f"photos:{name}:{gen}:{request.user.pk}:{scope}"
     try:
         value = cache.get(key)

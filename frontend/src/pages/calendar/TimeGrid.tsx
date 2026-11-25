@@ -5,9 +5,9 @@
 // screen instead of ending halfway down; the body is a size container and --hour is resolved inside it (cqh).
 import type { CSSProperties, ReactNode, Ref } from 'react'
 import { cn } from '../../lib/cn'
-import { fmtDate } from '../../lib/dates'
-import { hourFmt } from './format'
+import { fmtDate, fmtHour } from '../../lib/dates'
 import { pct } from './layout'
+import type { MinSpan } from './workHours'
 
 const HOURS = Array.from({ length: 24 }, (_, h) => h)
 const row = 'grid grid-cols-[var(--gutter)_repeat(var(--cols),minmax(0,1fr))]'
@@ -76,7 +76,7 @@ export function TimeGrid({
               (h) =>
                 h > 0 && (
                   <span key={h} className={cn(hourText, 'right-2')} style={{ top: pct(h * 60) }}>
-                    {hourFmt.format(new Date(2000, 0, 1, h))}
+                    {fmtHour(new Date(2000, 0, 1, h))}
                   </span>
                 ),
             )}
@@ -99,12 +99,29 @@ export function TimeGrid({
 
 const hourText = 'absolute -translate-y-1/2 text-2xs whitespace-nowrap text-muted tabular-nums'
 
+const hourLines = 'bg-[linear-gradient(to_bottom,var(--app-border)_1px,transparent_1px)] bg-[length:100%_var(--hour)]'
+
 /** A day's column: hour lines every --hour, a faint hover tint when it can be clicked to create. */
 export const dayColumn = (interactive = true) =>
   cn(
-    'relative min-w-0 border-l border-border bg-[linear-gradient(to_bottom,var(--app-border)_1px,transparent_1px)] bg-[length:100%_var(--hour)]',
+    'relative min-w-0 border-l border-border',
+    hourLines,
     interactive ? 'hover:bg-[color-mix(in_srgb,var(--app-fg)_1.5%,transparent)]' : 'cursor-default',
   )
+
+/** Time outside working hours, in a column's minutes: the page background (recessed in light and dark alike) with
+ *  the hour lines redrawn on it, shifted so they line up with the column's. Under events, and clicks pass through.
+ *  `as="li"` inside a column that's a list. */
+export function OffHours({ spans, as: Tag = 'div' }: { spans: readonly MinSpan[]; as?: 'div' | 'li' }) {
+  return spans.map(([a, z]) => (
+    <Tag
+      key={a}
+      className={cn('pointer-events-none absolute inset-x-0 bg-bg', hourLines)}
+      style={{ top: pct(a), height: pct(z - a), backgroundPositionY: `calc(var(--hour) * ${-a / 60})` }}
+      aria-hidden="true"
+    />
+  ))
+}
 
 /** The weekday and date at the top of a column; today's date is filled. */
 export function DayHeader({ day, today, onClick }: { day: Date; today: boolean; onClick: () => void }) {

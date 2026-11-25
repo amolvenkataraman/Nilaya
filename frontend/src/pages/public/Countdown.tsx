@@ -3,7 +3,7 @@
 import { useParams } from 'react-router'
 import { useQuery } from '@tanstack/react-query'
 import { ApiError, get } from '../../lib/api'
-import { dateFormatter } from '../../lib/dates'
+import { fmtDate } from '../../lib/dates'
 import { Icon } from '../../components/Icon'
 import { cardClass, Chip, ErrorBox, SkeletonRows, useNow } from '../../components/ui'
 import { cn } from '../../lib/cn'
@@ -12,7 +12,7 @@ import { PublicFrame, PublicNotice, usePublicTitle } from './PublicFrame'
 
 type Countdown = Schemas['CountdownOut']
 
-const when = dateFormatter({
+const WHEN: Intl.DateTimeFormatOptions = {
   weekday: 'long',
   year: 'numeric',
   month: 'long',
@@ -20,7 +20,7 @@ const when = dateFormatter({
   hour: 'numeric',
   minute: '2-digit',
   timeZoneName: 'short',
-})
+}
 const pad = (n: number) => String(n).padStart(2, '0')
 
 /** Whole days, hours, minutes and seconds in |ms|. */
@@ -122,7 +122,7 @@ export default function CountdownPage() {
           ) : (
             <span className="text-muted">{c.deadline ? 'Due' : c.which === 'start' ? 'Starts' : 'Ends'}</span>
           )}
-          <span className="tabular-nums">{when.format(target)}</span>
+          <span className="tabular-nums">{fmtDate(target, WHEN)}</span>
         </p>
       </section>
     </PublicFrame>

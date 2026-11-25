@@ -1,11 +1,12 @@
 // Root of the app: global providers (command palette, quick add, hotkeys). Each app route renders
 // its own chrome with <AppShell> (components/AppShell.tsx), G Suite style.
-import { Suspense, createContext, useContext, useEffect, useMemo, useState } from 'react'
+import { Fragment, Suspense, createContext, useContext, useEffect, useMemo, useState } from 'react'
 import { Outlet, useLocation, useNavigate } from 'react-router'
 import { useHotkey } from './ui'
 import { CommandPalette } from './CommandPalette'
 import { QuickAddDialog } from './QuickAdd'
 import { post } from '../lib/api'
+import { useDisplayVersion } from '../lib/display'
 import { NAV } from './nav'
 import { signedOut } from '../lib/owner'
 import { toast } from './toast'
@@ -88,10 +89,17 @@ export function Shell() {
   }, [location.pathname])
 
   const globals = useMemo<Globals>(() => ({ openPalette: () => setPalette(true), openQuickAdd: () => setQuickAdd(true) }), [])
+  // A change to the time, date or distance format remounts the page, so memoized rows and cached labels are rebuilt
+  // with it (lib/display); queries are cached, so it repaints at once. Not Settings: that's where the change is
+  // made, and a remount would take focus away from the control just used.
+  const version = useDisplayVersion()
+  const display = location.pathname.startsWith('/settings') ? 'settings' : version
   return (
     <GlobalsContext.Provider value={globals}>
       <Suspense fallback={<div className="app-loading" aria-busy="true" />}>
-        <Outlet />
+        <Fragment key={display}>
+          <Outlet />
+        </Fragment>
       </Suspense>
       {/* Mounted only while open, so their queries (projects, task search) cost nothing on other pages. */}
       {palette && (

@@ -39,8 +39,33 @@ def _user_tz(user):
     return pytz.timezone(user.timezone) if user.timezone in pytz.all_timezones_set else tz_.get_current_timezone()
 
 
-@router.get("/availability/{username}", auth=None,
-            summary="Someone's busy times on a day, only from calendars they share as busy (times only; no sign-in needed)")
+class Span(Schema):
+    start: datetime.datetime
+    end: datetime.datetime
+
+
+class AvailabilityOut(Schema):
+    username: str
+    name: str
+    date: datetime.date
+    busy: list[Span]
+    # Their working hours that day (Settings › Preferences): none on a day off; null when they share no calendar
+    # as busy, so someone who hasn't opted into an availability page doesn't publish their hours either.
+    working: Optional[list[Span]]
+
+
+def _working(user, date: datetime.date, tz) -> list[dict]:
+    from users import preferences
+    p = preferences.of(user)
+    if (date.weekday() + 1) % 7 not in p.work_days:  # Python's Monday = 0; the preference's Sunday = 0
+        return []
+    return [{"start": tz.localize(datetime.datetime.combine(date, p.work_start)),
+             "end": tz.localize(datetime.datetime.combine(date, p.work_end))}]
+
+
+@router.get("/availability/{username}", auth=None, response=AvailabilityOut,
+            summary="Someone's busy times and working hours on a day, only from calendars they share as busy "
+                    "(times only; no sign-in needed)")
 def availability(request, username: str, date: datetime.date):
     import pytz
     from django.db.models import Q
@@ -59,7 +84,8 @@ def availability(request, username: str, date: datetime.date):
         Q(transparency="busy", enddate__isnull=False, kind="event")  # timed events only: not all-day or deadlines
         & (Q(calendar__in=every) | Q(calendar__in=some, category__in=busy_categories))))
     return {"username": user.username, "name": user.get_full_name() or user.username, "date": date,
-            "busy": [{"start": e.startdate, "end": e.enddate} for e in evs]}
+            "busy": [{"start": e.startdate, "end": e.enddate} for e in evs],
+            "working": _working(user, date, tz) if some or every else None}
 
 
 @router.get("/agenda", response=list[AgendaItem], summary="Upcoming events, deadlines and due todos, merged")

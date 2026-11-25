@@ -5,7 +5,8 @@ import { Link } from 'react-router'
 import { Icon } from '../../components/Icon'
 import { Button, ErrorBox, Segmented, SkeletonRows } from '../../components/ui'
 import { cn } from '../../lib/cn'
-import { addDays, dayKey, fmtDate, isSameDay, parseDayKey } from '../../lib/dates'
+import { addDays, dayKey, fmtDate, parseDayKey } from '../../lib/dates'
+import { useDayStart, userDayKey } from '../../lib/preferences'
 import { useCheck, useEntries, useHabits, type Entry, type Habit } from './api'
 import { useLongPress } from '../../lib/useLongPress'
 import { DayDialog, type DayTarget } from './DayEditor'
@@ -34,7 +35,7 @@ export function GridView({
   onRange: (r: 'week' | 'month') => void
   onEnd: (d: string) => void
 }) {
-  const todayKey = dayKey(new Date())
+  const todayKey = userDayKey(new Date(), useDayStart()) // before the day start it's still yesterday
   const span = range === 'week' ? 7 : 30
   const endDate = parseDayKey(end > todayKey ? todayKey : end)
   const days = Array.from({ length: span }, (_, i) => addDays(endDate, i - span + 1))
@@ -82,7 +83,7 @@ export function GridView({
                   Habit
                 </th>
                 {days.map((d) => {
-                  const today = isSameDay(d, new Date())
+                  const today = dayKey(d) === todayKey
                   return (
                     <th
                       key={dayKey(d)}

@@ -22,6 +22,7 @@ class ComptechUser(AbstractUser):
     friends = models.ManyToManyField("self", related_name='user_friends', blank=True)
     user_groups = models.ManyToManyField(UserGroup, blank=True)
     newuser = models.BooleanField(default=True)
+    preferences = models.JSONField(default=dict, blank=True)  # only what the user changed; users.preferences has the defaults
 
     REQUIRED_FIELDS = ['first_name', 'last_name', 'password']
 

@@ -8,6 +8,9 @@ import pytz
 from ninja import Field, Router, Schema
 from ninja.errors import HttpError
 
+from . import preferences as prefs
+from .preferences import Preferences, PreferencesPatch
+
 router = Router(tags=["me"])
 
 
@@ -28,6 +31,11 @@ class MeOut(Schema):
     profile_picture: str
     is_staff: bool
     groups: list[GroupOut]
+    preferences: Preferences  # every setting, with the defaults filled in
+
+    @staticmethod
+    def resolve_preferences(obj):
+        return prefs.of(obj)
 
     @staticmethod
     def resolve_profile_picture(obj):
@@ -72,6 +80,22 @@ def update_me(request, payload: MePatch):
         setattr(user, key, value)
     user.save(update_fields=list(data) or None)
     return user
+
+
+@router.patch("/preferences", response=Preferences, summary="Change some preferences (null resets one to its default)")
+def update_preferences(request, payload: PreferencesPatch):
+    from pydantic import ValidationError
+    try:
+        saved = prefs.update(request.user, payload)
+        if "quiet_hours" in payload.model_fields_set:
+            from notifications.quiet import reschedule_held
+            reschedule_held(request.user)
+        return saved
+    except ValidationError as exc:
+        err = exc.errors()[0]
+        raise HttpError(400, f"{'.'.join(map(str, err['loc']))}: {err['msg'].removeprefix('Value error, ')}") from exc
+    except ValueError as exc:
+        raise HttpError(400, str(exc)) from exc
 
 
 # ---------------------------------------------------------------- profile picture, password

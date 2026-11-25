@@ -1,6 +1,9 @@
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import { api, apiUrl, ApiError, errorMessage, readCookie, safeHref, appRoute } from './api'
 import { groupByDue, groupByDay, monthGrid, dueLabel, fromLocalInput, toLocalInput } from './dates'
+import { fmtDate, fmtHour, fmtLongDate, fmtNumericDay, fmtStamp, fmtTime } from './dates'
+import { DEFAULT_DISPLAY, type DisplayPrefs, setDisplayPrefs } from './display'
+import { fmtAltitude, fmtDistance } from './map/geo'
 import { parseTaskState, serializeTaskState, nextTaskState } from './qs'
 import { justify } from './justify'
 import { previewQuick } from './quick'
@@ -119,6 +122,62 @@ describe('dates', () => {
     const iso = fromLocalInput('2026-11-04T09:30')!
     expect(toLocalInput(iso)).toBe('2026-11-04T09:30')
     expect(fromLocalInput('')).toBeNull()
+  })
+})
+
+describe('display preferences', () => {
+  const d = new Date(2026, 10, 24, 15, 5, 9) // Tue Nov 24 2026, 3:05:09 PM local
+  const show = (p: Partial<DisplayPrefs>) => setDisplayPrefs({ ...DEFAULT_DISPLAY, ...p })
+  // ICU puts a narrow no-break space before AM/PM.
+  const text = (s: string) => s.replace(/\s/g, ' ')
+  const browser12h = /\d [AP]M$/i.test(text(new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit' }).format(d)))
+  afterEach(() => setDisplayPrefs(DEFAULT_DISPLAY))
+
+  it("follows the browser's locale until a format is chosen", () => {
+    expect(fmtStamp(d)).toBe(d.toLocaleString())
+    expect(fmtTime(d)).toBe(d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }))
+  })
+
+  it('shows the chosen clock, and keeps the browser clock when only the date format changes', () => {
+    const at = (h: number) => new Date(2026, 0, 1, h)
+    show({ time_format: '12h', date_format: 'mdy' }) // en-US's "PM", whatever the test machine's locale
+    expect([fmtTime(d), fmtHour(at(15))].map(text)).toEqual(['3:05 PM', '3 PM'])
+    show({ time_format: '24h' })
+    expect([fmtTime(d), fmtHour(at(15)), fmtHour(at(9))]).toEqual(['15:05', '15:00', '09:00'])
+    show({ date_format: 'dmy' })
+    expect(/\d [ap]m$/i.test(text(fmtTime(d)))).toBe(browser12h)
+  })
+
+  it('orders dates as chosen, relative labels unchanged', () => {
+    show({ date_format: 'mdy' })
+    expect([fmtNumericDay(d), fmtDate(d), fmtLongDate(d)]).toEqual(['11/24/2026', 'Nov 24', 'Tuesday, November 24'])
+    show({ date_format: 'dmy' })
+    expect([fmtNumericDay(d), fmtDate(d), fmtDate(d, { month: 'short', day: 'numeric', year: 'numeric' })]).toEqual([
+      '24/11/2026',
+      '24 Nov',
+      '24 Nov 2026',
+    ])
+    show({ date_format: 'ymd', time_format: '24h' })
+    expect([
+      fmtNumericDay(d),
+      fmtStamp(d),
+      fmtDate(d),
+      fmtDate(d, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }),
+      fmtDate(d, { month: 'long', year: 'numeric' }),
+      dueLabel(new Date(2026, 10, 24, 17).toISOString(), d),
+    ]).toEqual(['2026-11-24', '2026-11-24, 15:05:09', 'Nov 24', 'Tue, 2026 Nov 24', '2026 November', 'Today 17:00'])
+  })
+
+  it('prints distances and altitudes in the chosen units', () => {
+    show({ units: 'km' })
+    expect([fmtDistance(12_345, 'precise'), fmtDistance(350), fmtAltitude(350)]).toEqual(['12.35 km', '350 m', '350 m'])
+    show({ units: 'mi' })
+    expect([fmtDistance(100), fmtDistance(12_345), fmtDistance(12_345, 'precise'), fmtAltitude(100)]).toEqual([
+      '328 ft',
+      '7.7 mi',
+      '7.67 mi',
+      '328 ft',
+    ])
   })
 })
 

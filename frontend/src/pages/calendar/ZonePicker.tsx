@@ -5,7 +5,7 @@ import { Icon } from '../../components/Icon'
 import { Button, Dialog, MenuLabel } from '../../components/ui'
 import { cn } from '../../lib/cn'
 import { pill } from './chips'
-import { HOME_ZONE, allZones, gmtText, offsetMs, validZone, zoneCity, type Zone } from './zone'
+import { HOME_ZONE, allZones, fmtTimeIn, gmtText, offsetMs, validZone, zoneCity, type Zone } from './zone'
 
 interface Meta {
   id: string
@@ -19,18 +19,10 @@ interface Meta {
 
 function describe(id: string, now: number): Meta | null {
   try {
-    const parts = new Intl.DateTimeFormat(undefined, {
-      timeZone: id,
-      hour: 'numeric',
-      minute: '2-digit',
-      timeZoneName: 'long',
-    }).formatToParts(now)
-    const long = parts.find((p) => p.type === 'timeZoneName')?.value ?? ''
-    const time = parts
-      .filter((p) => p.type !== 'timeZoneName')
-      .map((p) => p.value)
-      .join('')
-      .trim()
+    const long =
+      new Intl.DateTimeFormat(undefined, { timeZone: id, timeZoneName: 'long' }).formatToParts(now).find((p) => p.type === 'timeZoneName')
+        ?.value ?? ''
+    const time = fmtTimeIn(now, id)
     const off = offsetMs(now, id)
     const city = zoneCity(id)
     const region = id.split('/').slice(0, -1).join(' / ').replace(/_/g, ' ')

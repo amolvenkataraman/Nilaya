@@ -7,7 +7,7 @@ import { Link, useLocation, useParams } from 'react-router'
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
 import { ApiError, get, safeHref } from '../../lib/api'
 import type { Box } from '../../lib/justify'
-import { dateFormatter } from '../../lib/dates'
+import { fmtDate } from '../../lib/dates'
 import type { Photo, PhotoPage, Schemas } from '../../lib/types'
 import { Icon } from '../../components/Icon'
 import { buttonClass, ErrorBox, SkeletonRows, useMediaQuery } from '../../components/ui'
@@ -25,13 +25,14 @@ const PAGE = 120
 /** The old global .card look (white panel, hairline border, radius). */
 const card = 'min-w-0 rounded-md border border-border bg-surface shadow-card'
 const GAP = 4
-const span = dateFormatter({ month: 'short', day: 'numeric', year: 'numeric' })
-const caption = dateFormatter({ weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
+const SPAN: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric', year: 'numeric' }
+const caption = (iso: string) =>
+  fmtDate(new Date(iso), { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' })
 
 function dateRange(a: string | null, b: string | null): string {
   if (!a || !b) return ''
-  const x = span.format(new Date(a))
-  const y = span.format(new Date(b))
+  const x = fmtDate(new Date(a), SPAN)
+  const y = fmtDate(new Date(b), SPAN)
   return x === y ? x : `${x} – ${y}`
 }
 
@@ -189,7 +190,7 @@ function Grid({
           className="group/tile relative flex-none cursor-zoom-in overflow-hidden rounded-[2px] border-0 bg-surface-2 p-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
           style={{ width: b.width, height: b.height }}
           onClick={() => onOpenRef.current(indexOf.get(p.id) ?? 0)}
-          aria-label={(p.video ? 'Video' : 'Photo') + (p.date_taken ? `, ${caption.format(new Date(p.date_taken))}` : '')}
+          aria-label={(p.video ? 'Video' : 'Photo') + (p.date_taken ? `, ${caption(p.date_taken)}` : '')}
         >
           {src && (
             <img
@@ -283,7 +284,7 @@ function Lightbox({ items, index, onGo, onClose }: { items: Photo[]; index: numb
     >
       <div className="flex items-center gap-2 px-3 pt-[calc(0.5rem+env(safe-area-inset-top,0px))] pb-2">
         <span className="grid min-w-0 flex-1 text-sm">
-          <span>{p.date_taken ? caption.format(new Date(p.date_taken)) : 'Undated'}</span>
+          <span>{p.date_taken ? caption(p.date_taken) : 'Undated'}</span>
           {place && (
             <span className={cn('inline-flex items-center gap-1 text-xs', dimWhite)}>
               <Icon name="location" size={12} />

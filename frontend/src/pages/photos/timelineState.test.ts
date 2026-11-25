@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { filterCount, isPlainTimeline, parseTimelineState } from './timelineState'
 
-const endOf26th = new Date(2026, 6, 27).toISOString()
+const endOf26th = new Date(2026, 6, 27, 5).toISOString() // days begin at 5 am
 
 describe('parseTimelineState', () => {
   it.each([
@@ -26,7 +26,7 @@ describe('parseTimelineState', () => {
     ],
   ])('%s', (qs, want) => {
     const p = new URLSearchParams(qs)
-    const s = parseTimelineState(p)
+    const s = parseTimelineState(p, 300)
     expect([s.place, s.filter, s.startBefore]).toEqual([want.place, want.filter, want.start])
     expect([isPlainTimeline(p), filterCount(p)]).toEqual([want.plain, want.count])
   })

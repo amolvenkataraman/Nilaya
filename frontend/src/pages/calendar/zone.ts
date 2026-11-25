@@ -5,13 +5,14 @@
 // display zone here, and wall-clock parts in that zone become instants here; nothing else in the
 // calendar converts between the two. `tz` undefined means the browser's own zone (the default, and
 // the fast path through Date's local methods).
-import { createContext, useContext, useMemo, useState } from 'react'
-import { dateFormatter } from '../../lib/dates'
+import { createContext, useContext, useEffect, useState } from 'react'
+import { fmtDate, fmtTime } from '../../lib/dates'
 import { userKey } from '../../lib/owner'
+import { type WeekStart, usePreferences, useSavePreferences } from '../../lib/preferences'
 import { readPref, writePref } from '../../lib/storage'
 
 export type Zone = string | undefined
-export type WeekStart = 0 | 1
+export type { WeekStart }
 
 /** The browser's zone: what the calendar shows unless a temporary zone is picked. */
 export const HOME_ZONE: string = (() => {
@@ -135,17 +136,20 @@ export function shiftWall(t: number, days: number, mins: number, tz: Zone): Date
 }
 
 // ---------------------------------------------------------------- formatting
-/** "3:30 PM" in `tz`. */
-export const fmtTimeIn = (d: Date | number, tz: Zone) => dateFormatter({ hour: 'numeric', minute: '2-digit', timeZone: tz }).format(d)
-/** Date#toLocaleDateString-like text in `tz` (cached formatters). */
-export const fmtDateIn = (d: Date | number, opts: Intl.DateTimeFormatOptions, tz: Zone) =>
-  dateFormatter({ ...opts, timeZone: tz }).format(d)
-/** Short chip time: "3pm", "3:30pm". */
-export const chipTime = (d: Date | number, tz: Zone) =>
-  fmtTimeIn(d, tz)
-    .replace(/:00(?=\s|$)/, '')
-    .replace(/\s/g, '')
-    .toLowerCase()
+/** "3:30 PM" or "15:30" in `tz` (the account's clock). */
+export const fmtTimeIn = (d: Date | number, tz: Zone) => fmtTime(d, tz)
+/** Date#toLocaleDateString-like text in `tz` (the account's date format, cached formatters). */
+export const fmtDateIn = (d: Date | number, opts: Intl.DateTimeFormatOptions, tz: Zone) => fmtDate(d, { ...opts, timeZone: tz })
+/** Short chip time: "3pm", "3:30pm"; a 24-hour clock keeps its minutes ("15:00"), as a bare "15" isn't a time. */
+export function chipTime(d: Date | number, tz: Zone): string {
+  const t = fmtTimeIn(d, tz)
+  return /\p{L}/u.test(t)
+    ? t
+        .replace(/:00(?=\s|$)/, '')
+        .replace(/\s/g, '')
+        .toLowerCase()
+    : t
+}
 
 /** "GMT-5", "GMT+5:30", "GMT" for an offset in ms. */
 export function gmtText(off: number): string {
@@ -291,16 +295,19 @@ export function useDisplayZone(): [Zone, (tz: Zone) => void] {
   return [tz, set]
 }
 
-/** First day of the week for this user (Monday unless they chose Sunday), saved on this device. */
+/** First day of the week: the account's preference (Settings › Preferences). A choice this browser saved before
+ *  it moved to the account is sent up once and forgotten here. */
 export function useWeekStart(userId: string | undefined): [WeekStart, (v: WeekStart) => void] {
-  const key = useMemo(() => userKey(WEEK_KEY, userId), [userId])
-  const read = (k: string | null): WeekStart => (k && readPref<string>(k, '1') === '0' ? 0 : 1)
-  const [state, setState] = useState(() => ({ key, v: read(key) }))
-  // Another user (or the first /me) means another saved choice: re-read during render, not in an effect.
-  if (state.key !== key) setState({ key, v: read(key) })
-  const set = (next: WeekStart) => {
-    setState({ key, v: next })
-    if (key) writePref(key, String(next))
-  }
-  return [state.key === key ? state.v : read(key), set]
+  const { week_start } = usePreferences()
+  const save = useSavePreferences()
+  const { mutate } = save
+  useEffect(() => {
+    const key = userKey(WEEK_KEY, userId)
+    if (!key) return
+    const old = readPref(key, '')
+    if (!old) return
+    writePref(key, null)
+    mutate({ week_start: old === '0' ? 0 : 1 })
+  }, [userId, mutate])
+  return [week_start, (v) => mutate({ week_start: v })]
 }

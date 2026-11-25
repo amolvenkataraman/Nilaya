@@ -156,12 +156,17 @@ def library(user, request=None, listing=False):
 
 
 def daily(request):
-    """The per-day rollup view for this user's libraries, or None when it can't be used
-    (show-hidden mode needs the live table; the view's days are in settings.TIME_ZONE)."""
+    """The per-day rollup view for this user's libraries, or None when it can't be used: show-hidden mode needs
+    the live table, and the view's days are in settings.TIME_ZONE and begin at PhotoDaily.DAY_OFFSET (the default
+    day start), so another time zone or day start reads the live table."""
     from django.conf import settings
+
+    from users.preferences import day_offset
 
     from .models import PhotoDaily
     if hidden_mode.show_hidden(request) or request.user.timezone not in ("", settings.TIME_ZONE, "Canada/Eastern", "America/Toronto"):
+        return None
+    if day_offset(request.user) != PhotoDaily.DAY_OFFSET:
         return None
     albums = Album_Subscriber.objects.filter(user=request.user, visible=True).values("album_id")  # Sources switch, like listing=True
     return PhotoDaily.objects.filter(album_id__in=albums)
