@@ -1,7 +1,8 @@
 /* Nilaya's base: tokens Tailwind maps (shadows, scrim, easing, top-bar height), element resets in the base layer
    so utilities override them, and the keyframes the arbitrary animate-[…] utilities use. Colours, radii and fonts
    come from theme.css (--app-*), also read by the pre-paint public/theme.js and the phone apps' token generator.
-   Sizes are in rem so the 4K rules in theme.css (html font-size 18-24px) scale everything. */
+   Sizes are in rem at a fixed root size: a bigger or higher-resolution screen shows more (wider lists, more columns,
+   more photos per row), as in G Suite, instead of the same layout drawn larger. Browser zoom still scales it all. */
 @import './theme.css';
 
 :root {

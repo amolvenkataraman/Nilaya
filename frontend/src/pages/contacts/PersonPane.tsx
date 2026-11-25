@@ -92,7 +92,7 @@ function Person({
   }
   const importedFrom = p.sources.filter((x) => x !== 'manual').map((x) => formats?.[x] ?? x)
   return (
-    <section className={detailPane()} aria-label={p.name}>
+    <section className={detailPane('gap-4', true)} aria-label={p.name}>
       <div className="flex items-center gap-1">
         {/* The list sits beside the pane on desktop; Back only matters on phones. */}
         <Button variant="ghost" size="sm" className="invisible max-md:visible" onClick={onClose}>
@@ -213,128 +213,135 @@ function Person({
         </div>
       </header>
 
-      <dl className="m-0 grid border-t border-border">
-        {p.emails.map((e, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: stored rows have no id and may repeat a value
-          <Info key={'e' + i} icon="mail" label={e.label || 'Email'}>
-            {EMAIL_RE.test(e.value) ? <a href={'mailto:' + e.value}>{e.value}</a> : e.value}
-          </Info>
-        ))}
-        {p.phones.map((ph, i) => {
-          const href = telHref(ph.value)
-          return (
-            // biome-ignore lint/suspicious/noArrayIndexKey: stored rows have no id and may repeat a value
-            <Info key={'p' + i} icon="phone" label={ph.label || 'Phone'}>
-              {href ? <a href={href}>{ph.value}</a> : ph.value}
-            </Info>
-          )
-        })}
-        {p.addresses.map((a, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: stored rows have no id and may repeat a value
-          <Info key={'a' + i} icon="pin" label={a.label || 'Address'} className={preWrap}>
-            {[a.street, [a.city, a.region, a.postcode].filter(Boolean).join(', '), a.country].filter(Boolean).join('\n')}
-          </Info>
-        ))}
-        {p.birthday && (
-          <Info icon="gift" label="Birthday">
-            {fmtBirthday(p.birthday)}
-          </Info>
-        )}
-        {p.anniversary && (
-          <Info icon="heart" label="Anniversary">
-            {fmtBirthday(p.anniversary)}
-          </Info>
-        )}
-        {p.links.map((l, i) => {
-          const href = safeHref(l.url)
-          return (
-            // biome-ignore lint/suspicious/noArrayIndexKey: stored rows have no id and may repeat a value
-            <Info key={'lk' + i} icon="link" label={l.label || 'Link'}>
-              {href ? (
-                <a href={href} target="_blank" rel="noopener noreferrer">
-                  {l.url}
-                </a>
-              ) : (
-                l.url
-              )}
-            </Info>
-          )
-        })}
-        {p.custom_fields.map((f, i) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: stored rows have no id and may repeat a key
-          <Info key={'cf' + i} icon="info" label={f.key} className={preWrap}>
-            {f.value}
-          </Info>
-        ))}
-        <Info icon="clock" label="Last in touch">
-          {p.last_contacted ? fmtDate(parseDayKey(p.last_contacted)) : <span className="text-muted">No interactions logged</span>}
-          {p.keep_in_touch_days && p.next_due ? (
-            <span className={p.overdue ? 'text-danger' : 'text-muted'}> · {kitStatus(p.next_due)}</span>
-          ) : null}
-        </Info>
-        <Info icon="repeat" label={<label htmlFor="c-kit">Keep in touch</label>}>
-          <Select
-            id="c-kit"
-            size="sm"
-            width="content"
-            className="max-w-full"
-            value={p.keep_in_touch_days ?? 0}
-            disabled={save.isPending}
-            onChange={(e) => save.mutate({ id: p.id, body: { keep_in_touch_days: Number(e.target.value) || null } })}
-          >
-            {KIT.map(([d, l]) => (
-              <option key={d} value={d}>
-                {l}
-              </option>
+      {/* Wide screens: details and notes on the left, relationships and history on the right. */}
+      <div className="grid gap-4 min-[1800px]:grid-cols-2 min-[1800px]:items-start min-[1800px]:gap-8">
+        <div className="grid gap-4">
+          <dl className="m-0 grid border-t border-border">
+            {p.emails.map((e, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: stored rows have no id and may repeat a value
+              <Info key={'e' + i} icon="mail" label={e.label || 'Email'}>
+                {EMAIL_RE.test(e.value) ? <a href={'mailto:' + e.value}>{e.value}</a> : e.value}
+              </Info>
             ))}
-            {p.keep_in_touch_days && !KIT.some(([d]) => d === p.keep_in_touch_days) ? (
-              <option value={p.keep_in_touch_days}>Every {p.keep_in_touch_days} days</option>
-            ) : null}
-          </Select>
-          {p.keep_in_touch_days && p.next_due ? <span className="text-muted"> · next {fmtDate(parseDayKey(p.next_due))}</span> : null}
-        </Info>
-        {p.how_met && (
-          <Info icon="users" label="How we met" className={preWrap}>
-            {p.how_met}
-          </Info>
-        )}
-        {p.linked_user && (
-          <Info icon="user" label="Account">
-            {p.linked_user.name} <span className="text-muted">@{p.linked_user.username}</span>
-          </Info>
-        )}
-        {profiles.length > 0 && (
-          <Info icon="link" label="Profiles" className="flex flex-wrap gap-1">
-            {profiles.map((l) =>
-              l.href ? (
-                <a
-                  key={l.network + l.handle}
-                  className={chipClass({ tone: 'content', interactive: true })}
-                  href={l.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  title={l.url ?? undefined}
-                >
-                  {l.label} <span className="text-muted">{l.handle}</span>
-                  <Icon name="external" size={11} />
-                </a>
-              ) : (
-                <Chip key={l.network + l.handle} title="No public profile link">
-                  {l.label}: {l.handle}
-                </Chip>
-              ),
+            {p.phones.map((ph, i) => {
+              const href = telHref(ph.value)
+              return (
+                // biome-ignore lint/suspicious/noArrayIndexKey: stored rows have no id and may repeat a value
+                <Info key={'p' + i} icon="phone" label={ph.label || 'Phone'}>
+                  {href ? <a href={href}>{ph.value}</a> : ph.value}
+                </Info>
+              )
+            })}
+            {p.addresses.map((a, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: stored rows have no id and may repeat a value
+              <Info key={'a' + i} icon="pin" label={a.label || 'Address'} className={preWrap}>
+                {[a.street, [a.city, a.region, a.postcode].filter(Boolean).join(', '), a.country].filter(Boolean).join('\n')}
+              </Info>
+            ))}
+            {p.birthday && (
+              <Info icon="gift" label="Birthday">
+                {fmtBirthday(p.birthday)}
+              </Info>
             )}
-          </Info>
-        )}
-      </dl>
-      {p.notes && (
-        <div className="grid gap-2">
-          <SectionLabel>Notes</SectionLabel>
-          <p className={cn(preWrap, 'text-sm')}>{p.notes}</p>
+            {p.anniversary && (
+              <Info icon="heart" label="Anniversary">
+                {fmtBirthday(p.anniversary)}
+              </Info>
+            )}
+            {p.links.map((l, i) => {
+              const href = safeHref(l.url)
+              return (
+                // biome-ignore lint/suspicious/noArrayIndexKey: stored rows have no id and may repeat a value
+                <Info key={'lk' + i} icon="link" label={l.label || 'Link'}>
+                  {href ? (
+                    <a href={href} target="_blank" rel="noopener noreferrer">
+                      {l.url}
+                    </a>
+                  ) : (
+                    l.url
+                  )}
+                </Info>
+              )
+            })}
+            {p.custom_fields.map((f, i) => (
+              // biome-ignore lint/suspicious/noArrayIndexKey: stored rows have no id and may repeat a key
+              <Info key={'cf' + i} icon="info" label={f.key} className={preWrap}>
+                {f.value}
+              </Info>
+            ))}
+            <Info icon="clock" label="Last in touch">
+              {p.last_contacted ? fmtDate(parseDayKey(p.last_contacted)) : <span className="text-muted">No interactions logged</span>}
+              {p.keep_in_touch_days && p.next_due ? (
+                <span className={p.overdue ? 'text-danger' : 'text-muted'}> · {kitStatus(p.next_due)}</span>
+              ) : null}
+            </Info>
+            <Info icon="repeat" label={<label htmlFor="c-kit">Keep in touch</label>}>
+              <Select
+                id="c-kit"
+                size="sm"
+                width="content"
+                className="max-w-full"
+                value={p.keep_in_touch_days ?? 0}
+                disabled={save.isPending}
+                onChange={(e) => save.mutate({ id: p.id, body: { keep_in_touch_days: Number(e.target.value) || null } })}
+              >
+                {KIT.map(([d, l]) => (
+                  <option key={d} value={d}>
+                    {l}
+                  </option>
+                ))}
+                {p.keep_in_touch_days && !KIT.some(([d]) => d === p.keep_in_touch_days) ? (
+                  <option value={p.keep_in_touch_days}>Every {p.keep_in_touch_days} days</option>
+                ) : null}
+              </Select>
+              {p.keep_in_touch_days && p.next_due ? <span className="text-muted"> · next {fmtDate(parseDayKey(p.next_due))}</span> : null}
+            </Info>
+            {p.how_met && (
+              <Info icon="users" label="How we met" className={preWrap}>
+                {p.how_met}
+              </Info>
+            )}
+            {p.linked_user && (
+              <Info icon="user" label="Account">
+                {p.linked_user.name} <span className="text-muted">@{p.linked_user.username}</span>
+              </Info>
+            )}
+            {profiles.length > 0 && (
+              <Info icon="link" label="Profiles" className="flex flex-wrap gap-1">
+                {profiles.map((l) =>
+                  l.href ? (
+                    <a
+                      key={l.network + l.handle}
+                      className={chipClass({ tone: 'content', interactive: true })}
+                      href={l.href}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={l.url ?? undefined}
+                    >
+                      {l.label} <span className="text-muted">{l.handle}</span>
+                      <Icon name="external" size={11} />
+                    </a>
+                  ) : (
+                    <Chip key={l.network + l.handle} title="No public profile link">
+                      {l.label}: {l.handle}
+                    </Chip>
+                  ),
+                )}
+              </Info>
+            )}
+          </dl>
+          {p.notes && (
+            <div className="grid gap-2">
+              <SectionLabel>Notes</SectionLabel>
+              <p className={cn(preWrap, 'text-sm')}>{p.notes}</p>
+            </div>
+          )}
         </div>
-      )}
-      <Relationships person={p} onOpen={onOpen} />
-      <Interactions person={p} />
+        <div className="grid gap-4">
+          <Relationships person={p} onOpen={onOpen} />
+          <Interactions person={p} />
+        </div>
+      </div>
       <p className="border-t border-border pt-2 text-xs text-muted">
         Added {shortStamp(p.created_on)} · updated {shortStamp(p.updated_on)}
         {importedFrom.length ? ` · imported from ${importedFrom.join(', ')}` : ''}

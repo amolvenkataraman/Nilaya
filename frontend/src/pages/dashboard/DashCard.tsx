@@ -26,6 +26,9 @@ export const dashGrid = cn(
   "[grid-template-areas:'agenda_tasks_week'_'agenda_tasks_habits'_'agenda_tasks_inbox'_'links_links_links']",
   'max-[1200px]:grid-cols-2 max-[1200px]:grid-rows-none',
   "max-[1200px]:[grid-template-areas:'agenda_tasks'_'week_habits'_'inbox_habits'_'links_links']",
+  // wide screens: notifications get a column of their own instead of queueing under the week and habits
+  'min-[1800px]:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)_minmax(0,0.95fr)_minmax(0,0.95fr)]',
+  "min-[1800px]:[grid-template-areas:'agenda_tasks_week_inbox'_'agenda_tasks_habits_inbox'_'agenda_tasks_habits_inbox'_'links_links_links_links']",
   "max-md:grid-cols-1 max-md:[grid-template-areas:'agenda'_'tasks'_'habits'_'week'_'inbox'_'links']",
 )
 

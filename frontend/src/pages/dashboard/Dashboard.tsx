@@ -47,7 +47,7 @@ export default function Dashboard() {
 
   return (
     <AppShell app="home" title="Home">
-      <div className="mx-auto max-w-[100rem] px-6 pt-5 pb-8 max-md:px-3 max-md:pt-3.5 max-md:pb-6">
+      <div className="mx-auto max-w-[100rem] px-6 pt-5 pb-8 max-md:px-3 max-md:pt-3.5 max-md:pb-6 min-[1800px]:max-w-[160rem]">
         <header className="mb-4 flex flex-wrap items-end gap-4">
           <div className="min-w-0 flex-1">
             <h1 className="text-xl font-semibold tracking-[-0.02em] max-md:text-lg">

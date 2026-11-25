@@ -230,7 +230,7 @@ export default function ContactsPage() {
 
   return (
     <AppShell app="contacts" topbar={topbar} sidebar={sidebar} fullHeight>
-      <div className="grid h-full min-h-0 grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)]">
+      <div className="grid h-full min-h-0 grid-cols-[minmax(18rem,24rem)_minmax(0,1fr)] max-md:grid-cols-[minmax(0,1fr)] min-[1800px]:grid-cols-[minmax(22rem,30rem)_minmax(0,1fr)]">
         {showList && (
           <ContactList
             title={title}
