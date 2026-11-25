@@ -143,3 +143,19 @@ class DeviceTests(TestCase):
             self.assertEqual(self.post("/api/v2/devices/sign-out", device_token=signed["device_token"]).status_code, 204)
         self.assertEqual(self.client.get("/api/v2/photos/summary", **photos).status_code, 401)
         self.assertFalse(Device.objects.exists())
+
+    def test_sign_in_failures_are_limited_per_address(self):
+        from django.core.cache import cache
+
+        from users.auth_api import IP_FAIL_LIMIT
+        cache.clear()
+        ComptechUser.objects.create_user("kim", password="pw")
+        ip = {"HTTP_X_REAL_IP": "203.0.113.9"}
+        body = {"device_name": "Pixel 8", "app": "photos", "password": "x"}
+        for i in range(IP_FAIL_LIMIT):
+            r = self.client.post("/api/v2/devices/sign-in", {**body, "username": f"user{i}"}, content_type="application/json", **ip)
+            self.assertEqual(r.status_code, 400)
+        r = self.client.post("/api/v2/devices/sign-in", {**body, "username": "kim", "password": "pw"},
+                             content_type="application/json", **ip)
+        self.assertEqual(r.status_code, 429)
+        self.assertIn("Retry-After", r)

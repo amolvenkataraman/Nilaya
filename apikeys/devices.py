@@ -20,7 +20,7 @@ from ninja.errors import HttpError
 from ninja.security import django_auth
 
 from notifications.service import Priority, notify
-from users.auth_api import check_credentials
+from users.auth_api import check_credentials, retry_after
 
 from .models import APPS, Device
 
@@ -73,6 +73,7 @@ def _check_app(app):
 
 @router.post("/sign-in", auth=None, response={201: SignedIn},
              summary="Phone: sign in with a username and password; returns a device token and a key for one app")
+@retry_after
 def sign_in(request, payload: SignInIn):
     _check_app(payload.app)
     user = check_credentials(request, payload.username, payload.password)

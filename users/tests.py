@@ -86,3 +86,20 @@ class SignInTests(TestCase):
             self.assertEqual(self.post("/api/v2/auth/login", {"username": "eve", "password": "x"}).status_code, 400)
         r = self.post("/api/v2/auth/login", {"username": "EVE", "password": "right-pass-1"})
         self.assertEqual(r.status_code, 429)
+
+    def test_failures_are_also_limited_per_address_across_usernames(self):
+        from .auth_api import IP_FAIL_LIMIT
+        sprayer, other = {"HTTP_X_REAL_IP": "203.0.113.7"}, {"HTTP_X_REAL_IP": "198.51.100.2"}
+
+        def login(username, password, ip):  # signing in rotates the CSRF token, so read it each time
+            return self.client.post("/api/v2/auth/login", {"username": username, "password": password},
+                                    content_type="application/json",
+                                    HTTP_X_CSRFTOKEN=self.client.cookies["csrftoken"].value, **ip)
+        for i in range(IP_FAIL_LIMIT - 1):  # one guess per name: the per-username limit never trips
+            self.assertEqual(login(f"user{i}", "x", sprayer).status_code, 400)
+        self.assertEqual(login("eve", "right-pass-1", sprayer).status_code, 200)  # a success doesn't count
+        self.assertEqual(login("last", "x", sprayer).status_code, 400)
+        r = login("eve", "right-pass-1", sprayer)
+        self.assertEqual(r.status_code, 429)
+        self.assertGreater(int(r["Retry-After"]), 0)
+        self.assertEqual(login("eve", "right-pass-1", other).status_code, 200)  # another address is unaffected

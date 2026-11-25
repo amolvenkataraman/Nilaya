@@ -10,6 +10,8 @@ from django.utils import timezone
 from ninja.errors import HttpError
 from ninja.security import APIKeyHeader, HttpBearer
 
+from users.auth_api import client_ip
+
 from .models import APPS, ApiKey
 
 SAFE = {"GET", "HEAD", "OPTIONS"}
@@ -30,10 +32,7 @@ def _authenticate(request, token):
     request.user = key.user
     now = timezone.now()
     if key.last_used_on is None or now - key.last_used_on > datetime.timedelta(minutes=1):
-        ip = request.META.get("REMOTE_ADDR")
-        if ip in ("127.0.0.1", "::1"):  # behind nginx: its X-Real-IP is the client
-            ip = request.META.get("HTTP_X_REAL_IP") or ip
-        ApiKey.objects.filter(pk=key.pk).update(last_used_on=now, last_used_ip=ip)
+        ApiKey.objects.filter(pk=key.pk).update(last_used_on=now, last_used_ip=client_ip(request))
     return key
 
 
