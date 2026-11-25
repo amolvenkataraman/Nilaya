@@ -1,4 +1,4 @@
-Django>=5.1,<6     # 5.1: DB connection pool; 6 not tested yet
+Django>=5.2.19,<5.3   # 5.2 LTS (security fixes to April 2028); needs Postgres 14+
 channels
 channels_redis
 gpsphoto
