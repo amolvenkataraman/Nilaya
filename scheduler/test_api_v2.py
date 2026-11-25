@@ -169,6 +169,30 @@ class PrivateAndMovedSeriesTests(TestCase):
         self.assertEqual(got, [("W", "11-02 09:00"), ("W", "11-09 09:00"), ("W9", "11-16 09:00"), ("W16", "11-23 09:00"),
                                ("W", "12-07 09:00")])  # Nov 30 is the deleted one, moved along
 
+    def test_occurrences_moved_outside_their_series_are_still_listed(self):
+        from . import service as svc
+        s = Event.objects.create(calendar=self.a, name="W", startdate=at(2, 9), enddate=at(2, 10),
+                                 rrule="FREQ=WEEKLY;COUNT=4")  # Nov 2, 9, 16, 23
+        oct30 = TZ.localize(datetime.datetime(2026, 10, 30, 9))
+
+        def move(day, to, name):
+            o = svc.make_override(s, at(day, 9).astimezone(datetime.timezone.utc))
+            o.name, o.startdate, o.enddate = name, to, to + datetime.timedelta(hours=1)
+            o.save()
+            return o
+
+        late = move(23, at(27, 9), "After end")
+        move(2, oct30, "Before start")
+        names = lambda a, b, **kw: [e.name for e in svc.events_in_range([self.a.id], a, b, **kw)]
+        self.assertEqual(names(at(25, 0), at(30, 0)), ["After end"])
+        self.assertEqual(names(oct30 - datetime.timedelta(days=3), at(1, 0)), ["Before start"])
+        self.assertEqual(names(oct30 - datetime.timedelta(days=3), at(30, 0)), ["Before start", "W", "W", "After end"])
+        Event.objects.filter(id=late.id).update(status="cancelled")
+        self.assertEqual(names(at(25, 0), at(30, 0)), [])
+        self.assertEqual(names(at(25, 0), at(30, 0), include_cancelled=True), ["After end"])
+        Event.objects.filter(id=s.id).update(status="cancelled")  # a cancelled series hides its moved ones too
+        self.assertEqual(names(oct30 - datetime.timedelta(days=3), at(1, 0)), [])
+
 
 class ReviewFixTests(TestCase):
     """One test per bug found in the phase-1 review (privacy and robustness)."""

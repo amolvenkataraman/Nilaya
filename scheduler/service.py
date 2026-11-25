@@ -52,19 +52,27 @@ def events_in_range(calendar_ids, start, end, *, include_cancelled=False, extra=
     series_qs = base.exclude(rrule="").filter(startdate__lt=end).filter(
         Q(recurrence_end__isnull=True) | Q(recurrence_end__gt=start))
     series = list(series_qs.select_related(*related))
-    if series:
-        matching = ({s.id for s in series} if extra is None else
-                    set(series_qs.filter(extra).values_list("id", flat=True)))
+    # A changed occurrence moved past either end of its series lies outside the series' span, so
+    # its series isn't prefiltered in: also find changed occurrences by their own time (they share
+    # the series' calendar, so the calendar+start index serves it). Same single query.
+    moved = Q(calendar_id__in=calendar_ids, recurrence_parent__isnull=False) & overlapping(start, end)
+    if not include_cancelled:
+        moved &= ~Q(recurrence_parent__status="cancelled")  # a cancelled series hides all of it
+    overrides_qs = Event.objects.filter(moved | (Q(recurrence_parent__in=[s.id for s in series]) & (
+        overlapping(start, end) | Q(original_start__gte=start - dt.timedelta(days=400), original_start__lt=end))))
+    overrides = list(overrides_qs.select_related(*related))
+    if series or overrides:
+        shown = (None if extra is None or not overrides else
+                 set(overrides_qs.filter(extra).values_list("id", flat=True)))
         skip = defaultdict(set)
-        overrides = Event.objects.filter(recurrence_parent__in=[s.id for s in series]).filter(
-            overlapping(start, end) | Q(original_start__gte=start - dt.timedelta(days=400), original_start__lt=end))
-        shown = None if extra is None else set(overrides.filter(extra).values_list("id", flat=True))
-        for o in overrides.select_related(*related):
+        for o in overrides:
             skip[o.recurrence_parent_id].add(rec.key(o.original_start))
             if (_overlaps(o, start, end) and (include_cancelled or o.status != "cancelled")
                     and (shown is None or o.id in shown)):
                 o.series_id, o.override_id = o.recurrence_parent_id, o.id
                 out.append(o)
+        matching = ({s.id for s in series} if extra is None or not series else
+                    set(series_qs.filter(extra).values_list("id", flat=True)))
         for s in series:
             if s.id not in matching:
                 continue
