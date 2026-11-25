@@ -289,6 +289,19 @@ class ApiTests(Base):
         self.assertEqual(Interaction.objects.get().person_id.hex, a["id"].replace("-", ""))
         self.assertEqual(self.client.get(API + "duplicates").json(), [])
 
+    def test_merge_keeps_calendar_attendance(self):
+        from scheduler.models import Calendar, Event, EventAttendee
+        a, b = Person.objects.create(owner=self.me, first_name="Ada"), Person.objects.create(owner=self.me, first_name="Ada L")
+        cal = Calendar.objects.create(name="Mine", owner=self.me)
+        at = timezone.now()
+        lunch, talk = (Event.objects.create(calendar=cal, name=n, startdate=at, enddate=at) for n in ("Lunch", "Talk"))
+        EventAttendee.objects.create(event=lunch, contact=b, rsvp="accepted")
+        EventAttendee.objects.create(event=talk, contact=a)
+        EventAttendee.objects.create(event=talk, contact=b)
+        self.post("merge", {"keep_id": str(a.id), "other_id": str(b.id), "fields": {}})
+        self.assertEqual(sorted((x.event.name, x.contact_id == a.id) for x in EventAttendee.objects.select_related("event")),
+                         [("Lunch", True), ("Talk", True)])  # moved, and one row per event
+
 
 class ReminderTests(Base):
     def test_birthdays_and_keep_in_touch_notify_once(self):

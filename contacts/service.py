@@ -458,6 +458,16 @@ def dismiss(owner, a, b):
     DismissedDuplicate.objects.get_or_create(owner=owner, a=a, b=b)
 
 
+def _move_attendance(other, keep):
+    """Calendar events `other` attended now list `keep` (deleting `other` would otherwise just unlink them). Where
+    both attended the same event, `keep`'s row stays and `other`'s goes."""
+    from scheduler.models import EventAttendee
+
+    both = EventAttendee.objects.filter(contact=keep).values("event_id")
+    EventAttendee.objects.filter(contact=other, event_id__in=both).delete()
+    EventAttendee.objects.filter(contact=other).update(contact=keep)
+
+
 @transaction.atomic
 def merge(keep, other, choices):
     """Merge `other` into `keep`. choices maps a field (see MERGE_FIELDS, or 'profile:<network>') to 'keep'|'other';
@@ -493,6 +503,7 @@ def merge(keep, other, choices):
     Interaction.objects.filter(person=other).update(person=keep)
     for r in Relationship.objects.filter(person=other).exclude(other=keep):
         relate(keep, r.other, r.kind)
+    _move_attendance(other, keep)
     other.delete()
     keep.refresh_last_contacted()
     return keep
