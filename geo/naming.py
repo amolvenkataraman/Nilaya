@@ -4,6 +4,8 @@
   ("Yosemite National Park"), with the city when the park is inside one ("Golden Gate National Recreation
   Area, San Francisco"). Census-designated places inside parks (Yosemite Valley) don't count as cities.
   Outside every town, the park the point is in ("Sierra National Forest") or the nearest town.
+  On the water (a boat, a ferry, a pier at a lake's edge), the lake, bay or sea ("Lake Ontario"). A photo on
+  the shore keeps its town; searching the lake still finds it (geo.places.water_photo_ids).
 - location_admin1: the state or province, so search understands "Ontario".
 - location_country: the country, for stats."""
 
@@ -19,11 +21,25 @@ def _name(field, limit):
 
 
 NATIONAL = 1  # placewise park tier: national parks, preserves, seashores, NRAs, national urban parks
+AT_EDGE_KM = 0.05  # this close to a lake's or reservoir's edge (a pier, a beach) counts as on it
+
+
+def water_name(result):
+    """The water the point is on (placewise `on`/`over`), or a lake or reservoir at whose edge it is."""
+    w = result.water
+    if w is not None and w.place.name and w.relation.value in ("on", "over"):
+        return w.place.name
+    return next((n.place.name for n in result.near
+                 if n.place.kind.value == "water" and n.place.codes.get("type") in ("lake", "reservoir")
+                 and n.distance_km is not None and n.distance_km <= AT_EDGE_KM and n.place.name), None)
 
 
 def place_name(result):
-    """The place's name: the national park (with the city it's inside, if any), else the city. Outside
-    every town (deep in a national forest) the park the point is in, else the nearest town listed."""
+    """The place's name: the water it's on, else the national park (with the city it's inside, if any), else
+    the city. Outside every town (deep in a national forest) the park the point is in, else the nearest town."""
+    water = water_name(result)
+    if water:
+        return water
     park = next((p.name for p in result.within if p.tier == NATIONAL and p.name), None)
     city = result.city.name if result.city is not None else None
     if park is None:

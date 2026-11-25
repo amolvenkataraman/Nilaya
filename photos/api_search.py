@@ -19,7 +19,7 @@ from ninja import Router, Schema
 from . import cache as photo_cache
 from . import hidden as hidden_mode
 from . import search
-from .models import Album_Subscriber, Photo, ShareAlbum, ShareAlbum_Photo
+from .models import BROKEN_GPS, Album_Subscriber, Photo, ShareAlbum, ShareAlbum_Photo
 
 router = Router(tags=["photos"])
 
@@ -97,14 +97,31 @@ def base_queryset(request, terms):
 @router.get("", response=_schemas(), summary="Search photos by place, object, camera, date, type, album; newest first")
 def search_photos(request, q: str = "", before: Optional[datetime.datetime] = None,
                   before_id: Optional[uuid.UUID] = None, limit: int = 120):
-    from .api_v2 import _page
+    from .api_v2 import _page, library
     tz = _tz(request.user)
     v = vocab(request)
-    from geo.places import resolve as place
+    from geo.places import resolve, term_box
+
+    def has_photos(box):  # same-named places: the one with photos of yours
+        s, w, n, e = box
+        return library(request.user, request).filter(latitude__range=(s, n), longitude__range=(w, e)).exists()
+
+    def place(phrase):
+        found = resolve(phrase, prefer=has_photos)
+        # One plain word ("sunset", "presidio") that only names a place you have no photos at is a word, not a place.
+        if found and " " not in phrase.strip() and (box := term_box(found[0])) and not has_photos(box):
+            return None
+        return found
     terms, unmatched = search.parse(q[:200], v, timezone.localtime(timezone.now(), tz), names(request), places=place)
     if q.strip() and not terms:  # nothing understood: say so rather than showing everything
         return {"items": [], "next_before": None, "interpreted": [], "unmatched": unmatched, "count": 0}
-    qs = base_queryset(request, terms).filter(search.filters(terms, v["city_countries"]))
+    base = base_queryset(request, terms)
+    for t in terms:  # a lake or sea: the photos taken on or near it, found with placewise (cached per library)
+        if t.type == "place" and "water" in t.data:
+            from geo.places import ids_on_or_near_water
+            found = lambda t=t: ids_on_or_near_water(base.exclude(BROKEN_GPS), t.data)  # noqa: E731
+            t.data["ids"] = photo_cache.cached(request, "water", found, t.data["id"])
+    qs = base.filter(search.filters(terms, v["city_countries"]))
     with timezone.override(tz):  # month/day lookups ("june", "summer") in the user's time zone
         page = _page(qs, before, limit, before_id)
         count = None

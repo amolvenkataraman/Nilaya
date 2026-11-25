@@ -7,8 +7,9 @@ parse(q, vocab, now) reads the query left to right, longest phrase first (up to 
 - media: video(s), photo(s)/picture(s), raw, screenshot(s);
 - places: the cities and countries in the user's library (from the cached browse lists, plane photos left out),
   plus aliases (usa/america/"US" -> United States, uk/england -> United Kingdom, nyc, sf...); words nothing
-  else understands go to placewise (`places` resolver): a state ("Ontario") matches the photos' state, and an
-  airport, landmark, park, lake, postcode or town ("YYZ airport", "golden gate bridge") the photos near it;
+  else understands go to placewise (`places` resolver, geo.places, shared with other apps): a state ("Ontario")
+  matches the photos' state, a lake or sea the photos taken on or near it (the caller finds those ids), an airport,
+  landmark, park, postcode or town ("YYZ airport", "golden gate bridge") the photos near it;
 - cameras: makes, models, model prefixes ("pixel 7", "iphone", "canon eos"), Galaxy names for Samsung codes;
 - objects: the Objects365 classes the indexer detects, with plurals and synonyms (puppies -> dog, kids -> person,
   food, animals...);
@@ -559,6 +560,10 @@ def parse(q, vocab, now, names=None, fallback=True, places=None):
         unmatched.append(i)
         i += 1
 
+    budget = [MAX_PLACE_LOOKUPS]  # placewise lookups this search may make
+    if places and unmatched:
+        unmatched = _join_places(unmatched, raw, words, places, terms, budget)
+
     # Typos: fuzzy-match runs of unmatched words (longest first), against every name vocabulary.
     still = []
     if unmatched:
@@ -601,7 +606,7 @@ def parse(q, vocab, now, names=None, fallback=True, places=None):
 
     # Places nothing else knows (placewise): runs of leftover words, longest phrase first.
     if places and still:
-        still = _places(still, plain, raw, words, places, span, terms)
+        still = _places(still, raw, words, places, span, terms, budget)
 
     # Dedupe (same type and value), keep query order.
     seen, out = set(), []
@@ -626,23 +631,68 @@ def parse(q, vocab, now, names=None, fallback=True, places=None):
 MAX_PLACE_LOOKUPS = 6
 
 
-def _places(still, plain, raw, words, places, span, terms):
-    """Resolve runs of consecutive leftover word indexes with places(); returns the indexes still left."""
-    runs, left, lookups = [], [], 0
-    for x in still:
+def _runs(idxs):
+    """Consecutive word indexes grouped: [1, 2, 5] -> [[1, 2], [5]]."""
+    runs = []
+    for x in idxs:
         if runs and runs[-1][-1] == x - 1:
             runs[-1].append(x)
         else:
             runs.append([x])
-    for run in runs:
+    return runs
+
+
+def _only_stop(raw, a, b):
+    return all(norm(w) in STOP for w in raw[a:b])
+
+
+def _join_places(unmatched, raw, words, places, terms, budget):
+    """Leftover words next to a place the vocabulary knew may be the rest of its name: "san francisco" + "bay"
+    is the bay, "toronto" + "pearson" the airport, "university" + "of" + "waterloo" the university. Tried with
+    placewise before the typo pass (which would read "pearson" as "person"). Returns the indexes still left."""
+    left = []
+    for run in _runs(unmatched):
+        first, last = words[run[0]][1], words[run[-1]][1]
+        prev = next((t for t in terms if t.type == "place" and "id" not in t.data and t.span[1] <= first
+                     and _only_stop(raw, t.span[1], first)), None)
+        nxt = next((t for t in terms if t.type == "place" and "id" not in t.data and t.span[0] > last
+                    and _only_stop(raw, last + 1, t.span[0])), None)
+        tries = []  # (phrase, span, words used from the run)
+        for n in range(min(MAX_WORDS - 1, len(run)), 0, -1):
+            if prev is not None:
+                end = words[run[n - 1]][1] + 1
+                tries.append((" ".join(raw[prev.span[0]:end]), (prev.span[0], end), run[:n], prev))
+            if nxt is not None:
+                begin = words[run[-n]][1]
+                tries.append((" ".join(raw[begin:nxt.span[1]]), (begin, nxt.span[1]), run[-n:], nxt))
+        used = []
+        for phrase, sp, take, old in tries:
+            if budget[0] <= 0:
+                break
+            budget[0] -= 1
+            found = places(phrase.strip("\"'.,;:!?()"))
+            if found and "id" in found[0]:
+                terms.remove(old)
+                terms.append(_term("place", found[0], found[1], sp))
+                used = take
+                break
+        left += [x for x in run if x not in used]
+    return left
+
+
+def _places(still, raw, words, places, span, terms, budget):
+    """Resolve runs of consecutive leftover word indexes with places(); returns the indexes still left."""
+    left = []
+    for run in _runs(still):
         k = 0
         while k < len(run):
             for n in range(min(MAX_WORDS, len(run) - k), 0, -1):
                 idxs = run[k:k + n]
                 phrase = " ".join(raw[words[x][1]] for x in idxs).strip("\"'.,;:!?()")
-                if lookups >= MAX_PLACE_LOOKUPS or len(phrase) < 2 or phrase.isdigit():
+                # bare numbers are dates or counts, except postcodes (5-digit ZIP, 6-digit PIN)
+                if budget[0] <= 0 or len(phrase) < 2 or (phrase.isdigit() and len(phrase) < 5):
                     continue
-                lookups += 1
+                budget[0] -= 1
                 found = places(phrase)
                 if found:
                     payload, label = found
@@ -665,7 +715,7 @@ def _term(t, payload, label, span):
     if t == "place":
         if "id" in payload:  # placewise (geo.places)
             near = payload.get("near")
-            detail = near["kind"] if near else "state" if "admin1" in payload else ""
+            detail = near["kind"] if near else "state" if "admin1" in payload else "water" if "water" in payload else ""
             return Term(t, payload["id"], label, span, payload, detail=detail)
         vals = sorted(payload.get("cities", ())) + sorted(payload.get("countries", ()))
         return Term(t, "|".join(vals), label, span, payload)
@@ -714,14 +764,10 @@ def filters(terms, city_countries):
                         used.add(id(o))
         pq = Q()
         for t in places:
-            if "admin1" in t.data:
-                pq |= Q(location_admin1=t.data["admin1"])
-            if "named" in t.data:  # a park alone, or with the city it's in ("Park, City")
-                n = t.data["named"]
-                pq |= Q(location_city=n) | Q(location_city__startswith=n + ", ") | Q(location_city__endswith=", " + n)
-            if "near" in t.data:
-                b = t.data["near"]["box"]
-                pq |= Q(latitude__range=(b[0], b[2]), longitude__range=(b[1], b[3]))
+            if "id" in t.data:  # placewise: the shared filter (a lake's ids were found by the caller)
+                from geo.places import place_q
+                pq |= place_q(t.data)
+                continue
             for c in t.data.get("cities", ()):
                 pq |= Q(location_city=c, location_country__in=sorted(qualifiers[c])) if c in qualifiers else Q(location_city=c)
             if id(t) not in used:
