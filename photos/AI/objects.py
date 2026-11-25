@@ -1,5 +1,15 @@
+import os
 import time
-from photos.models import *
+
+# ultralytics works offline: by default it looks up public DNS servers when first imported (to decide whether it
+# is online), sends usage analytics to Google after detections, and pip-installs missing packages. It decides all
+# of this once, at its first import, so the switches are set here, before run() imports it (nothing else does).
+os.environ["YOLO_OFFLINE"] = "true"  # no online check, analytics, update checks or auto-install
+os.environ["YOLO_AUTOINSTALL"] = "false"
+
+from photos.models import *  # noqa: E402
+
+WEIGHTS = "models/yolo11n_object365.pt"
 
 NAME_TO_ID_MAPPING = {
     "person": 0, "sneakers": 1, "chair": 2, "other_shoes": 3, "hat": 4, "car": 5,
@@ -153,8 +163,13 @@ def run(images, force_reindex=False, delay=0):
         images = [images]
 
     from ultralytics import YOLO
+    from ultralytics.utils import SETTINGS
 
-    model = YOLO("models/yolo11n_object365.pt")
+    if SETTINGS.get("sync"):
+        SETTINGS.update({"sync": False})  # analytics off in its saved settings too
+    if not os.path.isfile(WEIGHTS):  # a missing file must fail, not be fetched from the internet
+        raise FileNotFoundError(f"YOLO weights not found: {WEIGHTS}")
+    model = YOLO(WEIGHTS, task="detect")
 
     for img in images:
 
