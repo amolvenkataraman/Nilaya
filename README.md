@@ -4,7 +4,7 @@
 <img alt="Nilaya: A self-hosted life management and logging platform for a family." src="https://raw.githubusercontent.com/amolvenkataraman/Nilaya/master/.github/assets/banner.svg" width="100%">
 
 ![Django: 5.1](https://img.shields.io/badge/Django-5.1-0f6f68?labelColor=15181c&color=0f6f68)
-[![licence: AGPL-3.0](https://img.shields.io/badge/licence-AGPL--3.0-0f6f68?labelColor=15181c&color=0f6f68)](https://github.com/amolvenkataraman/Nilaya/blob/master/LICENSE)
+[![licence: AGPL-3.0 or commercial](https://img.shields.io/badge/licence-AGPL--3.0%20or%20commercial-0f6f68?labelColor=15181c&color=0f6f68)](#licence)
 
 [What it is](#what-it-is) · [Apps](#apps) · [Architecture](#architecture) · [Try it locally](#try-it-locally) · [Self-hosting](#self-hosting)
 
@@ -217,7 +217,7 @@ Production runs Postgres, Redis, Daphne, a Celery worker and Celery beat behind 
 - [docs/UPGRADE-phase-1.md](docs/UPGRADE-phase-1.md): the full phase-1 upgrade guide, with a rehearsal on a copy of production, every command and a rollback plan.
 - [`nginx.conf`](nginx.conf): a template with the caching, HTTP/2 and signed-URL rules.
 
-Ground rules if you contribute: no CDNs (the app bundles its dependencies from npm, pinned in `frontend/package-lock.json`), no new outbound services without a switch behind `ONLINE_MODE`, and never commit secrets.
+Ground rules if you contribute: no CDNs (the app bundles its dependencies from npm, pinned in `frontend/package-lock.json`), no new outbound services without a switch behind `ONLINE_MODE`, and never commit secrets. The full list is in [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
 
@@ -238,6 +238,7 @@ V1 is being kept fast, safe and pleasant until its successor is ready. **Everyth
 | [docs/UPGRADE-phase-1.md](docs/UPGRADE-phase-1.md) | Phase-1 production upgrade guide |
 | [localdev/README.md](localdev/README.md) | Local setup and how it differs from the server |
 | [frontend/README.md](frontend/README.md) | The React app: layout, development, build and deploy |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How to contribute: the CLA, issues, pull requests and checks |
 | `/api/v2/docs`, `/api/v2/<app>/guide.md` | Live API reference and agent guides (on a running server) |
 
 ## Quirks (or: why is it like this?)
@@ -267,11 +268,20 @@ AI coding tools (assistants, not contributors):
 
 Outside contributions are welcome, and a PR can be quite literally anything: a bug fix, a mobile app, a new photo ingest method, or a whole new app. What matters is that it follows the [build philosophy](https://amolven.com/build-philosophy) and the rules of this repo: the ground rules under [Self-hosting](#self-hosting) and the design notes in [Is it for you?](#is-it-for-you-read-this-first).
 
+- **Sign the CLA.** Every contributor must sign a Contributor License Agreement before their pull request can be merged. It lets contributions be included in both the AGPL and the commercial versions of Nilaya (see [Licence](#licence)). To get it, open an issue titled "Contributor agreement" in the [GitHub repository](https://github.com/amolvenkataraman/Nilaya/issues).
 - **AI-written code is fine** as long as a human has read, understood and tested every line before opening the PR. That's the same standard this repo holds itself to (see [Credits](#credits)).
 - **For anything big,** open an issue first so we can agree on the approach.
-- **Before a PR,** run the backend tests and the frontend build (see [Try it locally](#try-it-locally)).
-- **By contributing,** you agree that your work is released under the same licence (AGPL-3.0).
+- **Before a PR,** run the backend tests and `npm run check` in `frontend/`.
+
+How to set up and which checks to run: **[CONTRIBUTING.md](CONTRIBUTING.md)**.
+
+<!-- TODO(owner): add a preferred contact method for getting and signing the CLA. -->
 
 ## Licence
 
-[GNU Affero General Public License v3.0 or later](LICENSE). You can use, change and self-host it freely. If you distribute it, or run a modified version as a service for other people, you must publish your source code under the same licence, so every version stays free and open source.
+Nilaya is dual-licensed. You can use it under either licence:
+
+- **[GNU Affero General Public License v3.0 or later](LICENSE).** You can use, change and self-host it freely. If you distribute it, or run a modified version as a service for other people, you must publish your source code under the same licence, so every version stays free and open source.
+- **A commercial licence**, for anyone who wants to use Nilaya outside the AGPL's terms, for example in a product or hosted service without publishing their source code. To ask about one, open an issue titled "Commercial licence" in the [GitHub repository](https://github.com/amolvenkataraman/Nilaya/issues).
+
+<!-- TODO(owner): add a preferred contact method for commercial licence enquiries (GitHub Discussions is off for this repo). -->
