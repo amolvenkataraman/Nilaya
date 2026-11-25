@@ -151,7 +151,7 @@ class TodayHabitOut(Schema):
 
 class TodayOut(Schema):
     date: datetime.date
-    done: int = Field(..., description="Due at-least habits done today")
+    done: int = Field(..., description="Due at-least habits done today (a week/month habit counts once today's entry is in)")
     total: int = Field(..., description="Due at-least habits today")
     left: int
     over: int = Field(..., description="Limits exceeded today")

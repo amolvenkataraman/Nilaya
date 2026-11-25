@@ -1,5 +1,6 @@
 // Habit wording (goal, schedule, streak, amounts) and the two rules the client applies itself: whether a day is
-// scheduled and whether a day's value meets a daily goal. Week and month goals are judged by the server.
+// scheduled and whether one day's value does its part (the grid's filled cells). Streaks, rates and whether a week
+// or month goal is met are judged by the server.
 import { dayDiff, parseDayKey } from '../../lib/dates'
 import type { Habit, Period } from './api'
 
@@ -44,9 +45,12 @@ export function isScheduled(h: Habit, day: string): boolean {
   return true
 }
 
-/** Does one day's value meet a daily goal? */
+const EPS = 1e-9 // as habits/service.py, so 0.1 + 0.2 meets 0.3
+
+/** Does one day's value do its part? Same rule as habits/service.py `meets` (day goals) and `done_today` (any
+ * amount towards a week/month goal counts for that day; the period's total is the server's call). */
 export function dayMet(h: Habit, value: number): boolean {
-  if (h.goal === 'at_most') return value <= h.target
-  const daily = h.period === 'day' ? h.target : 1
-  return value >= (h.kind === 'yesno' ? 1 : daily)
+  if (h.goal === 'at_most') return value <= h.target + EPS
+  if (h.kind === 'yesno') return value >= 1
+  return h.period === 'day' ? value >= h.target - EPS : value > 0
 }

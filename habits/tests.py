@@ -58,6 +58,11 @@ class LogicTests(TestCase):
         log(h, D(2026, 10, 28), value=0, skipped=True)
         s = self.stats(h)
         self.assertEqual((s["current_streak"], s["best_streak"], s["streak_unit"]), (3, 5, "day"))
+        log(h, D(2026, 10, 13), D(2026, 10, 15))  # off-schedule ticks: shown, but no longer streak, rates or score
+        s2 = self.stats(h)
+        self.assertEqual([s2[k] for k in ("best_streak", "rates", "score")], [5, s["rates"], s["score"]])
+        heat = s2["heatmap"]
+        self.assertEqual(heat["levels"][(D(2026, 10, 13) - heat["start"]).days], "4")
         log(h, WED)
         self.assertEqual(self.stats(h)["current_streak"], 4)
 
@@ -70,6 +75,10 @@ class LogicTests(TestCase):
         log(h, D(2026, 11, 2))                                                # this week: 1 of 3, in progress
         s = self.stats(h)
         self.assertEqual((s["current_streak"], s["best_streak"], s["streak_unit"]), (3, 3, "week"))
+        self.assertEqual(s["weekdays"][0]["rate"], 4 / 5)  # logged on 4 of the 5 Mondays
+        h.end_date = D(2026, 11, 2)  # ended on Monday, nothing logged: this week is judged now, not pending
+        self.assertEqual(service.evaluate(h, {}, WED)[-1].status, service.MISSED)
+        h.end_date = None
         log(h, D(2026, 11, 3), WED)
         self.assertEqual(self.stats(h)["current_streak"], 4)
 
@@ -105,7 +114,9 @@ class LogicTests(TestCase):
         h = mk(self.u, start_date=day(-10))
         log(h, *[day(-n) for n in range(5, 11)])
         Habit.objects.filter(pk=h.pk).update(paused=True, paused_on=day(-4))
+        Entry.objects.create(habit=h, date=day(-3), note="Away")  # a note on a paused day isn't a miss
         h.refresh_from_db()
+        self.assertEqual(self.stats(h)["current_streak"], 6)
         service.set_paused(h, False, WED)
         self.assertEqual(Entry.objects.filter(habit=h, skipped=True).count(), 4)
         self.assertEqual(self.stats(h)["current_streak"], 6)
@@ -224,7 +235,7 @@ class ApiTests(TestCase):
         flags = {h["habit"]["name"]: (h["goal_met"], h["done_today"], h["status"]) for h in r["habits"]}
         self.assertEqual(flags["Weekly"], (False, True, "partial"))   # ticked today, week goal still open
         self.assertEqual(flags["Limit"], (True, False, "kept"))       # within the limit: kept, not "done"
-        self.assertEqual((r["done"], r["total"]), (1, 3))
+        self.assertEqual((r["done"], r["total"]), (2, 3))  # the weekly one is done for today
 
 
 class ReminderTests(TestCase):
@@ -247,7 +258,9 @@ class ReminderTests(TestCase):
     def test_evening_nudge_counts_whats_left(self):
         HabitSettings.objects.create(user=self.u, evening_nudge=True)
         a, _, _ = mk(self.u, name="A"), mk(self.u, name="B"), mk(self.u, name="C")
+        weekly = mk(self.u, name="Gym", target=3, period="week")
         log(a, D(2026, 11, 4))
+        log(weekly, D(2026, 11, 4))  # logged today: not left, though the week needs 2 more
         reminders.run(self.at(19, 59))
         self.assertFalse(Notification.objects.exists())
         reminders.run(self.at(20, 0))

@@ -1,7 +1,8 @@
 """Habit reminders, run every minute by beat (habits.tasks.send_habit_reminders).
 
-- Per habit: at its reminder time (user's local time, on its reminder weekdays), if it's due today and
-  not done yet. Limit habits (`at_most`) never remind: there's nothing to do.
+- Per habit: at its reminder time (user's local time, on its reminder weekdays), if it's still left
+  today (`service.is_left`: due and not done; a week/month habit logged today counts as done today).
+  Limit habits (`at_most`) never remind: there's nothing to do.
 - Evening nudge (HabitSettings.evening_nudge): at nudge_time, "2 habits left today" if any are left.
 
 Both fire within a 2-hour catch-up window (a stopped worker doesn't lose the day) and at most once per
@@ -70,7 +71,7 @@ def habit_reminders(now):
     sent = 0
     for h, day, key in due:
         row = service.today_row(h, entries[h.pk], day)
-        if not row["due"] or row["done"] or not _once(h.user, key):
+        if not service.is_left(row) or not _once(h.user, key):  # a weekly habit logged today waits
             continue
         if h.kind == Habit.Kind.MEASURABLE or h.period != Habit.Period.DAY:
             what = h.unit or "times"
@@ -94,8 +95,7 @@ def evening_nudges(now):
         if not live or SentReminder.objects.filter(user=st.user, key=key).exists():
             continue
         summary = service.today_summary(st.user, now)
-        left = [r["habit"].name for r in summary["habits"]
-                if r["due"] and not r["done"] and r["habit"].goal == Habit.Goal.AT_LEAST]
+        left = [r["habit"].name for r in summary["habits"] if service.is_left(r)]
         if not left or not _once(st.user, key):
             continue
         n = len(left)

@@ -6,6 +6,8 @@ Vocabulary
 - Each unit is DONE, MISSED, SKIPPED (excused), OFF (not scheduled, paused, or a period with nothing
   required) or PENDING (today / this period, goal not reached yet, nothing lost).
 - Streaks count DONE units in a row; only MISSED breaks them. SKIPPED, OFF and PENDING are neutral.
+- Off-schedule check-ins (an at_least goal met on an unscheduled or paused day) show as DONE but stand
+  for no judged unit (`n=0`): they neither extend nor break a streak and leave rates and the score alone.
 - `at_least` goals: a day/period is DONE once the total reaches the target. `at_most` goals (measurable
   only): DONE while the total stays at or under the limit, including unlogged days (nothing logged = 0);
   going over makes it MISSED immediately, even today.
@@ -13,8 +15,8 @@ Vocabulary
   proportion to the scheduled days left (3x/week with 5 of 7 days skipped needs 1); a fully skipped
   period is SKIPPED. The first, partial period scales the same way.
 - Score: Loop-style exponential smoothing of each judged unit (partial credit for measurable
-  `at_least` goals), half-life 13 scheduled days for a daily habit, longer in units for sparser habits
-  (13*sqrt(frequency)), 0-100.
+  `at_least` goals), half-life 13 scheduled days for a daily habit: 13*sqrt(frequency) units, i.e.
+  13/sqrt(frequency) days, so sparser habits take longer in days (fewer units), 0-100.
 
 Everything here works on in-memory entry maps ({date: (value, skipped)}) so callers fetch each date
 range once (`fetch_entries`) and the rules never query per day. Reads cost O(entries), not O(days):
@@ -161,7 +163,8 @@ class Unit:
     total: float
     required: float
     credit: float  # 0..1, for the score
-    n: int = 1     # judged units this stands for (an old run of unlogged days is one Unit)
+    n: int = 1     # judged units this stands for (an old run of unlogged days is one Unit; an off-schedule
+                   # check-in is 0: shown as DONE, but not counted in streaks, rates or the score)
 
 
 def evaluate(h, entries, today, since=None):
@@ -180,10 +183,12 @@ def _day_unit(h, d, entries, today, paused, at_most, target):
     if skipped:
         return Unit(d, d, SKIPPED, 0, h.target, 0)
     ok = meets(h, value)
-    if not matches_rule(h, d) or (paused and d >= paused and d not in entries):
-        # Unscheduled: a met at-least goal is a bonus; nothing else counts either way.
-        status = DONE if ok and not at_most and d in entries else OFF
-        return Unit(d, d, status, value, h.target, 1.0 if status == DONE else 0)
+    if not matches_rule(h, d) or (paused and d >= paused):
+        # Unscheduled or paused (logged or not): a met at-least goal shows as DONE but counts for nothing
+        # (n=0), so it neither extends nor breaks the streak; anything else is OFF.
+        if ok and not at_most and d in entries:
+            return Unit(d, d, DONE, value, h.target, 0, 0)
+        return Unit(d, d, OFF, value, h.target, 0)
     if ok:
         status = DONE
     elif not at_most and d == today:
@@ -249,7 +254,7 @@ def _evaluate_periods(h, entries, today, first, last):
                     total += value
                 if matches_rule(h, d):
                     full += 1
-                    if in_range and not skipped and not (paused and d >= paused and d not in entries):
+                    if in_range and not skipped and not (paused and d >= paused):  # logged paused days are off too
                         avail += 1
         if at_most:
             required = h.target
@@ -257,7 +262,7 @@ def _evaluate_periods(h, entries, today, first, last):
             required = h.target * avail / full if full else 0
             if whole:
                 required = math.ceil(required - EPS)
-        current = pe >= today
+        current = pe >= today and last >= today  # a habit that ended earlier this period is judged now
         if not at_most and required <= EPS:
             status, credit = (SKIPPED if avail < full else OFF), 0.0
         elif meets(h, total, required):
@@ -276,7 +281,7 @@ def streaks(units):
     run = best = 0
     for u in units:
         if u.status == DONE:
-            run += u.n
+            run += u.n  # 0 for an off-schedule check-in: neutral
             if run > best:
                 best = run
         elif u.status == MISSED:
@@ -304,7 +309,7 @@ def score_series(h, units):
     m = 0.5 ** (1 / max(half_life, 1))
     s, out = 0.0, []
     for u in units:
-        if u.status in (DONE, MISSED):
+        if u.status in (DONE, MISSED) and u.n:  # off-schedule check-ins (n=0) aren't judged
             s = s * m + u.credit * (1 - m) if u.n == 1 else u.credit + (s - u.credit) * m ** u.n
             out.append((u.end, s * 100))
     return out
@@ -391,7 +396,7 @@ def today_row(h, entries, today, note=""):
     units, entries = _units_with_streak(h, entries, today, _since(h, today))
     state = today_state(h, entries, today, units)
     lo = today - dt.timedelta(days=6)
-    week = [u.status for u in units if u.end >= lo and u.status in (DONE, MISSED)]
+    week = [u.status for u in units if u.end >= lo and u.status in (DONE, MISSED) and u.n]
     return {"habit": h, **state, "note": note, "streak": streaks(units)[0], "streak_unit": h.period,
             "_week": (week.count(DONE), len(week))}
 
@@ -403,6 +408,14 @@ def habit_today(h, today):
     return today_row(h, entries, today, note)
 
 
+def is_left(row):
+    """Still to do today (the Today ring, the evening nudge, reminders): a due at_least habit whose goal
+    isn't met and that today's own entry hasn't done either. A week/month habit logged today isn't left
+    even while the period needs more, so a 3x/week habit doesn't nag on the days it was done."""
+    return (row["due"] and row["habit"].goal == Habit.Goal.AT_LEAST
+            and not row["done"] and not row["done_today"])
+
+
 def today_summary(user, now=None, habits=None):
     """Every non-archived habit with today's status and current streak. Three small queries usually."""
     today = local_today(user, now)
@@ -412,7 +425,7 @@ def today_summary(user, now=None, habits=None):
     notes = dict(Entry.objects.filter(habit__in=habits, date=today).exclude(note="").values_list("habit_id", "note"))
     rows = [today_row(h, entries[h.pk], today, notes.get(h.pk, "")) for h in habits]
     due = [r for r in rows if r["due"] and r["habit"].goal == Habit.Goal.AT_LEAST]
-    done = sum(r["done"] for r in due)
+    done = sum(not is_left(r) for r in due)
     week_done, week_judged = (sum(r["_week"][i] for r in rows) for i in (0, 1))
     return {"date": today, "done": done, "total": len(due), "left": len(due) - done,
             "over": sum(r["over"] for r in rows), "week_done": week_done, "week_judged": week_judged,
@@ -439,7 +452,8 @@ def _heat_char(h, u_by_day, d, entries):
             return "4"
         return str(min(3, int(u.credit * 4))) if u.credit else "0"
     if value <= 0:
-        return "0" if matches_rule(h, d) else "o"
+        paused = _paused_from(h)
+        return "0" if matches_rule(h, d) and not (paused and d >= paused) else "o"
     per_day = h.target / (7 if h.period == Habit.Period.WEEK else 30.44)
     if h.kind == Habit.Kind.YESNO or h.goal == Habit.Goal.AT_MOST:
         return "4"
@@ -474,7 +488,7 @@ def habit_stats(h, today):
     sums, counts = [0.0] * 7, [0] * 7
     if h.period == Habit.Period.DAY:
         for u in units:
-            if u.status in (DONE, MISSED):
+            if u.status in (DONE, MISSED) and u.n:
                 if u.start == u.end:
                     counts_by_day = [int(n == u.start.weekday()) for n in range(7)]
                 else:  # a bulk run of old unlogged days
@@ -482,12 +496,21 @@ def habit_stats(h, today):
                 for n, c in enumerate(counts_by_day):
                     weekdays[n]["judged"] += c
                     weekdays[n]["done"] += c if u.status == DONE else 0
+    else:  # week/month goals aren't judged per day: the share of scheduled days with something logged
+        paused, hi = _paused_from(h), min(today, h.end_date) if h.end_date else today
+        hi = min(hi, paused - ONE_DAY) if paused else hi
+        for n, c in enumerate(weekday_counts(h, h.start_date, hi)):
+            weekdays[n]["judged"] = c
+        for d, (v, sk) in entries.items():
+            if h.start_date <= d <= hi and matches_rule(h, d):
+                if sk:
+                    weekdays[d.weekday()]["judged"] -= 1  # excused
+                elif v > 0:
+                    weekdays[d.weekday()]["done"] += 1
     for d, (v, sk) in entries.items():
         if not sk and d <= today:
             sums[d.weekday()] += v
             counts[d.weekday()] += 1
-            if h.period != Habit.Period.DAY and v > 0:
-                weekdays[d.weekday()]["done"] += 1
     for n, w in enumerate(weekdays):
         w["rate"] = w["done"] / w["judged"] if w["judged"] else None
         w["average"] = sums[n] / counts[n] if counts[n] else None
@@ -526,7 +549,7 @@ def overview(user, now=None):
         streak_rows.append({"habit_id": h.pk, "name": h.name, "colour": h.colour, "current": current,
                             "best": best, "unit": h.period})
         for u in units:
-            if u.end > today - dt.timedelta(days=7) and u.status in (DONE, MISSED):
+            if u.end > today - dt.timedelta(days=7) and u.status in (DONE, MISSED) and u.n:
                 week_judged += 1
                 week_done += u.status == DONE
     streak_rows.sort(key=lambda r: (-r["current"], -r["best"], r["name"]))
@@ -577,22 +600,36 @@ def save_entry(h, day, today, *, value=None, note=None, skipped=None):
 
 
 def check(h, today, *, amount=None, done=None, day=None):
-    """Tap / shortcut action: toggle a yes/no habit, or add `amount` (default 1) to a measurable one."""
+    """Tap / shortcut action: toggle a yes/no habit, or add `amount` (default 1) to a measurable one.
+
+    The read and the write happen in one transaction with the day's row locked, so two quick taps (phone
+    and web, a double click) both count: the second waits and adds to the first's value. Two first taps on
+    an empty day race on the insert; the loser retries and then finds (and locks) the winner's row."""
     day = day or today
     check_day(h, day, today)
-    entry = Entry.objects.filter(habit=h, date=day).first()
-    cur = entry.value if entry and not entry.skipped else 0.0
-    if h.kind == Habit.Kind.YESNO:
-        new = float(done) if done is not None else (0.0 if cur >= 1 else 1.0)
-    elif done is not None and amount is None:
-        new = max(cur, h.target) if done and h.period == Habit.Period.DAY else (cur + 1 if done else 0.0)
-    else:
-        new = min(MAX_VALUE, max(0.0, cur + (1 if amount is None else amount)))
-    if new == 0 and (entry is None or not entry.note):
-        if entry:
-            entry.delete()
-        return Entry(habit=h, date=day, value=0)
-    return save_entry(h, day, today, value=round(new, 4), skipped=False)
+    for _ in range(2):
+        try:
+            with transaction.atomic():
+                entry = Entry.objects.select_for_update().filter(habit=h, date=day).first()
+                cur = entry.value if entry and not entry.skipped else 0.0
+                if h.kind == Habit.Kind.YESNO:
+                    new = float(done) if done is not None else (0.0 if cur >= 1 else 1.0)
+                elif done is not None and amount is None:
+                    new = max(cur, h.target) if done and h.period == Habit.Period.DAY else (cur + 1 if done else 0.0)
+                else:
+                    new = min(MAX_VALUE, max(0.0, cur + (1 if amount is None else amount)))
+                new = round(new, 4)
+                if new == 0 and (entry is None or not entry.note):
+                    if entry:
+                        entry.delete()
+                    return Entry(habit=h, date=day, value=0)
+                if entry is None:  # a plain insert, so a concurrent one raises here instead of being overwritten
+                    check_value(h, new)
+                    return Entry.objects.create(habit=h, date=day, value=new)
+                return save_entry(h, day, today, value=new, skipped=False)
+        except IntegrityError:
+            continue
+    raise RuleError("Couldn't save that entry, try again")
 
 
 def set_paused(h, paused, today):
@@ -602,7 +639,9 @@ def set_paused(h, paused, today):
     elif not paused and h.paused:
         start = max(h.paused_on or today, h.start_date)
         end = min(today - ONE_DAY, h.end_date) if h.end_date else today - ONE_DAY
-        Entry.objects.bulk_create([Entry(habit=h, date=d, skipped=True) for d in _days(start, end)
-                                   if matches_rule(h, d)] if start <= end else [], ignore_conflicts=True)
+        days = [d for d in _days(start, end) if matches_rule(h, d)] if start <= end else []
+        Entry.objects.bulk_create([Entry(habit=h, date=d, skipped=True) for d in days], ignore_conflicts=True)
+        # A day that only got a note while paused is excused too, rather than turning into a miss now.
+        Entry.objects.filter(habit=h, date__in=days, value=0, skipped=False).update(skipped=True)
         h.paused, h.paused_on = False, None
     h.save(update_fields=["paused", "paused_on", "updated_on"])
