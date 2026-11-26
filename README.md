@@ -3,7 +3,7 @@
 
 <img alt="Nilaya: A self-hosted life management and logging platform for a family." src="https://raw.githubusercontent.com/amolvenkataraman/Nilaya/master/.github/assets/banner.svg" width="100%">
 
-![Django: 5.1](https://img.shields.io/badge/Django-5.1-0f6f68?labelColor=15181c&color=0f6f68)
+![Django: 5.2](https://img.shields.io/badge/Django-5.2-0f6f68?labelColor=15181c&color=0f6f68)
 [![licence: AGPL-3.0 or commercial](https://img.shields.io/badge/licence-AGPL--3.0%20or%20commercial-0f6f68?labelColor=15181c&color=0f6f68)](#licence)
 
 [What it is](#what-it-is) · [Apps](#apps) · [Architecture](#architecture) · [Try it locally](#try-it-locally) · [Self-hosting](#self-hosting)
@@ -63,15 +63,15 @@ It all works on a phone too: sidebars turn into drawers and toolbars tuck themse
 
 - **Everything connected:** photo counts on calendar days, birthdays from Contacts in the calendar, tasks made from events, photos near a place, places found from photo GPS, the photos you took in Calendar Insights, and reminders from every app through one notification service.
 - **Private by default:** hidden photos are invisible to everyone. Even their owner can only reveal them in a session-only mode that switches itself off after 30 minutes. Other people's private events show as "Busy" everywhere: feeds, tasks and insights. Usage analytics keeps only daily counts per person and app (no URLs, IPs or browser details).
-- **No surprise network calls:** anything that talks to the internet (calendar sync, map search, push channels) sits behind `ONLINE_MODE`. With it off, the server only talks to your LAN. Third-party JS and CSS are bundled or pinned by SHA-256, and nothing loads from a CDN.
+- **No surprise network calls:** anything that talks to the internet (calendar sync, push channels, map tiles) sits behind `ONLINE_MODE`. Switch it off and the server only talks to your LAN. Third-party JS and CSS are bundled or pinned by SHA-256, and nothing loads from a CDN.
 - **Made to be built on:** a typed V2 API for every app, per-app API keys, and Markdown guides written for both developers and AI agents (see [API](#api)).
 - **Keyboard first:** a Ctrl-K command palette, `G` then a letter to jump between apps, and shortcuts in every app.
 
 ## No big tech, no outside services
 
-Nilaya runs entirely on your own server. Place names, place search and object detection all run locally, nothing phones home, and there's no analytics, crash reporting, CDN or cloud API anywhere in it. The only connections out are the ones you add yourself: a calendar you subscribe to, or a push channel you set up. The one exception today is the OpenStreetMap map tiles, and those are moving onto your server too.
+Nilaya runs entirely on your own server. Place names, place search and object detection all run locally, nothing phones home, and there's no analytics, crash reporting, CDN or cloud API anywhere in it. The only connections out are the ones you add yourself: a calendar you subscribe to, or a push channel you set up. Map tiles come from OpenStreetMap by default; servers with plenty of disk will be able to keep their own copy, so even the map is 100% local.
 
-It has no connection to big tech companies (Google, Apple, Microsoft, Meta, Amazon), on purpose and for good, for three reasons:
+Nothing in it connects to big tech companies (Google, Apple, Microsoft, Meta, Amazon) unless you set it up yourself, on purpose and for good. There are no built-in big tech logins. The optional integrations, like importing a Google calendar, exist to help you move out at your own pace: you get your own API key and add it yourself. The reasons for keeping big tech out:
 
 1. **Trust.** I don't trust these companies with my data or my family's, so the platform doesn't use their services.
 2. **They're bad to work with.** Their platforms change the rules whenever it suits them, and developers pay the price.
@@ -90,7 +90,7 @@ This is an **opinionated** project. It was shaped around how one family actually
 - **Photos is for people who care about their files.** It keeps RAW files and originals, separates camera *libraries* from shared *albums*, tells you exactly where your storage goes, and has tools for fixing locations. It never makes its own per-photo previews or edits, because it was designed around a huge library on a small disk.
 - **Calendar sync is for keeping a record, not two-way sync.** It imports ICS and Google calendars and keeps their history, the way you'd want for a personal archive. It doesn't push changes back the way an enterprise groupware server would.
 - **Self-hosted, and built to fail gracefully.** It assumes you run it on your own hardware, and every part is designed so that when something breaks, the damage stays small and recoverable. Photos are plain files in folders on your disk, not objects in something like MinIO, so your library stays yours, readable and backed up, even if the app dies. The caches, summary tables and Redis can all vanish without losing a thing. The honest origin of this: 15-year-old me didn't trust my own code. The code (and my trust in it) has come a long way since, but the principle stuck. More in my [build philosophy](https://amolven.com/build-philosophy).
-- **Other choices you inherit:** one React interface, self-hosted only, `ONLINE_MODE` off by default, a lean trust model (all apps run in one trusted process), and API keys scoped per app.
+- **Other choices you inherit:** one React interface, self-hosted only, an `ONLINE_MODE` switch that cuts every outbound call, a lean trust model (all apps run in one trusted process), and API keys scoped per app.
 
 ### Limitations
 
