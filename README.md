@@ -67,21 +67,21 @@ It all works on a phone too: sidebars turn into drawers and toolbars tuck themse
 - **Made to be built on:** a typed V2 API for every app, per-app API keys, and Markdown guides written for both developers and AI agents (see [API](#api)).
 - **Keyboard first:** a Ctrl-K command palette, `G` then a letter to jump between apps, and shortcuts in every app.
 
-## No big tech, no outside services
+## Self-hosted, for control and sovereignty
 
-Nilaya runs entirely on your own server. Place names, place search and object detection all run locally, nothing phones home, and there's no analytics, crash reporting, CDN or cloud API anywhere in it. The only connections out are the ones you add yourself: a calendar you subscribe to, or a push channel you set up. Map tiles come from OpenStreetMap by default; servers with plenty of disk will be able to keep their own copy, so even the map is 100% local.
+Nilaya runs entirely on your own server, so your data stays yours. Place names, place search and object detection all run locally, nothing phones home, and there's no analytics, crash reporting, CDN or cloud API anywhere in it. The only connections out are the ones you add yourself: a calendar you subscribe to, or a push channel you set up. Map tiles come from OpenStreetMap by default; servers with plenty of disk will be able to keep their own copy, so even the map is 100% local.
 
-Nothing in it connects to big tech companies (Google, Apple, Microsoft, Meta, Amazon) unless you set it up yourself, on purpose and for good. There are no built-in big tech logins. The optional integrations, like importing a Google calendar, exist to help you move out at your own pace: you get your own API key and add it yourself. The reasons for keeping big tech out:
-
-1. **Trust.** I don't trust these companies with my data or my family's, so the platform doesn't use their services.
-2. **They're bad to work with.** Their platforms change the rules whenever it suits them, and developers pay the price.
-3. **A boycott of their control over phones.** Two companies decide what software people may run on the phones they own. So the phone apps will **never** be published on Google Play or the App Store. Sideload them however you like, or get them from **F-Droid**, where they will be published. They're built to work on a de-Googled phone: no Google Play Services, no Firebase push (UnifiedPush instead), no Google Maps (MapLibre instead).
-
-**A request to anyone who builds the apps:** the AGPL lets you redistribute them, and this isn't a legal condition. But please, as a matter of principle, don't publish Nilaya's apps (or a fork of them) on Google Play, the App Store or any other big tech store. Keeping them off those stores is the point of reason 3, and publishing them there would undo it. F-Droid, your own website, or a direct download are all welcome.
-
-**About GitHub:** yes, the code lives on GitHub, which Microsoft owns. GitHub has been fair to work with, unlike the platforms above, so it's a reasonable home for the code for now. More mirrors will follow, and anyone is welcome to host one. The apps and the server never contact GitHub: updates come from your own server.
+There are no mandatory third-party accounts or logins. Optional integrations, like importing a Google calendar, are there to make moving your data in easy: you bring your own API key and switch them on yourself.
 
 Fewer outside connections also means fewer ways in: there are no third-party services to leak data or be breached, and with `ONLINE_MODE` off the server only talks to your LAN.
+
+### Phone apps: F-Droid and sideloading only
+
+The phone apps will **never** be published on Google Play or the App Store. That's a deliberate stand against two companies deciding what software people may run on the phones they own. Install them from **F-Droid**, where they will be published, or sideload them however you like. They're built to work on a de-Googled phone: no Google Play Services, UnifiedPush instead of Firebase push, and MapLibre instead of Google Maps.
+
+**A request to anyone who builds the apps:** the AGPL lets you redistribute them, and this isn't a legal condition. But please, as a matter of principle, don't publish Nilaya's apps (or a fork of them) on Google Play, the App Store or any other official platform store. F-Droid, your own website, or a direct download are all welcome.
+
+The code is hosted on GitHub, and more mirrors will follow; anyone is welcome to host one. The apps and the server never contact GitHub: updates come from your own server.
 
 ## Is it for you? Read this first
 
@@ -96,7 +96,7 @@ This is an **opinionated** project. It was shaped around how one family actually
 
 Things that may come later (no promises, but PRs are welcome):
 
-- **No native mobile app yet.** The web app works well on phones. Native apps are in progress and will be sideloaded or installed from F-Droid, never from Google Play or the App Store (see [No big tech](#no-big-tech-no-outside-services)). Location history through the OwnTracks app is planned but not built.
+- **No native mobile app yet.** The web app works well on phones. Native apps are in progress and will be sideloaded or installed from F-Droid, never from Google Play or the App Store (see [Phone apps](#phone-apps-f-droid-and-sideloading-only)). Location history through the OwnTracks app is planned but not built.
 - **Photo ingest is folder-based.** New files are expected to land in an Ingest folder, for example synced from your phone with Syncthing. There's no automatic phone backup like Google Photos has, though other ingest methods may come.
 
 Things that aren't planned, because they add too much overhead for a family or small-business server:
